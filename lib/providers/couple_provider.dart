@@ -38,7 +38,7 @@ class CoupleProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _error = 'Failed to generate invite code.';
+      _error = 'Failed to generate invite code: $e';
       _isLoading = false;
       notifyListeners();
     }

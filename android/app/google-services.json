@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "503326859385",
+    "project_id": "jayienne-link",
+    "storage_bucket": "jayienne-link.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:503326859385:android:982bf6582d7b56174274a8",
+        "android_client_info": {
+          "package_name": "com.jayiennelink.jayienne_link"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtX-TQVVtqSEeddGDCf31PmXtSBeG2vQc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -41,8 +41,18 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
     final user = context.read<UserProvider>().user;
     final coupleProvider = context.read<CoupleProvider>();
 
-    if (user?.inviteCode != null) {
-      coupleProvider.loadExistingCode(user!.inviteCode);
+    // User must complete profile setup first
+    if (user == null) {
+      SnackbarHelper.showError(
+        context,
+        'Please complete your profile setup first',
+      );
+      context.go(RouteNames.profileSetup);
+      return;
+    }
+
+    if (user.inviteCode != null) {
+      coupleProvider.loadExistingCode(user.inviteCode);
     } else {
       coupleProvider.generateCode(auth.firebaseUser!.uid);
     }
@@ -85,7 +95,9 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
       context.go(RouteNames.coupleSuccess);
     } else if (coupleProvider.error != null) {
       SnackbarHelper.showError(context, coupleProvider.error!);
-      _codeController.clear();
+      if (mounted) {
+        _codeController.clear();
+      }
     }
   }
 
@@ -131,38 +143,41 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                     ),
                     child: Column(
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: inviteCode.split('').map((char) {
-                            return Container(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                              ),
-                              width: 44,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: AppColors.softRose.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(
-                                  AppDimensions.borderRadiusSmall,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: inviteCode.split('').map((char) {
+                              return Container(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 4,
                                 ),
-                                border: Border.all(
-                                  color: AppColors.softRose.withOpacity(0.3),
+                                width: 44,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: AppColors.softRose.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(
+                                    AppDimensions.borderRadiusSmall,
+                                  ),
+                                  border: Border.all(
+                                    color: AppColors.softRose.withOpacity(0.3),
+                                  ),
                                 ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  char,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.softRose,
-                                      ),
+                                child: Center(
+                                  child: Text(
+                                    char,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.softRose,
+                                        ),
+                                  ),
                                 ),
-                              ),
-                            );
-                          }).toList(),
+                              );
+                            }).toList(),
+                          ),
                         ),
                         const SizedBox(height: AppDimensions.spacingMd),
                         Text(

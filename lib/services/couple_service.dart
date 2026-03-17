@@ -33,7 +33,10 @@ class CoupleService {
         await _codesRef.doc(code).set(inviteCode.toFirestore());
 
         // Also store the code reference on the user doc
-        await _usersRef.doc(userId).update({'inviteCode': code});
+        await _usersRef.doc(userId).set(
+          {'inviteCode': code},
+          SetOptions(merge: true),
+        );
 
         return code;
       }

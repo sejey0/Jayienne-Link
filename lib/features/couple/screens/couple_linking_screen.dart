@@ -278,22 +278,46 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                   isLoading: coupleProvider.isLoading,
                 ),
                 const SizedBox(height: AppDimensions.spacingXl),
-                // Skip button for development
-                TextButton(
+                // Skip button
+                OutlinedButton.icon(
                   onPressed: () async {
-                    final auth = context.read<AuthProvider>();
-                    final userProvider = context.read<UserProvider>();
-                    final router = GoRouter.of(context);
-                    final success = await userProvider.skipCoupleLink(
-                      auth.firebaseUser!.uid,
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Skip for now?'),
+                        content: const Text(
+                          'You can link with your partner later from the home screen. '
+                          'Some features will be limited until you link.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Skip'),
+                          ),
+                        ],
+                      ),
                     );
-                    if (success && mounted) {
-                      router.go(RouteNames.home);
+                    if (confirmed == true && mounted) {
+                      final auth = context.read<AuthProvider>();
+                      final userProvider = context.read<UserProvider>();
+                      final router = GoRouter.of(context);
+                      final success = await userProvider.skipCoupleLink(
+                        auth.firebaseUser!.uid,
+                      );
+                      if (success && mounted) {
+                        router.go(RouteNames.home);
+                      }
                     }
                   },
-                  child: const Text(
-                    'Skip for now (Dev)',
-                    style: TextStyle(color: Colors.grey),
+                  icon: const Icon(Icons.skip_next),
+                  label: const Text('Skip for now'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey,
+                    side: BorderSide(color: Colors.grey.shade300),
                   ),
                 ),
               ],

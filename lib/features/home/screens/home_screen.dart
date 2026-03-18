@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/location_provider.dart';
@@ -41,8 +42,11 @@ class HomeScreen extends StatelessWidget {
         padding: const EdgeInsets.all(AppDimensions.spacingLg),
         child: Column(
           children: [
-            // Couple header
-            if (couple != null && user != null)
+            // Link with partner card (shown when skipped)
+            if (user != null && user.hasSkippedCoupleLink)
+              _buildLinkPartnerCard(context, user),
+            // Couple header (shown when linked)
+            if (couple != null && user != null && user.hasRealPartner)
               AppCard(
                 child: Padding(
                   padding: const EdgeInsets.all(AppDimensions.spacingLg),
@@ -112,6 +116,47 @@ class HomeScreen extends StatelessWidget {
       child: photoUrl == null
           ? const Icon(Icons.person, size: 32, color: AppColors.softRose)
           : null,
+    );
+  }
+
+  Widget _buildLinkPartnerCard(BuildContext context, dynamic user) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppDimensions.spacingLg),
+      child: AppCard(
+        child: Padding(
+          padding: const EdgeInsets.all(AppDimensions.spacingLg),
+          child: Column(
+            children: [
+              const Icon(
+                Icons.favorite_border,
+                size: 48,
+                color: AppColors.softRose,
+              ),
+              const SizedBox(height: AppDimensions.spacingMd),
+              Text(
+                'Link with your partner',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppColors.softRose,
+                    ),
+              ),
+              const SizedBox(height: AppDimensions.spacingSm),
+              Text(
+                'Connect with your partner to unlock all features',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppDimensions.spacingMd),
+              ElevatedButton.icon(
+                onPressed: () => context.push(RouteNames.coupleLink),
+                icon: const Icon(Icons.link),
+                label: const Text('Link Now'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

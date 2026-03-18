@@ -102,6 +102,18 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 icon: Icons.refresh,
                 onPressed: _resendEmail,
               ),
+              const SizedBox(height: AppDimensions.spacingMd),
+              TextButton.icon(
+                onPressed: () async {
+                  final auth = context.read<AuthProvider>();
+                  await auth.signOut();
+                },
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Back to Login'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey,
+                ),
+              ),
             ],
           ),
         ),

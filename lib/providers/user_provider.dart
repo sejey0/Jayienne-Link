@@ -5,17 +5,19 @@ import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../services/user_service.dart';
 import '../services/storage_service.dart';
+import '../services/couple_service.dart';
 
 class UserProvider extends ChangeNotifier {
   final UserService _userService;
   final StorageService _storageService;
+  final CoupleService _coupleService;
 
   UserModel? _user;
   bool _isLoading = false;
   String? _error;
   StreamSubscription? _userSubscription;
 
-  UserProvider(this._userService, this._storageService);
+  UserProvider(this._userService, this._storageService, this._coupleService);
 
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
@@ -52,7 +54,9 @@ class UserProvider extends ChangeNotifier {
     try {
       String? photoUrl;
       if (photoFile != null) {
+        debugPrint('Uploading profile photo for $uid...');
         photoUrl = await _storageService.uploadProfilePhoto(uid, photoFile);
+        debugPrint('Photo uploaded: $photoUrl');
       }
 
       final now = DateTime.now();
@@ -73,8 +77,10 @@ class UserProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return true;
-    } catch (e) {
-      _error = 'Failed to create profile. Please try again.';
+    } catch (e, stackTrace) {
+      debugPrint('Profile creation error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      _error = 'Failed to create profile: ${e.toString()}';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -120,18 +126,41 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  /// Skip couple linking (for development/testing only)
+  /// Skip couple linking for now
   Future<bool> skipCoupleLink(String uid) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      await _userService.updateUser(uid, {'coupleId': 'dev_skip_$uid'});
+      await _userService.updateUser(uid, {'coupleId': 'skipped_$uid'});
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
       _error = 'Failed to skip. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Clear skipped status to allow linking
+  Future<bool> clearSkippedStatus(String uid) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // Reset user's couple status
+      await _userService.updateUser(uid, {'coupleId': null});
+
+      // Reset any invite codes this user generated back to unused status
+      await _coupleService.resetInviteCodes(uid);
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to update. Please try again.';
       _isLoading = false;
       notifyListeners();
       return false;

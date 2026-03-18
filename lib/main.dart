@@ -27,7 +27,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
         ChangeNotifierProxyProvider<AuthProvider, UserProvider>(
-          create: (_) => UserProvider(userService, storageService),
+          create: (_) =>
+              UserProvider(userService, storageService, coupleService),
           update: (_, auth, userProv) {
             if (auth.isAuthenticated) {
               userProv!.loadUser(auth.firebaseUser!.uid);

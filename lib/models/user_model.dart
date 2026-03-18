@@ -100,4 +100,15 @@ class UserModel {
 
   @override
   int get hashCode => uid.hashCode;
+
+  /// Check if user skipped couple linking (has placeholder coupleId)
+  bool get hasSkippedCoupleLink =>
+      coupleId != null &&
+      (coupleId!.startsWith('skipped_') || coupleId!.startsWith('dev_skip_'));
+
+  /// Check if user has a real partner link
+  bool get hasRealPartner =>
+      coupleId != null &&
+      !coupleId!.startsWith('skipped_') &&
+      !coupleId!.startsWith('dev_skip_');
 }

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/couple_model.dart';
 import '../models/invite_code_model.dart';
 import '../models/user_model.dart';
@@ -72,9 +73,6 @@ class CoupleService {
       final inviteCode = InviteCodeModel.fromFirestore(codeDoc);
 
       // 2. Validate business rules
-      if (inviteCode.used) {
-        throw Exception('This code has already been used');
-      }
       if (inviteCode.isExpired) {
         throw Exception('This code has expired');
       }
@@ -95,11 +93,32 @@ class CoupleService {
       final currentUser = UserModel.fromFirestore(currentUserDoc);
       final partner = UserModel.fromFirestore(partnerDoc);
 
-      if (currentUser.coupleId != null) {
+      debugPrint('=== Link Couple Debug ===');
+      debugPrint(
+          'Current user: ${currentUser.uid}, coupleId: ${currentUser.coupleId}');
+      debugPrint('Current user hasRealPartner: ${currentUser.hasRealPartner}');
+      debugPrint('Partner: ${partner.uid}, coupleId: ${partner.coupleId}');
+      debugPrint('Partner hasRealPartner: ${partner.hasRealPartner}');
+      debugPrint('Code used: ${inviteCode.used}');
+      debugPrint('=======================');
+
+      // Check if users are already truly linked (not just skipped)
+      if (currentUser.hasRealPartner) {
         throw Exception('You are already linked with a partner');
       }
-      if (partner.coupleId != null) {
+      if (partner.hasRealPartner) {
         throw Exception('This person is already linked with someone');
+      }
+
+      // If code is marked as used but partner only has skipped status, reset it
+      if (inviteCode.used && !partner.hasRealPartner) {
+        transaction.update(_codesRef.doc(code.toUpperCase()), {
+          'used': false,
+          'usedBy': FieldValue.delete(),
+          'usedAt': FieldValue.delete(),
+        });
+      } else if (inviteCode.used && partner.hasRealPartner) {
+        throw Exception('This code has already been used');
       }
 
       // 4. Create the couple document
@@ -139,5 +158,26 @@ class CoupleService {
       if (!doc.exists) return null;
       return CoupleModel.fromFirestore(doc);
     });
+  }
+
+  /// Reset invite codes for a user (mark them as unused)
+  Future<void> resetInviteCodes(String userId) async {
+    final codesQuery = await _codesRef
+        .where('userId', isEqualTo: userId)
+        .where('used', isEqualTo: true)
+        .get();
+
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in codesQuery.docs) {
+      batch.update(doc.reference, {
+        'used': false,
+        'usedBy': FieldValue.delete(),
+        'usedAt': FieldValue.delete(),
+      });
+    }
+
+    if (codesQuery.docs.isNotEmpty) {
+      await batch.commit();
+    }
   }
 }

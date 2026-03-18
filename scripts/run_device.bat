@@ -14,12 +14,15 @@ echo.
 
 set "DEVICE_ID="
 
-for /f "tokens=2 delims=•" %%a in ('flutter devices 2^>nul ^| findstr /i "android"') do (
-    for /f "tokens=1" %%b in ("%%a") do (
-        set "DEVICE_ID=%%b"
+REM Use adb to find connected device
+for /f "skip=1 tokens=1" %%a in ('adb devices 2^>nul') do (
+    if not "%%a"=="" (
+        set "DEVICE_ID=%%a"
+        goto :found
     )
 )
 
+:found
 if "!DEVICE_ID!"=="" (
     echo [ERROR] No physical Android device found!
     echo.

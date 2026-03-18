@@ -120,6 +120,24 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  /// Skip couple linking (for development/testing only)
+  Future<bool> skipCoupleLink(String uid) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _userService.updateUser(uid, {'coupleId': 'dev_skip_$uid'});
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to skip. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   @override
   void dispose() {
     _userSubscription?.cancel();

@@ -277,6 +277,24 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                   onPressed: _redeemCode,
                   isLoading: coupleProvider.isLoading,
                 ),
+                const SizedBox(height: AppDimensions.spacingXl),
+                // Skip button for development
+                TextButton(
+                  onPressed: () async {
+                    final auth = context.read<AuthProvider>();
+                    final userProvider = context.read<UserProvider>();
+                    final success = await userProvider.skipCoupleLink(
+                      auth.firebaseUser!.uid,
+                    );
+                    if (success && mounted) {
+                      context.go(RouteNames.home);
+                    }
+                  },
+                  child: const Text(
+                    'Skip for now (Dev)',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
               ],
             ),
           ),

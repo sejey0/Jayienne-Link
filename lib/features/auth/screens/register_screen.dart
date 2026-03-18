@@ -101,9 +101,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: Icons.lock_outlined,
                     obscureText: _obscureConfirm,
                     textInputAction: TextInputAction.done,
-                    validator: Validators.validateConfirmPassword(
-                      _passwordController.text,
-                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please confirm your password';
+                      }
+                      if (value != _passwordController.text) {
+                        return 'Passwords do not match';
+                      }
+                      return null;
+                    },
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscureConfirm

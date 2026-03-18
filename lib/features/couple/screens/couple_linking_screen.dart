@@ -283,11 +283,12 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                   onPressed: () async {
                     final auth = context.read<AuthProvider>();
                     final userProvider = context.read<UserProvider>();
+                    final router = GoRouter.of(context);
                     final success = await userProvider.skipCoupleLink(
                       auth.firebaseUser!.uid,
                     );
                     if (success && mounted) {
-                      context.go(RouteNames.home);
+                      router.go(RouteNames.home);
                     }
                   },
                   child: const Text(

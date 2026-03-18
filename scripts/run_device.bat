@@ -47,23 +47,33 @@ if errorlevel 1 (
 :menu
 echo ----------------------------------------
 echo Select an option:
+echo.
+echo   QUICK ACTIONS:
 echo   [1] Launch App
 echo   [2] Restart App (force stop + launch)
-echo   [3] Rebuild ^& Run (update code)
-echo   [4] Clean Rebuild (flutter clean + build)
-echo   [5] Uninstall App
-echo   [6] Exit
+echo.
+echo   DEBUG MODE (Hot Reload):
+echo   [3] Debug Run (r=hot reload, R=hot restart)
+echo.
+echo   RELEASE MODE:
+echo   [4] Release Build ^& Run
+echo   [5] Clean Release Build
+echo.
+echo   OTHER:
+echo   [6] Uninstall App
+echo   [7] Exit
 echo ----------------------------------------
 echo.
-set /p "CHOICE=Enter choice (1-6): "
+set /p "CHOICE=Enter choice (1-7): "
 
 if "%CHOICE%"=="1" goto launch
 if "%CHOICE%"=="2" goto restart
-if "%CHOICE%"=="3" goto buildrun
-if "%CHOICE%"=="4" goto cleanrebuild
-if "%CHOICE%"=="5" goto uninstall
-if "%CHOICE%"=="6" exit /b 0
-echo Invalid choice. Please enter 1-6.
+if "%CHOICE%"=="3" goto debugrun
+if "%CHOICE%"=="4" goto buildrun
+if "%CHOICE%"=="5" goto cleanrebuild
+if "%CHOICE%"=="6" goto uninstall
+if "%CHOICE%"=="7" exit /b 0
+echo Invalid choice. Please enter 1-7.
 echo.
 goto menu
 
@@ -85,9 +95,26 @@ echo App restarted!
 echo.
 goto menu
 
+:debugrun
+echo.
+echo ========================================
+echo   DEBUG MODE - Hot Reload Enabled
+echo ========================================
+echo.
+echo   While running, press:
+echo     r = Hot Reload (update UI instantly)
+echo     R = Hot Restart (restart app state)
+echo     q = Quit
+echo.
+echo ========================================
+echo.
+flutter run -d %DEVICE_ID%
+echo.
+goto menu
+
 :buildrun
 echo.
-echo Building and running app...
+echo Building and running app (release)...
 echo.
 flutter run --release -d %DEVICE_ID%
 echo.

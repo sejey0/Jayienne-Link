@@ -63,13 +63,14 @@ echo   [5] Clean Release Build
 echo.
 echo   DISTRIBUTE:
 echo   [6] Build ^& Send to Testers (Firebase)
+echo   [7] Build APK ^& Open Folder (share manually)
 echo.
 echo   OTHER:
-echo   [7] Uninstall App
-echo   [8] Exit
+echo   [8] Uninstall App
+echo   [9] Exit
 echo ----------------------------------------
 echo.
-set /p "CHOICE=Enter choice (1-8): "
+set /p "CHOICE=Enter choice (1-9): "
 
 if "%CHOICE%"=="1" goto launch
 if "%CHOICE%"=="2" goto restart
@@ -77,9 +78,10 @@ if "%CHOICE%"=="3" goto debugrun
 if "%CHOICE%"=="4" goto buildrun
 if "%CHOICE%"=="5" goto cleanrebuild
 if "%CHOICE%"=="6" goto distribute
-if "%CHOICE%"=="7" goto uninstall
-if "%CHOICE%"=="8" exit /b 0
-echo Invalid choice. Please enter 1-8.
+if "%CHOICE%"=="7" goto buildapk
+if "%CHOICE%"=="8" goto uninstall
+if "%CHOICE%"=="9" exit /b 0
+echo Invalid choice. Please enter 1-9.
 echo.
 goto menu
 
@@ -141,6 +143,32 @@ echo.
 echo Uninstalling app...
 "%ADB%" -s %DEVICE_ID% uninstall %PACKAGE%
 echo App uninstalled!
+echo.
+goto menu
+
+:buildapk
+echo.
+echo ========================================
+echo   Build APK for Sharing
+echo ========================================
+echo.
+echo Building release APK...
+flutter build apk --release
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Build failed!
+    echo.
+    goto menu
+)
+echo.
+echo ========================================
+echo   APK built successfully!
+echo   Opening folder...
+echo ========================================
+echo.
+explorer "build\app\outputs\flutter-apk"
+echo.
+echo Send "app-release.apk" to your partner via WhatsApp, Drive, etc.
 echo.
 goto menu
 

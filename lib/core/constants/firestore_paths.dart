@@ -5,6 +5,7 @@ class FirestorePaths {
   static const String users = 'users';
   static const String couples = 'couples';
   static const String inviteCodes = 'inviteCodes';
+  static const String locations = 'locations'; // Subcollection under couples
 
   // User fields
   static const String uid = 'uid';
@@ -34,4 +35,13 @@ class FirestorePaths {
   static const String codeUsed = 'used';
   static const String codeUsedBy = 'usedBy';
   static const String codeUsedAt = 'usedAt';
+
+  // Location fields
+  static const String locationOwnerId = 'owner_id';
+  static const String locationLatitude = 'latitude';
+  static const String locationLongitude = 'longitude';
+  static const String locationAccuracy = 'accuracy';
+  static const String locationTimestamp = 'timestamp';
+  static const String locationPartnerId = 'partner_id';
+  static const String locationCoupleId = 'couple_id';
 }

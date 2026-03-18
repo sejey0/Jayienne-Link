@@ -45,5 +45,19 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Location permissions for offline-first GPS tracking -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Jayienne Link uses your location to share where you are with your person, even when offline.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Jayienne Link uses your location in the background to keep sharing with your person, even when the app is closed.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Jayienne Link uses background location to share with your person even when you're away from the app.</string>
+	<!-- Background modes for location updates -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
 </dict>
 </plist>

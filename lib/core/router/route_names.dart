@@ -15,4 +15,8 @@ class RouteNames {
   static const String profile = '/profile';
   static const String editProfile = '/edit-profile';
   static const String settings = '/settings';
+
+  // Location routes
+  static const String location = '/location';
+  static const String locationHistory = '/location/history';
 }

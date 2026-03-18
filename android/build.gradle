@@ -5,6 +5,15 @@ allprojects {
     }
 }
 
+// Expose Flutter SDK properties to all subprojects (needed by geolocator and other plugins)
+ext {
+    set('flutter', [
+        compileSdkVersion: 35,
+        targetSdkVersion: 35,
+        minSdkVersion: 23
+    ])
+}
+
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
@@ -15,13 +24,19 @@ subprojects {
 
 // Force all subprojects (including plugins) to use Java 17
 subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty('android')) {
-            project.android {
-                compileOptions {
-                    sourceCompatibility JavaVersion.VERSION_17
-                    targetCompatibility JavaVersion.VERSION_17
-                }
+    plugins.withId("com.android.library") {
+        android {
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
+            }
+        }
+    }
+    plugins.withId("com.android.application") {
+        android {
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
             }
         }
     }

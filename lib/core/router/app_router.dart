@@ -17,6 +17,8 @@ import '../../features/couple/screens/couple_linking_screen.dart';
 import '../../features/couple/screens/couple_success_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/home/screens/settings_screen.dart';
+import '../../features/location/screens/location_screen.dart';
+import '../../features/location/screens/location_history_screen.dart';
 import 'route_names.dart';
 
 class AppRouter {
@@ -134,6 +136,14 @@ class AppRouter {
         GoRoute(
           path: RouteNames.settings,
           builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.location,
+          builder: (context, state) => const LocationScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.locationHistory,
+          builder: (context, state) => const LocationHistoryScreen(),
         ),
       ],
     );

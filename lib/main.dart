@@ -5,6 +5,7 @@ import 'providers/auth_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/couple_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/location_provider.dart';
 import 'services/auth_service.dart';
 import 'services/user_service.dart';
 import 'services/couple_service.dart';
@@ -43,6 +44,30 @@ void main() async {
               coupleProv!.loadCouple(user.coupleId!);
             }
             return coupleProv!;
+          },
+        ),
+        ChangeNotifierProxyProvider2<UserProvider, CoupleProvider,
+            LocationProvider>(
+          create: (_) => LocationProvider(),
+          update: (_, userProv, coupleProv, locationProv) {
+            final user = userProv.user;
+            final couple = coupleProv.couple;
+            if (user != null) {
+              // Get partner ID from couple
+              String? partnerId;
+              if (couple != null) {
+                partnerId = couple.partnerIds
+                    .firstWhere((id) => id != user.uid, orElse: () => '');
+                if (partnerId.isEmpty) partnerId = null;
+              }
+              // Initialize location provider with user context
+              locationProv!.initialize(
+                userId: user.uid,
+                coupleId: user.coupleId,
+                partnerId: partnerId,
+              );
+            }
+            return locationProv!;
           },
         ),
       ],

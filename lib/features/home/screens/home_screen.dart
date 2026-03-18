@@ -8,8 +8,10 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/couple_provider.dart';
+import '../../../providers/location_provider.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/heart_animation.dart';
+import '../../location/widgets/partner_location_card.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -76,7 +78,7 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: AppDimensions.spacingXl),
-            // Quick actions grid - coming soon placeholders
+            // Quick actions grid
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -84,8 +86,10 @@ class HomeScreen extends StatelessWidget {
               crossAxisSpacing: AppDimensions.spacingMd,
               mainAxisSpacing: AppDimensions.spacingMd,
               children: [
-                _buildFeatureCard(
-                    context, Icons.location_on_outlined, 'Location'),
+                // Location - Now working!
+                PartnerLocationCardCompact(
+                  onTap: () => context.push(RouteNames.location),
+                ),
                 _buildFeatureCard(context, Icons.favorite_outline, 'Heartbeat'),
                 _buildFeatureCard(
                     context, Icons.emoji_emotions_outlined, 'Mood'),

@@ -34,10 +34,26 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Faster debug builds
+            shrinkResources false
+            minifyEnabled false
+            crunchPngs false
+        }
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.debug
+        }
+    }
+
+    // Only build for connected device architecture (faster debug builds)
+    splits {
+        abi {
+            enable gradle.startParameter.taskNames.any { it.contains("Debug") }
+            reset()
+            include "arm64-v8a" // Most modern phones use this
+            universalApk false
         }
     }
 }

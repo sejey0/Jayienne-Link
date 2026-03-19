@@ -5,6 +5,8 @@ import '../models/location_model.dart';
 import '../services/offline_location_service.dart';
 import '../services/offline_storage_service.dart';
 import '../services/location_sync_service.dart';
+import '../services/background_location_service.dart';
+import '../services/foreground_notification_service.dart';
 
 /// Provider for managing location state across the app.
 /// Handles offline-first location sharing with partner.
@@ -13,6 +15,10 @@ class LocationProvider extends ChangeNotifier {
       OfflineLocationService.instance;
   final OfflineStorageService _storageService = OfflineStorageService.instance;
   final LocationSyncService _syncService = LocationSyncService.instance;
+  final BackgroundLocationService _backgroundService =
+      BackgroundLocationService.instance;
+  final ForegroundNotificationService _notificationService =
+      ForegroundNotificationService.instance;
 
   // User info (set by initialize)
   String? _userId;
@@ -78,9 +84,18 @@ class LocationProvider extends ChangeNotifier {
       // Initialize sync service
       await _syncService.initialize();
 
+      // Initialize background services
+      await _backgroundService.initialize();
+      await _notificationService.initialize();
+
+      // Store credentials for auto-sync when online
+      if (coupleId != null) {
+        _syncService.setCredentials(userId, coupleId);
+      }
+
       // Load settings
-      _settings =
-          await _storageService.getSettings(userId) ?? LocationSharingSettings();
+      _settings = await _storageService.getSettings(userId) ??
+          LocationSharingSettings();
 
       // Check permission status
       _permissionStatus = await _locationService.getPermissionStatus();
@@ -219,6 +234,18 @@ class LocationProvider extends ChangeNotifier {
     final success = await _locationService.startTracking(_userId!);
     if (success) {
       await _updateSettings(_settings.copyWith(sharingEnabled: true));
+
+      // Show foreground notification
+      await _notificationService.showTrackingNotification();
+
+      // Start background periodic tracking if coupled
+      if (_coupleId != null) {
+        await _backgroundService.startPeriodicTracking(
+          userId: _userId!,
+          coupleId: _coupleId!,
+          intervalMinutes: _settings.updateIntervalMinutes,
+        );
+      }
     }
     return success;
   }
@@ -227,6 +254,10 @@ class LocationProvider extends ChangeNotifier {
   Future<void> stopTracking() async {
     await _locationService.stopTracking();
     await _updateSettings(_settings.copyWith(sharingEnabled: false));
+
+    // Hide notification and stop background tracking
+    await _notificationService.hideTrackingNotification();
+    await _backgroundService.stopPeriodicTracking();
   }
 
   // =====================
@@ -365,6 +396,23 @@ class LocationProvider extends ChangeNotifier {
     if (enabled) {
       final granted = await requestBackgroundPermission();
       if (!granted) return;
+
+      // Start background periodic tracking
+      if (_userId != null && _coupleId != null) {
+        await _backgroundService.startPeriodicTracking(
+          userId: _userId!,
+          coupleId: _coupleId!,
+          intervalMinutes: _settings.updateIntervalMinutes,
+        );
+        await _notificationService.showTrackingNotification(
+          title: 'Background tracking active',
+          body: 'Location updates every ${_settings.updateIntervalMinutes} min',
+        );
+      }
+    } else {
+      // Stop background tracking
+      await _backgroundService.stopPeriodicTracking();
+      await _notificationService.hideTrackingNotification();
     }
 
     await _updateSettings(
@@ -430,6 +478,20 @@ class LocationProvider extends ChangeNotifier {
     _connectivitySubscription?.cancel();
     _syncStatusSubscription?.cancel();
     _syncService.stopListeningToPartner();
+    // Note: Don't stop background tracking on dispose - keep running in background
     super.dispose();
+  }
+
+  /// Method to restore background tracking state on app resume
+  Future<void> restoreBackgroundTrackingState() async {
+    if (_userId == null || _coupleId == null) return;
+
+    final isTrackingEnabled = await _backgroundService.isTrackingEnabled();
+    if (isTrackingEnabled && _settings.backgroundSharingEnabled) {
+      await _notificationService.showTrackingNotification(
+        title: 'Background tracking active',
+        body: 'Location updates every ${_settings.updateIntervalMinutes} min',
+      );
+    }
   }
 }

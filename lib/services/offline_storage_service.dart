@@ -28,6 +28,11 @@ class OfflineStorageService {
     return _database!;
   }
 
+  /// Ensure database is initialized (for background tasks)
+  Future<void> ensureInitialized() async {
+    _database ??= await _initDatabase();
+  }
+
   /// Initialize SQLite database with schema
   Future<Database> _initDatabase() async {
     final documentsDirectory = await getApplicationDocumentsDirectory();
@@ -123,23 +128,24 @@ class OfflineStorageService {
     await batch.commit(noResult: true);
   }
 
-  /// Get all unsynced locations for upload
+  /// Get all unsynced locations for upload (includes background captures)
   Future<List<LocationModel>> getUnsyncedLocations(String ownerId) async {
     final db = await database;
     final maps = await db.query(
       _locationsTable,
-      where: 'owner_id = ? AND is_synced = 0 AND source = 0',
+      where:
+          'owner_id = ? AND is_synced = 0 AND source IN (0, 2)', // local and background
       whereArgs: [ownerId],
       orderBy: 'timestamp ASC',
     );
     return maps.map((map) => LocationModel.fromMap(map)).toList();
   }
 
-  /// Get count of unsynced locations
+  /// Get count of unsynced locations (includes background captures)
   Future<int> getUnsyncedCount(String ownerId) async {
     final db = await database;
     final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM $_locationsTable WHERE owner_id = ? AND is_synced = 0 AND source = 0',
+      'SELECT COUNT(*) as count FROM $_locationsTable WHERE owner_id = ? AND is_synced = 0 AND source IN (0, 2)',
       [ownerId],
     );
     return Sqflite.firstIntValue(result) ?? 0;
@@ -323,7 +329,8 @@ class OfflineStorageService {
   }
 
   /// Save user's location settings
-  Future<void> saveSettings(String userId, LocationSharingSettings settings) async {
+  Future<void> saveSettings(
+      String userId, LocationSharingSettings settings) async {
     final db = await database;
     await db.insert(
       _settingsTable,

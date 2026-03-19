@@ -30,6 +30,10 @@ class LocationSyncService {
   // Partner location listener
   StreamSubscription<QuerySnapshot>? _partnerLocationSubscription;
 
+  // Stored credentials for auto-sync
+  String? _userId;
+  String? _coupleId;
+
   LocationSyncService._();
 
   static LocationSyncService get instance {
@@ -72,11 +76,32 @@ class LocationSyncService {
         // Auto-sync when coming online
         if (_isOnline && !wasOnline) {
           debugPrint('Coming online - triggering auto-sync');
+          _triggerAutoSync();
         }
       },
     );
 
     debugPrint('LocationSyncService initialized. Online: $_isOnline');
+  }
+
+  /// Trigger auto-sync when coming online
+  Future<void> _triggerAutoSync() async {
+    if (_userId == null || _coupleId == null) {
+      debugPrint('Auto-sync skipped: No user credentials stored');
+      return;
+    }
+
+    final unsyncedCount = await _storage.getUnsyncedCount(_userId!);
+    if (unsyncedCount > 0) {
+      debugPrint('Auto-syncing $unsyncedCount pending locations...');
+      await syncLocations(_userId!, _coupleId!);
+    }
+  }
+
+  /// Store credentials for auto-sync
+  void setCredentials(String userId, String coupleId) {
+    _userId = userId;
+    _coupleId = coupleId;
   }
 
   /// Check if connectivity result indicates internet access

@@ -9,6 +9,7 @@ plugins {
 android {
     namespace = "com.jayiennelink.jayienne_link"
     compileSdk = 35
+    buildToolsVersion = "35.0.0"
     ndkVersion = "26.1.10909125"
 
     compileOptions {
@@ -18,7 +19,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17
+        jvmTarget = "17"
     }
 
     defaultConfig {

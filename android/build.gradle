@@ -24,7 +24,7 @@ subprojects {
 
 // Force all subprojects (including plugins) to use Java 17
 subprojects {
-    plugins.withId("com.android.library") {
+    pluginManager.withPlugin('com.android.library') {
         android {
             compileOptions {
                 sourceCompatibility JavaVersion.VERSION_17
@@ -32,18 +32,18 @@ subprojects {
             }
         }
     }
-    plugins.withId("com.android.application") {
+    pluginManager.withPlugin('org.jetbrains.kotlin.android') {
         android {
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
+            kotlinOptions {
+                jvmTarget = "17"
             }
         }
     }
-    // Force Kotlin JVM target to 17
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-        kotlinOptions {
-            jvmTarget = "17"
+    pluginManager.withPlugin('kotlin-android') {
+        android {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
         }
     }
 }

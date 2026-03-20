@@ -85,8 +85,12 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
 
   @override
   void dispose() {
-    _codeController.dispose();
     _expiryTimer?.cancel();
+    try {
+      _codeController.dispose();
+    } catch (e) {
+      // Controller already disposed, ignore
+    }
     super.dispose();
   }
 

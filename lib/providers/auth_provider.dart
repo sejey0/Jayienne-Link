@@ -25,7 +25,8 @@ class AuthProvider extends ChangeNotifier {
 
   bool get isAuthenticated => _currentUser != null;
   User? get currentUser => _currentUser;
-  String? get verificationEmail => _currentUser?.email ?? _pendingVerificationEmail;
+  String? get verificationEmail =>
+      _currentUser?.email ?? _pendingVerificationEmail;
   String? get currentUserId => _currentUser?.id;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -45,7 +46,8 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _authService.signUpWithEmail(email, password);
       _pendingVerificationEmail = email;
-      await _authService.sendEmailVerification(email: email);
+      // Note: Supabase automatically sends verification email on signup
+      // when email confirmation is enabled in the dashboard
       _isLoading = false;
       notifyListeners();
       return true;
@@ -149,6 +151,10 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    _pendingVerificationEmail = null;
+    _verificationId = null;
+    _error = null;
     await _authService.signOut();
+    notifyListeners();
   }
 }

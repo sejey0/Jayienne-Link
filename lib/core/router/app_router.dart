@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../features/splash/splash_screen.dart';
@@ -24,16 +23,14 @@ import 'route_names.dart';
 class AppRouter {
   AppRouter._();
 
-  static GoRouter router(BuildContext context) {
-    final authProvider = context.read<AuthProvider>();
-    final userProvider = context.read<UserProvider>();
-
+  static GoRouter createRouter(
+      AuthProvider authProvider, UserProvider userProvider) {
     return GoRouter(
       initialLocation: RouteNames.splash,
       refreshListenable: Listenable.merge([authProvider, userProvider]),
       redirect: (context, state) {
-        final auth = context.read<AuthProvider>();
-        final user = context.read<UserProvider>();
+        final auth = authProvider;
+        final user = userProvider;
         final location = state.matchedLocation;
 
         final isAuthenticated = auth.isAuthenticated;
@@ -75,7 +72,8 @@ class AppRouter {
         }
 
         // Fully linked - redirect away from auth/setup routes
-        if (hasCoupleId && (isOnAuthRoute || isOnProfileSetup || isOnCoupleLink)) {
+        if (hasCoupleId &&
+            (isOnAuthRoute || isOnProfileSetup || isOnCoupleLink)) {
           return RouteNames.home;
         }
 

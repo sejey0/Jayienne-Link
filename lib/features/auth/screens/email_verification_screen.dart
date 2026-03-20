@@ -18,6 +18,7 @@ class EmailVerificationScreen extends StatefulWidget {
 
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   Timer? _checkTimer;
+  bool _isSigningOut = false;
 
   @override
   void initState() {
@@ -27,6 +28,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   void _startVerificationCheck() {
     _checkTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      if (_isSigningOut) return;
       final auth = context.read<AuthProvider>();
       await auth.checkEmailVerified();
     });
@@ -53,6 +55,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         );
       }
     }
+  }
+
+  Future<void> _handleBackToLogin() async {
+    if (_isSigningOut) return;
+    _isSigningOut = true;
+    _checkTimer?.cancel();
+    final auth = context.read<AuthProvider>();
+    await auth.signOut();
   }
 
   @override
@@ -114,10 +124,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               ),
               const SizedBox(height: AppDimensions.spacingMd),
               TextButton.icon(
-                onPressed: () async {
-                  final auth = context.read<AuthProvider>();
-                  await auth.signOut();
-                },
+                onPressed: _isSigningOut ? null : _handleBackToLogin,
                 icon: const Icon(Icons.arrow_back),
                 label: const Text('Back to Login'),
                 style: TextButton.styleFrom(

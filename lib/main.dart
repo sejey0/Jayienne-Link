@@ -55,7 +55,15 @@ void main() async {
               UserProvider(userService, storageService, coupleService),
           update: (_, auth, userProv) {
             if (auth.isAuthenticated) {
-              userProv!.loadUser(auth.currentUserId!);
+              // Try to load user by email first (more reliable than ID)
+              final email = auth.currentUser?.email;
+              if (email != null && email.isNotEmpty) {
+                // Load by email since auth ID may differ from database ID
+                userProv!.loadUserByEmail(email);
+              } else {
+                // Fallback to ID for phone auth users
+                userProv!.loadUser(auth.currentUserId!);
+              }
             } else {
               userProv!.clearUser();
             }

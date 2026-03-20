@@ -32,6 +32,31 @@ class UserProvider extends ChangeNotifier {
     });
   }
 
+  void loadUserByEmail(String email) {
+    _userSubscription?.cancel();
+    // First try to get user by email, then start stream with correct ID
+    _userService.getUserByEmail(email).then((user) {
+      if (user != null) {
+        debugPrint('✅ User found by email, loading stream for ID: ${user.id}');
+        _user = user;
+        notifyListeners();
+        // Now start the stream with the correct database ID
+        _userSubscription = _userService.userStream(user.id!).listen((updatedUser) {
+          _user = updatedUser;
+          notifyListeners();
+        });
+      } else {
+        debugPrint('⚠️ User not found for email: $email');
+        _user = null;
+        notifyListeners();
+      }
+    }).catchError((error) {
+      debugPrint('❌ Error loading user by email: $error');
+      _user = null;
+      notifyListeners();
+    });
+  }
+
   void clearUser() {
     _userSubscription?.cancel();
     _user = null;

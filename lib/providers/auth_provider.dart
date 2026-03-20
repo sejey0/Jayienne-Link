@@ -1,12 +1,12 @@
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
-import '../services/auth_service.dart';
+import '../services/supabase_auth_service.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService;
+  final SupabaseAuthService _authService;
 
-  User? _firebaseUser;
+  User? _currentUser;
   bool _isLoading = false;
   String? _error;
 
@@ -17,17 +17,18 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider(this._authService) {
     _authService.authStateChanges.listen((user) {
-      _firebaseUser = user;
+      _currentUser = user;
       notifyListeners();
     });
   }
 
-  bool get isAuthenticated => _firebaseUser != null;
-  User? get firebaseUser => _firebaseUser;
+  bool get isAuthenticated => _currentUser != null;
+  User? get currentUser => _currentUser;
+  String? get currentUserId => _currentUser?.id;
   bool get isLoading => _isLoading;
   String? get error => _error;
   String? get verificationId => _verificationId;
-  bool get isEmailVerified => _firebaseUser?.emailVerified ?? false;
+  bool get isEmailVerified => _authService.checkEmailVerified();
 
   void clearError() {
     _error = null;
@@ -45,8 +46,8 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return true;
-    } on FirebaseAuthException catch (e) {
-      _error = _mapAuthError(e.code);
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -63,8 +64,8 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return true;
-    } on FirebaseAuthException catch (e) {
-      _error = _mapAuthError(e.code);
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -90,46 +91,30 @@ class AuthProvider extends ChangeNotifier {
 
     await _authService.verifyPhoneNumber(
       phoneNumber: phoneNumber,
-      onAutoVerify: (credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
+      onSuccess: (user) {
         _isLoading = false;
         notifyListeners();
       },
-      onCodeSent: (verificationId, resendToken) {
-        _verificationId = verificationId;
-        _resendToken = resendToken;
+      onError: (error) {
+        _error = error;
         _isLoading = false;
         notifyListeners();
-      },
-      onFailed: (e) {
-        _error = _mapAuthError(e.code);
-        _isLoading = false;
-        notifyListeners();
-      },
-      onAutoRetrievalTimeout: (verificationId) {
-        _verificationId = verificationId;
       },
     );
   }
 
-  Future<bool> verifyOtp(String otp) async {
-    if (_verificationId == null) {
-      _error = 'Verification session expired. Please resend the code.';
-      notifyListeners();
-      return false;
-    }
-
+  Future<bool> verifyOtp(String otp, String phoneNumber) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      await _authService.verifyOtp(_verificationId!, otp);
+      await _authService.verifyOtp(phoneNumber, otp);
       _isLoading = false;
       notifyListeners();
       return true;
-    } on FirebaseAuthException catch (e) {
-      _error = _mapAuthError(e.code);
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -146,8 +131,8 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return true;
-    } on FirebaseAuthException catch (e) {
-      _error = _mapAuthError(e.code);
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -156,30 +141,5 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> signOut() async {
     await _authService.signOut();
-  }
-
-  String _mapAuthError(String code) {
-    switch (code) {
-      case 'email-already-in-use':
-        return 'An account already exists with this email.';
-      case 'invalid-email':
-        return 'Please enter a valid email address.';
-      case 'weak-password':
-        return 'Password must be at least 6 characters.';
-      case 'user-not-found':
-        return 'No account found with this email.';
-      case 'wrong-password':
-        return 'Incorrect password. Please try again.';
-      case 'invalid-credential':
-        return 'Invalid email or password.';
-      case 'too-many-requests':
-        return 'Too many attempts. Please try again later.';
-      case 'invalid-verification-code':
-        return 'Invalid code. Please try again.';
-      case 'invalid-phone-number':
-        return 'Please enter a valid phone number.';
-      default:
-        return 'Something went wrong. Please try again.';
-    }
   }
 }

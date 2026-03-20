@@ -1,16 +1,15 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import '../models/user_model.dart';
-import '../services/user_service.dart';
-import '../services/storage_service.dart';
-import '../services/couple_service.dart';
+import '../models/supabase_user_model.dart';
+import '../services/supabase_user_service.dart';
+import '../services/supabase_storage_service.dart';
+import '../services/supabase_couple_service.dart';
 
 class UserProvider extends ChangeNotifier {
-  final UserService _userService;
-  final StorageService _storageService;
-  final CoupleService _coupleService;
+  final SupabaseUserService _userService;
+  final SupabaseStorageService _storageService;
+  final SupabaseCoupleService _coupleService;
 
   UserModel? _user;
   bool _isLoading = false;
@@ -68,7 +67,7 @@ class UserProvider extends ChangeNotifier {
 
         // Check if using Base64 fallback and inform user
         if (photoUrl.startsWith('data:image/')) {
-          debugPrint('Using Base64 storage (free Firebase plan)');
+          debugPrint('Using Base64 storage fallback');
         }
       }
 
@@ -126,7 +125,7 @@ class UserProvider extends ChangeNotifier {
 
       if (displayName != null) updates['displayName'] = displayName;
       if (birthday != null) {
-        updates['birthday'] = Timestamp.fromDate(birthday);
+        updates['birthday'] = birthday;
       }
 
       if (photoFile != null) {
@@ -146,7 +145,7 @@ class UserProvider extends ChangeNotifier {
 
         // Check if using Base64 fallback and inform user
         if (photoUrl.startsWith('data:image/')) {
-          debugPrint('Using Base64 storage (free Firebase plan)');
+          debugPrint('Using Base64 storage fallback');
         }
       }
 

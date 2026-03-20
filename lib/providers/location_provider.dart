@@ -2,13 +2,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/location_model.dart';
-import '../models/user_model.dart';
+import '../models/supabase_user_model.dart';
 import '../services/offline_location_service.dart';
 import '../services/offline_storage_service.dart';
 import '../services/location_sync_service.dart';
 import '../services/background_location_service.dart';
 import '../services/foreground_notification_service.dart';
-import '../services/user_service.dart';
+import '../services/supabase_user_service.dart';
 
 /// Provider for managing location state across the app.
 /// Handles offline-first location sharing with partner.
@@ -21,7 +21,7 @@ class LocationProvider extends ChangeNotifier {
       BackgroundLocationService.instance;
   final ForegroundNotificationService _notificationService =
       ForegroundNotificationService.instance;
-  final UserService _userService;
+  final SupabaseUserService _userService;
 
   LocationProvider(this._userService);
 

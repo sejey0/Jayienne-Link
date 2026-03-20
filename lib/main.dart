@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,14 +9,12 @@ import 'providers/user_provider.dart';
 import 'providers/couple_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/location_provider.dart';
-import 'services/auth_service.dart';
-import 'services/user_service.dart';
-import 'services/couple_service.dart';
-import 'services/storage_service.dart';
+import 'services/supabase_auth_service.dart';
+import 'services/supabase_user_service.dart';
+import 'services/supabase_couple_service.dart';
 import 'services/supabase_storage_service.dart';
 import 'services/supabase_data_service.dart';
 import 'services/background_location_service.dart';
-import 'utils/firebase_debug.dart';
 import 'app.dart';
 
 void main() async {
@@ -27,26 +23,16 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: ".env");
 
-  // Initialize Firebase
-  await Firebase.initializeApp();
-
   // Initialize Supabase
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
 
-  // Debug Firebase Storage in development and test Supabase
+  // Debug Supabase in development
   if (kDebugMode) {
-    await FirebaseDebugUtils.printDiagnosis();
     await _debugSupabase();
   }
-
-  // Enable Firestore offline persistence with reduced cache for data saving
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-    cacheSizeBytes: 10485760, // 10MB cache limit (saves storage & data)
-  );
 
   // Initialize Workmanager for background location tasks
   await Workmanager().initialize(
@@ -54,10 +40,10 @@ void main() async {
     isInDebugMode: false,
   );
 
-  final authService = AuthService();
-  final userService = UserService();
-  final coupleService = CoupleService();
-  final storageService = StorageService();
+  final authService = SupabaseAuthService();
+  final userService = SupabaseUserService();
+  final coupleService = SupabaseCoupleService();
+  final storageService = SupabaseStorageService();
 
   runApp(
     MultiProvider(
@@ -69,7 +55,7 @@ void main() async {
               UserProvider(userService, storageService, coupleService),
           update: (_, auth, userProv) {
             if (auth.isAuthenticated) {
-              userProv!.loadUser(auth.firebaseUser!.uid);
+              userProv!.loadUser(auth.currentUserId!);
             } else {
               userProv!.clearUser();
             }
@@ -96,12 +82,12 @@ void main() async {
               String? partnerId;
               if (couple != null) {
                 partnerId = couple.partnerIds
-                    .firstWhere((id) => id != user.uid, orElse: () => '');
+                    .firstWhere((id) => id != user.id, orElse: () => '');
                 if (partnerId.isEmpty) partnerId = null;
               }
               // Initialize location provider with user context
               locationProv!.initialize(
-                userId: user.uid,
+                userId: user.id,
                 coupleId: user.coupleId,
                 partnerId: partnerId,
               );

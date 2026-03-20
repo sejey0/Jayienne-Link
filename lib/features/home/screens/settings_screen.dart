@@ -6,10 +6,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/theme_provider.dart';
-import '../../../utils/firebase_debug.dart';
-import '../../../services/storage_service.dart';
 import '../../../services/supabase_storage_service.dart';
-import '../../migration/migration_manager_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -50,11 +47,6 @@ class SettingsScreen extends StatelessWidget {
               child: Column(
                 children: [
                   ElevatedButton(
-                    onPressed: () => _testFirebaseStorage(context),
-                    child: const Text('Test Firebase Storage'),
-                  ),
-                  const SizedBox(height: AppDimensions.spacingSm),
-                  ElevatedButton(
                     onPressed: () => _testSupabaseStorage(context),
                     child: const Text('Test Supabase Storage'),
                   ),
@@ -62,26 +54,6 @@ class SettingsScreen extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => _showStorageInfo(context),
                     child: const Text('Storage Information'),
-                  ),
-                  const SizedBox(height: AppDimensions.spacingSm),
-                  ElevatedButton(
-                    onPressed: () => _testAllStorage(context),
-                    child: const Text('Test All Storage Services'),
-                  ),
-                  const SizedBox(height: AppDimensions.spacingSm),
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MigrationManagerScreen(),
-                      ),
-                    ),
-                    icon: const Icon(Icons.sync_alt),
-                    label: const Text('Firebase → Supabase Migration'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple,
-                      foregroundColor: Colors.white,
-                    ),
                   ),
                 ],
               ),
@@ -127,107 +99,6 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _testFirebaseStorage(BuildContext context) async {
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        title: Text('Testing Firebase Storage'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Running diagnostics...'),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      final diagnosis = await FirebaseDebugUtils.diagnoseStorageIssue();
-
-      // Close loading dialog
-      if (context.mounted) Navigator.of(context).pop();
-
-      // Show results
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Firebase Storage Test Results'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                      'Firebase Initialized: ${diagnosis['firebase_initialized']}'),
-                  Text('Project ID: ${diagnosis['project_id'] ?? 'N/A'}'),
-                  Text(
-                      'Storage Bucket: ${diagnosis['storage_bucket'] ?? 'N/A'}'),
-                  const SizedBox(height: 8),
-                  Text(
-                    diagnosis['can_upload'] == true
-                        ? '✅ Upload Test: PASSED'
-                        : '❌ Upload Test: FAILED',
-                    style: TextStyle(
-                      color: diagnosis['can_upload'] == true
-                          ? Colors.green
-                          : Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (diagnosis['upload_error'] != null) ...[
-                    const SizedBox(height: 8),
-                    Text('Error: ${diagnosis['upload_error']}'),
-                    Text('Error Code: ${diagnosis['upload_error_code']}'),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      // Close loading dialog
-      if (context.mounted) Navigator.of(context).pop();
-
-      // Show error
-      if (context.mounted) {
-        SnackbarHelper.showError(context, 'Test failed: $e');
-      }
-    }
-  }
-
-  void _showStorageRules(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Suggested Firebase Storage Rules'),
-        content: SingleChildScrollView(
-          child: Text(
-            FirebaseDebugUtils.getSuggestedStorageRules(),
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showStorageInfo(BuildContext context) {
     showDialog(
       context: context,
@@ -239,20 +110,19 @@ class SettingsScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Multi-Tier Storage System:',
+                'Supabase Storage System:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
-              Text('1. Supabase Storage (Primary): Best performance, supports images & videos'),
-              Text('2. Firebase Storage (Fallback): Good performance, images only'),
-              Text('3. Optimized Base64 (Final): Always works, stored in user profile'),
+              Text('• Primary: Supabase Storage - Best performance, supports images & videos'),
+              Text('• Fallback: Optimized Base64 - Always available, stored in user profile'),
               SizedBox(height: 16),
               Text(
                 'Current Status:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
-              Text('✅ Images work regardless of backend limitations'),
+              Text('✅ Images work regardless of setup'),
               Text('✅ Automatic service selection and fallbacks'),
               Text('✅ Display on map markers for you and your partner'),
               Text('✅ Automatic optimization for best performance'),
@@ -383,99 +253,4 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
-  void _testAllStorage(BuildContext context) async {
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        title: Text('Testing All Storage Services'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Testing storage services...'),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      final storageService = StorageService();
-      final results = await storageService.testAllStorageConnectivity();
-
-      // Close loading dialog
-      if (context.mounted) Navigator.of(context).pop();
-
-      // Show results
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('All Storage Services Test'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    results['supabase'] == true
-                        ? '✅ Supabase Storage: AVAILABLE'
-                        : '❌ Supabase Storage: ${results['supabase_error'] ?? 'UNAVAILABLE'}',
-                    style: TextStyle(
-                      color: results['supabase'] == true ? Colors.green : Colors.orange,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    results['firebase'] == true
-                        ? '✅ Firebase Storage: AVAILABLE'
-                        : '❌ Firebase Storage: ${results['firebase_error'] ?? 'UNAVAILABLE'}',
-                    style: TextStyle(
-                      color: results['firebase'] == true ? Colors.green : Colors.orange,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '✅ Base64 Fallback: ALWAYS AVAILABLE',
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Active Service: ${results['active_service'] ?? 'Base64 Fallback'}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'The app will automatically use the best available service for uploads.',
-                    style: TextStyle(fontStyle: FontStyle.italic),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      // Close loading dialog
-      if (context.mounted) Navigator.of(context).pop();
-
-      // Show error
-      if (context.mounted) {
-        SnackbarHelper.showError(context, 'Storage test failed: $e');
-      }
-    }
-  }
 }

@@ -30,13 +30,25 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
   @override
   void initState() {
     super.initState();
+    // Load existing code if user already has one, but don't auto-generate
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadOrGenerateCode();
+      _loadExistingCodeIfAvailable();
     });
     _startExpiryTimer();
   }
 
-  void _loadOrGenerateCode() {
+  void _loadExistingCodeIfAvailable() {
+    final user = context.read<UserProvider>().user;
+    final coupleProvider = context.read<CoupleProvider>();
+
+    // If user already has a valid invite code that's not 'SKIPPED', load it
+    if (user?.inviteCode != null && user!.inviteCode != 'SKIPPED') {
+      coupleProvider.loadExistingCode(user.inviteCode!);
+    }
+    // Otherwise, leave it empty - user can generate when ready
+  }
+
+  void _generateNewCode() {
     final auth = context.read<AuthProvider>();
     final user = context.read<UserProvider>().user;
     final coupleProvider = context.read<CoupleProvider>();
@@ -52,7 +64,6 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
     }
 
     // Use the user's database ID from the loaded user record
-    // This ensures we use the correct ID that exists in the users table
     final userId = user.id ?? auth.currentUserId;
 
     if (userId == null) {
@@ -63,13 +74,7 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
       return;
     }
 
-    // If user has a valid invite code that's not 'SKIPPED', load it
-    // Otherwise, generate a new code
-    if (user.inviteCode != null && user.inviteCode != 'SKIPPED') {
-      coupleProvider.loadExistingCode(user.inviteCode);
-    } else {
-      coupleProvider.generateCode(userId);
-    }
+    coupleProvider.generateCode(userId);
   }
 
   void _startExpiryTimer() {
@@ -256,7 +261,30 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                     ),
                   ),
                 ] else
-                  const Center(child: CircularProgressIndicator()),
+                  Container(
+                    padding: const EdgeInsets.all(AppDimensions.spacingLg),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
+                      border: Border.all(color: AppColors.softRose.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Ready to share your invite code?',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: AppDimensions.spacingMd),
+                        AppButton(
+                          label: 'Generate Invite Code',
+                          icon: Icons.create,
+                          onPressed: _generateNewCode,
+                          isLoading: coupleProvider.isLoading,
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: AppDimensions.spacingXl),
                 const Divider(),
                 const SizedBox(height: AppDimensions.spacingXl),

@@ -57,7 +57,7 @@ class SupabaseUserService {
       final payload = user.toInsertJson();
 
       // First check if user already exists by email
-      final existing = await getSingleRecord(
+      final existing = await SupabaseDataService.getSingleRecord(
         _tableName,
         whereColumn: 'email',
         whereValue: user.email,
@@ -77,19 +77,6 @@ class SupabaseUserService {
       debugPrint('❌ Failed to create user: $e');
       throw Exception('Failed to create user profile: $e');
     }
-  }
-
-  /// Helper method to get a single record
-  static Future<Map<String, dynamic>?> getSingleRecord(
-    String table, {
-    required String whereColumn,
-    required dynamic whereValue,
-  }) async {
-    return await SupabaseDataService.getSingleRecord(
-      table,
-      whereColumn: whereColumn,
-      whereValue: whereValue,
-    );
   }
 
   /// Update user profile data

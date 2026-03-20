@@ -1,6 +1,6 @@
 import 'dart:math';
 
-/// PostgreSQL-compatible LocationModel for Supabase integration
+/// Supabase LocationModel for PostgreSQL database
 /// Designed for offline-first storage with sync status tracking
 class LocationModel {
   final String? id; // Supabase UUID
@@ -14,7 +14,6 @@ class LocationModel {
   final DateTime timestamp;
   final DateTime? createdAt; // When record was created in database
   final bool isSynced; // Whether synced to Supabase
-  final String? firestoreId; // Legacy Firestore document ID for migration
   final LocationSource source; // Where this location came from
 
   LocationModel({
@@ -29,7 +28,6 @@ class LocationModel {
     required this.timestamp,
     this.createdAt,
     this.isSynced = false,
-    this.firestoreId,
     this.source = LocationSource.local,
   });
 
@@ -49,7 +47,6 @@ class LocationModel {
           ? DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int)
           : null,
       isSynced: (map['is_synced'] as int) == 1,
-      firestoreId: map['firestore_id'] as String?,
       source: LocationSource.values[map['source'] as int? ?? 0],
     );
   }
@@ -68,7 +65,6 @@ class LocationModel {
       'timestamp': timestamp.millisecondsSinceEpoch,
       'created_at': createdAt?.millisecondsSinceEpoch,
       'is_synced': isSynced ? 1 : 0,
-      'firestore_id': firestoreId,
       'source': source.index,
     };
   }
@@ -154,7 +150,6 @@ class LocationModel {
     DateTime? timestamp,
     DateTime? createdAt,
     bool? isSynced,
-    String? firestoreId,
     LocationSource? source,
   }) {
     return LocationModel(
@@ -169,7 +164,6 @@ class LocationModel {
       timestamp: timestamp ?? this.timestamp,
       createdAt: createdAt ?? this.createdAt,
       isSynced: isSynced ?? this.isSynced,
-      firestoreId: firestoreId ?? this.firestoreId,
       source: source ?? this.source,
     );
   }
@@ -212,8 +206,6 @@ class LocationModel {
 
   /// Calculate distance from another location in meters
   double distanceFrom(LocationModel other) {
-    // Simplified distance calculation (for basic purposes)
-    // For production, consider using a proper geospatial library
     const double earthRadius = 6371000; // Earth radius in meters
 
     final lat1Rad = latitude * (pi / 180);
@@ -229,47 +221,6 @@ class LocationModel {
 
     final c = 2 * asin(sqrt(a));
     return earthRadius * c;
-  }
-
-  /// Firebase Firestore compatibility methods (for existing code)
-  @Deprecated(
-      'Use fromJson instead. This is for Firebase migration compatibility only.')
-  factory LocationModel.fromFirestore(Map<String, dynamic> data, String docId) {
-    return LocationModel(
-      firestoreId: docId,
-      coupleId: data['couple_id'] as String? ?? '',
-      ownerId: data['owner_id'] as String,
-      partnerId: data['partner_id'] as String?,
-      latitude: (data['latitude'] as num).toDouble(),
-      longitude: (data['longitude'] as num).toDouble(),
-      accuracy: (data['accuracy'] as num?)?.toDouble() ?? 15.0,
-      timestamp: data['timestamp'] is DateTime
-          ? data['timestamp'] as DateTime
-          : DateTime.now(),
-      isSynced: true,
-      source: LocationSource.partner,
-    );
-  }
-
-  @Deprecated(
-      'Use toJson instead. This is for Firebase migration compatibility only.')
-  Map<String, dynamic> toFirestore({bool dataSaver = false}) {
-    if (dataSaver) {
-      return {
-        'owner_id': ownerId,
-        'latitude': double.parse(latitude.toStringAsFixed(4)),
-        'longitude': double.parse(longitude.toStringAsFixed(4)),
-        'timestamp': timestamp,
-      };
-    }
-    return {
-      'owner_id': ownerId,
-      'latitude': latitude,
-      'longitude': longitude,
-      'accuracy': accuracy,
-      'timestamp': timestamp,
-      'partner_id': partnerId,
-    };
   }
 
   @override

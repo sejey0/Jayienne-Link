@@ -139,35 +139,6 @@ class InviteCodeModel {
     );
   }
 
-  /// Firebase Firestore compatibility methods (for existing code)
-  @Deprecated(
-      'Use fromJson instead. This is for Firebase migration compatibility only.')
-  factory InviteCodeModel.fromFirestore(
-      Map<String, dynamic> data, String docId) {
-    return InviteCodeModel(
-      code: docId,
-      userId: data['userId'] as String,
-      createdAt: data['createdAt'] as DateTime? ?? DateTime.now(),
-      expiresAt: data['expiresAt'] as DateTime? ?? DateTime.now(),
-      used: data['used'] as bool? ?? false,
-      usedBy: data['usedBy'] as String?,
-      usedAt: data['usedAt'] as DateTime?,
-    );
-  }
-
-  @Deprecated(
-      'Use toJson instead. This is for Firebase migration compatibility only.')
-  Map<String, dynamic> toFirestore() {
-    return {
-      'userId': userId,
-      'createdAt': createdAt,
-      'expiresAt': expiresAt,
-      'used': used,
-      'usedBy': usedBy,
-      'usedAt': usedAt,
-    };
-  }
-
   @override
   String toString() =>
       'InviteCodeModel(code: $code, used: $used, expires: ${expiresAt.toLocal()})';

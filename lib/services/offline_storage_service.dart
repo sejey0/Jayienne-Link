@@ -60,7 +60,6 @@ class OfflineStorageService {
         accuracy REAL NOT NULL,
         timestamp INTEGER NOT NULL,
         is_synced INTEGER NOT NULL DEFAULT 0,
-        firestore_id TEXT,
         partner_id TEXT,
         source INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
@@ -200,24 +199,24 @@ class OfflineStorageService {
   }
 
   /// Mark a location as synced
-  Future<void> markAsSynced(int localId, String firestoreId) async {
+  Future<void> markAsSynced(int localId, String supabaseId) async {
     final db = await database;
     await db.update(
       _locationsTable,
-      {'is_synced': 1, 'firestore_id': firestoreId},
+      {'is_synced': 1, 'supabase_id': supabaseId},
       where: 'id = ?',
       whereArgs: [localId],
     );
   }
 
   /// Mark multiple locations as synced (batch operation)
-  Future<void> markBatchAsSynced(Map<int, String> localToFirestoreIds) async {
+  Future<void> markBatchAsSynced(Map<int, String> localToSupabaseIds) async {
     final db = await database;
     final batch = db.batch();
-    for (final entry in localToFirestoreIds.entries) {
+    for (final entry in localToSupabaseIds.entries) {
       batch.update(
         _locationsTable,
-        {'is_synced': 1, 'firestore_id': entry.value},
+        {'is_synced': 1, 'supabase_id': entry.value},
         where: 'id = ?',
         whereArgs: [entry.key],
       );
@@ -301,16 +300,16 @@ class OfflineStorageService {
     );
   }
 
-  /// Store partner's locations received from Firestore
+  /// Store partner's locations received from Supabase
   Future<void> storePartnerLocations(List<LocationModel> locations) async {
     final db = await database;
     final batch = db.batch();
     for (final location in locations) {
-      // Check if we already have this location
+      // Check if we already have this location by Supabase ID
       final existing = await db.query(
         _locationsTable,
-        where: 'firestore_id = ?',
-        whereArgs: [location.firestoreId],
+        where: 'supabase_id = ?',
+        whereArgs: [location.id],
         limit: 1,
       );
 

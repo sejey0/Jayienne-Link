@@ -1,8 +1,6 @@
-/// PostgreSQL-compatible UserModel for Supabase integration
-/// Maintains compatibility with existing code while adding Supabase support
+/// Supabase UserModel for PostgreSQL database
 class UserModel {
-  final String? id; // Supabase UUID (null for new records)
-  final String? firebaseUid; // Firebase UID for migration compatibility
+  final String id;
   final String email;
   final String? phoneNumber;
   final String displayName;
@@ -15,8 +13,7 @@ class UserModel {
   final DateTime updatedAt;
 
   const UserModel({
-    this.id,
-    this.firebaseUid,
+    required this.id,
     required this.email,
     this.phoneNumber,
     required this.displayName,
@@ -30,11 +27,10 @@ class UserModel {
   });
 
   /// Compatibility getter for existing code that expects 'uid'
-  String get uid => id ?? firebaseUid ?? '';
+  String get uid => id;
 
   UserModel copyWith({
     String? id,
-    String? firebaseUid,
     String? email,
     String? phoneNumber,
     String? displayName,
@@ -48,7 +44,6 @@ class UserModel {
   }) {
     return UserModel(
       id: id ?? this.id,
-      firebaseUid: firebaseUid ?? this.firebaseUid,
       email: email ?? this.email,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       displayName: displayName ?? this.displayName,
@@ -65,8 +60,7 @@ class UserModel {
   /// Create from Supabase JSON response
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] as String?,
-      firebaseUid: json['firebase_uid'] as String?,
+      id: json['id'] as String,
       email: json['email'] as String? ?? '',
       phoneNumber: json['phone_number'] as String?,
       displayName: json['display_name'] as String? ?? '',
@@ -89,8 +83,7 @@ class UserModel {
   /// Convert to JSON for Supabase
   Map<String, dynamic> toJson() {
     return {
-      if (id != null) 'id': id,
-      if (firebaseUid != null) 'firebase_uid': firebaseUid,
+      'id': id,
       'email': email,
       'phone_number': phoneNumber,
       'display_name': displayName,
@@ -107,7 +100,6 @@ class UserModel {
   /// Convert to JSON for database insertion (excludes auto-generated fields)
   Map<String, dynamic> toInsertJson() {
     final json = toJson();
-    // Keep explicit id when provided (e.g., auth.uid) to maintain FK consistency.
     json.remove('created_at'); // Let database set default
     json.remove('updated_at'); // Let database set default
     return json;
@@ -116,74 +108,26 @@ class UserModel {
   /// Convert to JSON for database updates (excludes immutable fields)
   Map<String, dynamic> toUpdateJson() {
     final json = toJson();
-    json.remove('id');
-    json.remove('firebase_uid'); // Immutable
+    json.remove('id'); // Immutable
     json.remove('created_at'); // Immutable
     json.remove('updated_at'); // Updated by trigger
     return json;
   }
 
-  /// Firebase Firestore compatibility methods (for existing code)
-  @Deprecated(
-      'Use fromJson instead. This is for Firebase migration compatibility only.')
-  factory UserModel.fromFirestore(Map<String, dynamic> data) {
-    return UserModel(
-      firebaseUid: data['uid'] as String?,
-      email: data['email'] as String? ?? '',
-      phoneNumber: data['phoneNumber'] as String?,
-      displayName: data['displayName'] as String? ?? '',
-      photoUrl: data['photoUrl'] as String?,
-      birthday:
-          data['birthday'] is DateTime ? data['birthday'] as DateTime : null,
-      coupleId: data['coupleId'] as String?,
-      inviteCode: data['inviteCode'] as String?,
-      profileComplete: data['profileComplete'] as bool? ?? false,
-      createdAt: data['createdAt'] as DateTime? ?? DateTime.now(),
-      updatedAt: data['updatedAt'] as DateTime? ?? DateTime.now(),
-    );
-  }
-
-  @Deprecated(
-      'Use toJson instead. This is for Firebase migration compatibility only.')
-  Map<String, dynamic> toFirestore() {
-    return {
-      'uid': firebaseUid ?? id,
-      'email': email,
-      'phoneNumber': phoneNumber,
-      'displayName': displayName,
-      'photoUrl': photoUrl,
-      'birthday': birthday,
-      'coupleId': coupleId,
-      'inviteCode': inviteCode,
-      'profileComplete': profileComplete,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-    };
-  }
-
   @override
-  String toString() =>
-      'UserModel(id: ${id ?? firebaseUid}, displayName: $displayName)';
+  String toString() => 'UserModel(id: $id, displayName: $displayName)';
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is UserModel &&
-          runtimeType == other.runtimeType &&
-          (id == other.id || firebaseUid == other.firebaseUid);
+      other is UserModel && runtimeType == other.runtimeType && id == other.id;
 
   @override
-  int get hashCode => (id ?? firebaseUid).hashCode;
+  int get hashCode => id.hashCode;
 
-  /// Check if user skipped couple linking (has placeholder coupleId)
+  /// Check if user skipped couple linking
   bool get hasSkippedCoupleLink => inviteCode == 'SKIPPED';
 
   /// Check if user has a real partner link
   bool get hasRealPartner => coupleId != null;
-
-  /// Check if this is a Supabase user (has UUID id) vs Firebase user (has firebaseUid only)
-  bool get isSupabaseUser => id != null;
-
-  /// Check if this is a Firebase migration user
-  bool get isFirebaseMigrationUser => firebaseUid != null;
 }

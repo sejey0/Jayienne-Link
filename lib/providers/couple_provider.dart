@@ -91,7 +91,7 @@ class CoupleProvider extends ChangeNotifier {
     });
   }
 
-  /// Loads the existing invite code for a user from Firestore
+  /// Loads the existing invite code for a user from Supabase
   Future<void> loadExistingCode(String? code) async {
     if (code == null) return;
     if (code == 'SKIPPED') {

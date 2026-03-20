@@ -1,15 +1,14 @@
--- Supabase Database Schema Migration Script
--- Migrating from Firebase Firestore to PostgreSQL
+-- Supabase Database Schema for Jayienne Link
+-- Pure Supabase setup (no Firebase compatibility)
 
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
 -- =====================================================
--- COUPLES TABLE (equivalent to 'couples' collection)
+-- COUPLES TABLE
 -- =====================================================
--- Creating this first as users table references it
-CREATE TABLE couples (
+CREATE TABLE IF NOT EXISTS couples (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     partner_ids UUID[] NOT NULL CHECK (array_length(partner_ids, 1) = 2),
     partner_names TEXT[] NOT NULL CHECK (array_length(partner_names, 1) = 2),
@@ -21,11 +20,10 @@ CREATE TABLE couples (
 );
 
 -- =====================================================
--- USERS TABLE (equivalent to 'users' collection)
+-- USERS TABLE
 -- =====================================================
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    firebase_uid TEXT UNIQUE, -- For migration compatibility
     email TEXT UNIQUE NOT NULL,
     phone_number TEXT,
     display_name TEXT NOT NULL,
@@ -39,9 +37,9 @@ CREATE TABLE users (
 );
 
 -- =====================================================
--- INVITE_CODES TABLE (equivalent to 'inviteCodes' collection)
+-- INVITE_CODES TABLE
 -- =====================================================
-CREATE TABLE invite_codes (
+CREATE TABLE IF NOT EXISTS invite_codes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     code TEXT UNIQUE NOT NULL,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -53,9 +51,9 @@ CREATE TABLE invite_codes (
 );
 
 -- =====================================================
--- LOCATIONS TABLE (equivalent to couples/{id}/locations subcollection)
+-- LOCATIONS TABLE
 -- =====================================================
-CREATE TABLE locations (
+CREATE TABLE IF NOT EXISTS locations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     couple_id UUID NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
     owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -68,39 +66,35 @@ CREATE TABLE locations (
 );
 
 -- =====================================================
--- INDEXES FOR PERFORMANCE
+-- INDEXES
 -- =====================================================
 
 -- Users indexes
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_firebase_uid ON users(firebase_uid);
-CREATE INDEX idx_users_couple_id ON users(couple_id);
-CREATE INDEX idx_users_invite_code ON users(invite_code);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_couple_id ON users(couple_id);
+CREATE INDEX IF NOT EXISTS idx_users_invite_code ON users(invite_code);
 
 -- Couples indexes
-CREATE INDEX idx_couples_partner_ids ON couples USING GIN(partner_ids);
-CREATE INDEX idx_couples_created_at ON couples(created_at);
+CREATE INDEX IF NOT EXISTS idx_couples_partner_ids ON couples USING GIN(partner_ids);
+CREATE INDEX IF NOT EXISTS idx_couples_created_at ON couples(created_at);
 
 -- Invite codes indexes
-CREATE INDEX idx_invite_codes_code ON invite_codes(code);
-CREATE INDEX idx_invite_codes_user_id ON invite_codes(user_id);
-CREATE INDEX idx_invite_codes_expires_at ON invite_codes(expires_at);
-CREATE INDEX idx_invite_codes_used ON invite_codes(used);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(code);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_user_id ON invite_codes(user_id);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_expires_at ON invite_codes(expires_at);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_used ON invite_codes(used);
 
--- Locations indexes (for geo queries and filtering)
-CREATE INDEX idx_locations_couple_id ON locations(couple_id);
-CREATE INDEX idx_locations_owner_id ON locations(owner_id);
-CREATE INDEX idx_locations_timestamp ON locations(timestamp DESC);
-CREATE INDEX idx_locations_created_at ON locations(created_at DESC);
-
--- Geographic index for spatial queries (future use)
-CREATE INDEX idx_locations_coordinates ON locations USING GIST(point(longitude, latitude));
+-- Locations indexes
+CREATE INDEX IF NOT EXISTS idx_locations_couple_id ON locations(couple_id);
+CREATE INDEX IF NOT EXISTS idx_locations_owner_id ON locations(owner_id);
+CREATE INDEX IF NOT EXISTS idx_locations_timestamp ON locations(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_locations_created_at ON locations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_locations_coordinates ON locations USING GIST(point(longitude, latitude));
 
 -- =====================================================
--- TRIGGERS FOR AUTOMATIC TIMESTAMP UPDATES
+-- TRIGGERS
 -- =====================================================
 
--- Function to update updated_at column
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -109,76 +103,97 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Apply triggers
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_couples_updated_at ON couples;
 CREATE TRIGGER update_couples_updated_at BEFORE UPDATE ON couples
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- ROW LEVEL SECURITY (RLS)
 -- =====================================================
 
--- Enable RLS on all tables
+-- Enable RLS
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE couples ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invite_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 
--- Users policies
+-- Drop existing policies
+DROP POLICY IF EXISTS "Users can read own profile" ON users;
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
+DROP POLICY IF EXISTS "Users can insert own profile" ON users;
+DROP POLICY IF EXISTS "Users can read own couple" ON couples;
+DROP POLICY IF EXISTS "Users can update own couple" ON couples;
+DROP POLICY IF EXISTS "Users can create couples" ON couples;
+DROP POLICY IF EXISTS "Users can manage own invite codes" ON invite_codes;
+DROP POLICY IF EXISTS "Anyone can read valid invite codes" ON invite_codes;
+DROP POLICY IF EXISTS "Users can read couple locations" ON locations;
+DROP POLICY IF EXISTS "Users can insert own locations" ON locations;
+DROP POLICY IF EXISTS "Users can update own locations" ON locations;
+
+-- Users policies (users.id = auth.uid())
 CREATE POLICY "Users can read own profile" ON users
-    FOR SELECT USING (auth.uid()::text = firebase_uid);
+    FOR SELECT USING (auth.uid() = id);
 
 CREATE POLICY "Users can update own profile" ON users
-    FOR UPDATE USING (auth.uid()::text = firebase_uid);
+    FOR UPDATE USING (auth.uid() = id);
 
 CREATE POLICY "Users can insert own profile" ON users
-    FOR INSERT WITH CHECK (auth.uid()::text = firebase_uid);
+    FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- Couples policies
 CREATE POLICY "Users can read own couple" ON couples
     FOR SELECT USING (
-        auth.uid()::uuid = ANY(partner_ids) OR
-        EXISTS (SELECT 1 FROM users WHERE id = auth.uid()::uuid AND couple_id = couples.id)
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE couple_id = couples.id AND id = auth.uid()
+        )
     );
 
 CREATE POLICY "Users can update own couple" ON couples
     FOR UPDATE USING (
-        auth.uid()::uuid = ANY(partner_ids) OR
-        EXISTS (SELECT 1 FROM users WHERE id = auth.uid()::uuid AND couple_id = couples.id)
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE couple_id = couples.id AND id = auth.uid()
+        )
     );
+
+CREATE POLICY "Users can create couples" ON couples
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Invite codes policies
 CREATE POLICY "Users can manage own invite codes" ON invite_codes
     FOR ALL USING (
-        user_id = auth.uid()::uuid OR
-        used_by = auth.uid()::uuid
+        user_id = auth.uid() OR used_by = auth.uid()
     );
 
 CREATE POLICY "Anyone can read valid invite codes" ON invite_codes
-    FOR SELECT USING (NOT used AND expires_at > NOW());
+    FOR SELECT USING (
+        auth.uid() IS NOT NULL AND NOT used AND expires_at > NOW()
+    );
 
 -- Locations policies
 CREATE POLICY "Users can read couple locations" ON locations
     FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM users
-            WHERE id = auth.uid()::uuid AND couple_id = locations.couple_id
+            WHERE couple_id = locations.couple_id AND id = auth.uid()
         )
     );
 
 CREATE POLICY "Users can insert own locations" ON locations
-    FOR INSERT WITH CHECK (owner_id = auth.uid()::uuid);
+    FOR INSERT WITH CHECK (owner_id = auth.uid());
 
 CREATE POLICY "Users can update own locations" ON locations
-    FOR UPDATE USING (owner_id = auth.uid()::uuid);
+    FOR UPDATE USING (owner_id = auth.uid());
 
 -- =====================================================
 -- HELPER FUNCTIONS
 -- =====================================================
 
--- Function to clean up expired invite codes
 CREATE OR REPLACE FUNCTION cleanup_expired_invite_codes()
 RETURNS void AS $$
 BEGIN
@@ -186,7 +201,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to get user's partner ID
 CREATE OR REPLACE FUNCTION get_partner_id(user_uuid UUID)
 RETURNS UUID AS $$
 DECLARE
@@ -206,7 +220,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to create a couple relationship
 CREATE OR REPLACE FUNCTION create_couple(
     user1_id UUID,
     user2_id UUID,
@@ -217,12 +230,10 @@ RETURNS UUID AS $$
 DECLARE
     new_couple_id UUID;
 BEGIN
-    -- Create the couple
     INSERT INTO couples (partner_ids, partner_names)
     VALUES (ARRAY[user1_id, user2_id], ARRAY[user1_name, user2_name])
     RETURNING id INTO new_couple_id;
 
-    -- Update both users' couple_id
     UPDATE users SET couple_id = new_couple_id WHERE id IN (user1_id, user2_id);
 
     RETURN new_couple_id;
@@ -230,9 +241,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =====================================================
--- INITIAL SETUP COMPLETE
+-- PERMISSIONS
 -- =====================================================
 
--- Grant permissions to authenticated users
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;

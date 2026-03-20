@@ -74,7 +74,6 @@ class UserProvider extends ChangeNotifier {
       final now = DateTime.now();
       final user = UserModel(
         id: uid,
-        firebaseUid: uid,
         email: email,
         phoneNumber: phoneNumber,
         displayName: displayName,

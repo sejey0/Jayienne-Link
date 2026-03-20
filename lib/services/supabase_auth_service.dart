@@ -2,7 +2,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 
 /// Authentication service using Supabase Auth
-/// Provides compatible interface with the original Firebase auth service
 class SupabaseAuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -16,7 +15,7 @@ class SupabaseAuthService {
   /// Current session
   Session? get currentSession => _supabase.auth.currentSession;
 
-  /// Current user ID (compatible with existing code expecting Firebase UID)
+  /// Current user ID
   String? get currentUserId => currentUser?.id;
 
   /// Check if user is authenticated
@@ -93,7 +92,6 @@ class SupabaseAuthService {
   }
 
   /// Verify phone number with OTP
-  /// Note: This is a simplified interface compared to Firebase's complex phone auth flow
   Future<void> verifyPhoneNumber({
     required String phoneNumber,
     required void Function(User user) onSuccess,

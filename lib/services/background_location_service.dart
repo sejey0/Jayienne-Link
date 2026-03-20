@@ -199,7 +199,7 @@ Future<void> _captureBackgroundLocation() async {
   }
 }
 
-/// Try to sync locations to Firebase if online
+/// Try to sync locations to Supabase if online
 Future<void> _trySyncInBackground() async {
   try {
     final connectivity = await Connectivity().checkConnectivity();

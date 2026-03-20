@@ -107,34 +107,6 @@ class CoupleModel {
     return json;
   }
 
-  /// Firebase Firestore compatibility methods (for existing code)
-  @Deprecated(
-      'Use fromJson instead. This is for Firebase migration compatibility only.')
-  factory CoupleModel.fromFirestore(Map<String, dynamic> data, String docId) {
-    return CoupleModel(
-      id: docId,
-      partnerIds: List<String>.from(data['partnerIds'] ?? []),
-      partnerNames: List<String>.from(data['partnerNames'] ?? []),
-      createdAt: data['createdAt'] as DateTime? ?? DateTime.now(),
-      anniversary: data['anniversary'] as DateTime?,
-      coupleName: data['coupleName'] as String?,
-      status: data['status'] as String? ?? 'active',
-    );
-  }
-
-  @Deprecated(
-      'Use toJson instead. This is for Firebase migration compatibility only.')
-  Map<String, dynamic> toFirestore() {
-    return {
-      'partnerIds': partnerIds,
-      'partnerNames': partnerNames,
-      'createdAt': createdAt,
-      'anniversary': anniversary,
-      'coupleName': coupleName,
-      'status': status,
-    };
-  }
-
   @override
   String toString() =>
       'CoupleModel(id: $id, partners: ${partnerNames.join(" & ")})';

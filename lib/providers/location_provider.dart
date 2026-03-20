@@ -280,7 +280,7 @@ class LocationProvider extends ChangeNotifier {
   // SYNC OPERATIONS
   // =====================
 
-  /// Sync unsynced locations to Firestore
+  /// Sync unsynced locations to Supabase
   Future<SyncResult> syncLocations() async {
     if (_userId == null || _coupleId == null) {
       return SyncResult(

@@ -2,26 +2,16 @@ import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../services/supabase_data_service.dart';
 
-/// Supabase-based user service providing the same interface as the original Firebase service
-/// Handles all user profile CRUD operations using PostgreSQL
+/// Supabase user service for PostgreSQL database operations
 class SupabaseUserService {
   static const String _tableName = 'users';
 
-  /// Get a user by their ID (supports both Supabase UUID and Firebase UID)
+  /// Get a user by their ID
   Future<UserModel?> getUser(String uid) async {
     try {
-      // Try to find by Supabase UUID first
-      Map<String, dynamic>? userData =
-          await SupabaseDataService.getSingleRecord(
+      final userData = await SupabaseDataService.getSingleRecord(
         _tableName,
         whereColumn: 'id',
-        whereValue: uid,
-      );
-
-      // If not found, try Firebase UID for migration compatibility
-      userData ??= await SupabaseDataService.getSingleRecord(
-        _tableName,
-        whereColumn: 'firebase_uid',
         whereValue: uid,
       );
 
@@ -40,27 +30,16 @@ class SupabaseUserService {
   /// Get a real-time stream of user data
   Stream<UserModel?> userStream(String uid) {
     try {
-      // First try to get by Supabase UUID
       return SupabaseDataService.getSingleRecordStream(
         _tableName,
         whereColumn: 'id',
         whereValue: uid,
-      ).asyncMap((userData) async {
-        // If not found by UUID, try Firebase UID
-        if (userData == null) {
-          debugPrint('User not found by id=$uid, trying firebase_uid...');
-          userData = await SupabaseDataService.getSingleRecord(
-            _tableName,
-            whereColumn: 'firebase_uid',
-            whereValue: uid,
-          );
-        }
-
+      ).map((userData) {
         if (userData != null) {
-          debugPrint('User loaded: id=${userData['id']}, firebase_uid=${userData['firebase_uid']}');
+          debugPrint('User loaded: id=${userData['id']}');
+          return UserModel.fromJson(userData);
         }
-
-        return userData != null ? UserModel.fromJson(userData) : null;
+        return null;
       }).handleError((error) {
         debugPrint('User stream error for $uid: $error');
       });
@@ -70,16 +49,26 @@ class SupabaseUserService {
     }
   }
 
-  /// Create a new user profile
+  /// Create a new user profile (or update if exists)
   Future<void> createUser(UserModel user) async {
     try {
       debugPrint('Creating user profile for: ${user.email}');
 
       final payload = user.toInsertJson();
 
-      // Ensure users.id aligns with auth UID so FK relations (invite_codes.user_id, couples)
-      // work with auth.currentUserId used across providers.
-      payload['id'] = user.id ?? user.firebaseUid;
+      // First check if user already exists by email
+      final existing = await getSingleRecord(
+        _tableName,
+        whereColumn: 'email',
+        whereValue: user.email,
+      );
+
+      if (existing != null) {
+        // User already exists, update instead
+        debugPrint('User already exists, updating profile: ${user.email}');
+        await updateUser(existing['id'] as String, payload);
+        return;
+      }
 
       await SupabaseDataService.insertRecord(_tableName, payload);
 
@@ -90,34 +79,36 @@ class SupabaseUserService {
     }
   }
 
+  /// Helper method to get a single record
+  static Future<Map<String, dynamic>?> getSingleRecord(
+    String table, {
+    required String whereColumn,
+    required dynamic whereValue,
+  }) async {
+    return await SupabaseDataService.getSingleRecord(
+      table,
+      whereColumn: whereColumn,
+      whereValue: whereValue,
+    );
+  }
+
   /// Update user profile data
   Future<void> updateUser(String uid, Map<String, dynamic> data) async {
     try {
       debugPrint('Updating user profile: $uid');
 
-      // Convert Firestore-style field names to PostgreSQL format if needed
+      // Convert camelCase field names to snake_case for PostgreSQL
       final pgData = _convertFieldNames(data);
 
       // Add updated timestamp
       pgData['updated_at'] = DateTime.now().toIso8601String();
 
-      // Try to update by Supabase UUID first
-      final results = await SupabaseDataService.updateRecords(
+      await SupabaseDataService.updateRecords(
         _tableName,
         pgData,
         whereColumn: 'id',
         whereValue: uid,
       );
-
-      // If no rows updated, try Firebase UID
-      if (results.isEmpty) {
-        await SupabaseDataService.updateRecords(
-          _tableName,
-          pgData,
-          whereColumn: 'firebase_uid',
-          whereValue: uid,
-        );
-      }
 
       debugPrint('✅ User profile updated successfully: $uid');
     } catch (e) {
@@ -126,28 +117,16 @@ class SupabaseUserService {
     }
   }
 
-  /// Delete a user profile (admin function)
+  /// Delete a user profile
   Future<void> deleteUser(String uid) async {
     try {
       debugPrint('Deleting user profile: $uid');
 
-      // Try to delete by Supabase UUID first
       await SupabaseDataService.deleteRecords(
         _tableName,
         whereColumn: 'id',
         whereValue: uid,
       );
-
-      // Also try by Firebase UID if it exists
-      try {
-        await SupabaseDataService.deleteRecords(
-          _tableName,
-          whereColumn: 'firebase_uid',
-          whereValue: uid,
-        );
-      } catch (e) {
-        // Ignore if not found by Firebase UID
-      }
 
       debugPrint('✅ User profile deleted successfully: $uid');
     } catch (e) {
@@ -173,7 +152,7 @@ class SupabaseUserService {
     }
   }
 
-  /// Search users by email (for admin/debug purposes)
+  /// Search users by email
   Future<UserModel?> getUserByEmail(String email) async {
     try {
       final userData = await SupabaseDataService.getSingleRecord(
@@ -198,7 +177,6 @@ class SupabaseUserService {
         ascending: false,
       );
 
-      // Filter users with invite codes
       return usersData
           .map((data) => UserModel.fromJson(data))
           .where(
@@ -215,25 +193,21 @@ class SupabaseUserService {
     try {
       final stats = <String, dynamic>{};
 
-      // Get total user count
       final totalUsers = await SupabaseDataService.getRecords(_tableName);
       stats['total_users'] = totalUsers.length;
 
-      // Count users with complete profiles
       final completeProfiles = totalUsers
           .map((data) => UserModel.fromJson(data))
           .where((user) => user.profileComplete)
           .length;
       stats['complete_profiles'] = completeProfiles;
 
-      // Count users in couples
       final usersInCouples = totalUsers
           .map((data) => UserModel.fromJson(data))
           .where((user) => user.hasRealPartner)
           .length;
       stats['users_in_couples'] = usersInCouples;
 
-      // Count users with photos
       final usersWithPhotos = totalUsers
           .map((data) => UserModel.fromJson(data))
           .where((user) => user.photoUrl != null && user.photoUrl!.isNotEmpty)
@@ -247,61 +221,12 @@ class SupabaseUserService {
     }
   }
 
-  /// Migrate user from Firebase to Supabase (keeping Firebase UID for compatibility)
-  Future<UserModel> migrateFirebaseUser(
-      String firebaseUid, Map<String, dynamic> firebaseData) async {
-    try {
-      debugPrint('Migrating Firebase user to Supabase: $firebaseUid');
-
-      // Check if user already exists
-      final existingUser = await getUserByFirebaseUid(firebaseUid);
-      if (existingUser != null) {
-        debugPrint('User already migrated: $firebaseUid');
-        return existingUser;
-      }
-
-      // Convert Firebase data to Supabase format
-      final userData = _convertFirebaseToSupabase(firebaseData, firebaseUid);
-
-      // Create the user
-      final newUserData =
-          await SupabaseDataService.insertRecord(_tableName, userData);
-      final migratedUser = UserModel.fromJson(newUserData);
-
-      debugPrint(
-          '✅ User migrated successfully: $firebaseUid -> ${migratedUser.id}');
-      return migratedUser;
-    } catch (e) {
-      debugPrint('❌ Failed to migrate user $firebaseUid: $e');
-      throw Exception('Failed to migrate user: $e');
-    }
-  }
-
-  /// Get user by Firebase UID (for migration support)
-  Future<UserModel?> getUserByFirebaseUid(String firebaseUid) async {
-    try {
-      final userData = await SupabaseDataService.getSingleRecord(
-        _tableName,
-        whereColumn: 'firebase_uid',
-        whereValue: firebaseUid,
-      );
-
-      return userData != null ? UserModel.fromJson(userData) : null;
-    } catch (e) {
-      debugPrint('Failed to get user by Firebase UID $firebaseUid: $e');
-      return null;
-    }
-  }
-
-  /// Convert field names from Firestore format to PostgreSQL format
-  Map<String, dynamic> _convertFieldNames(Map<String, dynamic> firestoreData) {
+  /// Convert camelCase field names to snake_case for PostgreSQL
+  Map<String, dynamic> _convertFieldNames(Map<String, dynamic> data) {
     final pgData = <String, dynamic>{};
 
-    for (final entry in firestoreData.entries) {
+    for (final entry in data.entries) {
       switch (entry.key) {
-        case 'uid':
-          pgData['firebase_uid'] = entry.value;
-          break;
         case 'phoneNumber':
           pgData['phone_number'] = entry.value;
           break;
@@ -336,24 +261,6 @@ class SupabaseUserService {
     }
 
     return pgData;
-  }
-
-  /// Convert Firebase user data to Supabase format
-  Map<String, dynamic> _convertFirebaseToSupabase(
-      Map<String, dynamic> firebaseData, String firebaseUid) {
-    return {
-      'firebase_uid': firebaseUid,
-      'email': firebaseData['email'] ?? '',
-      'phone_number': firebaseData['phoneNumber'],
-      'display_name': firebaseData['displayName'] ?? '',
-      'photo_url': firebaseData['photoUrl'],
-      'birthday': firebaseData['birthday'] is DateTime
-          ? (firebaseData['birthday'] as DateTime).toIso8601String()
-          : firebaseData['birthday'],
-      'couple_id': firebaseData['coupleId'],
-      'invite_code': firebaseData['inviteCode'],
-      'profile_complete': firebaseData['profileComplete'] ?? false,
-    };
   }
 
   /// Test database connectivity

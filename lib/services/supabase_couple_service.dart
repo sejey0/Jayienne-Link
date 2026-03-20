@@ -15,6 +15,8 @@ class SupabaseCoupleService {
   Future<String> generateAndStoreInviteCode(String userId) async {
     const maxAttempts = 5;
 
+    debugPrint('📝 Generating invite code for user ID: $userId');
+
     // First, verify the user exists in the users table
     final userExists = await SupabaseDataService.getSingleRecord(
       _usersTable,
@@ -26,6 +28,8 @@ class SupabaseCoupleService {
       debugPrint('❌ User not found in users table: $userId');
       throw Exception('User not found. Please complete your profile first.');
     }
+
+    debugPrint('✅ User verified in database: ${userExists['email']}');
 
     for (var i = 0; i < maxAttempts; i++) {
       final code = InviteCodeGenerator.generate();
@@ -86,6 +90,7 @@ class SupabaseCoupleService {
         return null;
       }
 
+      debugPrint('📋 Invite code found: $code, owner user_id: ${codeData['user_id']}');
       return InviteCodeModel.fromJson(codeData);
     } catch (e) {
       debugPrint('Failed to get invite code $code: $e');
@@ -135,18 +140,29 @@ class SupabaseCoupleService {
       }
 
       // Step 3: Get both users
+      debugPrint('🔍 Looking up current user: $currentUserId');
       final currentUserData = await SupabaseDataService.getSingleRecord(
         _usersTable,
         whereColumn: 'id',
         whereValue: currentUserId,
       );
+      debugPrint('🔍 Current user found: ${currentUserData != null}');
+
+      debugPrint('🔍 Looking up partner (code owner): ${inviteCode.userId}');
       final partnerData = await SupabaseDataService.getSingleRecord(
         _usersTable,
         whereColumn: 'id',
         whereValue: inviteCode.userId,
       );
+      debugPrint('🔍 Partner found: ${partnerData != null}');
 
       if (currentUserData == null || partnerData == null) {
+        if (currentUserData == null) {
+          debugPrint('❌ Current user NOT in database: $currentUserId');
+        }
+        if (partnerData == null) {
+          debugPrint('❌ Partner (code owner) NOT in database: ${inviteCode.userId}');
+        }
         throw Exception('User not found');
       }
 

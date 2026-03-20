@@ -26,6 +26,7 @@ class CoupleLinkingScreen extends StatefulWidget {
 class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
   final _codeController = TextEditingController();
   Timer? _expiryTimer;
+  bool _isDisposed = false;
 
   @override
   void initState() {
@@ -79,13 +80,17 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
 
   void _startExpiryTimer() {
     _expiryTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) setState(() {});
+      if (!_isDisposed && mounted) {
+        setState(() {});
+      }
     });
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _expiryTimer?.cancel();
+    _expiryTimer = null;
     try {
       _codeController.dispose();
     } catch (e) {

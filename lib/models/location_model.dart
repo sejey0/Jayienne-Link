@@ -183,9 +183,10 @@ class LocationSharingSettings {
 
   factory LocationSharingSettings.fromMap(Map<String, dynamic> map) {
     return LocationSharingSettings(
-      sharingEnabled: map['sharing_enabled'] as bool? ?? false,
+      // SQLite stores booleans as integers (0/1)
+      sharingEnabled: (map['sharing_enabled'] == 1 || map['sharing_enabled'] == true),
       backgroundSharingEnabled:
-          map['background_sharing_enabled'] as bool? ?? false,
+          (map['background_sharing_enabled'] == 1 || map['background_sharing_enabled'] == true),
       updateIntervalMinutes: map['update_interval_minutes'] as int? ?? 15,
       lastUpdated: map['last_updated'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['last_updated'] as int)
@@ -195,8 +196,9 @@ class LocationSharingSettings {
 
   Map<String, dynamic> toMap() {
     return {
-      'sharing_enabled': sharingEnabled,
-      'background_sharing_enabled': backgroundSharingEnabled,
+      // SQLite doesn't support bool - use 0/1 integers
+      'sharing_enabled': sharingEnabled ? 1 : 0,
+      'background_sharing_enabled': backgroundSharingEnabled ? 1 : 0,
       'update_interval_minutes': updateIntervalMinutes,
       'last_updated': lastUpdated?.millisecondsSinceEpoch,
     };

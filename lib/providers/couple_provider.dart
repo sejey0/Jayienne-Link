@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/couple_model.dart';
-import '../services/supabase_couple_service.dart';
+import '../services/couple_service.dart';
 
 class CoupleProvider extends ChangeNotifier {
-  final SupabaseCoupleService _coupleService;
+  final CoupleService _coupleService;
 
   CoupleModel? _couple;
   String? _inviteCode;

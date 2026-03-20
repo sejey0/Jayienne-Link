@@ -2,14 +2,14 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
-import '../services/supabase_user_service.dart';
+import '../services/user_service.dart';
 import '../services/supabase_storage_service.dart';
-import '../services/supabase_couple_service.dart';
+import '../services/couple_service.dart';
 
 class UserProvider extends ChangeNotifier {
-  final SupabaseUserService _userService;
+  final UserService _userService;
   final SupabaseStorageService _storageService;
-  final SupabaseCoupleService _coupleService;
+  final CoupleService _coupleService;
 
   UserModel? _user;
   bool _isLoading = false;

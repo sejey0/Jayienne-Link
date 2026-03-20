@@ -10,8 +10,8 @@ import 'providers/couple_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/location_provider.dart';
 import 'services/supabase_auth_service.dart';
-import 'services/supabase_user_service.dart';
-import 'services/supabase_couple_service.dart';
+import 'services/user_service.dart';
+import 'services/couple_service.dart';
 import 'services/supabase_storage_service.dart';
 import 'services/supabase_data_service.dart';
 import 'services/background_location_service.dart';
@@ -41,8 +41,8 @@ void main() async {
   );
 
   final authService = SupabaseAuthService();
-  final userService = SupabaseUserService();
-  final coupleService = SupabaseCoupleService();
+  final userService = UserService();
+  final coupleService = CoupleService();
   final storageService = SupabaseStorageService();
 
   runApp(

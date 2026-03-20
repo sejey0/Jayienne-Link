@@ -8,7 +8,7 @@ import '../services/offline_storage_service.dart';
 import '../services/supabase_location_sync_service.dart';
 import '../services/background_location_service.dart';
 import '../services/foreground_notification_service.dart';
-import '../services/supabase_user_service.dart';
+import '../services/user_service.dart';
 
 /// Provider for managing location state across the app.
 /// Handles offline-first location sharing with partner.
@@ -21,7 +21,7 @@ class LocationProvider extends ChangeNotifier {
       BackgroundLocationService.instance;
   final ForegroundNotificationService _notificationService =
       ForegroundNotificationService.instance;
-  final SupabaseUserService _userService;
+  final UserService _userService;
 
   LocationProvider(this._userService);
 

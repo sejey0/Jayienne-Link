@@ -53,7 +53,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     if (otp.length != 6) return;
 
     final auth = context.read<AuthProvider>();
-    final success = await auth.verifyOtp(otp, ""); // TODO: Pass actual phone number
+    final success =
+        await auth.verifyOtp(otp, ""); // TODO: Pass actual phone number
 
     if (!mounted) return;
 

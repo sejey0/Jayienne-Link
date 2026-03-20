@@ -86,8 +86,7 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
 
     final auth = context.read<AuthProvider>();
     final coupleProvider = context.read<CoupleProvider>();
-    final success =
-        await coupleProvider.redeemCode(code, auth.currentUserId!);
+    final success = await coupleProvider.redeemCode(code, auth.currentUserId!);
 
     if (!mounted) return;
 

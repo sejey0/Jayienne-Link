@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/supabase_location_model.dart';
+import '../models/location_model.dart';
 import '../services/supabase_data_service.dart';
 import 'offline_storage_service.dart';
 

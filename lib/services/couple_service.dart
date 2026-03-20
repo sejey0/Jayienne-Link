@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
-import '../models/supabase_couple_model.dart';
-import '../models/supabase_invite_code_model.dart';
-import '../models/supabase_user_model.dart';
+import '../models/couple_model.dart';
+import '../models/invite_code_model.dart';
+import '../models/user_model.dart';
 import '../services/supabase_data_service.dart';
 import '../core/utils/invite_code_generator.dart';
 
 /// Supabase-based couple service handling relationship management and invite codes
-class SupabaseCoupleService {
+class CoupleService {
   static const String _codesTable = 'invite_codes';
   static const String _couplesTable = 'couples';
   static const String _usersTable = 'users';

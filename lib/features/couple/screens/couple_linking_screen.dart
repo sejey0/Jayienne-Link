@@ -81,7 +81,12 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
   void _startExpiryTimer() {
     _expiryTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (!_isDisposed && mounted) {
-        setState(() {});
+        try {
+          setState(() {});
+        } catch (e) {
+          // Widget was disposed, ignore
+          debugPrint('Timer setState error (widget disposed): $e');
+        }
       }
     });
   }

@@ -238,7 +238,7 @@ BEGIN
 
     RETURN new_couple_id;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =====================================================
 -- PERMISSIONS

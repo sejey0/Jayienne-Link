@@ -67,21 +67,16 @@ class SupabaseAuthService {
   }
 
   /// Send email verification
-  Future<void> sendEmailVerification() async {
+  Future<void> sendEmailVerification({required String email}) async {
     try {
-      final user = currentUser;
-      if (user == null) {
-        throw Exception('No user is currently signed in');
-      }
-
-      // In Supabase, email verification is sent automatically on signup
-      // This method can be used to resend verification
+      // In Supabase, verification is generally sent on signup.
+      // This method explicitly resends to a known email.
       await _supabase.auth.resend(
         type: OtpType.signup,
-        email: user.email!,
+        email: email,
       );
 
-      debugPrint('✅ Email verification sent to: ${user.email}');
+      debugPrint('✅ Email verification sent to: $email');
     } catch (e) {
       debugPrint('❌ Failed to send email verification: $e');
       throw _handleAuthError(e);

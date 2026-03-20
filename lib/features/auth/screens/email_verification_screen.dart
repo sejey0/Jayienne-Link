@@ -40,16 +40,25 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   Future<void> _resendEmail() async {
     final auth = context.read<AuthProvider>();
-    await auth.sendEmailVerification();
-    if (mounted) {
-      SnackbarHelper.showSuccess(context, 'Verification email resent!');
+    try {
+      await auth.sendEmailVerification();
+      if (mounted) {
+        SnackbarHelper.showSuccess(context, 'Verification email resent!');
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(
+          context,
+          e.toString().replaceFirst('Exception: ', ''),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final email = auth.currentUser?.email ?? '';
+    final email = auth.verificationEmail ?? '';
 
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.verifyEmail)),

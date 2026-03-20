@@ -7,6 +7,7 @@ class AuthProvider extends ChangeNotifier {
   final SupabaseAuthService _authService;
 
   User? _currentUser;
+  String? _pendingVerificationEmail;
   bool _isLoading = false;
   String? _error;
 
@@ -24,6 +25,7 @@ class AuthProvider extends ChangeNotifier {
 
   bool get isAuthenticated => _currentUser != null;
   User? get currentUser => _currentUser;
+  String? get verificationEmail => _currentUser?.email ?? _pendingVerificationEmail;
   String? get currentUserId => _currentUser?.id;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -42,7 +44,8 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _authService.signUpWithEmail(email, password);
-      await _authService.sendEmailVerification();
+      _pendingVerificationEmail = email;
+      await _authService.sendEmailVerification(email: email);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -73,12 +76,17 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> sendEmailVerification() async {
-    await _authService.sendEmailVerification();
+    final email = _currentUser?.email ?? _pendingVerificationEmail;
+    if (email == null || email.isEmpty) {
+      throw Exception('No email available for verification');
+    }
+    await _authService.sendEmailVerification(email: email);
   }
 
   Future<bool> checkEmailVerified() async {
-    final verified = await _authService.checkEmailVerified();
+    final verified = _authService.checkEmailVerified();
     if (verified) {
+      _pendingVerificationEmail = null;
       notifyListeners();
     }
     return verified;

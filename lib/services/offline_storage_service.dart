@@ -8,7 +8,7 @@ import '../models/location_model.dart';
 /// Provides offline-first storage with sync status tracking.
 class OfflineStorageService {
   static const String _databaseName = 'jayienne_link_locations.db';
-  static const int _databaseVersion = 2; // Updated for data_saver column
+  static const int _databaseVersion = 3; // Added locations schema parity columns
   static const String _locationsTable = 'locations';
   static const String _settingsTable = 'location_settings';
 
@@ -52,6 +52,8 @@ class OfflineStorageService {
     await db.execute('''
       CREATE TABLE $_locationsTable (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        supabase_id TEXT,
+        couple_id TEXT NOT NULL DEFAULT '',
         owner_id TEXT NOT NULL,
         latitude REAL NOT NULL,
         longitude REAL NOT NULL,
@@ -96,8 +98,43 @@ class OfflineStorageService {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     // Migration: Add data_saver_enabled column
     if (oldVersion < 2) {
+      await _addColumnIfMissing(
+        db,
+        _settingsTable,
+        'data_saver_enabled',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+
+    // Migration: align locations table with current LocationModel map keys
+    if (oldVersion < 3) {
+      await _addColumnIfMissing(
+        db,
+        _locationsTable,
+        'supabase_id',
+        'TEXT',
+      );
+      await _addColumnIfMissing(
+        db,
+        _locationsTable,
+        'couple_id',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+    }
+  }
+
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String tableName,
+    String columnName,
+    String definition,
+  ) async {
+    final result = await db.rawQuery('PRAGMA table_info($tableName)');
+    final hasColumn = result.any((row) => row['name'] == columnName);
+    if (!hasColumn) {
       await db.execute(
-          'ALTER TABLE $_settingsTable ADD COLUMN data_saver_enabled INTEGER NOT NULL DEFAULT 0');
+        'ALTER TABLE $tableName ADD COLUMN $columnName $definition',
+      );
     }
   }
 

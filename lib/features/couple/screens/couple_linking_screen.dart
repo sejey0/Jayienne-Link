@@ -51,10 +51,24 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
       return;
     }
 
-    if (user.inviteCode != null) {
+    // Use the user's database ID from the loaded user record
+    // This ensures we use the correct ID that exists in the users table
+    final userId = user.id ?? auth.currentUserId;
+
+    if (userId == null) {
+      SnackbarHelper.showError(
+        context,
+        'User ID not found. Please try again.',
+      );
+      return;
+    }
+
+    // If user has a valid invite code that's not 'SKIPPED', load it
+    // Otherwise, generate a new code
+    if (user.inviteCode != null && user.inviteCode != 'SKIPPED') {
       coupleProvider.loadExistingCode(user.inviteCode);
     } else {
-      coupleProvider.generateCode(auth.currentUserId!);
+      coupleProvider.generateCode(userId);
     }
   }
 
@@ -84,10 +98,15 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
     final code = _codeController.text.trim().toUpperCase();
     if (code.length != 6) return;
 
+    final user = context.read<UserProvider>().user;
     final auth = context.read<AuthProvider>();
     final coupleProvider = context.read<CoupleProvider>();
-    final success =
-        await coupleProvider.redeemCode(code, auth.currentUserId!);
+
+    // Use database ID if available, fallback to auth ID
+    final userId = user?.id ?? auth.currentUserId;
+    if (userId == null) return;
+
+    final success = await coupleProvider.redeemCode(code, userId);
 
     if (!mounted) return;
 
@@ -221,10 +240,12 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                             ] else
                               TextButton.icon(
                                 onPressed: () {
+                                  final user = context.read<UserProvider>().user;
                                   final auth = context.read<AuthProvider>();
-                                  coupleProvider.regenerateCode(
-                                    auth.currentUserId!,
-                                  );
+                                  final userId = user?.id ?? auth.currentUserId;
+                                  if (userId != null) {
+                                    coupleProvider.regenerateCode(userId);
+                                  }
                                 },
                                 icon: const Icon(Icons.refresh, size: 18),
                                 label: const Text(AppStrings.generateNewCode),
@@ -302,12 +323,16 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                       ),
                     );
                     if (confirmed == true && mounted) {
+                      final user = context.read<UserProvider>().user;
                       final auth = context.read<AuthProvider>();
                       final userProvider = context.read<UserProvider>();
                       final router = GoRouter.of(context);
-                      final success = await userProvider.skipCoupleLink(
-                        auth.currentUserId!,
-                      );
+
+                      // Use database ID if available, fallback to auth ID
+                      final userId = user?.id ?? auth.currentUserId;
+                      if (userId == null) return;
+
+                      final success = await userProvider.skipCoupleLink(userId);
                       if (success && mounted) {
                         router.go(RouteNames.home);
                       }

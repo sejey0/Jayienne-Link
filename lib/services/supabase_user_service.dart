@@ -47,11 +47,18 @@ class SupabaseUserService {
         whereValue: uid,
       ).asyncMap((userData) async {
         // If not found by UUID, try Firebase UID
-        userData ??= await SupabaseDataService.getSingleRecord(
+        if (userData == null) {
+          debugPrint('User not found by id=$uid, trying firebase_uid...');
+          userData = await SupabaseDataService.getSingleRecord(
             _tableName,
             whereColumn: 'firebase_uid',
             whereValue: uid,
           );
+        }
+
+        if (userData != null) {
+          debugPrint('User loaded: id=${userData['id']}, firebase_uid=${userData['firebase_uid']}');
+        }
 
         return userData != null ? UserModel.fromJson(userData) : null;
       }).handleError((error) {

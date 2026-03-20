@@ -15,6 +15,18 @@ class SupabaseCoupleService {
   Future<String> generateAndStoreInviteCode(String userId) async {
     const maxAttempts = 5;
 
+    // First, verify the user exists in the users table
+    final userExists = await SupabaseDataService.getSingleRecord(
+      _usersTable,
+      whereColumn: 'id',
+      whereValue: userId,
+    );
+
+    if (userExists == null) {
+      debugPrint('❌ User not found in users table: $userId');
+      throw Exception('User not found. Please complete your profile first.');
+    }
+
     for (var i = 0; i < maxAttempts; i++) {
       final code = InviteCodeGenerator.generate();
 

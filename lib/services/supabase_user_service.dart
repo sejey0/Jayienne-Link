@@ -54,8 +54,6 @@ class SupabaseUserService {
     try {
       debugPrint('Creating user profile for: ${user.email}');
 
-      final payload = user.toInsertJson();
-
       // First check if user already exists by email
       final existing = await SupabaseDataService.getSingleRecord(
         _tableName,
@@ -64,12 +62,19 @@ class SupabaseUserService {
       );
 
       if (existing != null) {
-        // User already exists, update instead
+        // User already exists, update instead (don't include id to avoid FK conflicts)
         debugPrint('User already exists, updating profile: ${user.email}');
-        await updateUser(existing['id'] as String, payload);
+        final updateData = user.toUpdateJson();
+        await SupabaseDataService.updateRecords(
+          _tableName,
+          updateData,
+          whereColumn: 'id',
+          whereValue: existing['id'],
+        );
         return;
       }
 
+      final payload = user.toInsertJson();
       await SupabaseDataService.insertRecord(_tableName, payload);
 
       debugPrint('✅ User profile created successfully: ${user.email}');

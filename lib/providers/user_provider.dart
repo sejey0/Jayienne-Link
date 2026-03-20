@@ -85,7 +85,15 @@ class UserProvider extends ChangeNotifier {
       );
 
       await _userService.createUser(user);
-      _user = user;
+
+      // After creating/updating, reload user from database by email to get correct UUID
+      final dbUser = await _userService.getUserByEmail(email);
+      if (dbUser != null) {
+        _user = dbUser;
+      } else {
+        _user = user;
+      }
+
       _isLoading = false;
       notifyListeners();
       return true;

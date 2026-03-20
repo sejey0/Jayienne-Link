@@ -380,11 +380,21 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                       final userProvider = context.read<UserProvider>();
                       final router = GoRouter.of(context);
 
+                      debugPrint('🔄 Starting skip couple link for userId: $userId');
                       final success = await userProvider.skipCoupleLink(userId);
+                      debugPrint('✅ Skip result: success=$success');
+
                       if (mounted) {
                         if (success) {
-                          router.go(RouteNames.home);
+                          debugPrint('🏠 Navigating to home...');
+                          // Add small delay to ensure UI updates complete
+                          await Future.delayed(const Duration(milliseconds: 500));
+                          if (mounted) {
+                            router.go(RouteNames.home);
+                            debugPrint('✅ Navigation called');
+                          }
                         } else {
+                          debugPrint('❌ Skip failed: ${userProvider.error}');
                           SnackbarHelper.showError(
                             context,
                             userProvider.error ?? 'Failed to skip. Please try again.',

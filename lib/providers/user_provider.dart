@@ -73,6 +73,7 @@ class UserProvider extends ChangeNotifier {
 
       final now = DateTime.now();
       final user = UserModel(
+        id: uid,
         firebaseUid: uid,
         email: email,
         phoneNumber: phoneNumber,
@@ -182,7 +183,8 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _userService.updateUser(uid, {'coupleId': 'skipped_$uid'});
+      // couple_id is UUID in PostgreSQL; use invite_code flag for "skipped" state.
+      await _userService.updateUser(uid, {'inviteCode': 'SKIPPED'});
       _isLoading = false;
       notifyListeners();
       return true;
@@ -200,8 +202,8 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Reset user's couple status
-      await _userService.updateUser(uid, {'coupleId': null});
+      // Clear skipped marker and keep couple_id null until linking
+      await _userService.updateUser(uid, {'inviteCode': null, 'coupleId': null});
 
       // Reset any invite codes this user generated back to unused status
       await _coupleService.resetInviteCodes(uid);

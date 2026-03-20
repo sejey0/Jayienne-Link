@@ -107,7 +107,7 @@ class UserModel {
   /// Convert to JSON for database insertion (excludes auto-generated fields)
   Map<String, dynamic> toInsertJson() {
     final json = toJson();
-    json.remove('id'); // Let database generate UUID
+    // Keep explicit id when provided (e.g., auth.uid) to maintain FK consistency.
     json.remove('created_at'); // Let database set default
     json.remove('updated_at'); // Let database set default
     return json;
@@ -176,15 +176,10 @@ class UserModel {
   int get hashCode => (id ?? firebaseUid).hashCode;
 
   /// Check if user skipped couple linking (has placeholder coupleId)
-  bool get hasSkippedCoupleLink =>
-      coupleId != null &&
-      (coupleId!.startsWith('skipped_') || coupleId!.startsWith('dev_skip_'));
+  bool get hasSkippedCoupleLink => inviteCode == 'SKIPPED';
 
   /// Check if user has a real partner link
-  bool get hasRealPartner =>
-      coupleId != null &&
-      !coupleId!.startsWith('skipped_') &&
-      !coupleId!.startsWith('dev_skip_');
+  bool get hasRealPartner => coupleId != null;
 
   /// Check if this is a Supabase user (has UUID id) vs Firebase user (has firebaseUid only)
   bool get isSupabaseUser => id != null;

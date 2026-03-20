@@ -47,13 +47,11 @@ class SupabaseUserService {
         whereValue: uid,
       ).asyncMap((userData) async {
         // If not found by UUID, try Firebase UID
-        if (userData == null) {
-          userData = await SupabaseDataService.getSingleRecord(
+        userData ??= await SupabaseDataService.getSingleRecord(
             _tableName,
             whereColumn: 'firebase_uid',
             whereValue: uid,
           );
-        }
 
         return userData != null ? UserModel.fromJson(userData) : null;
       }).handleError((error) {
@@ -70,10 +68,13 @@ class SupabaseUserService {
     try {
       debugPrint('Creating user profile for: ${user.email}');
 
-      await SupabaseDataService.insertRecord(
-        _tableName,
-        user.toInsertJson(),
-      );
+      final payload = user.toInsertJson();
+
+      // Ensure users.id aligns with auth UID so FK relations (invite_codes.user_id, couples)
+      // work with auth.currentUserId used across providers.
+      payload['id'] = user.id ?? user.firebaseUid;
+
+      await SupabaseDataService.insertRecord(_tableName, payload);
 
       debugPrint('✅ User profile created successfully: ${user.email}');
     } catch (e) {

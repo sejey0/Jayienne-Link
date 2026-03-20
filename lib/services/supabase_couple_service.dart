@@ -28,7 +28,6 @@ class SupabaseCoupleService {
 
         if (existing == null) {
           // Code is unique, create invite
-          final now = DateTime.now();
           final inviteCode = InviteCodeModel.create(
             code: code,
             userId: userId,

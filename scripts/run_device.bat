@@ -35,103 +35,29 @@ echo ========================================
 echo   Wireless Debugging Setup
 echo ========================================
 echo.
-echo On your Android device:
-echo   1. Go to Settings ^> Developer options
-echo   2. Enable "Wireless debugging"
-echo   3. Tap "Wireless debugging" to enter settings
-echo.
-echo ----------------------------------------
 echo How do you want to pair?
-echo   [1] QR Code (take screenshot, we'll decode it)
-echo   [2] Manual (enter IP and pairing code)
+echo   [1] Guided Setup (recommended)
+echo   [2] Quick Manual (enter IP and code directly)
 echo   [3] Skip pairing (already paired before)
 echo.
 set /p "PAIR_METHOD=Enter choice (1-3): "
 
-if "%PAIR_METHOD%"=="1" goto wireless_qr
+if "%PAIR_METHOD%"=="1" goto wireless_guided
 if "%PAIR_METHOD%"=="2" goto wireless_manual
 if "%PAIR_METHOD%"=="3" goto wireless_direct
 echo Invalid choice.
 goto wireless_connect
 
-:wireless_qr
+:wireless_guided
 echo.
-echo ========================================
-echo   QR Code Pairing
-echo ========================================
-echo.
-echo On your phone:
-echo   1. Tap "Pair device with QR code"
-echo   2. Take a SCREENSHOT of the QR code
-echo   3. Transfer the screenshot to this PC
-echo.
-set /p "QR_PATH=Enter full path to QR screenshot: "
-echo.
-echo Decoding QR code...
-
-REM Decode QR using PowerShell and ZXing
-for /f "usebackq delims=" %%i in (`powershell -Command "$ErrorActionPreference='Stop'; try { Add-Type -Path '%LOCALAPPDATA%\QRDecoder\zxing.dll' 2>$null } catch { $null }; if (-not ([System.Management.Automation.PSTypeName]'ZXing.BarcodeReader').Type) { Write-Host 'NEED_INSTALL'; exit }; $reader = New-Object ZXing.BarcodeReader; $bitmap = [System.Drawing.Bitmap]::FromFile('%QR_PATH%'); $result = $reader.Decode($bitmap); if ($result) { $result.Text } else { Write-Host 'DECODE_FAILED' }"`) do set "QR_RESULT=%%i"
-
-if "%QR_RESULT%"=="NEED_INSTALL" goto install_qr_decoder
-if "%QR_RESULT%"=="DECODE_FAILED" (
-    echo [ERROR] Could not decode QR code from image.
-    echo Make sure the screenshot is clear and contains only the QR code.
-    echo.
-    goto wireless_connect
-)
-if "%QR_RESULT%"=="" (
-    echo [ERROR] Could not decode QR code.
-    echo.
-    goto wireless_connect
-)
-
-echo QR decoded successfully!
-echo.
-
-REM Parse WIFI:T:ADB;S:studio-...;P:password;; format
-for /f "tokens=2 delims=;" %%a in ("%QR_RESULT%") do set "QR_SERVICE=%%a"
-for /f "tokens=3 delims=;" %%a in ("%QR_RESULT%") do set "QR_PASS=%%a"
-
-REM Extract values after S: and P:
-set "QR_SERVICE=%QR_SERVICE:~2%"
-set "QR_PASS=%QR_PASS:~2%"
-
-REM The QR contains service name, need to find the IP:port via mDNS or manual entry
-echo The QR code contains pairing credentials.
-echo.
-echo You still need the pairing IP:Port from your phone screen.
-echo (It's shown below the QR code on your device)
-echo.
-set /p "PAIR_ADDR=Enter pairing IP:Port (e.g., 192.168.1.100:37215): "
-echo.
-echo Pairing with device...
-"%ADB%" pair %PAIR_ADDR% %QR_PASS%
+python --version >nul 2>&1
 if errorlevel 1 (
-    echo.
-    echo [ERROR] Pairing failed!
-    echo.
-    goto connection_menu
-)
-echo.
-echo Pairing successful!
-echo.
-goto wireless_direct
-
-:install_qr_decoder
-echo.
-echo QR decoder not installed. Installing...
-echo.
-powershell -Command "New-Item -ItemType Directory -Force -Path '%LOCALAPPDATA%\QRDecoder' | Out-Null; Invoke-WebRequest -Uri 'https://www.nuget.org/api/v2/package/ZXing.Net/0.16.9' -OutFile '%TEMP%\zxing.zip'; Expand-Archive -Path '%TEMP%\zxing.zip' -DestinationPath '%TEMP%\zxing' -Force; Copy-Item '%TEMP%\zxing\lib\net45\zxing.dll' '%LOCALAPPDATA%\QRDecoder\'; Remove-Item '%TEMP%\zxing.zip'; Remove-Item -Recurse '%TEMP%\zxing'"
-if errorlevel 1 (
-    echo.
-    echo [ERROR] Failed to install QR decoder.
-    echo Falling back to manual pairing...
-    echo.
+    echo [NOTE] Python not found, using quick manual mode.
     goto wireless_manual
 )
-echo QR decoder installed! Please try again.
+python "%~dp0adb_qr_pair.py"
 echo.
-goto wireless_qr
+goto check_device
 
 :wireless_manual
 echo.

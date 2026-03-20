@@ -192,6 +192,13 @@ class UserProvider extends ChangeNotifier {
     try {
       // couple_id is UUID in PostgreSQL; use invite_code flag for "skipped" state.
       await _userService.updateUser(uid, {'inviteCode': 'SKIPPED'});
+
+      // Update local user object immediately so router can see the change
+      if (_user != null) {
+        _user = _user!.copyWith(inviteCode: 'SKIPPED');
+        debugPrint('✅ Local user updated with SKIPPED flag');
+      }
+
       _isLoading = false;
       notifyListeners();
       return true;

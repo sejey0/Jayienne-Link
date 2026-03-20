@@ -87,7 +87,7 @@ void main() async {
               }
               // Initialize location provider with user context
               locationProv!.initialize(
-                userId: user.id,
+                userId: user.uid,
                 coupleId: user.coupleId,
                 partnerId: partnerId,
               );

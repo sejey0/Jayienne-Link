@@ -98,7 +98,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     final success = await userProvider.updateProfile(
-      uid: auth.firebaseUser!.uid,
+      uid: auth.currentUserId!,
       displayName: _nameController.text.trim(),
       photoFile: _selectedPhoto,
       birthday: _birthday,

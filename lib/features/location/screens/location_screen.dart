@@ -8,7 +8,7 @@ import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
-import '../../../models/supabase_user_model.dart';
+import '../../../models/user_model.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/couple_provider.dart';
 import '../widgets/location_share_toggle.dart';

@@ -54,7 +54,7 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
     if (user.inviteCode != null) {
       coupleProvider.loadExistingCode(user.inviteCode);
     } else {
-      coupleProvider.generateCode(auth.firebaseUser!.uid);
+      coupleProvider.generateCode(auth.currentUserId!);
     }
   }
 
@@ -87,7 +87,7 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
     final auth = context.read<AuthProvider>();
     final coupleProvider = context.read<CoupleProvider>();
     final success =
-        await coupleProvider.redeemCode(code, auth.firebaseUser!.uid);
+        await coupleProvider.redeemCode(code, auth.currentUserId!);
 
     if (!mounted) return;
 
@@ -223,7 +223,7 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                                 onPressed: () {
                                   final auth = context.read<AuthProvider>();
                                   coupleProvider.regenerateCode(
-                                    auth.firebaseUser!.uid,
+                                    auth.currentUserId!,
                                   );
                                 },
                                 icon: const Icon(Icons.refresh, size: 18),
@@ -306,7 +306,7 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                       final userProvider = context.read<UserProvider>();
                       final router = GoRouter.of(context);
                       final success = await userProvider.skipCoupleLink(
-                        auth.firebaseUser!.uid,
+                        auth.currentUserId!,
                       );
                       if (success && mounted) {
                         router.go(RouteNames.home);

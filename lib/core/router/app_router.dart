@@ -56,7 +56,7 @@ class AppRouter {
         }
 
         // Authenticated but email not verified (email users only)
-        if (auth.firebaseUser?.email != null && !isEmailVerified) {
+        if (auth.currentUser?.email != null && !isEmailVerified) {
           return location == RouteNames.emailVerification
               ? null
               : RouteNames.emailVerification;

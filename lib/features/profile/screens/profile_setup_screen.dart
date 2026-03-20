@@ -79,12 +79,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     final auth = context.read<AuthProvider>();
     final userProvider = context.read<UserProvider>();
-    final firebaseUser = auth.firebaseUser!;
+    final currentUser = auth.currentUser!;
 
     final success = await userProvider.createProfile(
-      uid: firebaseUser.uid,
-      email: firebaseUser.email ?? '',
-      phoneNumber: firebaseUser.phoneNumber,
+      uid: currentUser.id!,
+      email: currentUser.email ?? '',
+      phoneNumber: currentUser.phone,
       displayName: _nameController.text.trim(),
       photoFile: _selectedPhoto,
       birthday: _birthday,

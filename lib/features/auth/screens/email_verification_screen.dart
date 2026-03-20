@@ -49,7 +49,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final email = auth.firebaseUser?.email ?? '';
+    final email = auth.currentUser?.email ?? '';
 
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.verifyEmail)),

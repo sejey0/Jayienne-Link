@@ -20,7 +20,7 @@ class CoupleSuccessScreen extends StatelessWidget {
     final coupleProvider = context.watch<CoupleProvider>();
     final couple = coupleProvider.couple;
     final partnerName =
-        couple?.getPartnerName(auth.firebaseUser!.uid) ?? 'your partner';
+        couple?.getPartnerName(auth.currentUserId!) ?? 'your partner';
 
     return Scaffold(
       body: SafeArea(

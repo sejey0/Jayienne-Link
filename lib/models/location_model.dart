@@ -1,129 +1,184 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math';
 
-/// Represents a location point captured from the device GPS.
-/// Designed for offline-first storage with sync status tracking.
+/// PostgreSQL-compatible LocationModel for Supabase integration
+/// Designed for offline-first storage with sync status tracking
 class LocationModel {
-  final int? id; // SQLite auto-increment ID (null for Firestore entries)
+  final String? id; // Supabase UUID
+  final int? localId; // SQLite auto-increment ID (for offline storage)
+  final String coupleId; // References couples table
   final String ownerId; // User ID who owns this location
+  final String? partnerId; // Partner's ID (for received locations)
   final double latitude;
   final double longitude;
   final double accuracy; // GPS accuracy in meters
   final DateTime timestamp;
-  final bool isSynced; // Whether synced to Firestore
-  final String? firestoreId; // Firestore document ID after sync
-  final String? partnerId; // Partner's ID (for received locations)
+  final DateTime? createdAt; // When record was created in database
+  final bool isSynced; // Whether synced to Supabase
+  final String? firestoreId; // Legacy Firestore document ID for migration
   final LocationSource source; // Where this location came from
 
   LocationModel({
     this.id,
+    this.localId,
+    required this.coupleId,
     required this.ownerId,
+    this.partnerId,
     required this.latitude,
     required this.longitude,
     required this.accuracy,
     required this.timestamp,
+    this.createdAt,
     this.isSynced = false,
     this.firestoreId,
-    this.partnerId,
     this.source = LocationSource.local,
   });
 
-  /// Create from SQLite row
+  /// Create from SQLite row (offline storage)
   factory LocationModel.fromMap(Map<String, dynamic> map) {
     return LocationModel(
-      id: map['id'] as int?,
+      localId: map['id'] as int?,
+      id: map['supabase_id'] as String?,
+      coupleId: map['couple_id'] as String,
       ownerId: map['owner_id'] as String,
+      partnerId: map['partner_id'] as String?,
       latitude: map['latitude'] as double,
       longitude: map['longitude'] as double,
       accuracy: map['accuracy'] as double,
       timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int),
+      createdAt: map['created_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int)
+          : null,
       isSynced: (map['is_synced'] as int) == 1,
       firestoreId: map['firestore_id'] as String?,
-      partnerId: map['partner_id'] as String?,
       source: LocationSource.values[map['source'] as int? ?? 0],
     );
   }
 
-  /// Convert to SQLite row
+  /// Convert to SQLite row (offline storage)
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) 'id': id,
+      if (localId != null) 'id': localId,
+      'supabase_id': id,
+      'couple_id': coupleId,
       'owner_id': ownerId,
+      'partner_id': partnerId,
       'latitude': latitude,
       'longitude': longitude,
       'accuracy': accuracy,
       'timestamp': timestamp.millisecondsSinceEpoch,
+      'created_at': createdAt?.millisecondsSinceEpoch,
       'is_synced': isSynced ? 1 : 0,
       'firestore_id': firestoreId,
-      'partner_id': partnerId,
       'source': source.index,
     };
   }
 
-  /// Create from Firestore document
-  factory LocationModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  /// Create from Supabase JSON response
+  factory LocationModel.fromJson(Map<String, dynamic> json) {
     return LocationModel(
-      firestoreId: doc.id,
-      ownerId: data['owner_id'] as String,
-      latitude: (data['latitude'] as num).toDouble(),
-      longitude: (data['longitude'] as num).toDouble(),
-      accuracy: (data['accuracy'] as num?)?.toDouble() ?? 15.0, // Default if missing (data saver)
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
-      isSynced: true,
-      partnerId: data['partner_id'] as String?,
-      source: LocationSource.partner,
+      id: json['id'] as String?,
+      coupleId: json['couple_id'] as String,
+      ownerId: json['owner_id'] as String,
+      partnerId: json['partner_id'] as String?,
+      latitude: (json['latitude'] as num).toDouble(),
+      longitude: (json['longitude'] as num).toDouble(),
+      accuracy: (json['accuracy'] as num?)?.toDouble() ?? 15.0,
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'] as String)
+          : DateTime.now(),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : null,
+      isSynced: true, // Data from Supabase is always synced
+      source: LocationSource.partner, // Assume partner data from server
     );
   }
 
-  /// Convert to Firestore document
-  Map<String, dynamic> toFirestore({bool dataSaver = false}) {
+  /// Convert to JSON for Supabase
+  Map<String, dynamic> toJson({bool dataSaver = false}) {
     if (dataSaver) {
       // Data saver mode: reduce precision to save bandwidth
       // 4 decimal places = ~11m accuracy (good enough for location sharing)
-      // Skip optional fields to reduce payload size
       return {
+        'couple_id': coupleId,
         'owner_id': ownerId,
         'latitude': double.parse(latitude.toStringAsFixed(4)),
         'longitude': double.parse(longitude.toStringAsFixed(4)),
-        'timestamp': Timestamp.fromDate(timestamp),
+        'timestamp': timestamp.toIso8601String(),
         // Skip accuracy, partner_id, created_at to save data
       };
     }
+
     return {
+      if (id != null) 'id': id,
+      'couple_id': coupleId,
       'owner_id': ownerId,
+      'partner_id': partnerId,
       'latitude': latitude,
       'longitude': longitude,
       'accuracy': accuracy,
-      'timestamp': Timestamp.fromDate(timestamp),
-      'partner_id': partnerId,
-      'created_at': FieldValue.serverTimestamp(),
+      'timestamp': timestamp.toIso8601String(),
+      if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
     };
+  }
+
+  /// Convert to JSON for database insertion (excludes auto-generated fields)
+  Map<String, dynamic> toInsertJson({bool dataSaver = false}) {
+    final json = toJson(dataSaver: dataSaver);
+    json.remove('id'); // Let database generate UUID
+    json.remove('created_at'); // Let database set default
+    return json;
+  }
+
+  /// Convert to JSON for database updates (excludes immutable fields)
+  Map<String, dynamic> toUpdateJson() {
+    final json = toJson();
+    json.remove('id');
+    json.remove('couple_id'); // Usually immutable
+    json.remove('owner_id'); // Immutable
+    json.remove('timestamp'); // Usually immutable
+    json.remove('created_at'); // Immutable
+    return json;
   }
 
   /// Create a copy with updated fields
   LocationModel copyWith({
-    int? id,
+    String? id,
+    int? localId,
+    String? coupleId,
     String? ownerId,
+    String? partnerId,
     double? latitude,
     double? longitude,
     double? accuracy,
     DateTime? timestamp,
+    DateTime? createdAt,
     bool? isSynced,
     String? firestoreId,
-    String? partnerId,
     LocationSource? source,
   }) {
     return LocationModel(
       id: id ?? this.id,
+      localId: localId ?? this.localId,
+      coupleId: coupleId ?? this.coupleId,
       ownerId: ownerId ?? this.ownerId,
+      partnerId: partnerId ?? this.partnerId,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       accuracy: accuracy ?? this.accuracy,
       timestamp: timestamp ?? this.timestamp,
+      createdAt: createdAt ?? this.createdAt,
       isSynced: isSynced ?? this.isSynced,
       firestoreId: firestoreId ?? this.firestoreId,
-      partnerId: partnerId ?? this.partnerId,
       source: source ?? this.source,
+    );
+  }
+
+  /// Mark as synced to Supabase
+  LocationModel markSynced(String supabaseId) {
+    return copyWith(
+      id: supabaseId,
+      isSynced: true,
     );
   }
 
@@ -146,6 +201,75 @@ class LocationModel {
     final hour = timestamp.hour.toString().padLeft(2, '0');
     final minute = timestamp.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
+  }
+
+  /// Get formatted date string
+  String get formattedDate {
+    final month = timestamp.month.toString().padLeft(2, '0');
+    final day = timestamp.day.toString().padLeft(2, '0');
+    return '$month/$day/${timestamp.year}';
+  }
+
+  /// Calculate distance from another location in meters
+  double distanceFrom(LocationModel other) {
+    // Simplified distance calculation (for basic purposes)
+    // For production, consider using a proper geospatial library
+    const double earthRadius = 6371000; // Earth radius in meters
+
+    final lat1Rad = latitude * (pi / 180);
+    final lat2Rad = other.latitude * (pi / 180);
+    final deltaLatRad = (other.latitude - latitude) * (pi / 180);
+    final deltaLngRad = (other.longitude - longitude) * (pi / 180);
+
+    final a = sin(deltaLatRad / 2) * sin(deltaLatRad / 2) +
+        cos(lat1Rad) *
+            cos(lat2Rad) *
+            sin(deltaLngRad / 2) *
+            sin(deltaLngRad / 2);
+
+    final c = 2 * asin(sqrt(a));
+    return earthRadius * c;
+  }
+
+  /// Firebase Firestore compatibility methods (for existing code)
+  @Deprecated(
+      'Use fromJson instead. This is for Firebase migration compatibility only.')
+  factory LocationModel.fromFirestore(Map<String, dynamic> data, String docId) {
+    return LocationModel(
+      firestoreId: docId,
+      coupleId: data['couple_id'] as String? ?? '',
+      ownerId: data['owner_id'] as String,
+      partnerId: data['partner_id'] as String?,
+      latitude: (data['latitude'] as num).toDouble(),
+      longitude: (data['longitude'] as num).toDouble(),
+      accuracy: (data['accuracy'] as num?)?.toDouble() ?? 15.0,
+      timestamp: data['timestamp'] is DateTime
+          ? data['timestamp'] as DateTime
+          : DateTime.now(),
+      isSynced: true,
+      source: LocationSource.partner,
+    );
+  }
+
+  @Deprecated(
+      'Use toJson instead. This is for Firebase migration compatibility only.')
+  Map<String, dynamic> toFirestore({bool dataSaver = false}) {
+    if (dataSaver) {
+      return {
+        'owner_id': ownerId,
+        'latitude': double.parse(latitude.toStringAsFixed(4)),
+        'longitude': double.parse(longitude.toStringAsFixed(4)),
+        'timestamp': timestamp,
+      };
+    }
+    return {
+      'owner_id': ownerId,
+      'latitude': latitude,
+      'longitude': longitude,
+      'accuracy': accuracy,
+      'timestamp': timestamp,
+      'partner_id': partnerId,
+    };
   }
 
   @override
@@ -198,13 +322,40 @@ class LocationSharingSettings {
   factory LocationSharingSettings.fromMap(Map<String, dynamic> map) {
     return LocationSharingSettings(
       // SQLite stores booleans as integers (0/1)
-      sharingEnabled: (map['sharing_enabled'] == 1 || map['sharing_enabled'] == true),
-      backgroundSharingEnabled:
-          (map['background_sharing_enabled'] == 1 || map['background_sharing_enabled'] == true),
+      sharingEnabled:
+          (map['sharing_enabled'] == 1 || map['sharing_enabled'] == true),
+      backgroundSharingEnabled: (map['background_sharing_enabled'] == 1 ||
+          map['background_sharing_enabled'] == true),
       updateIntervalMinutes: map['update_interval_minutes'] as int? ?? 15,
-      dataSaverEnabled: (map['data_saver_enabled'] == 1 || map['data_saver_enabled'] == true),
+      dataSaverEnabled:
+          (map['data_saver_enabled'] == 1 || map['data_saver_enabled'] == true),
       lastUpdated: map['last_updated'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['last_updated'] as int)
+          : null,
+    );
+  }
+
+  /// Convert to JSON for Supabase (stored as JSONB in user profile)
+  Map<String, dynamic> toJson() {
+    return {
+      'sharing_enabled': sharingEnabled,
+      'background_sharing_enabled': backgroundSharingEnabled,
+      'update_interval_minutes': updateIntervalMinutes,
+      'data_saver_enabled': dataSaverEnabled,
+      'last_updated': lastUpdated?.toIso8601String(),
+    };
+  }
+
+  /// Create from Supabase JSON
+  factory LocationSharingSettings.fromJson(Map<String, dynamic> json) {
+    return LocationSharingSettings(
+      sharingEnabled: json['sharing_enabled'] as bool? ?? false,
+      backgroundSharingEnabled:
+          json['background_sharing_enabled'] as bool? ?? false,
+      updateIntervalMinutes: json['update_interval_minutes'] as int? ?? 15,
+      dataSaverEnabled: json['data_saver_enabled'] as bool? ?? false,
+      lastUpdated: json['last_updated'] != null
+          ? DateTime.parse(json['last_updated'] as String)
           : null,
     );
   }

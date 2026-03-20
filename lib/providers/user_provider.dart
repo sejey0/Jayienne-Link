@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import '../models/supabase_user_model.dart';
+import '../models/user_model.dart';
 import '../services/supabase_user_service.dart';
 import '../services/supabase_storage_service.dart';
 import '../services/supabase_couple_service.dart';
@@ -56,7 +56,7 @@ class UserProvider extends ChangeNotifier {
         debugPrint('Uploading profile photo for $uid...');
 
         // Test storage connectivity first
-        final storageTest = await _storageService.testStorageConnectivity();
+        final storageTest = await _storageService.testConnectivity();
         if (!storageTest) {
           throw Exception(
               'Cannot connect to storage service. Please check your internet connection.');
@@ -73,7 +73,7 @@ class UserProvider extends ChangeNotifier {
 
       final now = DateTime.now();
       final user = UserModel(
-        uid: uid,
+        firebaseUid: uid,
         email: email,
         phoneNumber: phoneNumber,
         displayName: displayName,
@@ -132,7 +132,7 @@ class UserProvider extends ChangeNotifier {
         debugPrint('Updating profile photo for $uid...');
 
         // Test storage connectivity first
-        final storageTest = await _storageService.testStorageConnectivity();
+        final storageTest = await _storageService.testConnectivity();
         if (!storageTest) {
           throw Exception(
               'Cannot connect to storage service. Please check your internet connection.');

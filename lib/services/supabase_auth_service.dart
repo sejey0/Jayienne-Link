@@ -115,7 +115,7 @@ class SupabaseAuthService {
       // Note: The actual verification happens in verifyOtp method
     } catch (e) {
       debugPrint('❌ Failed to send OTP: $e');
-      onError(_handleAuthError(e).message);
+      onError(_handleAuthError(e).toString());
     }
   }
 

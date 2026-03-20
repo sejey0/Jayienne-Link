@@ -56,6 +56,19 @@ class SupabaseStorageService {
     } catch (e) {
       debugPrint('Supabase upload failed: $e');
 
+      // Fall back to Base64 data URI so profile creation still succeeds
+      // when Supabase Storage RLS policies are not configured yet.
+      if (e is StorageException ||
+          e.toString().contains('row-level security policy') ||
+          e.toString().contains('Unauthorized')) {
+        debugPrint(
+            '⚠️ Storage RLS blocked upload. Falling back to Base64 image storage.');
+        final fileBytes = await imageFile.readAsBytes();
+        final optimizedBytes = await _optimizeImage(fileBytes);
+        final base64Image = base64Encode(optimizedBytes);
+        return 'data:image/jpeg;base64,$base64Image';
+      }
+
       // Provide specific error messages
       if (e.toString().contains('JWT')) {
         throw Exception('Authentication failed. Please log in again.');

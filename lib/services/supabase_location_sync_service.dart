@@ -2,8 +2,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/supabase_location_model.dart';
-import '../services/supabase_data_service.dart';
+import '../models/location_model.dart';
 import 'offline_storage_service.dart';
 
 /// Supabase-based location sync service for syncing locations between local SQLite and PostgreSQL
@@ -332,19 +331,18 @@ class SupabaseLocationSyncService {
     }
 
     try {
-      var query = _supabase
+      final dynamic query = _supabase
           .from(_locationsTable)
           .select()
           .eq('couple_id', coupleId)
           .eq('owner_id', partnerId)
-          .order('timestamp', ascending: false)
-          .limit(limit);
+          .order('timestamp', ascending: false);
 
       if (since != null) {
-        query = query.gt('timestamp', since.toIso8601String());
+        query.gte('timestamp', since.toIso8601String());
       }
 
-      final response = await query;
+      final response = await query.limit(limit);
       final locations = (response as List)
           .map((data) => LocationModel.fromJson(data as Map<String, dynamic>))
           .toList();
@@ -490,9 +488,10 @@ class SupabaseLocationSyncService {
       if (_isOnline) {
         final response = await _supabase
             .from(_locationsTable)
-            .select('id', const FetchOptions(count: CountOption.exact))
+            .select('*')
             .eq('couple_id', coupleId)
-            .eq('owner_id', userId);
+            .eq('owner_id', userId)
+            .count(CountOption.exact);
 
         stats['supabase_count'] = response.count ?? 0;
       }

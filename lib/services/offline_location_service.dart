@@ -137,6 +137,7 @@ class OfflineLocationService {
 
       // Create location model
       final location = LocationModel(
+        coupleId: '',
         ownerId: ownerId,
         latitude: position.latitude,
         longitude: position.longitude,
@@ -147,7 +148,7 @@ class OfflineLocationService {
 
       // Always save to SQLite first (offline-first)
       final id = await _storage.insertLocation(location);
-      final savedLocation = location.copyWith(id: id);
+      final savedLocation = location.copyWith(localId: id);
 
       // Broadcast to listeners
       _locationController.add(savedLocation);
@@ -234,6 +235,7 @@ class OfflineLocationService {
 
         // Create and save location
         final location = LocationModel(
+          coupleId: '',
           ownerId: ownerId,
           latitude: position.latitude,
           longitude: position.longitude,
@@ -243,7 +245,7 @@ class OfflineLocationService {
         );
 
         final id = await _storage.insertLocation(location);
-        final savedLocation = location.copyWith(id: id);
+        final savedLocation = location.copyWith(localId: id);
 
         // Broadcast to listeners
         _locationController.add(savedLocation);
@@ -279,6 +281,7 @@ class OfflineLocationService {
       );
 
       final location = LocationModel(
+        coupleId: '',
         ownerId: ownerId,
         latitude: position.latitude,
         longitude: position.longitude,
@@ -289,7 +292,7 @@ class OfflineLocationService {
 
       // Save to SQLite
       final id = await _storage.insertLocation(location);
-      return location.copyWith(id: id);
+      return location.copyWith(localId: id);
     } catch (e) {
       debugPrint('Background location capture failed: $e');
       return null;

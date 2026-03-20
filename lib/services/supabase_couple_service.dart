@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import '../models/supabase_couple_model.dart';
+import '../models/couple_model.dart';
 import '../models/supabase_invite_code_model.dart';
-import '../models/supabase_user_model.dart';
+import '../models/user_model.dart';
 import '../services/supabase_data_service.dart';
 import '../core/utils/invite_code_generator.dart';
 

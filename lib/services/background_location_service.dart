@@ -180,6 +180,7 @@ Future<void> _captureBackgroundLocation() async {
     await storage.ensureInitialized();
 
     final location = LocationModel(
+      coupleId: '',
       ownerId: userId,
       latitude: position.latitude,
       longitude: position.longitude,

@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import '../models/supabase_user_model.dart';
+import '../models/user_model.dart';
 import '../services/supabase_data_service.dart';
 
 /// Supabase-based user service providing the same interface as the original Firebase service

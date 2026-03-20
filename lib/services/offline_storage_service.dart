@@ -152,6 +152,16 @@ class OfflineStorageService {
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
+  /// Get total location count for a user
+  Future<int> getLocationCount(String ownerId) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM $_locationsTable WHERE owner_id = ?',
+      [ownerId],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
   /// Mark a location as synced
   Future<void> markAsSynced(int localId, String firestoreId) async {
     final db = await database;

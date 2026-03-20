@@ -53,6 +53,7 @@ class LocationProvider extends ChangeNotifier {
   StreamSubscription? _locationSubscription;
   StreamSubscription? _connectivitySubscription;
   StreamSubscription? _syncStatusSubscription;
+  StreamSubscription<LocationModel>? _partnerLocationSubscription;
 
   // Getters
   LocationModel? get currentLocation => _currentLocation;
@@ -192,9 +193,9 @@ class LocationProvider extends ChangeNotifier {
   void _startPartnerLocationListening() {
     if (_coupleId == null || _partnerId == null) return;
 
-    _syncService.startListeningToPartner(
-      _coupleId!,
-      _partnerId!,
+    _partnerLocationSubscription?.cancel();
+    _partnerLocationSubscription =
+        _syncService.startListeningToPartner(_coupleId!, _partnerId!).listen(
       (location) {
         _partnerLocation = location;
         notifyListeners();
@@ -519,6 +520,7 @@ class LocationProvider extends ChangeNotifier {
     _locationSubscription?.cancel();
     _connectivitySubscription?.cancel();
     _syncStatusSubscription?.cancel();
+    _partnerLocationSubscription?.cancel();
     _syncService.stopListeningToPartner();
     // Note: Don't stop background tracking on dispose - keep running in background
     super.dispose();

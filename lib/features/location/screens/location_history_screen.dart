@@ -12,7 +12,12 @@ import '../widgets/offline_status_indicator.dart';
 
 /// Timeline view of location history showing synced/offline periods.
 class LocationHistoryScreen extends StatefulWidget {
-  const LocationHistoryScreen({super.key});
+  final int initialTab;
+
+  const LocationHistoryScreen({
+    super.key,
+    this.initialTab = 0,
+  });
 
   @override
   State<LocationHistoryScreen> createState() => _LocationHistoryScreenState();
@@ -26,7 +31,11 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTab,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadHistory();
     });

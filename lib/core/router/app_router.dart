@@ -143,7 +143,12 @@ class AppRouter {
         ),
         GoRoute(
           path: RouteNames.locationHistory,
-          builder: (context, state) => const LocationHistoryScreen(),
+          builder: (context, state) {
+            // Get tab parameter from query string (?tab=0 or ?tab=1)
+            final tabStr = state.uri.queryParameters['tab'];
+            final initialTab = int.tryParse(tabStr ?? '0') ?? 0;
+            return LocationHistoryScreen(initialTab: initialTab);
+          },
         ),
       ],
     );

@@ -321,6 +321,7 @@ class _LocationScreenState extends State<LocationScreen> {
     String? coupleName,
   ) {
     final partnerLocation = provider.partnerLocation;
+    final myLocation = provider.currentLocation;
     final isOnline = provider.isOnline;
 
     return Container(
@@ -343,7 +344,7 @@ class _LocationScreenState extends State<LocationScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Partner status
+            // Partner status section
             if (partnerLocation != null) ...[
               Row(
                 children: [
@@ -386,6 +387,16 @@ class _LocationScreenState extends State<LocationScreen> {
                       ],
                     ),
                   ),
+                  // History button for partner
+                  TextButton.icon(
+                    onPressed: () => _goToHistoryTab(context, 1), // Partner tab
+                    icon: const Icon(Icons.history, size: 18),
+                    label: const Text('History'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.softRose,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  ),
                   if (!isOnline)
                     const Icon(
                       Icons.cloud_off,
@@ -396,6 +407,58 @@ class _LocationScreenState extends State<LocationScreen> {
               ),
               const Divider(height: AppDimensions.spacingLg * 2),
             ],
+            // My Location section
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.lavender.withOpacity(0.2),
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: AppColors.lavender,
+                  ),
+                ),
+                const SizedBox(width: AppDimensions.spacingMd),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'My Location',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      Text(
+                        myLocation != null
+                            ? (myLocation.isRecent()
+                                ? 'Updated just now'
+                                : myLocation.timeAgo)
+                            : 'Not shared yet',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: myLocation != null && myLocation.isRecent()
+                                  ? AppColors.success
+                                  : Colors.grey,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                // History button for my locations
+                TextButton.icon(
+                  onPressed: () => _goToHistoryTab(context, 0), // My locations tab
+                  icon: const Icon(Icons.history, size: 18),
+                  label: const Text('History'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.lavender,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimensions.spacingMd),
             // Location sharing toggle
             const LocationShareToggle(),
             const SizedBox(height: AppDimensions.spacingMd),
@@ -411,5 +474,9 @@ class _LocationScreenState extends State<LocationScreen> {
         ),
       ),
     );
+  }
+
+  void _goToHistoryTab(BuildContext context, int tabIndex) {
+    context.push('${RouteNames.locationHistory}?tab=$tabIndex');
   }
 }

@@ -64,7 +64,7 @@ void main() async {
         ),
         ChangeNotifierProxyProvider2<UserProvider, CoupleProvider,
             LocationProvider>(
-          create: (_) => LocationProvider(),
+          create: (_) => LocationProvider(userService),
           update: (_, userProv, coupleProv, locationProv) {
             final user = userProv.user;
             final couple = coupleProv.couple;

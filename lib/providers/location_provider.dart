@@ -2,11 +2,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/location_model.dart';
+import '../models/user_model.dart';
 import '../services/offline_location_service.dart';
 import '../services/offline_storage_service.dart';
 import '../services/location_sync_service.dart';
 import '../services/background_location_service.dart';
 import '../services/foreground_notification_service.dart';
+import '../services/user_service.dart';
 
 /// Provider for managing location state across the app.
 /// Handles offline-first location sharing with partner.
@@ -19,11 +21,16 @@ class LocationProvider extends ChangeNotifier {
       BackgroundLocationService.instance;
   final ForegroundNotificationService _notificationService =
       ForegroundNotificationService.instance;
+  final UserService _userService;
+
+  LocationProvider(this._userService);
 
   // User info (set by initialize)
   String? _userId;
   String? _coupleId;
   String? _partnerId;
+  UserModel? _currentUser;
+  UserModel? _partnerUser;
 
   // Location state
   LocationModel? _currentLocation;
@@ -63,6 +70,8 @@ class LocationProvider extends ChangeNotifier {
   bool get isBackgroundSharingEnabled => _settings.backgroundSharingEnabled;
   bool get hasPartner => _partnerId != null;
   bool get canShare => _permissionStatus.canTrack && hasPartner;
+  UserModel? get currentUser => _currentUser;
+  UserModel? get partnerUser => _partnerUser;
 
   // =====================
   // INITIALIZATION
@@ -106,6 +115,12 @@ class LocationProvider extends ChangeNotifier {
       if (partnerId != null) {
         _partnerLocation =
             await _storageService.getPartnerLastLocation(partnerId);
+      }
+
+      // Load user data for profile images
+      _currentUser = await _userService.getUser(userId);
+      if (partnerId != null) {
+        _partnerUser = await _userService.getUser(partnerId);
       }
 
       // Get pending sync count
@@ -301,6 +316,21 @@ class LocationProvider extends ChangeNotifier {
       debugPrint('Error refreshing partner location: $e');
     } finally {
       _setLoading(false);
+    }
+  }
+
+  /// Refresh user data including profile images
+  Future<void> refreshUserData() async {
+    if (_userId == null) return;
+
+    try {
+      _currentUser = await _userService.getUser(_userId!);
+      if (_partnerId != null) {
+        _partnerUser = await _userService.getUser(_partnerId!);
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error refreshing user data: $e');
     }
   }
 

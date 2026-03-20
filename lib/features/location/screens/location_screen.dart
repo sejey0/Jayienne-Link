@@ -3,13 +3,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
-import '../../../models/location_model.dart';
+import '../../../models/user_model.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/couple_provider.dart';
-import '../../../services/offline_location_service.dart';
 import '../widgets/location_share_toggle.dart';
 import '../widgets/offline_status_indicator.dart';
 
@@ -37,6 +37,7 @@ class _LocationScreenState extends State<LocationScreen> {
     final provider = context.read<LocationProvider>();
     await provider.captureLocation();
     await provider.refreshPartnerLocation();
+    await provider.refreshUserData();
   }
 
   @override
@@ -115,7 +116,7 @@ class _LocationScreenState extends State<LocationScreen> {
                     point: LatLng(myLocation.latitude, myLocation.longitude),
                     width: 40,
                     height: 40,
-                    child: _buildMyMarker(context, provider.isSharingEnabled),
+                    child: _buildMyMarker(context, provider.isSharingEnabled, provider.currentUser),
                   ),
                 // Partner's location marker
                 if (partnerLocation != null)
@@ -129,6 +130,7 @@ class _LocationScreenState extends State<LocationScreen> {
                     child: _buildPartnerMarker(
                       context,
                       partnerLocation.isRecent() && isOnline,
+                      provider.partnerUser,
                     ),
                   ),
               ],
@@ -225,7 +227,7 @@ class _LocationScreenState extends State<LocationScreen> {
     );
   }
 
-  Widget _buildMyMarker(BuildContext context, bool isSharing) {
+  Widget _buildMyMarker(BuildContext context, bool isSharing, [UserModel? currentUser]) {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -239,15 +241,33 @@ class _LocationScreenState extends State<LocationScreen> {
           ),
         ],
       ),
-      child: const Icon(
-        Icons.person,
-        color: Colors.white,
-        size: 24,
+      child: ClipOval(
+        child: currentUser?.photoUrl != null
+            ? CachedNetworkImage(
+                imageUrl: currentUser!.photoUrl!,
+                width: 36,
+                height: 36,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => const CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+                errorWidget: (context, url, error) => const Icon(
+                  Icons.person,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              )
+            : const Icon(
+                Icons.person,
+                color: Colors.white,
+                size: 24,
+              ),
       ),
     );
   }
 
-  Widget _buildPartnerMarker(BuildContext context, bool isLive) {
+  Widget _buildPartnerMarker(BuildContext context, bool isLive, [UserModel? partnerUser]) {
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -277,10 +297,28 @@ class _LocationScreenState extends State<LocationScreen> {
               ),
             ],
           ),
-          child: const Icon(
-            Icons.favorite,
-            color: Colors.white,
-            size: 24,
+          child: ClipOval(
+            child: partnerUser?.photoUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: partnerUser!.photoUrl!,
+                    width: 36,
+                    height: 36,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                    errorWidget: (context, url, error) => const Icon(
+                      Icons.favorite,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  )
+                : const Icon(
+                    Icons.favorite,
+                    color: Colors.white,
+                    size: 24,
+                  ),
           ),
         ),
       ],

@@ -73,9 +73,9 @@ class SupabaseDataService {
     int maxRetries = 3,
   }) async {
     return await safeExecute(() async {
-      final response = await client.rpc(query, params: params ?? {});
-      return List<Map<String, dynamic>>.from(response ?? []);
-    }, context: 'Query: $query') ??
+          final response = await client.rpc(query, params: params ?? {});
+          return List<Map<String, dynamic>>.from(response ?? []);
+        }, context: 'Query: $query') ??
         [];
   }
 
@@ -227,10 +227,25 @@ class SupabaseDataService {
     Map<String, dynamic>? params,
   }) async {
     return await safeExecute(() async {
-      final response = await client.rpc(procedureName, params: params ?? {});
-      return List<Map<String, dynamic>>.from(response ?? []);
-    }, context: 'Execute procedure: $procedureName') ??
-        [];
+          final response =
+              await client.rpc(procedureName, params: params ?? {});
+          // Handle scalar return values (e.g., UUID from create_couple)
+          if (response is String || response is num || response is bool) {
+            return <Map<String, dynamic>>[
+              {procedureName: response}
+            ];
+          }
+          // Handle null response
+          if (response == null) {
+            return <Map<String, dynamic>>[];
+          }
+          // Handle list of maps (normal case)
+          final list = response as List;
+          return list
+              .map((item) => Map<String, dynamic>.from(item as Map))
+              .toList();
+        }, context: 'Execute procedure: $procedureName') ??
+        <Map<String, dynamic>>[];
   }
 
   /// Batch operations within a transaction
@@ -266,30 +281,24 @@ class SupabaseDataService {
       final stats = <String, dynamic>{};
 
       try {
-        final userCount = await client
-            .from('users')
-            .select('*')
-            .count(CountOption.exact);
+        final userCount =
+            await client.from('users').select('*').count(CountOption.exact);
         stats['users_count'] = userCount.count ?? 0;
       } catch (e) {
         stats['users_count'] = 'Error: $e';
       }
 
       try {
-        final coupleCount = await client
-            .from('couples')
-            .select('*')
-            .count(CountOption.exact);
+        final coupleCount =
+            await client.from('couples').select('*').count(CountOption.exact);
         stats['couples_count'] = coupleCount.count ?? 0;
       } catch (e) {
         stats['couples_count'] = 'Error: $e';
       }
 
       try {
-        final locationCount = await client
-            .from('locations')
-            .select('*')
-            .count(CountOption.exact);
+        final locationCount =
+            await client.from('locations').select('*').count(CountOption.exact);
         stats['locations_count'] = locationCount.count ?? 0;
       } catch (e) {
         stats['locations_count'] = 'Error: $e';

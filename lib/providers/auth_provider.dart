@@ -68,6 +68,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
+      _pendingVerificationEmail = email;
       _error = e.toString().replaceFirst('Exception: ', '');
       _isLoading = false;
       notifyListeners();

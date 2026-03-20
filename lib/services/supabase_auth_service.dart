@@ -285,6 +285,50 @@ class SupabaseAuthService {
   Exception _handleAuthError(dynamic error) {
     debugPrint('Supabase Auth Error: $error');
 
+    if (error is AuthApiException) {
+      final code = error.code?.toLowerCase() ?? '';
+      final message = error.message.toLowerCase();
+
+      if (code == 'invalid_credentials' ||
+          message.contains('invalid login credentials')) {
+        return Exception(
+            'Invalid email or password. Please check your credentials.');
+      }
+
+      if (code == 'user_not_found' || message.contains('user not found')) {
+        return Exception('No account found with this email address.');
+      }
+
+      if (code == 'email_not_confirmed' ||
+          message.contains('email not confirmed')) {
+        return Exception(
+            'Please verify your email address before signing in.');
+      }
+
+      if (code == 'rate_limit_exceeded' ||
+          code == 'over_email_send_rate_limit' ||
+          message.contains('rate limit')) {
+        return Exception(
+            'Too many email requests. Please wait a few minutes and try again.');
+      }
+
+      if (code == 'password_too_weak' || message.contains('weak password')) {
+        return Exception(
+            'Password is too weak. Please choose a stronger password.');
+      }
+
+      if (code == 'user_already_registered' ||
+          message.contains('email already registered')) {
+        return Exception('An account with this email already exists.');
+      }
+
+      if (code == 'invalid_email' || message.contains('invalid email')) {
+        return Exception('Please enter a valid email address.');
+      }
+
+      return Exception('Authentication error: ${error.message}');
+    }
+
     if (error is AuthException) {
       switch (error.message.toLowerCase()) {
         case 'invalid login credentials':

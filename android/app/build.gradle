@@ -47,15 +47,16 @@ android {
         }
     }
 
-    // Only build for connected device architecture (faster debug builds)
-    splits {
-        abi {
-            enable gradle.startParameter.taskNames.any { it.contains("Debug") }
-            reset()
-            include "arm64-v8a" // Most modern phones use this
-            universalApk false
-        }
-    }
+    // ABI splits disabled - Flutter tooling requires standard APK naming
+    // If you need smaller APKs, use: flutter build apk --split-per-abi
+    // splits {
+    //     abi {
+    //         enable gradle.startParameter.taskNames.any { it.contains("Debug") }
+    //         reset()
+    //         include "arm64-v8a"
+    //         universalApk false
+    //     }
+    // }
 }
 
 flutter {

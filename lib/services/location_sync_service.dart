@@ -61,12 +61,16 @@ class LocationSyncService {
   Future<void> initialize() async {
     // Check initial connectivity
     final result = await _connectivity.checkConnectivity();
+    debugPrint('=== CONNECTIVITY DEBUG ===');
+    debugPrint('Initial connectivity result: $result');
     _isOnline = _hasInternetConnection(result);
+    debugPrint('Initial isOnline: $_isOnline');
     _connectivityController.add(_isOnline);
 
     // Start monitoring connectivity changes
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
       (result) {
+        debugPrint('Connectivity changed event: $result');
         final wasOnline = _isOnline;
         _isOnline = _hasInternetConnection(result);
         _connectivityController.add(_isOnline);
@@ -106,9 +110,9 @@ class LocationSyncService {
 
   /// Check if connectivity result indicates internet access
   bool _hasInternetConnection(ConnectivityResult result) {
-    return result == ConnectivityResult.wifi ||
-        result == ConnectivityResult.mobile ||
-        result == ConnectivityResult.ethernet;
+    // Handle all network connection types
+    // ConnectivityResult.none means no network connection
+    return result != ConnectivityResult.none;
   }
 
   // =====================

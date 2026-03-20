@@ -202,9 +202,9 @@ Future<void> _captureBackgroundLocation() async {
 Future<void> _trySyncInBackground() async {
   try {
     final connectivity = await Connectivity().checkConnectivity();
-    final isOnline = connectivity == ConnectivityResult.wifi ||
-        connectivity == ConnectivityResult.mobile ||
-        connectivity == ConnectivityResult.ethernet;
+    // Any connection type except 'none' means we have network access
+    final isOnline = connectivity != ConnectivityResult.none;
+    debugPrint('Background connectivity: $connectivity, isOnline: $isOnline');
 
     if (!isOnline) {
       debugPrint('Background: Offline, skipping sync');

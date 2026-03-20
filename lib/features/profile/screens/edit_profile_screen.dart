@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -162,6 +163,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  /// Get appropriate ImageProvider for profile photos (supports both network URLs and Base64)
+  ImageProvider? _getProfileImageProvider(String? photoUrl) {
+    if (photoUrl == null) return null;
+
+    // Check if it's a Base64 data URL
+    if (photoUrl.startsWith('data:image/')) {
+      try {
+        // Extract Base64 data from data URL
+        final base64String = photoUrl.split(',')[1];
+        final bytes = base64Decode(base64String);
+        return MemoryImage(bytes);
+      } catch (e) {
+        // If Base64 decoding fails, return null to show fallback
+        return null;
+      }
+    } else {
+      // Regular network URL, use CachedNetworkImageProvider
+      return CachedNetworkImageProvider(photoUrl);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
@@ -186,9 +208,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       backgroundColor: AppColors.peach.withOpacity(0.3),
                       backgroundImage: _selectedPhoto != null
                           ? FileImage(_selectedPhoto!)
-                          : (user?.photoUrl != null
-                              ? CachedNetworkImageProvider(user!.photoUrl!)
-                              : null),
+                          : _getProfileImageProvider(user?.photoUrl),
                       child: (_selectedPhoto == null && user?.photoUrl == null)
                           ? const Icon(Icons.camera_alt,
                               size: 36, color: AppColors.softRose)

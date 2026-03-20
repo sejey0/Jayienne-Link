@@ -65,6 +65,11 @@ class UserProvider extends ChangeNotifier {
 
         photoUrl = await _storageService.uploadProfilePhoto(uid, photoFile);
         debugPrint('Photo uploaded successfully: $photoUrl');
+
+        // Check if using Base64 fallback and inform user
+        if (photoUrl.startsWith('data:image/')) {
+          debugPrint('Using Base64 storage (free Firebase plan)');
+        }
       }
 
       final now = DateTime.now();
@@ -91,8 +96,7 @@ class UserProvider extends ChangeNotifier {
 
       // Provide user-friendly error messages
       if (e.toString().contains('Storage')) {
-        _error =
-            'Failed to upload profile photo. Please check your internet connection and try again.';
+        _error = 'Failed to upload profile photo. Please check your internet connection and try again.';
       } else if (e.toString().contains('unauthorized')) {
         _error = 'Not authorized to upload images. Please contact support.';
       } else if (e.toString().contains('canceled')) {
@@ -139,6 +143,11 @@ class UserProvider extends ChangeNotifier {
             await _storageService.uploadProfilePhoto(uid, photoFile);
         updates['photoUrl'] = photoUrl;
         debugPrint('Photo updated successfully: $photoUrl');
+
+        // Check if using Base64 fallback and inform user
+        if (photoUrl.startsWith('data:image/')) {
+          debugPrint('Using Base64 storage (free Firebase plan)');
+        }
       }
 
       if (updates.isNotEmpty) {
@@ -153,8 +162,7 @@ class UserProvider extends ChangeNotifier {
 
       // Provide user-friendly error messages
       if (e.toString().contains('Storage')) {
-        _error =
-            'Failed to upload profile photo. Please check your internet connection and try again.';
+        _error = 'Failed to upload profile photo. Please check your internet connection and try again.';
       } else if (e.toString().contains('unauthorized')) {
         _error = 'Not authorized to upload images. Please contact support.';
       } else if (e.toString().contains('canceled')) {

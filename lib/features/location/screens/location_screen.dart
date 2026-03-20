@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
@@ -243,21 +244,7 @@ class _LocationScreenState extends State<LocationScreen> {
       ),
       child: ClipOval(
         child: currentUser?.photoUrl != null
-            ? CachedNetworkImage(
-                imageUrl: currentUser!.photoUrl!,
-                width: 36,
-                height: 36,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => const CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-                errorWidget: (context, url, error) => const Icon(
-                  Icons.person,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              )
+            ? _buildProfileImage(currentUser!.photoUrl!, 36, 36, Icons.person)
             : const Icon(
                 Icons.person,
                 color: Colors.white,
@@ -299,21 +286,7 @@ class _LocationScreenState extends State<LocationScreen> {
           ),
           child: ClipOval(
             child: partnerUser?.photoUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: partnerUser!.photoUrl!,
-                    width: 36,
-                    height: 36,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                    errorWidget: (context, url, error) => const Icon(
-                      Icons.favorite,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  )
+                ? _buildProfileImage(partnerUser!.photoUrl!, 36, 36, Icons.favorite)
                 : const Icon(
                     Icons.favorite,
                     color: Colors.white,
@@ -323,6 +296,55 @@ class _LocationScreenState extends State<LocationScreen> {
         ),
       ],
     );
+  }
+
+  /// Helper widget to display profile images (supports both network URLs and Base64 data URLs)
+  Widget _buildProfileImage(String photoUrl, double width, double height, IconData fallbackIcon) {
+    // Check if it's a Base64 data URL
+    if (photoUrl.startsWith('data:image/')) {
+      try {
+        // Extract Base64 data from data URL
+        final base64String = photoUrl.split(',')[1];
+        final bytes = base64Decode(base64String);
+        return Image.memory(
+          bytes,
+          width: width,
+          height: height,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              fallbackIcon,
+              color: Colors.white,
+              size: 24,
+            );
+          },
+        );
+      } catch (e) {
+        // If Base64 decoding fails, show fallback icon
+        return Icon(
+          fallbackIcon,
+          color: Colors.white,
+          size: 24,
+        );
+      }
+    } else {
+      // Regular network URL, use CachedNetworkImage
+      return CachedNetworkImage(
+        imageUrl: photoUrl,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => const CircularProgressIndicator(
+          color: Colors.white,
+          strokeWidth: 2,
+        ),
+        errorWidget: (context, url, error) => Icon(
+          fallbackIcon,
+          color: Colors.white,
+          size: 24,
+        ),
+      );
+    }
   }
 
   Widget _buildMapButton({

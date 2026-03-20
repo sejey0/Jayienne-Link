@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_dimensions.dart';
@@ -111,12 +112,32 @@ class HomeScreen extends StatelessWidget {
     return CircleAvatar(
       radius: AppDimensions.avatarSizeMedium / 2,
       backgroundColor: AppColors.peach.withOpacity(0.3),
-      backgroundImage:
-          photoUrl != null ? CachedNetworkImageProvider(photoUrl) : null,
+      backgroundImage: _getProfileImageProvider(photoUrl),
       child: photoUrl == null
           ? const Icon(Icons.person, size: 32, color: AppColors.softRose)
           : null,
     );
+  }
+
+  /// Get appropriate ImageProvider for profile photos (supports both network URLs and Base64)
+  ImageProvider? _getProfileImageProvider(String? photoUrl) {
+    if (photoUrl == null) return null;
+
+    // Check if it's a Base64 data URL
+    if (photoUrl.startsWith('data:image/')) {
+      try {
+        // Extract Base64 data from data URL
+        final base64String = photoUrl.split(',')[1];
+        final bytes = base64Decode(base64String);
+        return MemoryImage(bytes);
+      } catch (e) {
+        // If Base64 decoding fails, return null to show fallback
+        return null;
+      }
+    } else {
+      // Regular network URL, use CachedNetworkImageProvider
+      return CachedNetworkImageProvider(photoUrl);
+    }
   }
 
   Widget _buildLinkPartnerCard(BuildContext context, dynamic user) {

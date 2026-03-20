@@ -330,6 +330,31 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                 // Skip button
                 OutlinedButton.icon(
                   onPressed: () async {
+                    final user = context.read<UserProvider>().user;
+                    final auth = context.read<AuthProvider>();
+
+                    // Validate user is loaded
+                    if (user == null) {
+                      if (mounted) {
+                        SnackbarHelper.showError(
+                          context,
+                          'User profile not loaded. Please refresh and try again.',
+                        );
+                      }
+                      return;
+                    }
+
+                    final userId = user.id ?? auth.currentUserId;
+                    if (userId == null) {
+                      if (mounted) {
+                        SnackbarHelper.showError(
+                          context,
+                          'User ID not found. Please sign in again.',
+                        );
+                      }
+                      return;
+                    }
+
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
@@ -350,19 +375,21 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                         ],
                       ),
                     );
+
                     if (confirmed == true && mounted) {
-                      final user = context.read<UserProvider>().user;
-                      final auth = context.read<AuthProvider>();
                       final userProvider = context.read<UserProvider>();
                       final router = GoRouter.of(context);
 
-                      // Use database ID if available, fallback to auth ID
-                      final userId = user?.id ?? auth.currentUserId;
-                      if (userId == null) return;
-
                       final success = await userProvider.skipCoupleLink(userId);
-                      if (success && mounted) {
-                        router.go(RouteNames.home);
+                      if (mounted) {
+                        if (success) {
+                          router.go(RouteNames.home);
+                        } else {
+                          SnackbarHelper.showError(
+                            context,
+                            userProvider.error ?? 'Failed to skip. Please try again.',
+                          );
+                        }
                       }
                     }
                   },

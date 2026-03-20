@@ -75,6 +75,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final auth = context.read<AuthProvider>();
     final userProvider = context.read<UserProvider>();
 
+    // Show a loading dialog for image uploads
+    bool showingUploadDialog = false;
+    if (_selectedPhoto != null) {
+      showingUploadDialog = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('Uploading Photo'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text('Please wait while we upload your profile photo...'),
+            ],
+          ),
+        ),
+      );
+    }
+
     final success = await userProvider.updateProfile(
       uid: auth.firebaseUser!.uid,
       displayName: _nameController.text.trim(),
@@ -82,14 +103,63 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       birthday: _birthday,
     );
 
+    // Close upload dialog if shown
+    if (showingUploadDialog && mounted) {
+      Navigator.of(context).pop();
+    }
+
     if (!mounted) return;
 
     if (success) {
       SnackbarHelper.showSuccess(context, 'Profile updated!');
       context.pop();
     } else if (userProvider.error != null) {
-      SnackbarHelper.showError(context, userProvider.error!);
+      // Show detailed error dialog for storage issues
+      if (userProvider.error!.contains('upload') ||
+          userProvider.error!.contains('Storage')) {
+        _showStorageErrorDialog(context, userProvider.error!);
+      } else {
+        SnackbarHelper.showError(context, userProvider.error!);
+      }
     }
+  }
+
+  void _showStorageErrorDialog(BuildContext context, String error) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Upload Failed'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(error),
+            const SizedBox(height: 16),
+            const Text('Troubleshooting steps:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('• Check your internet connection'),
+            const Text('• Try selecting a different photo'),
+            const Text('• Make sure the photo file is not corrupted'),
+            const Text('• Try again in a few moments'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Retry upload
+              _save();
+            },
+            child: const Text('Try Again'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

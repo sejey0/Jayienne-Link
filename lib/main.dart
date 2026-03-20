@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -13,11 +14,17 @@ import 'services/user_service.dart';
 import 'services/couple_service.dart';
 import 'services/storage_service.dart';
 import 'services/background_location_service.dart';
+import 'utils/firebase_debug.dart';
 import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Debug Firebase Storage in development
+  if (kDebugMode) {
+    await FirebaseDebugUtils.printDiagnosis();
+  }
 
   // Enable Firestore offline persistence with reduced cache for data saving
   FirebaseFirestore.instance.settings = const Settings(

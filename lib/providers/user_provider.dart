@@ -55,8 +55,16 @@ class UserProvider extends ChangeNotifier {
       String? photoUrl;
       if (photoFile != null) {
         debugPrint('Uploading profile photo for $uid...');
+
+        // Test storage connectivity first
+        final storageTest = await _storageService.testStorageConnectivity();
+        if (!storageTest) {
+          throw Exception(
+              'Cannot connect to storage service. Please check your internet connection.');
+        }
+
         photoUrl = await _storageService.uploadProfilePhoto(uid, photoFile);
-        debugPrint('Photo uploaded: $photoUrl');
+        debugPrint('Photo uploaded successfully: $photoUrl');
       }
 
       final now = DateTime.now();
@@ -80,7 +88,19 @@ class UserProvider extends ChangeNotifier {
     } catch (e, stackTrace) {
       debugPrint('Profile creation error: $e');
       debugPrint('Stack trace: $stackTrace');
-      _error = 'Failed to create profile: ${e.toString()}';
+
+      // Provide user-friendly error messages
+      if (e.toString().contains('Storage')) {
+        _error =
+            'Failed to upload profile photo. Please check your internet connection and try again.';
+      } else if (e.toString().contains('unauthorized')) {
+        _error = 'Not authorized to upload images. Please contact support.';
+      } else if (e.toString().contains('canceled')) {
+        _error = 'Upload was canceled. Please try again.';
+      } else {
+        _error = 'Failed to create profile. Please try again.';
+      }
+
       _isLoading = false;
       notifyListeners();
       return false;
@@ -106,9 +126,19 @@ class UserProvider extends ChangeNotifier {
       }
 
       if (photoFile != null) {
+        debugPrint('Updating profile photo for $uid...');
+
+        // Test storage connectivity first
+        final storageTest = await _storageService.testStorageConnectivity();
+        if (!storageTest) {
+          throw Exception(
+              'Cannot connect to storage service. Please check your internet connection.');
+        }
+
         final photoUrl =
             await _storageService.uploadProfilePhoto(uid, photoFile);
         updates['photoUrl'] = photoUrl;
+        debugPrint('Photo updated successfully: $photoUrl');
       }
 
       if (updates.isNotEmpty) {
@@ -119,7 +149,20 @@ class UserProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _error = 'Failed to update profile. Please try again.';
+      debugPrint('Profile update error: $e');
+
+      // Provide user-friendly error messages
+      if (e.toString().contains('Storage')) {
+        _error =
+            'Failed to upload profile photo. Please check your internet connection and try again.';
+      } else if (e.toString().contains('unauthorized')) {
+        _error = 'Not authorized to upload images. Please contact support.';
+      } else if (e.toString().contains('canceled')) {
+        _error = 'Upload was canceled. Please try again.';
+      } else {
+        _error = 'Failed to update profile. Please try again.';
+      }
+
       _isLoading = false;
       notifyListeners();
       return false;

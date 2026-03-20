@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
 import 'providers/auth_provider.dart';
@@ -17,6 +18,12 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Enable Firestore offline persistence with reduced cache for data saving
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: 10485760, // 10MB cache limit (saves storage & data)
+  );
 
   // Initialize Workmanager for background location tasks
   await Workmanager().initialize(

@@ -34,6 +34,9 @@ class LocationSyncService {
   String? _userId;
   String? _coupleId;
 
+  // Data saver mode for slow connections
+  bool _dataSaverEnabled = false;
+
   LocationSyncService._();
 
   static LocationSyncService get instance {
@@ -52,6 +55,15 @@ class LocationSyncService {
 
   /// Current syncing status
   bool get isSyncing => _isSyncing;
+
+  /// Data saver mode status
+  bool get dataSaverEnabled => _dataSaverEnabled;
+
+  /// Enable/disable data saver mode
+  void setDataSaverEnabled(bool enabled) {
+    _dataSaverEnabled = enabled;
+    debugPrint('Data saver mode: $enabled');
+  }
 
   // =====================
   // INITIALIZATION
@@ -233,8 +245,10 @@ class LocationSyncService {
           .collection('locations')
           .doc();
 
+      // Use data saver format if enabled (smaller payload)
+      final data = location.toFirestore(dataSaver: _dataSaverEnabled);
       firestoreBatch.set(docRef, {
-        ...location.toFirestore(),
+        ...data,
         'couple_id': coupleId,
       });
 

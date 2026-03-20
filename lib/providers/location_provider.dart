@@ -419,6 +419,18 @@ class LocationProvider extends ChangeNotifier {
         _settings.copyWith(backgroundSharingEnabled: enabled));
   }
 
+  /// Toggle data saver mode for slow connections
+  Future<void> toggleDataSaver() async {
+    final enabled = !_settings.dataSaverEnabled;
+    await _updateSettings(_settings.copyWith(dataSaverEnabled: enabled));
+
+    // Update sync service with data saver setting
+    _syncService.setDataSaverEnabled(enabled);
+  }
+
+  /// Check if data saver is enabled
+  bool get isDataSaverEnabled => _settings.dataSaverEnabled;
+
   Future<void> _updateSettings(LocationSharingSettings newSettings) async {
     if (_userId == null) return;
 

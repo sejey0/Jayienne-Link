@@ -65,9 +65,9 @@ class LocationModel {
     return LocationModel(
       firestoreId: doc.id,
       ownerId: data['owner_id'] as String,
-      latitude: data['latitude'] as double,
-      longitude: data['longitude'] as double,
-      accuracy: (data['accuracy'] as num).toDouble(),
+      latitude: (data['latitude'] as num).toDouble(),
+      longitude: (data['longitude'] as num).toDouble(),
+      accuracy: (data['accuracy'] as num?)?.toDouble() ?? 15.0, // Default if missing (data saver)
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       isSynced: true,
       partnerId: data['partner_id'] as String?,
@@ -76,7 +76,19 @@ class LocationModel {
   }
 
   /// Convert to Firestore document
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toFirestore({bool dataSaver = false}) {
+    if (dataSaver) {
+      // Data saver mode: reduce precision to save bandwidth
+      // 4 decimal places = ~11m accuracy (good enough for location sharing)
+      // Skip optional fields to reduce payload size
+      return {
+        'owner_id': ownerId,
+        'latitude': double.parse(latitude.toStringAsFixed(4)),
+        'longitude': double.parse(longitude.toStringAsFixed(4)),
+        'timestamp': Timestamp.fromDate(timestamp),
+        // Skip accuracy, partner_id, created_at to save data
+      };
+    }
     return {
       'owner_id': ownerId,
       'latitude': latitude,
@@ -172,12 +184,14 @@ class LocationSharingSettings {
   final bool sharingEnabled;
   final bool backgroundSharingEnabled;
   final int updateIntervalMinutes;
+  final bool dataSaverEnabled; // Reduces data usage on slow connections
   final DateTime? lastUpdated;
 
   LocationSharingSettings({
     this.sharingEnabled = false,
     this.backgroundSharingEnabled = false,
     this.updateIntervalMinutes = 15,
+    this.dataSaverEnabled = false,
     this.lastUpdated,
   });
 
@@ -188,6 +202,7 @@ class LocationSharingSettings {
       backgroundSharingEnabled:
           (map['background_sharing_enabled'] == 1 || map['background_sharing_enabled'] == true),
       updateIntervalMinutes: map['update_interval_minutes'] as int? ?? 15,
+      dataSaverEnabled: (map['data_saver_enabled'] == 1 || map['data_saver_enabled'] == true),
       lastUpdated: map['last_updated'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['last_updated'] as int)
           : null,
@@ -200,6 +215,7 @@ class LocationSharingSettings {
       'sharing_enabled': sharingEnabled ? 1 : 0,
       'background_sharing_enabled': backgroundSharingEnabled ? 1 : 0,
       'update_interval_minutes': updateIntervalMinutes,
+      'data_saver_enabled': dataSaverEnabled ? 1 : 0,
       'last_updated': lastUpdated?.millisecondsSinceEpoch,
     };
   }
@@ -208,6 +224,7 @@ class LocationSharingSettings {
     bool? sharingEnabled,
     bool? backgroundSharingEnabled,
     int? updateIntervalMinutes,
+    bool? dataSaverEnabled,
     DateTime? lastUpdated,
   }) {
     return LocationSharingSettings(
@@ -216,6 +233,7 @@ class LocationSharingSettings {
           backgroundSharingEnabled ?? this.backgroundSharingEnabled,
       updateIntervalMinutes:
           updateIntervalMinutes ?? this.updateIntervalMinutes,
+      dataSaverEnabled: dataSaverEnabled ?? this.dataSaverEnabled,
       lastUpdated: lastUpdated ?? this.lastUpdated,
     );
   }

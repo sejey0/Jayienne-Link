@@ -8,7 +8,7 @@ import '../models/location_model.dart';
 /// Provides offline-first storage with sync status tracking.
 class OfflineStorageService {
   static const String _databaseName = 'jayienne_link_locations.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2; // Updated for data_saver column
   static const String _locationsTable = 'locations';
   static const String _settingsTable = 'location_settings';
 
@@ -86,6 +86,7 @@ class OfflineStorageService {
         sharing_enabled INTEGER NOT NULL DEFAULT 0,
         background_sharing_enabled INTEGER NOT NULL DEFAULT 0,
         update_interval_minutes INTEGER NOT NULL DEFAULT 15,
+        data_saver_enabled INTEGER NOT NULL DEFAULT 0,
         last_updated INTEGER
       )
     ''');
@@ -93,11 +94,11 @@ class OfflineStorageService {
 
   /// Handle database migrations
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Add migration logic here for future schema changes
-    // Example:
-    // if (oldVersion < 2) {
-    //   await db.execute('ALTER TABLE $_locationsTable ADD COLUMN new_field TEXT');
-    // }
+    // Migration: Add data_saver_enabled column
+    if (oldVersion < 2) {
+      await db.execute(
+          'ALTER TABLE $_settingsTable ADD COLUMN data_saver_enabled INTEGER NOT NULL DEFAULT 0');
+    }
   }
 
   // =====================

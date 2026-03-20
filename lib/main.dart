@@ -73,7 +73,10 @@ void main() async {
         ChangeNotifierProxyProvider<UserProvider, CoupleProvider>(
           create: (_) => CoupleProvider(coupleService),
           update: (_, user, coupleProv) {
-            if (user.coupleId != null) {
+            if (user.user == null) {
+              // User signed out - clear couple data
+              coupleProv!.clear();
+            } else if (user.coupleId != null) {
               coupleProv!.loadCouple(user.coupleId!);
             }
             return coupleProv!;

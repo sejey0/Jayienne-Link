@@ -94,6 +94,12 @@ class CoupleProvider extends ChangeNotifier {
   /// Loads the existing invite code for a user from Firestore
   Future<void> loadExistingCode(String? code) async {
     if (code == null) return;
+    if (code == 'SKIPPED') {
+      _inviteCode = null;
+      _codeExpiresAt = null;
+      notifyListeners();
+      return;
+    }
     _inviteCode = code;
 
     try {

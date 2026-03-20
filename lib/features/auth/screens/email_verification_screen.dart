@@ -63,11 +63,12 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.verifyEmail)),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppDimensions.spacingLg),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const SizedBox(height: AppDimensions.spacingXl),
               const Icon(
                 Icons.mark_email_unread_outlined,
                 size: 80,
@@ -123,6 +124,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                   foregroundColor: Colors.grey,
                 ),
               ),
+              const SizedBox(height: AppDimensions.spacingXl),
             ],
           ),
         ),

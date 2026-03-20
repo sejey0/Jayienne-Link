@@ -40,6 +40,7 @@ class AppRouter {
         final isEmailVerified = auth.isEmailVerified;
         final isProfileComplete = user.isProfileComplete;
         final hasCoupleId = user.coupleId != null;
+        final hasSkippedCoupleLink = user.user?.inviteCode == 'SKIPPED';
 
         // Allow splash to show briefly
         if (location == RouteNames.splash) return null;
@@ -67,14 +68,19 @@ class AppRouter {
           return isOnProfileSetup ? null : RouteNames.profileSetup;
         }
 
-        // Profile complete but no couple
-        if (!hasCoupleId) {
+        // Profile complete but no couple (and hasn't skipped)
+        if (!hasCoupleId && !hasSkippedCoupleLink) {
           if (isOnCoupleLink || isOnCoupleSuccess) return null;
           return RouteNames.coupleLink;
         }
 
         // Fully linked - redirect away from auth/setup routes
-        if (isOnAuthRoute || isOnProfileSetup || isOnCoupleLink) {
+        if (hasCoupleId && (isOnAuthRoute || isOnProfileSetup || isOnCoupleLink)) {
+          return RouteNames.home;
+        }
+
+        // User skipped couple linking - redirect away from auth/setup but allow couple link access
+        if (hasSkippedCoupleLink && (isOnAuthRoute || isOnProfileSetup)) {
           return RouteNames.home;
         }
 

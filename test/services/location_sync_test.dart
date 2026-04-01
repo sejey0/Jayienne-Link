@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jayienne_link/services/location_sync_service.dart';
+import 'package:jayienne_link/services/supabase_location_sync_service.dart';
 
 void main() {
   group('SyncResult', () {

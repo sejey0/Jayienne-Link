@@ -5,6 +5,7 @@ void main() {
   group('LocationModel', () {
     test('creates location with required fields', () {
       final location = LocationModel(
+        coupleId: 'couple123',
         ownerId: 'user123',
         latitude: 14.5995,
         longitude: 120.9842,
@@ -13,6 +14,7 @@ void main() {
       );
 
       expect(location.ownerId, 'user123');
+      expect(location.coupleId, 'couple123');
       expect(location.latitude, 14.5995);
       expect(location.longitude, 120.9842);
       expect(location.accuracy, 10.0);
@@ -23,14 +25,15 @@ void main() {
     test('converts to and from map correctly', () {
       final now = DateTime.now();
       final location = LocationModel(
-        id: 1,
+        localId: 1,
+        id: 'supabase-uuid-123',
+        coupleId: 'couple123',
         ownerId: 'user123',
         latitude: 14.5995,
         longitude: 120.9842,
         accuracy: 10.0,
         timestamp: now,
         isSynced: true,
-        firestoreId: 'firestore123',
         partnerId: 'partner456',
         source: LocationSource.background,
       );
@@ -38,19 +41,21 @@ void main() {
       final map = location.toMap();
       final restored = LocationModel.fromMap(map);
 
+      expect(restored.localId, location.localId);
       expect(restored.id, location.id);
+      expect(restored.coupleId, location.coupleId);
       expect(restored.ownerId, location.ownerId);
       expect(restored.latitude, location.latitude);
       expect(restored.longitude, location.longitude);
       expect(restored.accuracy, location.accuracy);
       expect(restored.isSynced, location.isSynced);
-      expect(restored.firestoreId, location.firestoreId);
       expect(restored.partnerId, location.partnerId);
       expect(restored.source, location.source);
     });
 
     test('isRecent returns true for recent timestamps', () {
       final recentLocation = LocationModel(
+        coupleId: 'couple123',
         ownerId: 'user123',
         latitude: 14.5995,
         longitude: 120.9842,
@@ -63,6 +68,7 @@ void main() {
 
     test('isRecent returns false for old timestamps', () {
       final oldLocation = LocationModel(
+        coupleId: 'couple123',
         ownerId: 'user123',
         latitude: 14.5995,
         longitude: 120.9842,
@@ -76,6 +82,7 @@ void main() {
     test('timeAgo returns correct string for different durations', () {
       // Just now
       final justNow = LocationModel(
+        coupleId: 'couple123',
         ownerId: 'user123',
         latitude: 14.5995,
         longitude: 120.9842,
@@ -86,6 +93,7 @@ void main() {
 
       // Minutes ago
       final minutesAgo = LocationModel(
+        coupleId: 'couple123',
         ownerId: 'user123',
         latitude: 14.5995,
         longitude: 120.9842,
@@ -96,6 +104,7 @@ void main() {
 
       // Hours ago
       final hoursAgo = LocationModel(
+        coupleId: 'couple123',
         ownerId: 'user123',
         latitude: 14.5995,
         longitude: 120.9842,
@@ -106,6 +115,7 @@ void main() {
 
       // Days ago
       final daysAgo = LocationModel(
+        coupleId: 'couple123',
         ownerId: 'user123',
         latitude: 14.5995,
         longitude: 120.9842,
@@ -117,6 +127,7 @@ void main() {
 
     test('copyWith creates new instance with updated fields', () {
       final original = LocationModel(
+        coupleId: 'couple123',
         ownerId: 'user123',
         latitude: 14.5995,
         longitude: 120.9842,
@@ -127,11 +138,11 @@ void main() {
 
       final updated = original.copyWith(
         isSynced: true,
-        firestoreId: 'firestore123',
+        id: 'supabase-uuid-123',
       );
 
       expect(updated.isSynced, true);
-      expect(updated.firestoreId, 'firestore123');
+      expect(updated.id, 'supabase-uuid-123');
       expect(updated.latitude, original.latitude);
       expect(updated.ownerId, original.ownerId);
     });
@@ -139,6 +150,7 @@ void main() {
     test('equality works correctly', () {
       final now = DateTime.now();
       final location1 = LocationModel(
+        coupleId: 'couple123',
         ownerId: 'user123',
         latitude: 14.5995,
         longitude: 120.9842,
@@ -147,6 +159,7 @@ void main() {
       );
 
       final location2 = LocationModel(
+        coupleId: 'couple123',
         ownerId: 'user123',
         latitude: 14.5995,
         longitude: 120.9842,

@@ -1,21 +1,26 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/couple_model.dart';
+import '../models/user_model.dart';
 import '../services/supabase_couple_service.dart';
+import '../services/supabase_user_service.dart';
 
 class CoupleProvider extends ChangeNotifier {
   final SupabaseCoupleService _coupleService;
+  final SupabaseUserService _userService;
 
   CoupleModel? _couple;
+  UserModel? _partner;
   String? _inviteCode;
   DateTime? _codeExpiresAt;
   bool _isLoading = false;
   String? _error;
   StreamSubscription? _coupleSubscription;
 
-  CoupleProvider(this._coupleService);
+  CoupleProvider(this._coupleService, this._userService);
 
   CoupleModel? get couple => _couple;
+  UserModel? get partner => _partner;
   String? get inviteCode => _inviteCode;
   DateTime? get codeExpiresAt => _codeExpiresAt;
   bool get isLoading => _isLoading;
@@ -82,13 +87,34 @@ class CoupleProvider extends ChangeNotifier {
     }
   }
 
-  void loadCouple(String coupleId) {
+  void loadCouple(String coupleId, String currentUserId) {
     _coupleSubscription?.cancel();
     _coupleSubscription =
-        _coupleService.coupleStream(coupleId).listen((couple) {
+        _coupleService.coupleStream(coupleId).listen((couple) async {
       _couple = couple;
+      
+      // Also load partner data
+      if (couple != null) {
+        final partnerId = couple.getPartnerId(currentUserId);
+        if (partnerId.isNotEmpty) {
+          _partner = await _userService.getUser(partnerId);
+          debugPrint('✅ Partner loaded: ${_partner?.displayName}, photoUrl: ${_partner?.photoUrl != null}');
+        }
+      }
+      
       notifyListeners();
     });
+  }
+
+  /// Refresh partner data (call when partner updates their profile)
+  Future<void> refreshPartner(String currentUserId) async {
+    if (_couple == null) return;
+    
+    final partnerId = _couple!.getPartnerId(currentUserId);
+    if (partnerId.isNotEmpty) {
+      _partner = await _userService.getUser(partnerId);
+      notifyListeners();
+    }
   }
 
   /// Clears all couple data (call when signing out or switching accounts)
@@ -96,6 +122,7 @@ class CoupleProvider extends ChangeNotifier {
     _coupleSubscription?.cancel();
     _coupleSubscription = null;
     _couple = null;
+    _partner = null;
     _inviteCode = null;
     _codeExpiresAt = null;
     _error = null;

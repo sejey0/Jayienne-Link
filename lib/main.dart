@@ -71,13 +71,13 @@ void main() async {
           },
         ),
         ChangeNotifierProxyProvider<UserProvider, CoupleProvider>(
-          create: (_) => CoupleProvider(coupleService),
+          create: (_) => CoupleProvider(coupleService, userService),
           update: (_, user, coupleProv) {
             if (user.user == null) {
               // User signed out - clear couple data
               coupleProv!.clear();
-            } else if (user.coupleId != null) {
-              coupleProv!.loadCouple(user.coupleId!);
+            } else if (user.coupleId != null && user.user?.id != null) {
+              coupleProv!.loadCouple(user.coupleId!, user.user!.id);
             }
             return coupleProv!;
           },
@@ -117,7 +117,8 @@ Future<void> _debugSupabase() async {
   try {
     debugPrint('=== Supabase Debug Info ===');
     debugPrint('URL: ${dotenv.env['SUPABASE_URL']}');
-    debugPrint('Key configured: ${dotenv.env['SUPABASE_ANON_KEY']?.isNotEmpty == true}');
+    debugPrint(
+        'Key configured: ${dotenv.env['SUPABASE_ANON_KEY']?.isNotEmpty == true}');
 
     // Test Storage Service
     final supabaseStorageService = SupabaseStorageService();

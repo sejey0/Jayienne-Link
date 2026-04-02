@@ -7,10 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/couple_provider.dart';
-import '../../../providers/location_provider.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/heart_animation.dart';
 import '../../location/widgets/partner_location_card.dart';
@@ -60,7 +58,8 @@ class HomeScreen extends StatelessWidget {
                           const SizedBox(width: AppDimensions.spacingMd),
                           const HeartAnimation(size: 32),
                           const SizedBox(width: AppDimensions.spacingMd),
-                          _buildAvatar(context, null),
+                          _buildAvatar(
+                              context, coupleProvider.partner?.photoUrl),
                         ],
                       ),
                       const SizedBox(height: AppDimensions.spacingMd),

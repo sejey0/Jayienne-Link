@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -120,7 +121,9 @@ class HomeScreen extends StatelessWidget {
 
   /// Get appropriate ImageProvider for profile photos (supports both network URLs and Base64)
   ImageProvider? _getProfileImageProvider(String? photoUrl) {
-    if (photoUrl == null) return null;
+    if (photoUrl == null || photoUrl.isEmpty) return null;
+
+    debugPrint('Loading image from: ${photoUrl.substring(0, photoUrl.length > 50 ? 50 : photoUrl.length)}...');
 
     // Check if it's a Base64 data URL
     if (photoUrl.startsWith('data:image/')) {
@@ -128,13 +131,15 @@ class HomeScreen extends StatelessWidget {
         // Extract Base64 data from data URL
         final base64String = photoUrl.split(',')[1];
         final bytes = base64Decode(base64String);
+        debugPrint('✅ Loaded Base64 image (${bytes.length} bytes)');
         return MemoryImage(bytes);
       } catch (e) {
-        // If Base64 decoding fails, return null to show fallback
+        debugPrint('❌ Base64 decode failed: $e');
         return null;
       }
     } else {
       // Regular network URL, use CachedNetworkImageProvider
+      debugPrint('✅ Loading network image');
       return CachedNetworkImageProvider(photoUrl);
     }
   }

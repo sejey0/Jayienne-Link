@@ -98,7 +98,8 @@ class CoupleProvider extends ChangeNotifier {
         final partnerId = couple.getPartnerId(currentUserId);
         if (partnerId.isNotEmpty) {
           _partner = await _userService.getUser(partnerId);
-          debugPrint('✅ Partner loaded: ${_partner?.displayName}, photoUrl: ${_partner?.photoUrl != null}');
+          debugPrint('✅ Partner loaded: ${_partner?.displayName}');
+          debugPrint('   Partner photoUrl: ${_partner?.photoUrl ?? "null"}');
         }
       }
       

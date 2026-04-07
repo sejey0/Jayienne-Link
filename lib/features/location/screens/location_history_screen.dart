@@ -8,6 +8,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
 import '../../../widgets/common/app_card.dart';
+import '../../../widgets/smart_profile_image.dart';
 import '../widgets/offline_status_indicator.dart';
 
 /// Timeline view of location history showing synced/offline periods.
@@ -182,7 +183,9 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
               _buildDayMapPreview(context, dayLocations, isMyLocations),
               const SizedBox(height: AppDimensions.spacingSm),
               // Timeline
-              ...dayLocations.map((loc) => _buildTimelineItem(context, loc)),
+              ...dayLocations.map(
+                (loc) => _buildTimelineItem(context, loc, isMyLocations),
+              ),
               const SizedBox(height: AppDimensions.spacingMd),
             ],
           );
@@ -321,12 +324,16 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     );
   }
 
-  Widget _buildTimelineItem(BuildContext context, LocationModel location) {
+  Widget _buildTimelineItem(
+    BuildContext context,
+    LocationModel location,
+    bool isMyLocations,
+  ) {
     final isSynced = location.isSynced;
     final isOfflineCapture = location.source == LocationSource.background;
 
     return InkWell(
-      onTap: () => _showLocationOnMap(context, location),
+      onTap: () => _showLocationOnMap(context, location, isMyLocations),
       borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
       child: Padding(
         padding: const EdgeInsets.only(left: AppDimensions.spacingMd),
@@ -370,225 +377,380 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
                             ),
                       ),
                       const SizedBox(width: AppDimensions.spacingSm),
-                    if (!isSynced)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+                      if (!isSynced)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.warning.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Pending sync',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  color: AppColors.warning,
+                                ),
+                          ),
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.warning.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
+                      if (isOfflineCapture)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.lavender.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Background',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  color: AppColors.lavender,
+                                ),
+                          ),
                         ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Expanded(
                         child: Text(
-                          'Pending sync',
+                          '${location.latitude.toStringAsFixed(5)}, ${location.longitude.toStringAsFixed(5)}',
                           style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: AppColors.warning,
-                                  ),
-                        ),
-                      ),
-                    if (isOfflineCapture)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.lavender.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'Background',
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: AppColors.lavender,
+                                    fontFamily: 'monospace',
+                                    decoration: TextDecoration.underline,
                                   ),
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${location.latitude.toStringAsFixed(5)}, ${location.longitude.toStringAsFixed(5)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.lavender,
-                              fontFamily: 'monospace',
-                              decoration: TextDecoration.underline,
-                            ),
+                      const Icon(
+                        Icons.map_outlined,
+                        color: AppColors.lavender,
+                        size: 16,
                       ),
-                    ),
-                    const Icon(
-                      Icons.map_outlined,
-                      color: AppColors.lavender,
-                      size: 16,
-                    ),
-                  ],
-                ),
-                Text(
-                  'Accuracy: ${location.accuracy.toStringAsFixed(1)}m',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade400,
-                      ),
-                ),
-              ],
+                    ],
+                  ),
+                  Text(
+                    'Accuracy: ${location.accuracy.toStringAsFixed(1)}m',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade400,
+                        ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          // Tap to view on map indicator
-          const Icon(
-            Icons.chevron_right,
-            color: AppColors.lavender,
-            size: 20,
-          ),
-        ],
+            // Tap to view on map indicator
+            const Icon(
+              Icons.chevron_right,
+              color: AppColors.lavender,
+              size: 20,
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
   /// Show a specific location on a map in a bottom sheet
-  void _showLocationOnMap(BuildContext context, LocationModel location) {
+  void _showLocationOnMap(
+    BuildContext context,
+    LocationModel location,
+    bool isMyLocations,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(AppDimensions.borderRadiusLarge),
+      builder: (context) {
+        final provider = context.watch<LocationProvider>();
+        final currentUser = provider.currentUser;
+        final partnerUser = provider.partnerUser;
+
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppDimensions.borderRadiusLarge),
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(AppDimensions.spacingMd),
-              child: Row(
-                children: [
-                  const Icon(Icons.location_on, color: AppColors.softRose),
-                  const SizedBox(width: AppDimensions.spacingSm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          location.formattedTime,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        Text(
-                          '${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey,
-                                fontFamily: 'monospace',
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            // Map
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(AppDimensions.borderRadiusLarge),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                child: FlutterMap(
-                  options: MapOptions(
-                    initialCenter: LatLng(location.latitude, location.longitude),
-                    initialZoom: 16,
-                  ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(AppDimensions.spacingMd),
+                child: Row(
                   children: [
-                    TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.jayiennelink.app',
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: LatLng(location.latitude, location.longitude),
-                          width: 50,
-                          height: 50,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.softRose,
-                              border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.softRose.withOpacity(0.4),
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
+                    const Icon(Icons.location_on, color: AppColors.softRose),
+                    const SizedBox(width: AppDimensions.spacingSm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            location.formattedTime,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.favorite,
-                              color: Colors.white,
-                              size: 24,
-                            ),
                           ),
-                        ),
-                      ],
+                          Text(
+                            '${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey,
+                                      fontFamily: 'monospace',
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
               ),
-            ),
-            // Info bar
-            Container(
-              padding: const EdgeInsets.all(AppDimensions.spacingMd),
-              decoration: BoxDecoration(
-                color: AppColors.lavender.withOpacity(0.1),
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: AppDimensions.spacingMd,
+                  right: AppDimensions.spacingMd,
+                  bottom: AppDimensions.spacingSm,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildProfileAvatar(
+                      context,
+                      label: 'You',
+                      photoUrl: currentUser?.photoUrl,
+                      accentColor: AppColors.lavender,
+                      fallbackIcon: Icons.person,
+                      isHighlighted: isMyLocations,
+                    ),
+                    const SizedBox(width: AppDimensions.spacingLg),
+                    _buildProfileAvatar(
+                      context,
+                      label: 'Your Person',
+                      photoUrl: partnerUser?.photoUrl,
+                      accentColor: AppColors.softRose,
+                      fallbackIcon: Icons.favorite,
+                      isHighlighted: !isMyLocations,
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildInfoItem(
-                    context,
-                    Icons.gps_fixed,
-                    'Accuracy',
-                    '${location.accuracy.toStringAsFixed(1)}m',
+              // Map
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(AppDimensions.borderRadiusLarge),
                   ),
-                  _buildInfoItem(
-                    context,
-                    location.isSynced ? Icons.cloud_done : Icons.cloud_off,
-                    'Status',
-                    location.isSynced ? 'Synced' : 'Pending',
+                  child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter:
+                          LatLng(location.latitude, location.longitude),
+                      initialZoom: 16,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.jayiennelink.app',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point:
+                                LatLng(location.latitude, location.longitude),
+                            width: 38,
+                            height: 38,
+                            child: _buildSingleMapMarker(
+                              photoUrl: isMyLocations
+                                  ? currentUser?.photoUrl
+                                  : partnerUser?.photoUrl,
+                              accentColor: isMyLocations
+                                  ? AppColors.lavender
+                                  : AppColors.softRose,
+                              fallbackIcon:
+                                  isMyLocations ? Icons.person : Icons.favorite,
+                              size: 38,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  _buildInfoItem(
-                    context,
-                    Icons.schedule,
-                    'Time',
-                    location.timeAgo,
-                  ),
-                ],
+                ),
+              ),
+              // Info bar
+              Container(
+                padding: const EdgeInsets.all(AppDimensions.spacingMd),
+                decoration: BoxDecoration(
+                  color: AppColors.lavender.withOpacity(0.1),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildInfoItem(
+                      context,
+                      Icons.gps_fixed,
+                      'Accuracy',
+                      '${location.accuracy.toStringAsFixed(1)}m',
+                    ),
+                    _buildInfoItem(
+                      context,
+                      location.isSynced ? Icons.cloud_done : Icons.cloud_off,
+                      'Status',
+                      location.isSynced ? 'Synced' : 'Pending',
+                    ),
+                    _buildInfoItem(
+                      context,
+                      Icons.schedule,
+                      'Time',
+                      location.timeAgo,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileAvatar(
+    BuildContext context, {
+    required String label,
+    required String? photoUrl,
+    required Color accentColor,
+    required IconData fallbackIcon,
+    required bool isHighlighted,
+  }) {
+    final size = AppDimensions.avatarSizeSmall;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: accentColor.withOpacity(isHighlighted ? 1 : 0.5),
+              width: isHighlighted ? 2 : 1,
+            ),
+          ),
+          child: ClipOval(
+            child: SmartProfileImage(
+              imageUrl: photoUrl,
+              width: size,
+              height: size,
+              placeholder: _buildAvatarPlaceholder(
+                size,
+                fallbackIcon,
+                accentColor,
+              ),
+              errorWidget: _buildAvatarPlaceholder(
+                size,
+                fallbackIcon,
+                accentColor,
               ),
             ),
-          ],
+          ),
         ),
+        const SizedBox(height: AppDimensions.spacingXs),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: accentColor,
+                fontWeight: isHighlighted ? FontWeight.w600 : FontWeight.w500,
+              ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSingleMapMarker({
+    required String? photoUrl,
+    required Color accentColor,
+    required IconData fallbackIcon,
+    required double size,
+  }) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: accentColor,
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withOpacity(0.35),
+            blurRadius: 8,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: SmartProfileImage(
+          imageUrl: photoUrl,
+          width: size,
+          height: size,
+          placeholder: _buildAvatarPlaceholder(
+            size,
+            fallbackIcon,
+            accentColor,
+          ),
+          errorWidget: _buildAvatarPlaceholder(
+            size,
+            fallbackIcon,
+            accentColor,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarPlaceholder(
+    double size,
+    IconData icon,
+    Color accentColor,
+  ) {
+    return Container(
+      width: size,
+      height: size,
+      color: accentColor.withOpacity(0.15),
+      child: Icon(
+        icon,
+        color: accentColor,
+        size: 20,
       ),
     );
   }

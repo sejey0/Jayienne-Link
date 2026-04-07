@@ -19,4 +19,7 @@ class RouteNames {
   // Location routes
   static const String location = '/location';
   static const String locationHistory = '/location/history';
+
+  // Heartbeat routes
+  static const String heartbeat = '/heartbeat';
 }

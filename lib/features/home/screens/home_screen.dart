@@ -94,7 +94,7 @@ class HomeScreen extends StatelessWidget {
                 PartnerLocationCardCompact(
                   onTap: () => context.push(RouteNames.location),
                 ),
-                _buildFeatureCard(context, Icons.favorite_outline, 'Heartbeat'),
+                _buildHeartbeatCard(context),
                 _buildFeatureCard(
                     context, Icons.emoji_emotions_outlined, 'Mood'),
                 _buildFeatureCard(
@@ -207,6 +207,31 @@ class HomeScreen extends StatelessWidget {
                     ?.copyWith(color: Colors.grey.shade400),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeartbeatCard(BuildContext context) {
+    return AppCard(
+      onTap: () => context.push(RouteNames.heartbeat),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.favorite, size: 36, color: AppColors.softRose),
+          const SizedBox(height: AppDimensions.spacingSm),
+          Text(
+            'Heartbeat',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: AppDimensions.spacingXs),
+          Text(
+            'Tap to send',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Colors.grey.shade500),
           ),
         ],
       ),

@@ -66,6 +66,18 @@ CREATE TABLE IF NOT EXISTS locations (
 );
 
 -- =====================================================
+-- HEARTBEATS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS heartbeats (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    couple_id UUID NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- =====================================================
 -- INDEXES
 -- =====================================================
 
@@ -90,6 +102,12 @@ CREATE INDEX IF NOT EXISTS idx_locations_owner_id ON locations(owner_id);
 CREATE INDEX IF NOT EXISTS idx_locations_timestamp ON locations(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_locations_created_at ON locations(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_locations_coordinates ON locations USING GIST(point(longitude, latitude));
+
+-- Heartbeats indexes
+CREATE INDEX IF NOT EXISTS idx_heartbeats_couple_id ON heartbeats(couple_id);
+CREATE INDEX IF NOT EXISTS idx_heartbeats_sender_id ON heartbeats(sender_id);
+CREATE INDEX IF NOT EXISTS idx_heartbeats_receiver_id ON heartbeats(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_heartbeats_sent_at ON heartbeats(sent_at DESC);
 
 -- =====================================================
 -- TRIGGERS
@@ -120,6 +138,7 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE couples ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invite_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE heartbeats ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies
 DROP POLICY IF EXISTS "Users can read own profile" ON users;
@@ -133,6 +152,8 @@ DROP POLICY IF EXISTS "Anyone can read valid invite codes" ON invite_codes;
 DROP POLICY IF EXISTS "Users can read couple locations" ON locations;
 DROP POLICY IF EXISTS "Users can insert own locations" ON locations;
 DROP POLICY IF EXISTS "Users can update own locations" ON locations;
+DROP POLICY IF EXISTS "Users can read couple heartbeats" ON heartbeats;
+DROP POLICY IF EXISTS "Users can send heartbeats" ON heartbeats;
 
 -- Users policies (users.id = auth.uid())
 CREATE POLICY "Users can read own profile" ON users
@@ -189,6 +210,18 @@ CREATE POLICY "Users can insert own locations" ON locations
 
 CREATE POLICY "Users can update own locations" ON locations
     FOR UPDATE USING (owner_id = auth.uid());
+
+-- Heartbeats policies
+CREATE POLICY "Users can read couple heartbeats" ON heartbeats
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE couple_id = heartbeats.couple_id AND id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can send heartbeats" ON heartbeats
+    FOR INSERT WITH CHECK (sender_id = auth.uid());
 
 -- =====================================================
 -- HELPER FUNCTIONS

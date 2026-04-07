@@ -9,11 +9,13 @@ import 'providers/user_provider.dart';
 import 'providers/couple_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/location_provider.dart';
+import 'providers/heartbeat_provider.dart';
 import 'services/supabase_auth_service.dart';
 import 'services/supabase_user_service.dart';
 import 'services/supabase_couple_service.dart';
 import 'services/supabase_storage_service.dart';
 import 'services/supabase_data_service.dart';
+import 'services/supabase_heartbeat_service.dart';
 import 'services/background_location_service.dart';
 import 'app.dart';
 
@@ -104,6 +106,33 @@ void main() async {
               );
             }
             return locationProv!;
+          },
+        ),
+        ChangeNotifierProxyProvider2<UserProvider, CoupleProvider,
+            HeartbeatProvider>(
+          create: (_) => HeartbeatProvider(SupabaseHeartbeatService()),
+          update: (_, userProv, coupleProv, heartbeatProv) {
+            final user = userProv.user;
+            final couple = coupleProv.couple;
+
+            if (user == null || couple == null || user.coupleId == null) {
+              heartbeatProv!.clear();
+              return heartbeatProv;
+            }
+
+            final partnerId =
+                couple.getPartnerId(user.id.isNotEmpty ? user.id : user.uid);
+            if (partnerId.isEmpty || couple.id == null) {
+              heartbeatProv!.clear();
+              return heartbeatProv;
+            }
+
+            heartbeatProv!.initialize(
+              userId: user.id,
+              coupleId: user.coupleId!,
+              partnerId: partnerId,
+            );
+            return heartbeatProv;
           },
         ),
       ],

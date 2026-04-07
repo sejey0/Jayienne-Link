@@ -185,20 +185,22 @@ class SupabaseDataService {
     bool ascending = true,
   }) {
     try {
-      dynamic query = client.from(table).stream(primaryKey: ['id']);
+      final query = client.from(table).stream(primaryKey: ['id']);
 
       if (whereColumn != null && whereValue != null) {
-        query = query.eq(whereColumn, whereValue);
+        query.eq(whereColumn, whereValue);
       }
 
       if (orderBy != null) {
-        query = query.order(orderBy, ascending: ascending);
+        query.order(orderBy, ascending: ascending);
       }
 
       return query.map((data) => List<Map<String, dynamic>>.from(data));
     } catch (e) {
       debugPrint('Stream error for $table: $e');
-      return Stream.error(_handleDatabaseError(e));
+      return Stream<List<Map<String, dynamic>>>.error(
+        _handleDatabaseError(e),
+      );
     }
   }
 

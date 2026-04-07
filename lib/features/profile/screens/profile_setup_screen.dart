@@ -82,7 +82,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     final currentUser = auth.currentUser!;
 
     final success = await userProvider.createProfile(
-      uid: currentUser.id!,
+      uid: currentUser.id,
       email: currentUser.email ?? '',
       phoneNumber: currentUser.phone,
       displayName: _nameController.text.trim(),

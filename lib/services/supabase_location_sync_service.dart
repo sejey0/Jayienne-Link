@@ -387,7 +387,7 @@ class SupabaseLocationSyncService {
       }
 
       final latest =
-          LocationModel.fromJson(response.first as Map<String, dynamic>);
+          LocationModel.fromJson(response.first);
 
       // Update cache
       await _storage.storePartnerLocations([latest]);

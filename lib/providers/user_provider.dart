@@ -41,7 +41,7 @@ class UserProvider extends ChangeNotifier {
         _user = user;
         notifyListeners();
         // Now start the stream with the correct database ID
-        _userSubscription = _userService.userStream(user.id!).listen((updatedUser) {
+        _userSubscription = _userService.userStream(user.id).listen((updatedUser) {
           _user = updatedUser;
           notifyListeners();
         });

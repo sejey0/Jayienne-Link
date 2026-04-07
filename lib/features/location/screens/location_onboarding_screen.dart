@@ -23,7 +23,7 @@ class _LocationOnboardingScreenState extends State<LocationOnboardingScreen> {
   final _pageController = PageController();
 
   final _pages = [
-    _OnboardingPage(
+    const _OnboardingPage(
       icon: Icons.location_on,
       title: 'Share Your Location',
       description:
@@ -31,7 +31,7 @@ class _LocationOnboardingScreenState extends State<LocationOnboardingScreen> {
           'Perfect for when you\'re hiking, traveling, or just out and about.',
       color: AppColors.softRose,
     ),
-    _OnboardingPage(
+    const _OnboardingPage(
       icon: Icons.cloud_off,
       title: 'Works Offline',
       description:
@@ -39,14 +39,14 @@ class _LocationOnboardingScreenState extends State<LocationOnboardingScreen> {
           'automatically syncs when you\'re back online.',
       color: AppColors.lavender,
     ),
-    _OnboardingPage(
+    const _OnboardingPage(
       icon: Icons.lock,
       title: 'Private & Secure',
       description: 'Only your linked partner can see your location. '
           'You\'re always in control - pause sharing anytime.',
       color: AppColors.peach,
     ),
-    _OnboardingPage(
+    const _OnboardingPage(
       icon: Icons.battery_charging_full,
       title: 'Battery Friendly',
       description: 'Smart location updates that won\'t drain your battery. '

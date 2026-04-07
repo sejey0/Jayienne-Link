@@ -83,14 +83,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          title: const Text('Uploading Photo'),
+        builder: (context) => const AlertDialog(
+          title: Text('Uploading Photo'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              const Text('Please wait while we upload your profile photo...'),
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Please wait while we upload your profile photo...'),
             ],
           ),
         ),

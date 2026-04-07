@@ -92,7 +92,7 @@ class CoupleProvider extends ChangeNotifier {
     _coupleSubscription =
         _coupleService.coupleStream(coupleId).listen((couple) async {
       _couple = couple;
-      
+
       // Also load partner data
       if (couple != null) {
         final partnerId = couple.getPartnerId(currentUserId);
@@ -102,7 +102,7 @@ class CoupleProvider extends ChangeNotifier {
           debugPrint('   Partner photoUrl: ${_partner?.photoUrl ?? "null"}');
         }
       }
-      
+
       notifyListeners();
     });
   }
@@ -110,7 +110,7 @@ class CoupleProvider extends ChangeNotifier {
   /// Refresh partner data (call when partner updates their profile)
   Future<void> refreshPartner(String currentUserId) async {
     if (_couple == null) return;
-    
+
     final partnerId = _couple!.getPartnerId(currentUserId);
     if (partnerId.isNotEmpty) {
       _partner = await _userService.getUser(partnerId);

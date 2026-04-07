@@ -13,7 +13,7 @@ class SmartProfileImage extends StatelessWidget {
   final BorderRadius? borderRadius;
 
   const SmartProfileImage({
-    Key? key,
+    super.key,
     required this.imageUrl,
     this.width,
     this.height,
@@ -21,7 +21,7 @@ class SmartProfileImage extends StatelessWidget {
     this.placeholder,
     this.errorWidget,
     this.borderRadius,
-  }) : super(key: key);
+  });
 
   bool _isDataUri(String? url) {
     if (url == null || url.isEmpty) return false;

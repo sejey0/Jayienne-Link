@@ -140,7 +140,7 @@ void main() {
     test('retention policy - old locations should be cleaned up', () {
       // Simulating: Cleanup of locations older than 7 days
 
-      final retentionDays = 7;
+      const retentionDays = 7;
       final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
 
       final locations = [

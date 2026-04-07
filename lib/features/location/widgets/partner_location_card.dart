@@ -108,7 +108,7 @@ class PartnerLocationCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.cloud_off,
                     size: 14,
                     color: AppColors.warning,
@@ -238,7 +238,7 @@ class PartnerLocationCard extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.success,
             ),

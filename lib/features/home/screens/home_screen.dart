@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -123,7 +122,8 @@ class HomeScreen extends StatelessWidget {
   ImageProvider? _getProfileImageProvider(String? photoUrl) {
     if (photoUrl == null || photoUrl.isEmpty) return null;
 
-    debugPrint('Loading image from: ${photoUrl.substring(0, photoUrl.length > 50 ? 50 : photoUrl.length)}...');
+    debugPrint(
+        'Loading image from: ${photoUrl.substring(0, photoUrl.length > 50 ? 50 : photoUrl.length)}...');
 
     // Check if it's a Base64 data URL
     if (photoUrl.startsWith('data:image/')) {

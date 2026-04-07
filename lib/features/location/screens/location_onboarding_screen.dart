@@ -6,7 +6,6 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
 import '../../../providers/location_provider.dart';
-import '../../../services/offline_location_service.dart';
 import '../../../widgets/common/app_button.dart';
 
 /// Onboarding screen explaining location sharing and requesting permissions.
@@ -22,8 +21,8 @@ class _LocationOnboardingScreenState extends State<LocationOnboardingScreen> {
   int _currentPage = 0;
   final _pageController = PageController();
 
-  final _pages = [
-    const _OnboardingPage(
+  static const List<_OnboardingPage> _pages = [
+    _OnboardingPage(
       icon: Icons.location_on,
       title: 'Share Your Location',
       description:
@@ -31,7 +30,7 @@ class _LocationOnboardingScreenState extends State<LocationOnboardingScreen> {
           'Perfect for when you\'re hiking, traveling, or just out and about.',
       color: AppColors.softRose,
     ),
-    const _OnboardingPage(
+    _OnboardingPage(
       icon: Icons.cloud_off,
       title: 'Works Offline',
       description:
@@ -39,14 +38,14 @@ class _LocationOnboardingScreenState extends State<LocationOnboardingScreen> {
           'automatically syncs when you\'re back online.',
       color: AppColors.lavender,
     ),
-    const _OnboardingPage(
+    _OnboardingPage(
       icon: Icons.lock,
       title: 'Private & Secure',
       description: 'Only your linked partner can see your location. '
           'You\'re always in control - pause sharing anytime.',
       color: AppColors.peach,
     ),
-    const _OnboardingPage(
+    _OnboardingPage(
       icon: Icons.battery_charging_full,
       title: 'Battery Friendly',
       description: 'Smart location updates that won\'t drain your battery. '
@@ -188,12 +187,12 @@ class _LocationOnboardingScreenState extends State<LocationOnboardingScreen> {
             final provider = context.read<LocationProvider>();
             final granted = await provider.requestPermission();
 
-            if (context.mounted) {
-              if (granted) {
-                context.go(RouteNames.location);
-              } else {
-                _showPermissionDeniedDialog(context);
-              }
+            if (!context.mounted) return;
+
+            if (granted) {
+              context.go(RouteNames.location);
+            } else {
+              _showPermissionDeniedDialog(context);
             }
           },
         ),

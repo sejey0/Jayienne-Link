@@ -141,7 +141,8 @@ void main() {
       // Simulating: Cleanup of locations older than 7 days
 
       const retentionDays = 7;
-      final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
+      final cutoff =
+          DateTime.now().subtract(const Duration(days: retentionDays));
 
       final locations = [
         {

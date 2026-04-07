@@ -65,7 +65,7 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
     }
 
     // Use the user's database ID from the loaded user record
-    final userId = user.id ?? auth.currentUserId;
+    final userId = user.id.isNotEmpty ? user.id : auth.currentUserId;
 
     if (userId == null) {
       SnackbarHelper.showError(
@@ -259,7 +259,8 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                             ] else
                               TextButton.icon(
                                 onPressed: () {
-                                  final user = context.read<UserProvider>().user;
+                                  final user =
+                                      context.read<UserProvider>().user;
                                   final auth = context.read<AuthProvider>();
                                   final userId = user?.id ?? auth.currentUserId;
                                   if (userId != null) {
@@ -278,9 +279,12 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                   Container(
                     padding: const EdgeInsets.all(AppDimensions.spacingLg),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
-                      border: Border.all(color: AppColors.softRose.withOpacity(0.3)),
+                      color: Theme.of(context).cardTheme.color ??
+                          Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(
+                          AppDimensions.borderRadiusMedium),
+                      border: Border.all(
+                          color: AppColors.softRose.withOpacity(0.3)),
                     ),
                     child: Column(
                       children: [
@@ -358,7 +362,8 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                       return;
                     }
 
-                    final userId = user.id ?? auth.currentUserId;
+                    final userId =
+                        user.id.isNotEmpty ? user.id : auth.currentUserId;
                     if (userId == null) {
                       if (mounted) {
                         SnackbarHelper.showError(
@@ -390,30 +395,34 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                       ),
                     );
 
-                    if (confirmed == true && mounted) {
+                    if (!context.mounted) return;
+
+                    if (confirmed == true) {
                       final userProvider = context.read<UserProvider>();
-                      final router = GoRouter.of(context);
 
-                      debugPrint('🔄 Starting skip couple link for userId: $userId');
+                      debugPrint(
+                          '🔄 Starting skip couple link for userId: $userId');
                       final success = await userProvider.skipCoupleLink(userId);
-                      debugPrint('✅ Skip result: success=$success');
 
-                      if (mounted) {
-                        if (success) {
-                          debugPrint('🏠 Navigating to home...');
-                          // Add small delay to ensure UI updates complete
-                          await Future.delayed(const Duration(milliseconds: 500));
-                          if (mounted) {
-                            router.go(RouteNames.home);
-                            debugPrint('✅ Navigation called');
-                          }
-                        } else {
-                          debugPrint('❌ Skip failed: ${userProvider.error}');
-                          SnackbarHelper.showError(
-                            context,
-                            userProvider.error ?? 'Failed to skip. Please try again.',
-                          );
-                        }
+                      if (!context.mounted) return;
+
+                      debugPrint('✅ Skip result: success=$success');
+                      if (success) {
+                        debugPrint('🏠 Navigating to home...');
+                        // Add small delay to ensure UI updates complete
+                        await Future.delayed(const Duration(milliseconds: 500));
+
+                        if (!context.mounted) return;
+
+                        GoRouter.of(context).go(RouteNames.home);
+                        debugPrint('✅ Navigation called');
+                      } else {
+                        debugPrint('❌ Skip failed: ${userProvider.error}');
+                        SnackbarHelper.showError(
+                          context,
+                          userProvider.error ??
+                              'Failed to skip. Please try again.',
+                        );
                       }
                     }
                   },

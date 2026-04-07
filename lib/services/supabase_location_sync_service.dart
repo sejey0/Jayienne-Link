@@ -386,8 +386,7 @@ class SupabaseLocationSyncService {
         return cached;
       }
 
-      final latest =
-          LocationModel.fromJson(response.first);
+      final latest = LocationModel.fromJson(response.first);
 
       // Update cache
       await _storage.storePartnerLocations([latest]);
@@ -493,7 +492,7 @@ class SupabaseLocationSyncService {
             .eq('owner_id', userId)
             .count(CountOption.exact);
 
-        stats['supabase_count'] = response.count ?? 0;
+        stats['supabase_count'] = response.count;
       }
 
       return stats;

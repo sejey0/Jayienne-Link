@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -39,7 +39,7 @@ class SmartProfileImage extends StatelessWidget {
       final base64String = dataUri.split(',').last;
       return base64Decode(base64String);
     } catch (e) {
-      print('Error decoding base64 image: $e');
+      debugPrint('Error decoding base64 image: $e');
       return null;
     }
   }

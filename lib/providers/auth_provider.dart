@@ -15,6 +15,7 @@ class AuthProvider extends ChangeNotifier {
   String? _verificationId;
   // ignore: unused_field
   int? _resendToken; // needed for phone auth resend
+  String? _pendingPhoneNumber;
 
   AuthProvider(this._authService) {
     _authService.authStateChanges.listen((user) {
@@ -31,6 +32,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   String? get verificationId => _verificationId;
+  String? get pendingPhoneNumber => _pendingPhoneNumber;
   bool get isEmailVerified => _authService.checkEmailVerified();
 
   void clearError() {
@@ -98,6 +100,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> verifyPhone(String phoneNumber) async {
     _isLoading = true;
     _error = null;
+    _pendingPhoneNumber = phoneNumber;
     notifyListeners();
 
     await _authService.verifyPhoneNumber(
@@ -120,7 +123,18 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _authService.verifyOtp(phoneNumber, otp);
+      final effectivePhone =
+          phoneNumber.isNotEmpty ? phoneNumber : _pendingPhoneNumber;
+
+      if (effectivePhone == null || effectivePhone.isEmpty) {
+        _error = 'Phone number missing for verification.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      await _authService.verifyOtp(effectivePhone, otp);
+      _pendingPhoneNumber = null;
       _isLoading = false;
       notifyListeners();
       return true;
@@ -153,6 +167,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> signOut() async {
     _pendingVerificationEmail = null;
     _verificationId = null;
+    _pendingPhoneNumber = null;
     _error = null;
     await _authService.signOut();
     notifyListeners();

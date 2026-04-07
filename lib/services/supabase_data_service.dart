@@ -107,7 +107,7 @@ class SupabaseDataService {
           .update(data)
           .eq(whereColumn, whereValue)
           .select(returning!);
-      return List<Map<String, dynamic>>.from(response ?? []);
+      return List<Map<String, dynamic>>.from(response);
     }, context: 'Update $table where $whereColumn = $whereValue');
     return result ?? [];
   }
@@ -149,7 +149,7 @@ class SupabaseDataService {
       }
 
       final response = await query;
-      return List<Map<String, dynamic>>.from(response ?? []);
+      return List<Map<String, dynamic>>.from(response);
     }, context: 'Get records from $table');
     return result ?? [];
   }
@@ -285,7 +285,7 @@ class SupabaseDataService {
       try {
         final userCount =
             await client.from('users').select('*').count(CountOption.exact);
-        stats['users_count'] = userCount.count ?? 0;
+        stats['users_count'] = userCount.count;
       } catch (e) {
         stats['users_count'] = 'Error: $e';
       }
@@ -293,7 +293,7 @@ class SupabaseDataService {
       try {
         final coupleCount =
             await client.from('couples').select('*').count(CountOption.exact);
-        stats['couples_count'] = coupleCount.count ?? 0;
+        stats['couples_count'] = coupleCount.count;
       } catch (e) {
         stats['couples_count'] = 'Error: $e';
       }
@@ -301,7 +301,7 @@ class SupabaseDataService {
       try {
         final locationCount =
             await client.from('locations').select('*').count(CountOption.exact);
-        stats['locations_count'] = locationCount.count ?? 0;
+        stats['locations_count'] = locationCount.count;
       } catch (e) {
         stats['locations_count'] = 'Error: $e';
       }

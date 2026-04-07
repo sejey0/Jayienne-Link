@@ -27,7 +27,7 @@ class LocationHistoryScreen extends StatefulWidget {
 class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  DateTime _selectedDate = DateTime.now();
+  DateTime? _selectedDate;
 
   @override
   void initState() {
@@ -123,12 +123,18 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     List<LocationModel> locations,
     bool isMyLocations,
   ) {
-    if (locations.isEmpty) {
-      return _buildEmptyState(context, isMyLocations);
+    final filteredLocations = _filterLocationsByDate(locations);
+
+    if (filteredLocations.isEmpty) {
+      return _buildEmptyState(
+        context,
+        isMyLocations,
+        isFiltered: _selectedDate != null,
+      );
     }
 
     // Group locations by date
-    final grouped = _groupByDate(locations);
+    final grouped = _groupByDate(filteredLocations);
 
     return RefreshIndicator(
       onRefresh: _loadHistory,
@@ -194,7 +200,22 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, bool isMyLocations) {
+  Widget _buildEmptyState(
+    BuildContext context,
+    bool isMyLocations, {
+    bool isFiltered = false,
+  }) {
+    final title = isFiltered
+        ? 'No locations on this date'
+        : isMyLocations
+            ? 'No location history yet'
+            : 'No locations from your person yet';
+    final subtitle = isFiltered
+        ? 'Try another date to see saved locations'
+        : isMyLocations
+            ? 'Enable location sharing to start tracking'
+            : 'Waiting for your person to share their location';
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppDimensions.spacingXl),
@@ -208,18 +229,14 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
             ),
             const SizedBox(height: AppDimensions.spacingMd),
             Text(
-              isMyLocations
-                  ? 'No location history yet'
-                  : 'No locations from your person yet',
+              title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.grey,
                   ),
             ),
             const SizedBox(height: AppDimensions.spacingSm),
             Text(
-              isMyLocations
-                  ? 'Enable location sharing to start tracking'
-                  : 'Waiting for your person to share their location',
+              subtitle,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey,
                   ),
@@ -651,7 +668,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     required IconData fallbackIcon,
     required bool isHighlighted,
   }) {
-    final size = AppDimensions.avatarSizeSmall;
+    const size = AppDimensions.avatarSizeSmall;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -816,15 +833,26 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
   Future<void> _selectDate(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now(),
     );
 
     if (picked != null) {
       setState(() => _selectedDate = picked);
-      // TODO: Filter history by selected date
     }
+  }
+
+  List<LocationModel> _filterLocationsByDate(List<LocationModel> locations) {
+    if (_selectedDate == null) return locations;
+
+    return locations
+        .where((location) => _isSameDay(location.timestamp, _selectedDate!))
+        .toList();
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   Future<void> _confirmDeleteHistory(

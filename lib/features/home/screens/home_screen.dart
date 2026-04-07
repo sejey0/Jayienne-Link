@@ -219,7 +219,7 @@ class HomeScreen extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.favorite, size: 36, color: AppColors.softRose),
+          const Icon(Icons.favorite, size: 36, color: AppColors.softRose),
           const SizedBox(height: AppDimensions.spacingSm),
           Text(
             'Heartbeat',

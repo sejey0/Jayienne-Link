@@ -11,6 +11,7 @@ import '../../../core/router/route_names.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/couple_provider.dart';
+import '../../../widgets/common/live_time_text.dart';
 import '../widgets/location_share_toggle.dart';
 import '../widgets/offline_status_indicator.dart';
 
@@ -117,7 +118,8 @@ class _LocationScreenState extends State<LocationScreen> {
                     point: LatLng(myLocation.latitude, myLocation.longitude),
                     width: 40,
                     height: 40,
-                    child: _buildMyMarker(context, provider.isSharingEnabled, provider.currentUser),
+                    child: _buildMyMarker(context, provider.isSharingEnabled,
+                        provider.currentUser),
                   ),
                 // Partner's location marker
                 if (partnerLocation != null)
@@ -228,7 +230,8 @@ class _LocationScreenState extends State<LocationScreen> {
     );
   }
 
-  Widget _buildMyMarker(BuildContext context, bool isSharing, [UserModel? currentUser]) {
+  Widget _buildMyMarker(BuildContext context, bool isSharing,
+      [UserModel? currentUser]) {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -254,7 +257,8 @@ class _LocationScreenState extends State<LocationScreen> {
     );
   }
 
-  Widget _buildPartnerMarker(BuildContext context, bool isLive, [UserModel? partnerUser]) {
+  Widget _buildPartnerMarker(BuildContext context, bool isLive,
+      [UserModel? partnerUser]) {
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -286,7 +290,8 @@ class _LocationScreenState extends State<LocationScreen> {
           ),
           child: ClipOval(
             child: partnerUser?.photoUrl != null
-                ? _buildProfileImage(partnerUser!.photoUrl!, 36, 36, Icons.favorite)
+                ? _buildProfileImage(
+                    partnerUser!.photoUrl!, 36, 36, Icons.favorite)
                 : const Icon(
                     Icons.favorite,
                     color: Colors.white,
@@ -299,7 +304,8 @@ class _LocationScreenState extends State<LocationScreen> {
   }
 
   /// Helper widget to display profile images (supports both network URLs and Base64 data URLs)
-  Widget _buildProfileImage(String photoUrl, double width, double height, IconData fallbackIcon) {
+  Widget _buildProfileImage(
+      String photoUrl, double width, double height, IconData fallbackIcon) {
     // Check if it's a Base64 data URL
     if (photoUrl.startsWith('data:image/')) {
       try {
@@ -429,12 +435,14 @@ class _LocationScreenState extends State<LocationScreen> {
                           'Your Person',
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
-                        Text(
-                          partnerLocation.isRecent() && isOnline
-                              ? 'Online now'
-                              : !isOnline
-                                  ? '${partnerLocation.timeAgo} (offline mode)'
-                                  : partnerLocation.timeAgo,
+                        LiveTimeText(
+                          textBuilder: () {
+                            final timeAgo = partnerLocation.timeAgo;
+                            if (!isOnline) {
+                              return '$timeAgo (offline mode)';
+                            }
+                            return timeAgo;
+                          },
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
@@ -491,24 +499,31 @@ class _LocationScreenState extends State<LocationScreen> {
                         'My Location',
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
-                      Text(
-                        myLocation != null
-                            ? (myLocation.isRecent()
-                                ? 'Updated just now'
-                                : myLocation.timeAgo)
-                            : 'Not shared yet',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: myLocation != null && myLocation.isRecent()
-                                  ? AppColors.success
-                                  : Colors.grey,
-                            ),
-                      ),
+                      if (myLocation != null)
+                        LiveTimeText(
+                          textBuilder: () => myLocation.timeAgo,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: myLocation.isRecent()
+                                        ? AppColors.success
+                                        : Colors.grey,
+                                  ),
+                        )
+                      else
+                        Text(
+                          'Not shared yet',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey,
+                                  ),
+                        ),
                     ],
                   ),
                 ),
                 // History button for my locations
                 TextButton.icon(
-                  onPressed: () => _goToHistoryTab(context, 0), // My locations tab
+                  onPressed: () =>
+                      _goToHistoryTab(context, 0), // My locations tab
                   icon: const Icon(Icons.history, size: 18),
                   label: const Text('History'),
                   style: TextButton.styleFrom(

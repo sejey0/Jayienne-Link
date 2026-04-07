@@ -8,6 +8,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
 import '../../../widgets/common/app_card.dart';
+import '../../../widgets/common/live_time_text.dart';
 
 /// Card showing partner's location with map preview.
 /// Displays live/offline status with appropriate styling.
@@ -298,17 +299,6 @@ class PartnerLocationCard extends StatelessWidget {
     LocationModel location,
     bool isOnline,
   ) {
-    final timeAgo = location.timeAgo;
-    String text;
-
-    if (location.isRecent() && isOnline) {
-      text = 'Updated just now';
-    } else if (!isOnline) {
-      text = '$timeAgo (offline mode)';
-    } else {
-      text = timeAgo;
-    }
-
     return Row(
       children: [
         Icon(
@@ -317,8 +307,14 @@ class PartnerLocationCard extends StatelessWidget {
           color: Colors.grey.shade500,
         ),
         const SizedBox(width: 4),
-        Text(
-          text,
+        LiveTimeText(
+          textBuilder: () {
+            final timeAgo = location.timeAgo;
+            if (!isOnline) {
+              return '$timeAgo (offline mode)';
+            }
+            return timeAgo;
+          },
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Colors.grey.shade500,
               ),
@@ -370,13 +366,14 @@ class PartnerLocationCardCompact extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               if (location != null)
-                Text(
-                  location.isRecent() && isOnline ? 'Live' : location.timeAgo,
+                LiveTimeText(
+                  textBuilder: () => location.timeAgo,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: location.isRecent() && isOnline
                             ? AppColors.success
                             : AppColors.warning,
                       ),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 )
               else

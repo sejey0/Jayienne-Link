@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:intl/intl.dart';
 
 /// Supabase LocationModel for PostgreSQL database
 /// Designed for offline-first storage with sync status tracking
@@ -184,7 +185,10 @@ class LocationModel {
   /// Get human-readable time ago string
   String get timeAgo {
     final diff = DateTime.now().difference(timestamp);
-    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inSeconds < 60) {
+      final seconds = diff.inSeconds < 1 ? 1 : diff.inSeconds;
+      return '$seconds sec ago';
+    }
     if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
     if (diff.inHours < 24) return '${diff.inHours} hours ago';
     return '${diff.inDays} days ago';
@@ -192,9 +196,7 @@ class LocationModel {
 
   /// Get formatted timestamp string
   String get formattedTime {
-    final hour = timestamp.hour.toString().padLeft(2, '0');
-    final minute = timestamp.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+    return DateFormat('h:mm a').format(timestamp);
   }
 
   /// Get formatted date string

@@ -33,8 +33,11 @@ class CoupleModel {
   }
 
   int get daysTogether {
-    final startDate = anniversary ?? createdAt;
-    final days = DateTime.now().difference(startDate).inDays;
+    final startDate = (anniversary ?? createdAt).toLocal();
+    final startDay = DateTime(startDate.year, startDate.month, startDate.day);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final days = today.difference(startDay).inDays;
     return math.max(0, days);
   }
 

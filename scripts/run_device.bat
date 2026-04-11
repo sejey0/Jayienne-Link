@@ -4,6 +4,16 @@ title Jayienne Link - Run on Physical Device
 
 cd /d "%~dp0.."
 
+if not exist "pubspec.yaml" (
+    echo [ERROR] pubspec.yaml not found in %cd%
+    echo Please run this script from the Flutter project scripts folder.
+    echo.
+    pause
+    exit /b 1
+)
+
+call :ensure_pub
+
 set "ADB=%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe"
 set "PACKAGE=com.jayiennelink.jayienne_link"
 
@@ -279,3 +289,18 @@ echo Disconnected. Returning to connection menu...
 echo.
 set "DEVICE_ID="
 goto connection_menu
+
+:ensure_pub
+if not exist ".dart_tool\package_config.json" (
+    echo.
+    echo [INFO] Running flutter pub get...
+    flutter pub get
+    if errorlevel 1 (
+        echo.
+        echo [ERROR] flutter pub get failed.
+        echo.
+        pause
+        exit /b 1
+    )
+)
+exit /b 0

@@ -87,11 +87,23 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
 
   Future<void> _acceptRequest(PartnerRequestModel request) async {
     final coupleProvider = context.read<CoupleProvider>();
-    final success = await coupleProvider.acceptPartnerRequest(request);
+    final userProvider = context.read<UserProvider>();
+    final currentUser = userProvider.user;
+    final couple = await coupleProvider.acceptPartnerRequest(request);
 
     if (!mounted) return;
 
-    if (success) {
+    if (couple != null) {
+      if (currentUser != null) {
+        if (currentUser.email.isNotEmpty) {
+          userProvider.loadUserByEmail(currentUser.email);
+        } else {
+          userProvider.loadUser(currentUser.id);
+        }
+        if (couple.id != null) {
+          coupleProvider.loadCouple(couple.id!, currentUser.id);
+        }
+      }
       SnackbarHelper.showSuccess(context, 'Partner request accepted');
       context.go(RouteNames.coupleSuccess);
     } else if (coupleProvider.error != null) {

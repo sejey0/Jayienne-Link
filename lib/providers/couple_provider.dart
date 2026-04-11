@@ -116,21 +116,22 @@ class CoupleProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> acceptPartnerRequest(PartnerRequestModel request) async {
+  Future<CoupleModel?> acceptPartnerRequest(PartnerRequestModel request) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      await _coupleService.acceptPartnerRequest(request);
+      final couple = await _coupleService.acceptPartnerRequest(request);
+      _couple = couple;
       _isLoading = false;
       notifyListeners();
-      return true;
+      return couple;
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
       _isLoading = false;
       notifyListeners();
-      return false;
+      return null;
     }
   }
 

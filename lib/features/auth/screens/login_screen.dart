@@ -41,8 +41,37 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (!success && auth.error != null) {
-      SnackbarHelper.showError(context, auth.error!);
+      final errorText = auth.error!.toLowerCase();
+      final isInvalidCredentials =
+          errorText.contains('invalid email or password') ||
+              errorText.contains('invalid login credentials');
+      final isUserNotFound = errorText.contains('no account found');
+
+      if (isInvalidCredentials || isUserNotFound) {
+        _showAccountNotFoundDialog();
+      } else {
+        SnackbarHelper.showError(context, auth.error!);
+      }
     }
+  }
+
+  void _showAccountNotFoundDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Account not found'),
+        content: const Text(
+          'We could not find an account with these credentials. '
+          'Please sign up first or check your password.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _forgotPassword() async {

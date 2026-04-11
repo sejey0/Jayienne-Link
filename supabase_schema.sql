@@ -67,6 +67,20 @@ CREATE TABLE IF NOT EXISTS partner_requests (
 );
 
 -- =====================================================
+-- ANNIVERSARY_REQUESTS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS anniversary_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    couple_id UUID NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    proposer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    partner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    proposed_date TIMESTAMPTZ NOT NULL,
+    status TEXT DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    responded_at TIMESTAMPTZ
+);
+
+-- =====================================================
 -- LOCATIONS TABLE
 -- =====================================================
 CREATE TABLE IF NOT EXISTS locations (
@@ -118,6 +132,12 @@ CREATE INDEX IF NOT EXISTS idx_partner_requests_receiver_id ON partner_requests(
 CREATE INDEX IF NOT EXISTS idx_partner_requests_status ON partner_requests(status);
 CREATE INDEX IF NOT EXISTS idx_partner_requests_created_at ON partner_requests(created_at DESC);
 
+-- Anniversary requests indexes
+CREATE INDEX IF NOT EXISTS idx_anniversary_requests_couple_id ON anniversary_requests(couple_id);
+CREATE INDEX IF NOT EXISTS idx_anniversary_requests_proposer_id ON anniversary_requests(proposer_id);
+CREATE INDEX IF NOT EXISTS idx_anniversary_requests_partner_id ON anniversary_requests(partner_id);
+CREATE INDEX IF NOT EXISTS idx_anniversary_requests_status ON anniversary_requests(status);
+
 -- Locations indexes
 CREATE INDEX IF NOT EXISTS idx_locations_couple_id ON locations(couple_id);
 CREATE INDEX IF NOT EXISTS idx_locations_owner_id ON locations(owner_id);
@@ -160,6 +180,7 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE couples ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invite_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE partner_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE anniversary_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE heartbeats ENABLE ROW LEVEL SECURITY;
 
@@ -176,6 +197,10 @@ DROP POLICY IF EXISTS "Users can read own partner requests" ON partner_requests;
 DROP POLICY IF EXISTS "Users can send partner requests" ON partner_requests;
 DROP POLICY IF EXISTS "Users can update partner requests" ON partner_requests;
 DROP POLICY IF EXISTS "Users can delete partner requests" ON partner_requests;
+DROP POLICY IF EXISTS "Users can read own anniversary requests" ON anniversary_requests;
+DROP POLICY IF EXISTS "Users can send anniversary requests" ON anniversary_requests;
+DROP POLICY IF EXISTS "Users can update anniversary requests" ON anniversary_requests;
+DROP POLICY IF EXISTS "Users can delete anniversary requests" ON anniversary_requests;
 DROP POLICY IF EXISTS "Users can read couple locations" ON locations;
 DROP POLICY IF EXISTS "Users can insert own locations" ON locations;
 DROP POLICY IF EXISTS "Users can update own locations" ON locations;
@@ -240,6 +265,25 @@ CREATE POLICY "Users can update partner requests" ON partner_requests
 CREATE POLICY "Users can delete partner requests" ON partner_requests
     FOR DELETE USING (
         auth.uid() = sender_id OR auth.uid() = receiver_id
+    );
+
+-- Anniversary requests policies
+CREATE POLICY "Users can read own anniversary requests" ON anniversary_requests
+    FOR SELECT USING (
+        auth.uid() = proposer_id OR auth.uid() = partner_id
+    );
+
+CREATE POLICY "Users can send anniversary requests" ON anniversary_requests
+    FOR INSERT WITH CHECK (auth.uid() = proposer_id);
+
+CREATE POLICY "Users can update anniversary requests" ON anniversary_requests
+    FOR UPDATE USING (
+        auth.uid() = proposer_id OR auth.uid() = partner_id
+    );
+
+CREATE POLICY "Users can delete anniversary requests" ON anniversary_requests
+    FOR DELETE USING (
+        auth.uid() = proposer_id OR auth.uid() = partner_id
     );
 
 -- Locations policies

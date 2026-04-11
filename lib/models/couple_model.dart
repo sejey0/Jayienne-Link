@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 /// PostgreSQL-compatible CoupleModel for Supabase integration
 class CoupleModel {
   final String? id; // Supabase UUID
@@ -30,7 +32,11 @@ class CoupleModel {
     return partnerIds.firstWhere((id) => id != myUid, orElse: () => '');
   }
 
-  int get daysTogether => DateTime.now().difference(createdAt).inDays;
+  int get daysTogether {
+    final startDate = anniversary ?? createdAt;
+    final days = DateTime.now().difference(startDate).inDays;
+    return math.max(0, days);
+  }
 
   CoupleModel copyWith({
     String? id,

@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
+import '../../../models/anniversary_request_model.dart';
+import '../../../models/couple_model.dart';
+import '../../../models/user_model.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../widgets/common/app_card.dart';
+import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/heart_animation.dart';
 import '../../location/widgets/partner_location_card.dart';
 
@@ -22,6 +27,10 @@ class HomeScreen extends StatelessWidget {
     final coupleProvider = context.watch<CoupleProvider>();
     final user = userProvider.user;
     final couple = coupleProvider.couple;
+    final incomingAnniversary = coupleProvider.incomingAnniversaryRequests;
+    final outgoingAnniversary = coupleProvider.outgoingAnniversaryRequests;
+    final pendingAnniversary =
+        outgoingAnniversary.isNotEmpty ? outgoingAnniversary.first : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -44,6 +53,11 @@ class HomeScreen extends StatelessWidget {
             // Link with partner card (shown when skipped)
             if (user != null && user.hasSkippedCoupleLink)
               _buildLinkPartnerCard(context, user),
+            if (couple != null && incomingAnniversary.isNotEmpty)
+              _buildAnniversaryRequestCard(
+                context,
+                incomingAnniversary.first,
+              ),
             // Couple header (shown when linked)
             if (couple != null && user != null && user.hasRealPartner)
               AppCard(
@@ -77,6 +91,42 @@ class HomeScreen extends StatelessWidget {
                               color: Colors.grey,
                             ),
                       ),
+                      const SizedBox(height: AppDimensions.spacingSm),
+                      Text(
+                        couple.anniversary != null
+                            ? 'Anniversary: ${_formatAnniversary(couple.anniversary!)}'
+                            : 'Anniversary: not set',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey,
+                            ),
+                      ),
+                      const SizedBox(height: AppDimensions.spacingSm),
+                      if (pendingAnniversary != null)
+                        Text(
+                          'Anniversary request pending for ${_formatAnniversary(pendingAnniversary.proposedDate)}',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey,
+                                  ),
+                          textAlign: TextAlign.center,
+                        )
+                      else
+                        TextButton.icon(
+                          onPressed: () => _requestAnniversary(
+                            context,
+                            user,
+                            couple,
+                          ),
+                          icon: const Icon(Icons.cake_outlined),
+                          label: Text(
+                            couple.anniversary == null
+                                ? 'Set Anniversary'
+                                : 'Change Anniversary',
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.softRose,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -144,7 +194,7 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
-  Widget _buildLinkPartnerCard(BuildContext context, dynamic user) {
+  Widget _buildLinkPartnerCard(BuildContext context, UserModel user) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppDimensions.spacingLg),
       child: AppCard(
@@ -234,6 +284,132 @@ class HomeScreen extends StatelessWidget {
                 ?.copyWith(color: Colors.grey.shade500),
           ),
         ],
+      ),
+    );
+  }
+
+  String _formatAnniversary(DateTime date) {
+    return DateFormat('MMM d, yyyy').format(date);
+  }
+
+  Future<void> _requestAnniversary(
+    BuildContext context,
+    UserModel user,
+    CoupleModel couple,
+  ) async {
+    if (couple.id == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Couple not ready. Try again.')),
+        );
+      return;
+    }
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: couple.anniversary ?? DateTime.now(),
+      firstDate: DateTime(1990),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked == null) return;
+    if (!context.mounted) return;
+
+    final coupleProvider = context.read<CoupleProvider>();
+    final partnerId = couple.getPartnerId(user.id);
+    if (partnerId.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Partner not found.')),
+        );
+      return;
+    }
+    final success = await coupleProvider.sendAnniversaryRequest(
+      coupleId: couple.id!,
+      proposerId: user.id,
+      partnerId: partnerId,
+      proposedDate: picked,
+    );
+
+    if (!context.mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Anniversary request sent')),
+        );
+    } else if (coupleProvider.error != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(coupleProvider.error!)));
+    }
+  }
+
+  Widget _buildAnniversaryRequestCard(
+    BuildContext context,
+    AnniversaryRequestModel request,
+  ) {
+    final coupleProvider = context.read<CoupleProvider>();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppDimensions.spacingLg),
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Anniversary request',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppDimensions.spacingSm),
+            Text(
+              'Your partner requested ${_formatAnniversary(request.proposedDate)}',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppDimensions.spacingMd),
+            Row(
+              children: [
+                Expanded(
+                  child: AppButton(
+                    label: 'Accept',
+                    variant: AppButtonVariant.secondary,
+                    onPressed: () async {
+                      final success = await coupleProvider
+                          .acceptAnniversaryRequest(request);
+                      if (!context.mounted) return;
+                      if (success) {
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            const SnackBar(
+                              content: Text('Anniversary updated'),
+                            ),
+                          );
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: AppDimensions.spacingSm),
+                Expanded(
+                  child: AppButton(
+                    label: 'Decline',
+                    variant: AppButtonVariant.text,
+                    onPressed: () async {
+                      await coupleProvider
+                          .declineAnniversaryRequest(request.id);
+                      if (!context.mounted) return;
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

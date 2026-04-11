@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/couple_model.dart';
+import '../models/anniversary_request_model.dart';
 import '../models/partner_request_model.dart';
 import '../models/user_model.dart';
 import '../services/supabase_couple_service.dart';
@@ -21,8 +22,14 @@ class CoupleProvider extends ChangeNotifier {
   StreamSubscription? _coupleSubscription;
   StreamSubscription<List<PartnerRequestModel>>? _incomingRequestsSubscription;
   StreamSubscription<List<PartnerRequestModel>>? _outgoingRequestsSubscription;
+  StreamSubscription<List<AnniversaryRequestModel>>?
+      _incomingAnniversarySubscription;
+  StreamSubscription<List<AnniversaryRequestModel>>?
+      _outgoingAnniversarySubscription;
   List<PartnerRequestModel> _incomingRequests = [];
   List<PartnerRequestModel> _outgoingRequests = [];
+  List<AnniversaryRequestModel> _incomingAnniversaryRequests = [];
+  List<AnniversaryRequestModel> _outgoingAnniversaryRequests = [];
   String? _requestsUserId;
 
   CoupleProvider(this._coupleService, this._userService);
@@ -38,6 +45,10 @@ class CoupleProvider extends ChangeNotifier {
   bool get isLinked => _couple != null;
   List<PartnerRequestModel> get incomingRequests => _incomingRequests;
   List<PartnerRequestModel> get outgoingRequests => _outgoingRequests;
+  List<AnniversaryRequestModel> get incomingAnniversaryRequests =>
+      _incomingAnniversaryRequests;
+  List<AnniversaryRequestModel> get outgoingAnniversaryRequests =>
+      _outgoingAnniversaryRequests;
 
   void clearError() {
     _error = null;
@@ -47,13 +58,17 @@ class CoupleProvider extends ChangeNotifier {
   void initializeRequests(String userId) {
     if (_requestsUserId == userId &&
         _incomingRequestsSubscription != null &&
-        _outgoingRequestsSubscription != null) {
+        _outgoingRequestsSubscription != null &&
+        _incomingAnniversarySubscription != null &&
+        _outgoingAnniversarySubscription != null) {
       return;
     }
 
     _requestsUserId = userId;
     _incomingRequestsSubscription?.cancel();
     _outgoingRequestsSubscription?.cancel();
+    _incomingAnniversarySubscription?.cancel();
+    _outgoingAnniversarySubscription?.cancel();
 
     _incomingRequestsSubscription =
         _coupleService.streamIncomingRequests(userId).listen((requests) {
@@ -64,6 +79,20 @@ class CoupleProvider extends ChangeNotifier {
     _outgoingRequestsSubscription =
         _coupleService.streamOutgoingRequests(userId).listen((requests) {
       _outgoingRequests = requests;
+      notifyListeners();
+    });
+
+    _incomingAnniversarySubscription = _coupleService
+        .streamIncomingAnniversaryRequests(userId)
+        .listen((requests) {
+      _incomingAnniversaryRequests = requests;
+      notifyListeners();
+    });
+
+    _outgoingAnniversarySubscription = _coupleService
+        .streamOutgoingAnniversaryRequests(userId)
+        .listen((requests) {
+      _outgoingAnniversaryRequests = requests;
       notifyListeners();
     });
   }
@@ -168,6 +197,95 @@ class CoupleProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> sendAnniversaryRequest({
+    required String coupleId,
+    required String proposerId,
+    required String partnerId,
+    required DateTime proposedDate,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final request = await _coupleService.sendAnniversaryRequest(
+        coupleId: coupleId,
+        proposerId: proposerId,
+        partnerId: partnerId,
+        proposedDate: proposedDate,
+      );
+      _outgoingAnniversaryRequests = [request, ..._outgoingAnniversaryRequests];
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> acceptAnniversaryRequest(AnniversaryRequestModel request) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final date = await _coupleService.acceptAnniversaryRequest(request);
+      _incomingAnniversaryRequests = _incomingAnniversaryRequests
+          .where((item) => item.id != request.id)
+          .toList();
+      if (_couple != null) {
+        _couple = _couple!.copyWith(anniversary: date);
+      }
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> declineAnniversaryRequest(String requestId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _coupleService.declineAnniversaryRequest(requestId);
+      _incomingAnniversaryRequests = _incomingAnniversaryRequests
+          .where((item) => item.id != requestId)
+          .toList();
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> cancelAnniversaryRequest(String requestId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _coupleService.cancelAnniversaryRequest(requestId);
+      _outgoingAnniversaryRequests = _outgoingAnniversaryRequests
+          .where((item) => item.id != requestId)
+          .toList();
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> generateCode(String userId) async {
     _isLoading = true;
     _error = null;
@@ -262,6 +380,10 @@ class CoupleProvider extends ChangeNotifier {
     _incomingRequestsSubscription = null;
     _outgoingRequestsSubscription?.cancel();
     _outgoingRequestsSubscription = null;
+    _incomingAnniversarySubscription?.cancel();
+    _incomingAnniversarySubscription = null;
+    _outgoingAnniversarySubscription?.cancel();
+    _outgoingAnniversarySubscription = null;
     _couple = null;
     _partner = null;
     _searchResult = null;
@@ -269,6 +391,8 @@ class CoupleProvider extends ChangeNotifier {
     _codeExpiresAt = null;
     _incomingRequests = [];
     _outgoingRequests = [];
+    _incomingAnniversaryRequests = [];
+    _outgoingAnniversaryRequests = [];
     _requestsUserId = null;
     _error = null;
     _isLoading = false;
@@ -308,6 +432,8 @@ class CoupleProvider extends ChangeNotifier {
     _coupleSubscription?.cancel();
     _incomingRequestsSubscription?.cancel();
     _outgoingRequestsSubscription?.cancel();
+    _incomingAnniversarySubscription?.cancel();
+    _outgoingAnniversarySubscription?.cancel();
     super.dispose();
   }
 }

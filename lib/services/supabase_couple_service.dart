@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/couple_model.dart';
+import '../models/anniversary_request_model.dart';
 import '../models/partner_request_model.dart';
 import '../models/supabase_invite_code_model.dart';
 import '../models/user_model.dart';
@@ -12,6 +13,7 @@ class SupabaseCoupleService {
   static const String _couplesTable = 'couples';
   static const String _usersTable = 'users';
   static const String _requestsTable = 'partner_requests';
+  static const String _anniversaryRequestsTable = 'anniversary_requests';
 
   /// Generate a unique invite code and store it in the database
   Future<String> generateAndStoreInviteCode(String userId) async {
@@ -426,6 +428,129 @@ class SupabaseCoupleService {
   Future<void> cancelPartnerRequest(String requestId) async {
     await SupabaseDataService.updateRecords(
       _requestsTable,
+      {
+        'status': 'canceled',
+        'responded_at': DateTime.now().toIso8601String(),
+      },
+      whereColumn: 'id',
+      whereValue: requestId,
+    );
+  }
+
+  /// Send an anniversary request to partner
+  Future<AnniversaryRequestModel> sendAnniversaryRequest({
+    required String coupleId,
+    required String proposerId,
+    required String partnerId,
+    required DateTime proposedDate,
+  }) async {
+    final existing = await SupabaseDataService.client
+        .from(_anniversaryRequestsTable)
+        .select('id, proposer_id, partner_id, status')
+        .eq('couple_id', coupleId)
+        .eq('status', 'pending');
+
+    final existingList = List<Map<String, dynamic>>.from(existing);
+    if (existingList.isNotEmpty) {
+      throw Exception('An anniversary request is already pending');
+    }
+
+    final request = AnniversaryRequestModel(
+      id: '',
+      coupleId: coupleId,
+      proposerId: proposerId,
+      partnerId: partnerId,
+      proposedDate: proposedDate,
+      status: 'pending',
+      createdAt: DateTime.now(),
+    );
+
+    final inserted = await SupabaseDataService.insertRecord(
+      _anniversaryRequestsTable,
+      request.toInsertJson(),
+    );
+
+    return AnniversaryRequestModel.fromJson(inserted);
+  }
+
+  /// Stream incoming anniversary requests
+  Stream<List<AnniversaryRequestModel>> streamIncomingAnniversaryRequests(
+    String userId,
+  ) {
+    return SupabaseDataService.getRecordsStream(
+      _anniversaryRequestsTable,
+      whereColumn: 'partner_id',
+      whereValue: userId,
+      orderBy: 'created_at',
+      ascending: false,
+    ).map((rows) {
+      return rows
+          .map((row) => AnniversaryRequestModel.fromJson(row))
+          .where((request) => request.isPending)
+          .toList();
+    });
+  }
+
+  /// Stream outgoing anniversary requests
+  Stream<List<AnniversaryRequestModel>> streamOutgoingAnniversaryRequests(
+    String userId,
+  ) {
+    return SupabaseDataService.getRecordsStream(
+      _anniversaryRequestsTable,
+      whereColumn: 'proposer_id',
+      whereValue: userId,
+      orderBy: 'created_at',
+      ascending: false,
+    ).map((rows) {
+      return rows
+          .map((row) => AnniversaryRequestModel.fromJson(row))
+          .where((request) => request.isPending)
+          .toList();
+    });
+  }
+
+  /// Accept anniversary request and update couple
+  Future<DateTime> acceptAnniversaryRequest(
+    AnniversaryRequestModel request,
+  ) async {
+    if (!request.isPending) {
+      throw Exception('This request is no longer pending');
+    }
+
+    await updateCouple(request.coupleId, {
+      'anniversary': request.proposedDate,
+    });
+
+    await SupabaseDataService.updateRecords(
+      _anniversaryRequestsTable,
+      {
+        'status': 'accepted',
+        'responded_at': DateTime.now().toIso8601String(),
+      },
+      whereColumn: 'id',
+      whereValue: request.id,
+    );
+
+    return request.proposedDate;
+  }
+
+  /// Decline anniversary request
+  Future<void> declineAnniversaryRequest(String requestId) async {
+    await SupabaseDataService.updateRecords(
+      _anniversaryRequestsTable,
+      {
+        'status': 'declined',
+        'responded_at': DateTime.now().toIso8601String(),
+      },
+      whereColumn: 'id',
+      whereValue: requestId,
+    );
+  }
+
+  /// Cancel anniversary request
+  Future<void> cancelAnniversaryRequest(String requestId) async {
+    await SupabaseDataService.updateRecords(
+      _anniversaryRequestsTable,
       {
         'status': 'canceled',
         'responded_at': DateTime.now().toIso8601String(),

@@ -260,7 +260,7 @@ class SupabaseCoupleService {
   }
 
   /// Send a partner request from one user to another
-  Future<void> sendPartnerRequest({
+  Future<PartnerRequestModel> sendPartnerRequest({
     required UserModel sender,
     required UserModel receiver,
   }) async {
@@ -298,10 +298,12 @@ class SupabaseCoupleService {
       createdAt: DateTime.now(),
     );
 
-    await SupabaseDataService.insertRecord(
+    final inserted = await SupabaseDataService.insertRecord(
       _requestsTable,
       request.toInsertJson(),
     );
+
+    return PartnerRequestModel.fromJson(inserted);
   }
 
   /// Stream incoming partner requests for a user

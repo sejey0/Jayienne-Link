@@ -145,6 +145,7 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
     final searchResult = coupleProvider.searchResult;
     final incoming = coupleProvider.incomingRequests;
     final outgoing = coupleProvider.outgoingRequests;
+    final hasSentRequest = outgoing.isNotEmpty;
 
     return LoadingOverlay(
       isLoading: coupleProvider.isLoading,
@@ -208,6 +209,11 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                 if (currentUser != null)
                   OutlinedButton.icon(
                     onPressed: () async {
+                      if (hasSentRequest) {
+                        context.go(RouteNames.home);
+                        return;
+                      }
+
                       final auth = context.read<AuthProvider>();
                       final userId = currentUser.id.isNotEmpty
                           ? currentUser.id
@@ -222,52 +228,24 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                         return;
                       }
 
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Skip for now?'),
-                          content: const Text(
-                            'You can link with your partner later from the home screen. '
-                            'Some features will be limited until you link.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Skip'),
-                            ),
-                          ],
-                        ),
-                      );
+                      final success = await userProvider.skipCoupleLink(userId);
 
                       if (!context.mounted) return;
 
-                      if (confirmed == true) {
-                        final success =
-                            await userProvider.skipCoupleLink(userId);
-
-                        if (!context.mounted) return;
-
-                        if (success) {
-                          await Future.delayed(
-                            const Duration(milliseconds: 300),
-                          );
-                          if (!context.mounted) return;
-                          context.go(RouteNames.home);
-                        } else {
-                          SnackbarHelper.showError(
-                            context,
-                            userProvider.error ??
-                                'Failed to skip. Please try again.',
-                          );
-                        }
+                      if (success) {
+                        context.go(RouteNames.home);
+                      } else {
+                        SnackbarHelper.showError(
+                          context,
+                          userProvider.error ??
+                              'Failed to skip. Please try again.',
+                        );
                       }
                     },
-                    icon: const Icon(Icons.skip_next),
-                    label: const Text('Skip for now'),
+                    icon: Icon(hasSentRequest ? Icons.home : Icons.skip_next),
+                    label: Text(
+                      hasSentRequest ? 'Go to Dashboard' : 'Skip for now',
+                    ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.grey,
                       side: BorderSide(color: Colors.grey.shade300),

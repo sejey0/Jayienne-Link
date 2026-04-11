@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/couple_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/auth/screens/auth_screen.dart';
@@ -24,19 +25,26 @@ class AppRouter {
   AppRouter._();
 
   static GoRouter createRouter(
-      AuthProvider authProvider, UserProvider userProvider) {
+    AuthProvider authProvider,
+    UserProvider userProvider,
+    CoupleProvider coupleProvider,
+  ) {
     return GoRouter(
       initialLocation: RouteNames.splash,
-      refreshListenable: Listenable.merge([authProvider, userProvider]),
+      refreshListenable:
+          Listenable.merge([authProvider, userProvider, coupleProvider]),
       redirect: (context, state) {
         final auth = authProvider;
         final user = userProvider;
+        final couple = coupleProvider;
         final location = state.matchedLocation;
 
         final isAuthenticated = auth.isAuthenticated;
         final isProfileComplete = user.isProfileComplete;
         final hasCoupleId = user.coupleId != null;
         final hasSkippedCoupleLink = user.user?.inviteCode == 'SKIPPED';
+        final hasPendingRequest = couple.outgoingRequests.isNotEmpty ||
+            couple.incomingRequests.isNotEmpty;
 
         // Allow splash to show briefly
         if (location == RouteNames.splash) return null;
@@ -61,7 +69,7 @@ class AppRouter {
         }
 
         // Profile complete but no couple (and hasn't skipped)
-        if (!hasCoupleId && !hasSkippedCoupleLink) {
+        if (!hasCoupleId && !hasSkippedCoupleLink && !hasPendingRequest) {
           if (isOnCoupleLink || isOnCoupleSuccess) return null;
           return RouteNames.coupleLink;
         }

@@ -101,10 +101,13 @@ class CoupleProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _coupleService.sendPartnerRequest(
+      final request = await _coupleService.sendPartnerRequest(
         sender: sender,
         receiver: receiver,
       );
+      if (_outgoingRequests.every((item) => item.id != request.id)) {
+        _outgoingRequests = [request, ..._outgoingRequests];
+      }
       _isLoading = false;
       notifyListeners();
       return true;

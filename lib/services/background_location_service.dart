@@ -16,6 +16,7 @@ const String periodicLocationTask = 'periodicLocationTask';
 /// GPS-only location (no cellular data required for positioning).
 class BackgroundLocationService {
   static BackgroundLocationService? _instance;
+  static bool _isInitialized = false;
   static const String _userIdKey = 'bg_location_user_id';
   static const String _coupleIdKey = 'bg_location_couple_id';
   static const String _enabledKey = 'bg_location_enabled';
@@ -30,10 +31,14 @@ class BackgroundLocationService {
 
   /// Initialize Workmanager for background tasks
   Future<void> initialize() async {
+    if (_isInitialized) {
+      return;
+    }
     await Workmanager().initialize(
       callbackDispatcher,
       isInDebugMode: kDebugMode,
     );
+    _isInitialized = true;
     debugPrint('BackgroundLocationService initialized');
   }
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
-import 'package:workmanager/workmanager.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'providers/auth_provider.dart';
@@ -36,11 +35,8 @@ void main() async {
     await _debugSupabase();
   }
 
-  // Initialize Workmanager for background location tasks
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: false,
-  );
+  // Initialize background location service (includes Workmanager setup)
+  await BackgroundLocationService.instance.initialize();
 
   final authService = SupabaseAuthService();
   final userService = SupabaseUserService();

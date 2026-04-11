@@ -73,8 +73,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final auth = context.read<AuthProvider>();
     final userProvider = context.read<UserProvider>();
+    final auth = context.read<AuthProvider>();
+    final currentUser = userProvider.user;
+    final userId = (currentUser != null && currentUser.id.isNotEmpty)
+        ? currentUser.id
+        : auth.currentUserId;
+
+    if (userId == null) {
+      SnackbarHelper.showError(
+        context,
+        'User ID not found. Please sign in again.',
+      );
+      return;
+    }
 
     // Show a loading dialog for image uploads
     bool showingUploadDialog = false;
@@ -98,7 +110,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     final success = await userProvider.updateProfile(
-      uid: auth.currentUserId!,
+      uid: userId,
       displayName: _nameController.text.trim(),
       photoFile: _selectedPhoto,
       birthday: _birthday,

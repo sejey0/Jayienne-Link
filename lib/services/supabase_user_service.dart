@@ -242,6 +242,11 @@ class SupabaseUserService {
               ? (entry.value as DateTime).toIso8601String()
               : entry.value;
           break;
+        case 'birthday':
+          pgData['birthday'] = entry.value is DateTime
+              ? (entry.value as DateTime).toIso8601String()
+              : entry.value;
+          break;
         case 'updatedAt':
           pgData['updated_at'] = entry.value is DateTime
               ? (entry.value as DateTime).toIso8601String()

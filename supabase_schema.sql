@@ -51,6 +51,22 @@ CREATE TABLE IF NOT EXISTS invite_codes (
 );
 
 -- =====================================================
+-- PARTNER_REQUESTS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS partner_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sender_email TEXT NOT NULL,
+    receiver_email TEXT NOT NULL,
+    sender_name TEXT NOT NULL,
+    receiver_name TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    responded_at TIMESTAMPTZ
+);
+
+-- =====================================================
 -- LOCATIONS TABLE
 -- =====================================================
 CREATE TABLE IF NOT EXISTS locations (
@@ -96,6 +112,12 @@ CREATE INDEX IF NOT EXISTS idx_invite_codes_user_id ON invite_codes(user_id);
 CREATE INDEX IF NOT EXISTS idx_invite_codes_expires_at ON invite_codes(expires_at);
 CREATE INDEX IF NOT EXISTS idx_invite_codes_used ON invite_codes(used);
 
+-- Partner requests indexes
+CREATE INDEX IF NOT EXISTS idx_partner_requests_sender_id ON partner_requests(sender_id);
+CREATE INDEX IF NOT EXISTS idx_partner_requests_receiver_id ON partner_requests(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_partner_requests_status ON partner_requests(status);
+CREATE INDEX IF NOT EXISTS idx_partner_requests_created_at ON partner_requests(created_at DESC);
+
 -- Locations indexes
 CREATE INDEX IF NOT EXISTS idx_locations_couple_id ON locations(couple_id);
 CREATE INDEX IF NOT EXISTS idx_locations_owner_id ON locations(owner_id);
@@ -137,6 +159,7 @@ CREATE TRIGGER update_couples_updated_at BEFORE UPDATE ON couples
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE couples ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invite_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE partner_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE heartbeats ENABLE ROW LEVEL SECURITY;
 
@@ -149,6 +172,10 @@ DROP POLICY IF EXISTS "Users can update own couple" ON couples;
 DROP POLICY IF EXISTS "Users can create couples" ON couples;
 DROP POLICY IF EXISTS "Users can manage own invite codes" ON invite_codes;
 DROP POLICY IF EXISTS "Anyone can read valid invite codes" ON invite_codes;
+DROP POLICY IF EXISTS "Users can read own partner requests" ON partner_requests;
+DROP POLICY IF EXISTS "Users can send partner requests" ON partner_requests;
+DROP POLICY IF EXISTS "Users can update partner requests" ON partner_requests;
+DROP POLICY IF EXISTS "Users can delete partner requests" ON partner_requests;
 DROP POLICY IF EXISTS "Users can read couple locations" ON locations;
 DROP POLICY IF EXISTS "Users can insert own locations" ON locations;
 DROP POLICY IF EXISTS "Users can update own locations" ON locations;
@@ -194,6 +221,25 @@ CREATE POLICY "Users can manage own invite codes" ON invite_codes
 CREATE POLICY "Anyone can read valid invite codes" ON invite_codes
     FOR SELECT USING (
         auth.uid() IS NOT NULL AND NOT used AND expires_at > NOW()
+    );
+
+-- Partner requests policies
+CREATE POLICY "Users can read own partner requests" ON partner_requests
+    FOR SELECT USING (
+        auth.uid() = sender_id OR auth.uid() = receiver_id
+    );
+
+CREATE POLICY "Users can send partner requests" ON partner_requests
+    FOR INSERT WITH CHECK (auth.uid() = sender_id);
+
+CREATE POLICY "Users can update partner requests" ON partner_requests
+    FOR UPDATE USING (
+        auth.uid() = sender_id OR auth.uid() = receiver_id
+    );
+
+CREATE POLICY "Users can delete partner requests" ON partner_requests
+    FOR DELETE USING (
+        auth.uid() = sender_id OR auth.uid() = receiver_id
     );
 
 -- Locations policies

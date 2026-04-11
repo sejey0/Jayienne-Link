@@ -71,13 +71,20 @@ void main() async {
         ChangeNotifierProxyProvider<UserProvider, CoupleProvider>(
           create: (_) => CoupleProvider(coupleService, userService),
           update: (_, user, coupleProv) {
-            if (user.user == null) {
+            final safeCoupleProv =
+                coupleProv ?? CoupleProvider(coupleService, userService);
+            final currentUser = user.user;
+            if (currentUser == null) {
               // User signed out - clear couple data
-              coupleProv!.clear();
-            } else if (user.coupleId != null && user.user?.id != null) {
-              coupleProv!.loadCouple(user.coupleId!, user.user!.id);
+              safeCoupleProv.clear();
+            } else {
+              safeCoupleProv.initializeRequests(currentUser.id);
+              final coupleId = user.coupleId;
+              if (coupleId != null) {
+                safeCoupleProv.loadCouple(coupleId, currentUser.id);
+              }
             }
-            return coupleProv!;
+            return safeCoupleProv;
           },
         ),
         ChangeNotifierProxyProvider2<UserProvider, CoupleProvider,

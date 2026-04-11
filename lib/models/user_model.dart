@@ -125,8 +125,8 @@ class UserModel {
   @override
   int get hashCode => id.hashCode;
 
-  /// Check if user skipped couple linking
-  bool get hasSkippedCoupleLink => inviteCode == 'SKIPPED';
+  /// Check if user skipped couple linking (only when not linked)
+  bool get hasSkippedCoupleLink => inviteCode == 'SKIPPED' && coupleId == null;
 
   /// Check if user has a real partner link
   bool get hasRealPartner => coupleId != null;

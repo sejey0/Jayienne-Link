@@ -46,9 +46,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
-      // Email verification is disabled in Supabase - go directly to profile setup
-      // If email verification is re-enabled later, change this to:
-      // context.go(RouteNames.emailVerification);
       context.go(RouteNames.profileSetup);
     } else if (auth.error != null) {
       SnackbarHelper.showError(context, auth.error!);

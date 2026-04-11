@@ -8,7 +8,6 @@ import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/phone_auth_screen.dart';
 import '../../features/auth/screens/otp_verification_screen.dart';
-import '../../features/auth/screens/email_verification_screen.dart';
 import '../../features/profile/screens/profile_setup_screen.dart';
 import '../../features/profile/screens/profile_view_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
@@ -35,7 +34,6 @@ class AppRouter {
         final location = state.matchedLocation;
 
         final isAuthenticated = auth.isAuthenticated;
-        final isEmailVerified = auth.isEmailVerified;
         final isProfileComplete = user.isProfileComplete;
         final hasCoupleId = user.coupleId != null;
         final hasSkippedCoupleLink = user.user?.inviteCode == 'SKIPPED';
@@ -55,13 +53,6 @@ class AppRouter {
         // Not authenticated -> go to auth
         if (!isAuthenticated) {
           return isOnAuthRoute ? null : RouteNames.auth;
-        }
-
-        // Authenticated but email not verified (email users only)
-        if (auth.currentUser?.email != null && !isEmailVerified) {
-          return location == RouteNames.emailVerification
-              ? null
-              : RouteNames.emailVerification;
         }
 
         // Authenticated + verified but no profile
@@ -112,10 +103,6 @@ class AppRouter {
         GoRoute(
           path: RouteNames.otpVerification,
           builder: (context, state) => const OtpVerificationScreen(),
-        ),
-        GoRoute(
-          path: RouteNames.emailVerification,
-          builder: (context, state) => const EmailVerificationScreen(),
         ),
         GoRoute(
           path: RouteNames.profileSetup,

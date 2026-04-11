@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/couple_model.dart';
+import '../models/partner_request_model.dart';
 import '../models/supabase_invite_code_model.dart';
 import '../models/user_model.dart';
 import '../services/supabase_data_service.dart';
@@ -10,6 +11,7 @@ class SupabaseCoupleService {
   static const String _codesTable = 'invite_codes';
   static const String _couplesTable = 'couples';
   static const String _usersTable = 'users';
+  static const String _requestsTable = 'partner_requests';
 
   /// Generate a unique invite code and store it in the database
   Future<String> generateAndStoreInviteCode(String userId) async {
@@ -90,7 +92,8 @@ class SupabaseCoupleService {
         return null;
       }
 
-      debugPrint('📋 Invite code found: $code, owner user_id: ${codeData['user_id']}');
+      debugPrint(
+          '📋 Invite code found: $code, owner user_id: ${codeData['user_id']}');
       return InviteCodeModel.fromJson(codeData);
     } catch (e) {
       debugPrint('Failed to get invite code $code: $e');
@@ -161,7 +164,8 @@ class SupabaseCoupleService {
           debugPrint('❌ Current user NOT in database: $currentUserId');
         }
         if (partnerData == null) {
-          debugPrint('❌ Partner (code owner) NOT in database: ${inviteCode.userId}');
+          debugPrint(
+              '❌ Partner (code owner) NOT in database: ${inviteCode.userId}');
         }
         throw Exception('User not found');
       }
@@ -253,6 +257,180 @@ class SupabaseCoupleService {
       debugPrint('❌ Failed to link couple: $e');
       throw Exception('Failed to link couple: $e');
     }
+  }
+
+  /// Send a partner request from one user to another
+  Future<void> sendPartnerRequest({
+    required UserModel sender,
+    required UserModel receiver,
+  }) async {
+    if (sender.id == receiver.id) {
+      throw Exception('You cannot send a request to yourself');
+    }
+
+    final existing = await SupabaseDataService.client
+        .from(_requestsTable)
+        .select('id, sender_id, receiver_id, status')
+        .or(
+          'and(sender_id.eq.${sender.id},receiver_id.eq.${receiver.id}),'
+          'and(sender_id.eq.${receiver.id},receiver_id.eq.${sender.id})',
+        )
+        .eq('status', 'pending');
+
+    final existingList = List<Map<String, dynamic>>.from(existing);
+    if (existingList.isNotEmpty) {
+      final existingRequest = existingList.first;
+      if (existingRequest['sender_id'] == receiver.id) {
+        throw Exception('This person already sent you a request');
+      }
+      throw Exception('A pending request already exists');
+    }
+
+    final request = PartnerRequestModel(
+      id: '',
+      senderId: sender.id,
+      receiverId: receiver.id,
+      senderEmail: sender.email,
+      receiverEmail: receiver.email,
+      senderName: sender.displayName,
+      receiverName: receiver.displayName,
+      status: 'pending',
+      createdAt: DateTime.now(),
+    );
+
+    await SupabaseDataService.insertRecord(
+      _requestsTable,
+      request.toInsertJson(),
+    );
+  }
+
+  /// Stream incoming partner requests for a user
+  Stream<List<PartnerRequestModel>> streamIncomingRequests(String userId) {
+    return SupabaseDataService.getRecordsStream(
+      _requestsTable,
+      whereColumn: 'receiver_id',
+      whereValue: userId,
+      orderBy: 'created_at',
+      ascending: false,
+    ).map((rows) {
+      return rows
+          .map((row) => PartnerRequestModel.fromJson(row))
+          .where((request) => request.isPending)
+          .toList();
+    });
+  }
+
+  /// Stream outgoing partner requests for a user
+  Stream<List<PartnerRequestModel>> streamOutgoingRequests(String userId) {
+    return SupabaseDataService.getRecordsStream(
+      _requestsTable,
+      whereColumn: 'sender_id',
+      whereValue: userId,
+      orderBy: 'created_at',
+      ascending: false,
+    ).map((rows) {
+      return rows
+          .map((row) => PartnerRequestModel.fromJson(row))
+          .where((request) => request.isPending)
+          .toList();
+    });
+  }
+
+  /// Accept a partner request and link the two users
+  Future<CoupleModel> acceptPartnerRequest(PartnerRequestModel request) async {
+    if (!request.isPending) {
+      throw Exception('This request is no longer pending');
+    }
+
+    final senderData = await SupabaseDataService.getSingleRecord(
+      _usersTable,
+      whereColumn: 'id',
+      whereValue: request.senderId,
+    );
+    final receiverData = await SupabaseDataService.getSingleRecord(
+      _usersTable,
+      whereColumn: 'id',
+      whereValue: request.receiverId,
+    );
+
+    if (senderData == null || receiverData == null) {
+      throw Exception('User not found');
+    }
+
+    final sender = UserModel.fromJson(senderData);
+    final receiver = UserModel.fromJson(receiverData);
+
+    final couplesToUnlink = <String>{};
+    if (sender.coupleId != null) couplesToUnlink.add(sender.coupleId!);
+    if (receiver.coupleId != null) couplesToUnlink.add(receiver.coupleId!);
+
+    for (final coupleId in couplesToUnlink) {
+      await unlinkCouple(coupleId);
+    }
+
+    final coupleData = await SupabaseDataService.executeProcedure(
+      'create_couple',
+      params: {
+        'user1_id': sender.id,
+        'user2_id': receiver.id,
+        'user1_name': sender.displayName,
+        'user2_name': receiver.displayName,
+      },
+    );
+
+    if (coupleData.isEmpty) {
+      throw Exception('Failed to create couple relationship');
+    }
+
+    final coupleId = coupleData.first['create_couple'] as String;
+
+    await SupabaseDataService.updateRecords(
+      _requestsTable,
+      {
+        'status': 'accepted',
+        'responded_at': DateTime.now().toIso8601String(),
+      },
+      whereColumn: 'id',
+      whereValue: request.id,
+    );
+
+    final createdCoupleData = await SupabaseDataService.getSingleRecord(
+      _couplesTable,
+      whereColumn: 'id',
+      whereValue: coupleId,
+    );
+
+    if (createdCoupleData == null) {
+      throw Exception('Failed to retrieve created couple');
+    }
+
+    return CoupleModel.fromJson(createdCoupleData);
+  }
+
+  /// Decline a partner request
+  Future<void> declinePartnerRequest(String requestId) async {
+    await SupabaseDataService.updateRecords(
+      _requestsTable,
+      {
+        'status': 'declined',
+        'responded_at': DateTime.now().toIso8601String(),
+      },
+      whereColumn: 'id',
+      whereValue: requestId,
+    );
+  }
+
+  /// Cancel a partner request
+  Future<void> cancelPartnerRequest(String requestId) async {
+    await SupabaseDataService.updateRecords(
+      _requestsTable,
+      {
+        'status': 'canceled',
+        'responded_at': DateTime.now().toIso8601String(),
+      },
+      whereColumn: 'id',
+      whereValue: requestId,
+    );
   }
 
   /// Get real-time stream of couple data

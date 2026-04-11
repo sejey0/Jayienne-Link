@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import '../services/supabase_auth_service.dart';
+import '../services/supabase_data_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final SupabaseAuthService _authService;
@@ -68,6 +69,23 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _authService.signInWithEmail(email, password);
+      final profile = await SupabaseDataService.getSingleRecord(
+        'users',
+        whereColumn: 'email',
+        whereValue: email.trim().toLowerCase(),
+      );
+
+      if (profile == null) {
+        try {
+          await _authService.signOut();
+        } catch (e) {
+          debugPrint('Sign out after missing profile failed: $e');
+        }
+        _error = 'Please register first.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
       _isLoading = false;
       notifyListeners();
       return true;

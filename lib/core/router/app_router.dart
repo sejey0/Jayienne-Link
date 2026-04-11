@@ -43,6 +43,9 @@ class AppRouter {
         // Allow splash to show briefly
         if (location == RouteNames.splash) return null;
 
+        // Avoid redirecting during auth transitions (sign-in/sign-out)
+        if (auth.isLoading) return null;
+
         // Auth routes that don't need redirect
         final isOnAuthRoute = location.startsWith('/auth');
         final isOnProfileSetup = location == RouteNames.profileSetup;

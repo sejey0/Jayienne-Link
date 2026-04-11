@@ -6,12 +6,26 @@ cd /d "%~dp0.."
 
 set "ADB=%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe"
 set "PACKAGE=com.jayiennelink.jayienne_link"
-set "FIREBASE_APP_ID=1:503326859385:android:982bf6582d7b56174274a8"
-set "TESTER_GROUP=lovelove"
 
 echo ========================================
 echo    Jayienne Link - Physical Device Run
 echo ========================================
+echo.
+echo -------- System Specs --------
+powershell -NoProfile -Command ^
+    "$os = Get-CimInstance Win32_OperatingSystem; " ^
+    "$cpu = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name; " ^
+    "$gpu = (Get-CimInstance Win32_VideoController | Select-Object -First 1).Name; " ^
+    "$ram = [math]::Round($os.TotalVisibleMemorySize/1MB,1); " ^
+    "$drive = Get-PSDrive -Name $env:SystemDrive.TrimEnd(':'); " ^
+    "$free = [math]::Round($drive.Free/1GB,1); " ^
+    "$size = [math]::Round(($drive.Free + $drive.Used)/1GB,1); " ^
+    "Write-Host \"OS: $($os.Caption) $($os.Version)\"; " ^
+    "Write-Host \"CPU: $cpu\"; " ^
+    "Write-Host \"RAM: $ram GB\"; " ^
+    "Write-Host \"GPU: $gpu\"; " ^
+    "Write-Host \"Disk ($($env:SystemDrive)): $free GB free / $size GB\""
+echo -----------------------------
 echo.
 
 :connection_menu
@@ -145,29 +159,27 @@ echo   RELEASE MODE:
 echo   [4] Release Build ^& Run
 echo   [5] Clean Release Build
 echo.
-echo   DISTRIBUTE:
-echo   [6] Build ^& Send to Testers (Firebase)
-echo   [7] Build APK ^& Open Folder (share manually)
+echo   SHARE:
+echo   [6] Build APK ^& Open Folder (share manually)
 echo.
 echo   OTHER:
-echo   [8] Uninstall App
-echo   [9] Disconnect Wireless ^& Reconnect
+echo   [7] Uninstall App
+echo   [8] Disconnect Wireless ^& Reconnect
 echo   [0] Exit
 echo ----------------------------------------
 echo.
-set /p "CHOICE=Enter choice (1-9, 0): "
+set /p "CHOICE=Enter choice (1-8, 0): "
 
 if "%CHOICE%"=="1" goto launch
 if "%CHOICE%"=="2" goto restart
 if "%CHOICE%"=="3" goto debugrun
 if "%CHOICE%"=="4" goto buildrun
 if "%CHOICE%"=="5" goto cleanrebuild
-if "%CHOICE%"=="6" goto distribute
-if "%CHOICE%"=="7" goto buildapk
-if "%CHOICE%"=="8" goto uninstall
-if "%CHOICE%"=="9" goto disconnect
+if "%CHOICE%"=="6" goto buildapk
+if "%CHOICE%"=="7" goto uninstall
+if "%CHOICE%"=="8" goto disconnect
 if "%CHOICE%"=="0" exit /b 0
-echo Invalid choice. Please enter 1-9 or 0.
+echo Invalid choice. Please enter 1-8 or 0.
 echo.
 goto menu
 
@@ -255,42 +267,6 @@ echo.
 explorer "build\app\outputs\flutter-apk"
 echo.
 echo Send "app-release.apk" to your partner via WhatsApp, Drive, etc.
-echo.
-goto menu
-
-:distribute
-echo.
-echo ========================================
-echo   Build ^& Distribute to Testers
-echo ========================================
-echo.
-echo Building release APK...
-flutter build apk --release
-if errorlevel 1 (
-    echo.
-    echo [ERROR] Build failed!
-    echo.
-    goto menu
-)
-echo.
-set /p "RELEASE_NOTES=Enter release notes (or press Enter to skip): "
-echo.
-echo Uploading to Firebase App Distribution...
-echo.
-if "%RELEASE_NOTES%"=="" (
-    firebase appdistribution:distribute build\app\outputs\flutter-apk\app-release.apk --app %FIREBASE_APP_ID% --groups "%TESTER_GROUP%"
-) else (
-    firebase appdistribution:distribute build\app\outputs\flutter-apk\app-release.apk --app %FIREBASE_APP_ID% --groups "%TESTER_GROUP%" --release-notes "%RELEASE_NOTES%"
-)
-echo.
-if errorlevel 1 (
-    echo [ERROR] Distribution failed! Make sure you're logged in: firebase login
-) else (
-    echo ========================================
-    echo   APK sent to testers successfully!
-    echo   Testers will receive a notification.
-    echo ========================================
-)
 echo.
 goto menu
 

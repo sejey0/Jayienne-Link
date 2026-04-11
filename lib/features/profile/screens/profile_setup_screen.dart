@@ -27,6 +27,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   DateTime? _birthday;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = context.read<AuthProvider>();
+      if (auth.needsProfileSetup) {
+        SnackbarHelper.showInfo(
+          context,
+          auth.error ?? 'Please complete your profile to finish registration.',
+        );
+        auth.clearNeedsProfileSetup();
+        auth.clearError();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     super.dispose();

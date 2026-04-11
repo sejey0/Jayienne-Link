@@ -11,6 +11,7 @@ class AuthProvider extends ChangeNotifier {
   String? _pendingVerificationEmail;
   bool _isLoading = false;
   String? _error;
+  bool _needsProfileSetup = false;
 
   // Phone auth state
   String? _verificationId;
@@ -32,6 +33,7 @@ class AuthProvider extends ChangeNotifier {
   String? get currentUserId => _currentUser?.id;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get needsProfileSetup => _needsProfileSetup;
   String? get verificationId => _verificationId;
   String? get pendingPhoneNumber => _pendingPhoneNumber;
   bool get isEmailVerified => _authService.checkEmailVerified();
@@ -41,9 +43,15 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearNeedsProfileSetup() {
+    _needsProfileSetup = false;
+    notifyListeners();
+  }
+
   Future<bool> signUp(String email, String password) async {
     _isLoading = true;
     _error = null;
+    _needsProfileSetup = false;
     notifyListeners();
 
     try {
@@ -65,6 +73,7 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> signIn(String email, String password) async {
     _isLoading = true;
     _error = null;
+    _needsProfileSetup = false;
     notifyListeners();
 
     try {
@@ -76,15 +85,11 @@ class AuthProvider extends ChangeNotifier {
       );
 
       if (profile == null) {
-        try {
-          await _authService.signOut();
-        } catch (e) {
-          debugPrint('Sign out after missing profile failed: $e');
-        }
-        _error = 'Please register first.';
+        _needsProfileSetup = true;
+        _error = 'Please complete your profile to finish registration.';
         _isLoading = false;
         notifyListeners();
-        return false;
+        return true;
       }
       _isLoading = false;
       notifyListeners();

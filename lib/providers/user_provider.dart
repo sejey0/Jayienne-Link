@@ -41,12 +41,14 @@ class UserProvider extends ChangeNotifier {
         _user = user;
         notifyListeners();
         // Now start the stream with the correct database ID
-        _userSubscription = _userService.userStream(user.id).listen((updatedUser) {
+        _userSubscription =
+            _userService.userStream(user.id).listen((updatedUser) {
           _user = updatedUser;
           notifyListeners();
         });
       } else {
-        debugPrint('⚠️ User not found for email: $email');
+        debugPrint(
+            '⚠️ User not found for email: $email. Awaiting profile setup.');
         _user = null;
         notifyListeners();
       }
@@ -128,7 +130,8 @@ class UserProvider extends ChangeNotifier {
 
       // Provide user-friendly error messages
       if (e.toString().contains('Storage')) {
-        _error = 'Failed to upload profile photo. Please check your internet connection and try again.';
+        _error =
+            'Failed to upload profile photo. Please check your internet connection and try again.';
       } else if (e.toString().contains('unauthorized')) {
         _error = 'Not authorized to upload images. Please contact support.';
       } else if (e.toString().contains('canceled')) {
@@ -194,7 +197,8 @@ class UserProvider extends ChangeNotifier {
 
       // Provide user-friendly error messages
       if (e.toString().contains('Storage')) {
-        _error = 'Failed to upload profile photo. Please check your internet connection and try again.';
+        _error =
+            'Failed to upload profile photo. Please check your internet connection and try again.';
       } else if (e.toString().contains('unauthorized')) {
         _error = 'Not authorized to upload images. Please contact support.';
       } else if (e.toString().contains('canceled')) {
@@ -242,7 +246,8 @@ class UserProvider extends ChangeNotifier {
 
     try {
       // Clear skipped marker and keep couple_id null until linking
-      await _userService.updateUser(uid, {'inviteCode': null, 'coupleId': null});
+      await _userService
+          .updateUser(uid, {'inviteCode': null, 'coupleId': null});
 
       // Reset any invite codes this user generated back to unused status
       await _coupleService.resetInviteCodes(uid);

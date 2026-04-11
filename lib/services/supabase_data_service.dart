@@ -90,7 +90,10 @@ class SupabaseDataService {
           await client.from(table).insert(data).select(returning!).single();
       return response;
     }, context: 'Insert into $table');
-    return result ?? {};
+    if (result == null) {
+      throw Exception('Insert into $table returned null');
+    }
+    return result;
   }
 
   /// Update records in a table
@@ -109,7 +112,7 @@ class SupabaseDataService {
           .select(returning!);
       return List<Map<String, dynamic>>.from(response);
     }, context: 'Update $table where $whereColumn = $whereValue');
-    return result ?? [];
+    return result ?? <Map<String, dynamic>>[];
   }
 
   /// Delete records from a table
@@ -151,7 +154,7 @@ class SupabaseDataService {
       final response = await query;
       return List<Map<String, dynamic>>.from(response);
     }, context: 'Get records from $table');
-    return result ?? [];
+    return result ?? <Map<String, dynamic>>[];
   }
 
   /// Get a single record from a table

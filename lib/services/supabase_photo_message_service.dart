@@ -61,4 +61,46 @@ class SupabasePhotoMessageService {
     final record = await SupabaseDataService.insertRecord(_tableName, payload);
     return PhotoMessageModel.fromJson(record);
   }
+
+  Future<PhotoMessageModel?> updatePhotoCaption({
+    required String messageId,
+    String? caption,
+  }) async {
+    final trimmedCaption = caption?.trim();
+    final updates = {
+      'caption': trimmedCaption != null && trimmedCaption.isNotEmpty
+          ? trimmedCaption
+          : null,
+    };
+
+    final records = await SupabaseDataService.updateRecords(
+      _tableName,
+      updates,
+      whereColumn: 'id',
+      whereValue: messageId,
+    );
+
+    if (records.isEmpty) {
+      throw Exception(
+        'Caption update was blocked or the message was not found.',
+      );
+    }
+    return PhotoMessageModel.fromJson(records.first);
+  }
+
+  Future<bool> deletePhotoMessage(String messageId) async {
+    final deletedRecords = await SupabaseDataService.safeExecute(
+      () async {
+        final response = await SupabaseDataService.client
+            .from(_tableName)
+            .delete()
+            .eq('id', messageId)
+            .select();
+        return List<Map<String, dynamic>>.from(response);
+      },
+      context: 'Delete from $_tableName where id = $messageId',
+    );
+
+    return deletedRecords?.isNotEmpty == true;
+  }
 }

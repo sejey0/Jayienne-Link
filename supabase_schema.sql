@@ -230,6 +230,8 @@ DROP POLICY IF EXISTS "Users can read couple heartbeats" ON heartbeats;
 DROP POLICY IF EXISTS "Users can send heartbeats" ON heartbeats;
 DROP POLICY IF EXISTS "Users can read couple photo messages" ON photo_messages;
 DROP POLICY IF EXISTS "Users can send photo messages" ON photo_messages;
+DROP POLICY IF EXISTS "Users can update photo messages" ON photo_messages;
+DROP POLICY IF EXISTS "Users can delete photo messages" ON photo_messages;
 
 -- Users policies (users.id = auth.uid())
 CREATE POLICY "Users can read own profile" ON users
@@ -348,6 +350,13 @@ CREATE POLICY "Users can read couple photo messages" ON photo_messages
 
 CREATE POLICY "Users can send photo messages" ON photo_messages
     FOR INSERT WITH CHECK (sender_id = auth.uid());
+
+CREATE POLICY "Users can update photo messages" ON photo_messages
+    FOR UPDATE USING (sender_id = auth.uid())
+    WITH CHECK (sender_id = auth.uid());
+
+CREATE POLICY "Users can delete photo messages" ON photo_messages
+    FOR DELETE USING (sender_id = auth.uid());
 
 -- =====================================================
 -- HELPER FUNCTIONS

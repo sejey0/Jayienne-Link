@@ -121,6 +121,89 @@ class PhotoMessageProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateCaption({
+    required String messageId,
+    String? caption,
+  }) async {
+    if (_userId == null) {
+      _error = 'Sign in to edit captions.';
+      notifyListeners();
+      return false;
+    }
+
+    final index = _messages.indexWhere((message) => message.id == messageId);
+    if (index == -1) return false;
+    if (_messages[index].senderId != _userId) {
+      _error = 'You can only edit your own photos.';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      final updated = await _service.updatePhotoCaption(
+        messageId: messageId,
+        caption: caption,
+      );
+      if (updated == null) {
+        _error = 'Caption update failed. Please try again.';
+        notifyListeners();
+        return false;
+      }
+      _messages[index] = updated;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to update caption: $e';
+      debugPrint(_error);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> deleteMessage(String messageId) async {
+    if (_userId == null) {
+      _error = 'Sign in to delete photos.';
+      notifyListeners();
+      return false;
+    }
+
+    final index = _messages.indexWhere((message) => message.id == messageId);
+    if (index == -1) return false;
+    if (_messages[index].senderId != _userId) {
+      _error = 'You can only delete your own photos.';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      final message = _messages[index];
+      final deleted = await _service.deletePhotoMessage(messageId);
+      if (!deleted) {
+        _error = 'Delete blocked. Please check your permissions.';
+        notifyListeners();
+        return false;
+      }
+
+      _messages.removeAt(index);
+      notifyListeners();
+
+      try {
+        await _storageService.deleteChatPhotoByUrl(message.imageUrl);
+      } catch (e) {
+        _error = 'Photo deleted, but storage cleanup failed: $e';
+        debugPrint(_error);
+        notifyListeners();
+      }
+
+      return true;
+    } catch (e) {
+      _error = 'Failed to delete photo: $e';
+      debugPrint(_error);
+      notifyListeners();
+      return false;
+    }
+  }
+
   void clear() {
     _messageSubscription?.cancel();
     _messageSubscription = null;

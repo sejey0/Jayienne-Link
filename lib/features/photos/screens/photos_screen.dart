@@ -25,6 +25,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
   final FocusNode _captionFocusNode = FocusNode();
   final ImagePicker _picker = ImagePicker();
   File? _selectedImage;
+  bool _isComposerExpanded = true;
+  static const String _editConfirmationPhrase = 'i love you';
 
   @override
   void dispose() {
@@ -33,9 +35,9 @@ class _PhotosScreenState extends State<PhotosScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage(ImageSource source) async {
     final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
+      source: source,
       imageQuality: 85,
     );
     if (picked == null) return;
@@ -43,6 +45,36 @@ class _PhotosScreenState extends State<PhotosScreen> {
     setState(() {
       _selectedImage = File(picked.path);
     });
+  }
+
+  void _showImageSourceSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Camera'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Gallery'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _sendPhoto(PhotoMessageProvider provider) async {
@@ -69,6 +101,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
     final photoProvider = context.watch<PhotoMessageProvider>();
     final userProvider = context.watch<UserProvider>();
     final coupleProvider = context.watch<CoupleProvider>();
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     final user = userProvider.user;
     final partner = coupleProvider.partner;
@@ -138,17 +171,21 @@ class _PhotosScreenState extends State<PhotosScreen> {
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
+                AnimatedPadding(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.fromLTRB(
                     AppDimensions.spacingLg,
                     AppDimensions.spacingSm,
                     AppDimensions.spacingLg,
-                    AppDimensions.spacingLg,
+                    isKeyboardOpen
+                        ? AppDimensions.spacingXs
+                        : AppDimensions.spacingLg,
                   ),
                   child: _buildComposer(
                     context,
                     photoProvider: photoProvider,
-                    onPickImage: _pickImage,
+                    onPickImage: () => _showImageSourceSheet(context),
                     onSend: () => _sendPhoto(photoProvider),
                   ),
                 ),
@@ -165,120 +202,209 @@ class _PhotosScreenState extends State<PhotosScreen> {
   }) {
     final canSend = photoProvider.canSend && !photoProvider.isSending;
     final hasImage = _selectedImage != null;
-
-    return AppCard(
-      child: Column(
-        children: [
-          Text(
-            'Photo Messages',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppDimensions.spacingMd),
-          if (hasImage)
-            ClipRRect(
-              borderRadius:
-                  BorderRadius.circular(AppDimensions.borderRadiusMedium),
-              child: Image.file(
-                _selectedImage!,
-                height: 160,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            )
-          else
-            Container(
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius:
-                    BorderRadius.circular(AppDimensions.borderRadiusMedium),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Center(
-                child: Text(
-                  'Select a photo to send',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
-                      ),
-                ),
-              ),
-            ),
-          const SizedBox(height: AppDimensions.spacingSm),
-          TextField(
-            controller: _captionController,
-            focusNode: _captionFocusNode,
-            enabled: canSend,
-            minLines: 1,
-            maxLines: 2,
-            textInputAction: TextInputAction.send,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.deepCharcoal,
-                ),
-            cursorColor: AppColors.softRose,
-            onSubmitted: (_) => onSend(),
-            decoration: InputDecoration(
-              hintText: 'Add a caption (optional)',
-              hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-              filled: true,
-              fillColor: Colors.grey.shade100,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppDimensions.spacingMd,
-                vertical: AppDimensions.spacingSm,
-              ),
-              border: OutlineInputBorder(
-                borderRadius:
-                    BorderRadius.circular(AppDimensions.borderRadiusMedium),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius:
-                    BorderRadius.circular(AppDimensions.borderRadiusMedium),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius:
-                    BorderRadius.circular(AppDimensions.borderRadiusMedium),
-                borderSide: const BorderSide(color: AppColors.softRose),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppDimensions.spacingSm),
-          Row(
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+    final previewHeight = isKeyboardOpen ? 80.0 : 160.0;
+    final placeholderHeight = isKeyboardOpen ? 48.0 : 120.0;
+    final captionMaxLines = isKeyboardOpen ? 1 : 2;
+    final verticalSpacing = isKeyboardOpen ? 2.0 : AppDimensions.spacingSm;
+    final fieldVerticalPadding = isKeyboardOpen ? 2.0 : AppDimensions.spacingSm;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxComposerHeight =
+        isKeyboardOpen ? screenHeight * 0.32 : double.infinity;
+    final cardPadding = EdgeInsets.fromLTRB(
+      AppDimensions.cardPadding,
+      isKeyboardOpen ? AppDimensions.spacingSm : AppDimensions.cardPadding,
+      AppDimensions.cardPadding,
+      isKeyboardOpen ? AppDimensions.spacingSm : AppDimensions.cardPadding,
+    );
+    final composerBody = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: isKeyboardOpen ? 2 : AppDimensions.spacingMd,
+        ),
+        if (hasImage)
+          Stack(
             children: [
-              _buildActionButton(
-                icon: Icons.photo_library_outlined,
-                backgroundColor: AppColors.lavender,
-                iconColor: Colors.white,
-                onPressed: canSend ? onPickImage : null,
-                tooltip: 'Choose photo',
+              ClipRRect(
+                borderRadius:
+                    BorderRadius.circular(AppDimensions.borderRadiusMedium),
+                child: Image.file(
+                  _selectedImage!,
+                  height: previewHeight,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
               ),
-              const SizedBox(width: AppDimensions.spacingSm),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: canSend && hasImage ? onSend : null,
-                  icon: photoProvider.isSending
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.send_rounded),
-                  label: const Text('Send photo'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.softRose,
-                    foregroundColor: Colors.white,
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  tooltip: 'Remove photo',
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () {
+                    setState(() {
+                      _selectedImage = null;
+                    });
+                  },
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black54,
                   ),
                 ),
               ),
             ],
+          )
+        else
+          Container(
+            height: placeholderHeight,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius:
+                  BorderRadius.circular(AppDimensions.borderRadiusMedium),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Center(
+              child: Text(
+                'Select a photo to send',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+              ),
+            ),
+          ),
+        SizedBox(height: verticalSpacing),
+        TextField(
+          controller: _captionController,
+          focusNode: _captionFocusNode,
+          enabled: canSend,
+          minLines: 1,
+          maxLines: captionMaxLines,
+          textInputAction: TextInputAction.send,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.deepCharcoal,
+              ),
+          cursorColor: AppColors.softRose,
+          onSubmitted: (_) => onSend(),
+          decoration: InputDecoration(
+            hintText: 'Add a caption (optional)',
+            hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade600,
+                ),
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: AppDimensions.spacingMd,
+              vertical: fieldVerticalPadding,
+            ),
+            border: OutlineInputBorder(
+              borderRadius:
+                  BorderRadius.circular(AppDimensions.borderRadiusMedium),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius:
+                  BorderRadius.circular(AppDimensions.borderRadiusMedium),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius:
+                  BorderRadius.circular(AppDimensions.borderRadiusMedium),
+              borderSide: const BorderSide(color: AppColors.softRose),
+            ),
+          ),
+        ),
+        SizedBox(height: verticalSpacing),
+        Row(
+          children: [
+            _buildActionButton(
+              icon: Icons.photo_library_outlined,
+              backgroundColor: AppColors.lavender,
+              iconColor: Colors.white,
+              onPressed: canSend ? onPickImage : null,
+              tooltip: 'Choose photo',
+            ),
+            const SizedBox(width: AppDimensions.spacingSm),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: canSend && hasImage ? onSend : null,
+                icon: photoProvider.isSending
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.send_rounded),
+                label: const Text('Send photo'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.softRose,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final composerContent = ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxComposerHeight),
+      child: SingleChildScrollView(
+        physics: isKeyboardOpen
+            ? const ClampingScrollPhysics()
+            : const NeverScrollableScrollPhysics(),
+        child: composerBody,
+      ),
+    );
+
+    return AppCard(
+      padding: cardPadding,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () =>
+                setState(() => _isComposerExpanded = !_isComposerExpanded),
+            borderRadius:
+                BorderRadius.circular(AppDimensions.borderRadiusMedium),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.spacingSm,
+                vertical: AppDimensions.spacingXs,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Photo Messages',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      _isComposerExpanded
+                          ? Icons.keyboard_arrow_down
+                          : Icons.keyboard_arrow_up,
+                    ),
+                    onPressed: () => setState(
+                      () => _isComposerExpanded = !_isComposerExpanded,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 200),
+            crossFadeState: _isComposerExpanded
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            firstChild: composerContent,
+            secondChild: const SizedBox.shrink(),
           ),
         ],
       ),
@@ -457,12 +583,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                     ),
                   ],
                   const SizedBox(height: 2),
-                  Text(
-                    message.formattedDateTime,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.grey.shade700,
-                        ),
-                  ),
+                  _buildMetaRow(context, message, isMine),
                 ],
               ),
             ),
@@ -478,6 +599,114 @@ class _PhotosScreenState extends State<PhotosScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildMetaRow(
+    BuildContext context,
+    PhotoMessageModel message,
+    bool isMine,
+  ) {
+    final timeText = Text(
+      message.formattedDateTime,
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Colors.grey.shade700,
+          ),
+    );
+
+    if (!isMine) return timeText;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        timeText,
+        const SizedBox(width: 4),
+        PopupMenuButton<_PhotoMessageAction>(
+          icon: Icon(
+            Icons.more_horiz,
+            size: 18,
+            color: Colors.grey.shade600,
+          ),
+          onSelected: (action) {
+            if (action == _PhotoMessageAction.edit) {
+              _showEditCaptionDialog(context, message);
+            } else if (action == _PhotoMessageAction.delete) {
+              _confirmDelete(context, message);
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: _PhotoMessageAction.edit,
+              child: Text('Edit caption'),
+            ),
+            PopupMenuItem(
+              value: _PhotoMessageAction.delete,
+              child: Text('Delete'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showEditCaptionDialog(
+    BuildContext context,
+    PhotoMessageModel message,
+  ) async {
+    if (message.id == null) return;
+    final provider = context.read<PhotoMessageProvider>();
+    final updatedCaption = await showDialog<String?>(
+      context: context,
+      builder: (dialogContext) {
+        return _EditCaptionDialog(
+          initialCaption: message.caption ?? '',
+          confirmationPhrase: _editConfirmationPhrase,
+        );
+      },
+    );
+
+    if (updatedCaption == null) return;
+    final updated = await provider.updateCaption(
+      messageId: message.id!,
+      caption: updatedCaption,
+    );
+    if (!updated && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            provider.error ?? 'Unable to update caption.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    PhotoMessageModel message,
+  ) async {
+    if (message.id == null) return;
+    final provider = context.read<PhotoMessageProvider>();
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return const _DeletePhotoDialog(
+              confirmationPhrase: _editConfirmationPhrase,
+            );
+          },
+        ) ??
+        false;
+
+    if (!confirmed) return;
+    final deleted = await provider.deleteMessage(message.id!);
+    if (!deleted && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            provider.error ?? 'Unable to delete photo.',
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildPhotoImage(String imageUrl) {
@@ -618,3 +847,159 @@ class _PhotosScreenState extends State<PhotosScreen> {
     );
   }
 }
+
+class _EditCaptionDialog extends StatefulWidget {
+  const _EditCaptionDialog({
+    required this.initialCaption,
+    required this.confirmationPhrase,
+  });
+
+  final String initialCaption;
+  final String confirmationPhrase;
+
+  @override
+  State<_EditCaptionDialog> createState() => _EditCaptionDialogState();
+}
+
+class _EditCaptionDialogState extends State<_EditCaptionDialog> {
+  late final TextEditingController _captionController;
+  late final TextEditingController _confirmController;
+
+  @override
+  void initState() {
+    super.initState();
+    _captionController = TextEditingController(text: widget.initialCaption);
+    _confirmController = TextEditingController();
+    _confirmController.addListener(_onConfirmChanged);
+  }
+
+  void _onConfirmChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  bool get _isConfirmed =>
+      _confirmController.text.trim().toLowerCase() == widget.confirmationPhrase;
+
+  @override
+  void dispose() {
+    _confirmController.removeListener(_onConfirmChanged);
+    _captionController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      scrollable: true,
+      title: const Text('Edit caption'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _captionController,
+            minLines: 1,
+            maxLines: 3,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(
+              labelText: 'Caption',
+            ),
+          ),
+          const SizedBox(height: AppDimensions.spacingSm),
+          TextField(
+            controller: _confirmController,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              labelText: 'Type "${widget.confirmationPhrase}" to save',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isConfirmed
+              ? () => Navigator.of(context).pop(_captionController.text)
+              : null,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
+class _DeletePhotoDialog extends StatefulWidget {
+  const _DeletePhotoDialog({
+    required this.confirmationPhrase,
+  });
+
+  final String confirmationPhrase;
+
+  @override
+  State<_DeletePhotoDialog> createState() => _DeletePhotoDialogState();
+}
+
+class _DeletePhotoDialogState extends State<_DeletePhotoDialog> {
+  late final TextEditingController _confirmController;
+
+  @override
+  void initState() {
+    super.initState();
+    _confirmController = TextEditingController();
+    _confirmController.addListener(_onConfirmChanged);
+  }
+
+  void _onConfirmChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  bool get _isConfirmed =>
+      _confirmController.text.trim().toLowerCase() == widget.confirmationPhrase;
+
+  @override
+  void dispose() {
+    _confirmController.removeListener(_onConfirmChanged);
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      scrollable: true,
+      title: const Text('Delete photo?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('This will remove the photo from the chat.'),
+          const SizedBox(height: AppDimensions.spacingSm),
+          TextField(
+            controller: _confirmController,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              labelText: 'Type "${widget.confirmationPhrase}" to delete',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed:
+              _isConfirmed ? () => Navigator.of(context).pop(true) : null,
+          child: const Text('Delete'),
+        ),
+      ],
+    );
+  }
+}
+
+enum _PhotoMessageAction { edit, delete }

@@ -91,27 +91,12 @@ class SupabaseStorageService {
     int quality = 85,
   }) async {
     try {
-      // Decode image
-      img.Image? image = img.decodeImage(imageBytes);
-      if (image == null) {
-        throw Exception('Failed to decode image');
-      }
-
-      // Resize if too large
-      if (image.width > maxDimension || image.height > maxDimension) {
-        image = img.copyResize(
-          image,
-          width: image.width > image.height ? maxDimension : null,
-          height: image.height > image.width ? maxDimension : null,
-          maintainAspect: true,
-        );
-        debugPrint('Image resized to: ${image.width}x${image.height}');
-      }
-
-      // Convert to JPEG with good quality compression
-      final optimizedBytes = img.encodeJpg(image, quality: quality);
-
-      return Uint8List.fromList(optimizedBytes);
+      final params = _ImageOptimizeParams(
+        imageBytes,
+        maxDimension,
+        quality,
+      );
+      return await compute(_optimizeImageIsolate, params);
     } catch (e) {
       debugPrint('Image optimization failed: $e');
       // Return original if optimization fails
@@ -185,6 +170,33 @@ class SupabaseStorageService {
       } else {
         throw Exception('Upload failed: ${e.toString()}');
       }
+    }
+  }
+
+  /// Delete chat photo from Supabase Storage using its public URL
+  Future<void> deleteChatPhotoByUrl(String imageUrl) async {
+    if (imageUrl.startsWith('data:image/')) {
+      return;
+    }
+
+    try {
+      final uri = Uri.parse(imageUrl);
+      final segments = uri.pathSegments;
+      final bucketIndex = segments.indexOf(_chatBucketName);
+      if (bucketIndex == -1) {
+        return;
+      }
+
+      final objectPath = segments.sublist(bucketIndex + 1).join('/');
+      if (objectPath.isEmpty) {
+        return;
+      }
+
+      await _supabase.storage.from(_chatBucketName).remove([objectPath]);
+      debugPrint('Deleted chat photo from storage: $objectPath');
+    } catch (e) {
+      debugPrint('Chat photo delete failed: $e');
+      throw Exception('Storage cleanup failed: $e');
     }
   }
 
@@ -290,5 +302,38 @@ class SupabaseStorageService {
           '💡 Make sure the "$_bucketName" bucket exists in your Supabase dashboard');
       return false;
     }
+  }
+}
+
+class _ImageOptimizeParams {
+  final Uint8List bytes;
+  final int maxDimension;
+  final int quality;
+
+  const _ImageOptimizeParams(this.bytes, this.maxDimension, this.quality);
+}
+
+Uint8List _optimizeImageIsolate(_ImageOptimizeParams params) {
+  try {
+    final image = img.decodeImage(params.bytes);
+    if (image == null) {
+      return params.bytes;
+    }
+
+    img.Image resized = image;
+    if (image.width > params.maxDimension ||
+        image.height > params.maxDimension) {
+      resized = img.copyResize(
+        image,
+        width: image.width > image.height ? params.maxDimension : null,
+        height: image.height > image.width ? params.maxDimension : null,
+        maintainAspect: true,
+      );
+    }
+
+    final optimizedBytes = img.encodeJpg(resized, quality: params.quality);
+    return Uint8List.fromList(optimizedBytes);
+  } catch (_) {
+    return params.bytes;
   }
 }

@@ -121,7 +121,7 @@ class HomeScreen extends StatelessWidget {
                           label: Text(
                             couple.anniversary == null
                                 ? 'Set Anniversary'
-                                : 'Update',
+                                : 'Update Anniversary',
                           ),
                           style: TextButton.styleFrom(
                             foregroundColor: AppColors.softRose,
@@ -147,8 +147,7 @@ class HomeScreen extends StatelessWidget {
                 _buildHeartbeatCard(context),
                 _buildFeatureCard(
                     context, Icons.emoji_emotions_outlined, 'Mood'),
-                _buildFeatureCard(
-                    context, Icons.photo_library_outlined, 'Photos'),
+                _buildPhotosCard(context),
               ],
             ),
           ],
@@ -282,6 +281,32 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: AppDimensions.spacingXs),
           Text(
             'Open chat',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotosCard(BuildContext context) {
+    return AppCard(
+      onTap: () => context.push(RouteNames.photos),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.photo_library_outlined,
+              size: 36, color: AppColors.lavender),
+          const SizedBox(height: AppDimensions.spacingSm),
+          Text(
+            'Photos',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: AppDimensions.spacingXs),
+          Text(
+            'Share moments',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall

@@ -1,0 +1,142 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import '../models/photo_message_model.dart';
+import '../services/supabase_photo_message_service.dart';
+import '../services/supabase_storage_service.dart';
+
+class PhotoMessageProvider extends ChangeNotifier {
+  final SupabasePhotoMessageService _service;
+  final SupabaseStorageService _storageService;
+
+  PhotoMessageProvider(this._service, this._storageService);
+
+  final List<PhotoMessageModel> _messages = [];
+  StreamSubscription<List<PhotoMessageModel>>? _messageSubscription;
+
+  String? _userId;
+  String? _coupleId;
+  String? _partnerId;
+
+  bool _isLoading = false;
+  bool _isSending = false;
+  String? _error;
+
+  List<PhotoMessageModel> get messages => List.unmodifiable(_messages);
+  bool get isLoading => _isLoading;
+  bool get isSending => _isSending;
+  String? get error => _error;
+  bool get canSend =>
+      _partnerId != null && _coupleId != null && _userId != null;
+
+  Future<void> initialize({
+    required String userId,
+    required String coupleId,
+    required String partnerId,
+  }) async {
+    final needsRefresh = _userId != userId || _coupleId != coupleId;
+    _userId = userId;
+    _coupleId = coupleId;
+    _partnerId = partnerId;
+
+    if (!needsRefresh) return;
+
+    await _loadInitial();
+    _subscribeToStream();
+  }
+
+  Future<void> _loadInitial() async {
+    if (_coupleId == null) return;
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final results = await _service.getPhotoMessages(_coupleId!);
+      _messages
+        ..clear()
+        ..addAll(results);
+    } catch (e) {
+      _error = 'Failed to load photos: $e';
+      debugPrint(_error);
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void _subscribeToStream() {
+    _messageSubscription?.cancel();
+    if (_coupleId == null) return;
+
+    _messageSubscription =
+        _service.streamPhotoMessages(_coupleId!).listen((events) {
+      _messages
+        ..clear()
+        ..addAll(events);
+      notifyListeners();
+    }, onError: (error) {
+      _error = 'Live updates unavailable: $error';
+      notifyListeners();
+    });
+  }
+
+  Future<bool> sendPhotoMessage({
+    required File imageFile,
+    String? caption,
+  }) async {
+    if (!canSend) {
+      _error = 'Link your partner to send photos.';
+      notifyListeners();
+      return false;
+    }
+
+    _isSending = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final imageUrl = await _storageService.uploadChatPhoto(
+        _userId!,
+        imageFile,
+      );
+      final trimmedCaption = caption?.trim();
+      final result = await _service.sendPhotoMessage(
+        coupleId: _coupleId!,
+        senderId: _userId!,
+        receiverId: _partnerId!,
+        imageUrl: imageUrl,
+        caption: trimmedCaption?.isNotEmpty == true ? trimmedCaption : null,
+      );
+      _messages.insert(0, result);
+      return true;
+    } catch (e) {
+      _error = 'Failed to send photo: $e';
+      debugPrint(_error);
+      return false;
+    } finally {
+      _isSending = false;
+      notifyListeners();
+    }
+  }
+
+  void clear() {
+    _messageSubscription?.cancel();
+    _messageSubscription = null;
+    _messages.clear();
+    _userId = null;
+    _coupleId = null;
+    _partnerId = null;
+    _error = null;
+    _isLoading = false;
+    _isSending = false;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _messageSubscription?.cancel();
+    super.dispose();
+  }
+}

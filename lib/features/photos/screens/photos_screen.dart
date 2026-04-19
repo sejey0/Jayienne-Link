@@ -1,0 +1,620 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_dimensions.dart';
+import '../../../models/photo_message_model.dart';
+import '../../../providers/couple_provider.dart';
+import '../../../providers/photo_message_provider.dart';
+import '../../../providers/user_provider.dart';
+import '../../../widgets/common/app_card.dart';
+import '../../../widgets/smart_profile_image.dart';
+
+class PhotosScreen extends StatefulWidget {
+  const PhotosScreen({super.key});
+
+  @override
+  State<PhotosScreen> createState() => _PhotosScreenState();
+}
+
+class _PhotosScreenState extends State<PhotosScreen> {
+  final TextEditingController _captionController = TextEditingController();
+  final FocusNode _captionFocusNode = FocusNode();
+  final ImagePicker _picker = ImagePicker();
+  File? _selectedImage;
+
+  @override
+  void dispose() {
+    _captionController.dispose();
+    _captionFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+
+    setState(() {
+      _selectedImage = File(picked.path);
+    });
+  }
+
+  Future<void> _sendPhoto(PhotoMessageProvider provider) async {
+    final imageFile = _selectedImage;
+    if (imageFile == null) return;
+
+    final caption = _captionController.text.trim();
+    final didSend = await provider.sendPhotoMessage(
+      imageFile: imageFile,
+      caption: caption.isNotEmpty ? caption : null,
+    );
+
+    if (didSend) {
+      setState(() {
+        _selectedImage = null;
+      });
+      _captionController.clear();
+      _captionFocusNode.unfocus();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final photoProvider = context.watch<PhotoMessageProvider>();
+    final userProvider = context.watch<UserProvider>();
+    final coupleProvider = context.watch<CoupleProvider>();
+
+    final user = userProvider.user;
+    final partner = coupleProvider.partner;
+    final messages = photoProvider.messages;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Photos'),
+      ),
+      body: user == null || partner == null
+          ? Padding(
+              padding: const EdgeInsets.all(AppDimensions.spacingLg),
+              child: _buildNotLinkedState(context),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppDimensions.spacingLg,
+                      AppDimensions.spacingLg,
+                      AppDimensions.spacingLg,
+                      0,
+                    ),
+                    child: Column(
+                      children: [
+                        if (photoProvider.error != null)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppDimensions.spacingSm,
+                            ),
+                            child: Text(
+                              photoProvider.error!,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: AppColors.error,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        Expanded(
+                          child: messages.isEmpty
+                              ? _buildEmptyState(context)
+                              : ListView.separated(
+                                  reverse: true,
+                                  padding: const EdgeInsets.only(
+                                    bottom: AppDimensions.spacingSm,
+                                  ),
+                                  itemCount: messages.length,
+                                  separatorBuilder: (_, __) => const SizedBox(
+                                    height: AppDimensions.spacingSm,
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    return _buildPhotoTile(
+                                      context,
+                                      message: messages[index],
+                                      userId: user.id,
+                                      userPhotoUrl: user.photoUrl,
+                                      partnerPhotoUrl: partner.photoUrl,
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppDimensions.spacingLg,
+                    AppDimensions.spacingSm,
+                    AppDimensions.spacingLg,
+                    AppDimensions.spacingLg,
+                  ),
+                  child: _buildComposer(
+                    context,
+                    photoProvider: photoProvider,
+                    onPickImage: _pickImage,
+                    onSend: () => _sendPhoto(photoProvider),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildComposer(
+    BuildContext context, {
+    required PhotoMessageProvider photoProvider,
+    required VoidCallback onPickImage,
+    required VoidCallback onSend,
+  }) {
+    final canSend = photoProvider.canSend && !photoProvider.isSending;
+    final hasImage = _selectedImage != null;
+
+    return AppCard(
+      child: Column(
+        children: [
+          Text(
+            'Photo Messages',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppDimensions.spacingMd),
+          if (hasImage)
+            ClipRRect(
+              borderRadius:
+                  BorderRadius.circular(AppDimensions.borderRadiusMedium),
+              child: Image.file(
+                _selectedImage!,
+                height: 160,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            )
+          else
+            Container(
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius:
+                    BorderRadius.circular(AppDimensions.borderRadiusMedium),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Center(
+                child: Text(
+                  'Select a photo to send',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                ),
+              ),
+            ),
+          const SizedBox(height: AppDimensions.spacingSm),
+          TextField(
+            controller: _captionController,
+            focusNode: _captionFocusNode,
+            enabled: canSend,
+            minLines: 1,
+            maxLines: 2,
+            textInputAction: TextInputAction.send,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.deepCharcoal,
+                ),
+            cursorColor: AppColors.softRose,
+            onSubmitted: (_) => onSend(),
+            decoration: InputDecoration(
+              hintText: 'Add a caption (optional)',
+              hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+              filled: true,
+              fillColor: Colors.grey.shade100,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.spacingMd,
+                vertical: AppDimensions.spacingSm,
+              ),
+              border: OutlineInputBorder(
+                borderRadius:
+                    BorderRadius.circular(AppDimensions.borderRadiusMedium),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius:
+                    BorderRadius.circular(AppDimensions.borderRadiusMedium),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius:
+                    BorderRadius.circular(AppDimensions.borderRadiusMedium),
+                borderSide: const BorderSide(color: AppColors.softRose),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppDimensions.spacingSm),
+          Row(
+            children: [
+              _buildActionButton(
+                icon: Icons.photo_library_outlined,
+                backgroundColor: AppColors.lavender,
+                iconColor: Colors.white,
+                onPressed: canSend ? onPickImage : null,
+                tooltip: 'Choose photo',
+              ),
+              const SizedBox(width: AppDimensions.spacingSm),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: canSend && hasImage ? onSend : null,
+                  icon: photoProvider.isSending
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded),
+                  label: const Text('Send photo'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.softRose,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotLinkedState(BuildContext context) {
+    return AppCard(
+      child: Column(
+        children: [
+          const Icon(
+            Icons.photo_library_outlined,
+            color: AppColors.softRose,
+            size: 48,
+          ),
+          const SizedBox(height: AppDimensions.spacingMd),
+          Text(
+            'Link with your partner to use Photos',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppDimensions.spacingXs),
+          Text(
+            'Once linked, you can share photos instantly.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey,
+                ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color backgroundColor,
+    required Color iconColor,
+    required VoidCallback? onPressed,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: backgroundColor,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.photo_library_outlined,
+            size: 48,
+            color: AppColors.lavender,
+          ),
+          const SizedBox(height: AppDimensions.spacingSm),
+          Text(
+            'No photos yet',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Colors.grey,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoTile(
+    BuildContext context, {
+    required PhotoMessageModel message,
+    required String? userId,
+    required String? userPhotoUrl,
+    required String? partnerPhotoUrl,
+  }) {
+    final isMine = message.senderId == userId;
+    final bubbleRadius = BorderRadius.only(
+      topLeft: const Radius.circular(AppDimensions.borderRadiusMedium),
+      topRight: const Radius.circular(AppDimensions.borderRadiusMedium),
+      bottomLeft: Radius.circular(
+        isMine ? AppDimensions.borderRadiusMedium : 6,
+      ),
+      bottomRight: Radius.circular(
+        isMine ? 6 : AppDimensions.borderRadiusMedium,
+      ),
+    );
+    final caption = message.caption?.trim();
+    final hasCaption = caption != null && caption.isNotEmpty;
+
+    return Align(
+      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.72,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (!isMine) ...[
+              _buildAvatar(
+                photoUrl: partnerPhotoUrl,
+                accentColor: AppColors.softRose,
+                fallbackIcon: Icons.favorite,
+              ),
+              const SizedBox(width: AppDimensions.spacingSm),
+            ],
+            Flexible(
+              child: Column(
+                crossAxisAlignment:
+                    isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: bubbleRadius,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: bubbleRadius,
+                        onTap: () => _showPhotoViewer(context, message),
+                        child: ClipRRect(
+                          borderRadius: bubbleRadius,
+                          child: _buildPhotoImage(message.imageUrl),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (hasCaption) ...[
+                    const SizedBox(height: AppDimensions.spacingXs),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppDimensions.spacingMd,
+                        vertical: AppDimensions.spacingSm,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isMine
+                            ? AppColors.lavenderLight
+                            : AppColors.softRoseLight,
+                        borderRadius: bubbleRadius,
+                      ),
+                      child: Text(
+                        caption,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.deepCharcoal,
+                            ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 2),
+                  Text(
+                    message.formattedDateTime,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Colors.grey.shade700,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            if (isMine) ...[
+              const SizedBox(width: AppDimensions.spacingSm),
+              _buildAvatar(
+                photoUrl: userPhotoUrl,
+                accentColor: AppColors.lavender,
+                fallbackIcon: Icons.person,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoImage(String imageUrl) {
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        final base64String = imageUrl.split(',')[1];
+        final bytes = base64Decode(base64String);
+        return Image.memory(
+          bytes,
+          height: 200,
+          width: double.infinity,
+          fit: BoxFit.cover,
+        );
+      } catch (_) {
+        return _buildImageFallback();
+      }
+    }
+
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      height: 200,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      placeholder: (_, __) => _buildImageFallback(isLoading: true),
+      errorWidget: (_, __, ___) => _buildImageFallback(),
+    );
+  }
+
+  void _showPhotoViewer(BuildContext context, PhotoMessageModel message) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black,
+      builder: (dialogContext) {
+        return Dialog.fullscreen(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4,
+                  child: _buildFullPhotoImage(message.imageUrl),
+                ),
+              ),
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFullPhotoImage(String imageUrl) {
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        final base64String = imageUrl.split(',')[1];
+        final bytes = base64Decode(base64String);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.contain,
+        );
+      } catch (_) {
+        return const Icon(Icons.broken_image_outlined, color: Colors.white54);
+      }
+    }
+
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      fit: BoxFit.contain,
+      placeholder: (_, __) => const CircularProgressIndicator(
+        color: Colors.white,
+      ),
+      errorWidget: (_, __, ___) =>
+          const Icon(Icons.broken_image_outlined, color: Colors.white54),
+    );
+  }
+
+  Widget _buildImageFallback({bool isLoading = false}) {
+    return Container(
+      height: 200,
+      color: Colors.grey.shade200,
+      child: Center(
+        child: isLoading
+            ? const CircularProgressIndicator()
+            : const Icon(Icons.broken_image_outlined, color: Colors.grey),
+      ),
+    );
+  }
+
+  Widget _buildAvatar({
+    required String? photoUrl,
+    required Color accentColor,
+    required IconData fallbackIcon,
+  }) {
+    const double size = 32;
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: accentColor, width: 2),
+      ),
+      child: ClipOval(
+        child: SmartProfileImage(
+          imageUrl: photoUrl,
+          width: size,
+          height: size,
+          placeholder: _buildAvatarPlaceholder(size, accentColor, fallbackIcon),
+          errorWidget: _buildAvatarPlaceholder(size, accentColor, fallbackIcon),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarPlaceholder(
+    double size,
+    Color accentColor,
+    IconData icon,
+  ) {
+    return Container(
+      width: size,
+      height: size,
+      color: accentColor.withOpacity(0.15),
+      child: Icon(
+        icon,
+        size: 18,
+        color: accentColor,
+      ),
+    );
+  }
+}

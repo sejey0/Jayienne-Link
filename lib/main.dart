@@ -9,12 +9,14 @@ import 'providers/couple_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/location_provider.dart';
 import 'providers/heartbeat_provider.dart';
+import 'providers/photo_message_provider.dart';
 import 'services/supabase_auth_service.dart';
 import 'services/supabase_user_service.dart';
 import 'services/supabase_couple_service.dart';
 import 'services/supabase_storage_service.dart';
 import 'services/supabase_data_service.dart';
 import 'services/supabase_heartbeat_service.dart';
+import 'services/supabase_photo_message_service.dart';
 import 'services/background_location_service.dart';
 import 'app.dart';
 
@@ -148,6 +150,48 @@ void main() async {
               partnerId: partnerId,
             );
             return heartbeatProv;
+          },
+        ),
+        ChangeNotifierProxyProvider2<UserProvider, CoupleProvider,
+            PhotoMessageProvider>(
+          create: (_) => PhotoMessageProvider(
+            SupabasePhotoMessageService(),
+            SupabaseStorageService(),
+          ),
+          update: (_, userProv, coupleProv, photoProv) {
+            final user = userProv.user;
+            final coupleId = user?.coupleId;
+            final couple = coupleProv.couple;
+            final cachedPartner = coupleProv.partner;
+
+            if (user == null || coupleId == null) {
+              photoProv!.clear();
+              return photoProv;
+            }
+
+            String? partnerId;
+            if (couple != null) {
+              partnerId = couple.getPartnerId(
+                user.id.isNotEmpty ? user.id : user.uid,
+              );
+            }
+
+            if ((partnerId == null || partnerId.isEmpty) &&
+                cachedPartner != null) {
+              partnerId = cachedPartner.id;
+            }
+
+            if (partnerId == null || partnerId.isEmpty) {
+              photoProv!.clear();
+              return photoProv;
+            }
+
+            photoProv!.initialize(
+              userId: user.id,
+              coupleId: coupleId,
+              partnerId: partnerId,
+            );
+            return photoProv;
           },
         ),
       ],

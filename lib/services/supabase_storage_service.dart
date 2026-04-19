@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 
 class SupabaseStorageService {
   static const String _bucketName = 'profile-photos';
+  static const String _chatBucketName = 'chat-photos';
 
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -84,7 +85,11 @@ class SupabaseStorageService {
   }
 
   /// Optimize image for faster uploads and smaller storage
-  Future<Uint8List> _optimizeImage(Uint8List imageBytes) async {
+  Future<Uint8List> _optimizeImage(
+    Uint8List imageBytes, {
+    int maxDimension = 512,
+    int quality = 85,
+  }) async {
     try {
       // Decode image
       img.Image? image = img.decodeImage(imageBytes);
@@ -92,25 +97,94 @@ class SupabaseStorageService {
         throw Exception('Failed to decode image');
       }
 
-      // Resize if too large (max 512x512 for profile photos)
-      if (image.width > 512 || image.height > 512) {
+      // Resize if too large
+      if (image.width > maxDimension || image.height > maxDimension) {
         image = img.copyResize(
           image,
-          width: image.width > image.height ? 512 : null,
-          height: image.height > image.width ? 512 : null,
+          width: image.width > image.height ? maxDimension : null,
+          height: image.height > image.width ? maxDimension : null,
           maintainAspect: true,
         );
         debugPrint('Image resized to: ${image.width}x${image.height}');
       }
 
       // Convert to JPEG with good quality compression
-      final optimizedBytes = img.encodeJpg(image, quality: 85);
+      final optimizedBytes = img.encodeJpg(image, quality: quality);
 
       return Uint8List.fromList(optimizedBytes);
     } catch (e) {
       debugPrint('Image optimization failed: $e');
       // Return original if optimization fails
       return imageBytes;
+    }
+  }
+
+  /// Upload chat photo to Supabase Storage
+  Future<String> uploadChatPhoto(String userId, File imageFile) async {
+    try {
+      debugPrint('Starting Supabase chat photo upload for user: $userId');
+
+      if (!await imageFile.exists()) {
+        throw Exception('Image file does not exist');
+      }
+
+      final fileBytes = await imageFile.readAsBytes();
+      debugPrint('Original image size: ${fileBytes.length} bytes');
+
+      final optimizedBytes = await _optimizeImage(
+        fileBytes,
+        maxDimension: 1280,
+        quality: 80,
+      );
+      debugPrint('Optimized image size: ${optimizedBytes.length} bytes');
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileExtension = path.extension(imageFile.path).toLowerCase();
+      final fileName = 'chat_${userId}_$timestamp$fileExtension';
+
+      debugPrint('Uploading to Supabase Storage: $_chatBucketName/$fileName');
+
+      await _supabase.storage
+          .from(_chatBucketName)
+          .uploadBinary(fileName, optimizedBytes,
+              fileOptions: const FileOptions(
+                upsert: true,
+                contentType: 'image/jpeg',
+              ));
+
+      final publicUrl =
+          _supabase.storage.from(_chatBucketName).getPublicUrl(fileName);
+
+      debugPrint('Chat photo upload successful: $publicUrl');
+      return publicUrl;
+    } catch (e) {
+      debugPrint('Chat photo upload failed: $e');
+
+      if (e is StorageException ||
+          e.toString().contains('row-level security policy') ||
+          e.toString().contains('Unauthorized')) {
+        debugPrint(
+            '⚠️ Storage RLS blocked upload. Falling back to Base64 image storage.');
+        final fileBytes = await imageFile.readAsBytes();
+        final optimizedBytes = await _optimizeImage(
+          fileBytes,
+          maxDimension: 1280,
+          quality: 80,
+        );
+        final base64Image = base64Encode(optimizedBytes);
+        return 'data:image/jpeg;base64,$base64Image';
+      }
+
+      if (e.toString().contains('JWT')) {
+        throw Exception('Authentication failed. Please log in again.');
+      } else if (e.toString().contains('storage')) {
+        throw Exception('Storage service unavailable. Please try again later.');
+      } else if (e.toString().contains('size')) {
+        throw Exception(
+            'Image file is too large. Please choose a smaller image.');
+      } else {
+        throw Exception('Upload failed: ${e.toString()}');
+      }
     }
   }
 
@@ -169,9 +243,7 @@ class SupabaseStorageService {
       debugPrint('Testing Supabase connectivity...');
 
       // Try to list files in the bucket (should work even if empty)
-      await _supabase.storage
-          .from(_bucketName)
-          .list();
+      await _supabase.storage.from(_bucketName).list();
 
       debugPrint('✅ Supabase connectivity: OK');
       return true;
@@ -208,9 +280,7 @@ class SupabaseStorageService {
       debugPrint('Initializing Supabase storage...');
 
       // Test if bucket exists by trying to list files
-      await _supabase.storage
-          .from(_bucketName)
-          .list();
+      await _supabase.storage.from(_bucketName).list();
 
       debugPrint('✅ Supabase storage bucket ready: $_bucketName');
       return true;

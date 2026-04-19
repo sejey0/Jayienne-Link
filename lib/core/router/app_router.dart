@@ -19,6 +19,7 @@ import '../../features/home/screens/settings_screen.dart';
 import '../../features/location/screens/location_screen.dart';
 import '../../features/location/screens/location_history_screen.dart';
 import '../../features/heartbeat/screens/heartbeat_screen.dart';
+import '../../features/mood/screens/mood_screen.dart';
 import '../../features/photos/screens/photos_screen.dart';
 import 'route_names.dart';
 
@@ -157,6 +158,10 @@ class AppRouter {
         GoRoute(
           path: RouteNames.heartbeat,
           builder: (context, state) => const HeartbeatScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.mood,
+          builder: (context, state) => const MoodScreen(),
         ),
         GoRoute(
           path: RouteNames.photos,

@@ -123,6 +123,23 @@ CREATE TABLE IF NOT EXISTS photo_messages (
 );
 
 -- =====================================================
+-- MOOD MESSAGES TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS mood_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    couple_id UUID NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    mood TEXT NOT NULL,
+    call_sign TEXT NOT NULL DEFAULT '',
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE mood_messages
+    ADD COLUMN IF NOT EXISTS call_sign TEXT NOT NULL DEFAULT '';
+
+-- =====================================================
 -- INDEXES
 -- =====================================================
 
@@ -172,6 +189,12 @@ CREATE INDEX IF NOT EXISTS idx_photo_messages_sender_id ON photo_messages(sender
 CREATE INDEX IF NOT EXISTS idx_photo_messages_receiver_id ON photo_messages(receiver_id);
 CREATE INDEX IF NOT EXISTS idx_photo_messages_sent_at ON photo_messages(sent_at DESC);
 
+-- Mood messages indexes
+CREATE INDEX IF NOT EXISTS idx_mood_messages_couple_id ON mood_messages(couple_id);
+CREATE INDEX IF NOT EXISTS idx_mood_messages_sender_id ON mood_messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_mood_messages_receiver_id ON mood_messages(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_mood_messages_sent_at ON mood_messages(sent_at DESC);
+
 -- =====================================================
 -- TRIGGERS
 -- =====================================================
@@ -205,6 +228,7 @@ ALTER TABLE anniversary_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE heartbeats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photo_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mood_messages ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies
 DROP POLICY IF EXISTS "Users can read own profile" ON users;
@@ -232,6 +256,8 @@ DROP POLICY IF EXISTS "Users can read couple photo messages" ON photo_messages;
 DROP POLICY IF EXISTS "Users can send photo messages" ON photo_messages;
 DROP POLICY IF EXISTS "Users can update photo messages" ON photo_messages;
 DROP POLICY IF EXISTS "Users can delete photo messages" ON photo_messages;
+DROP POLICY IF EXISTS "Users can read couple mood messages" ON mood_messages;
+DROP POLICY IF EXISTS "Users can send mood messages" ON mood_messages;
 
 -- Users policies (users.id = auth.uid())
 CREATE POLICY "Users can read own profile" ON users
@@ -357,6 +383,18 @@ CREATE POLICY "Users can update photo messages" ON photo_messages
 
 CREATE POLICY "Users can delete photo messages" ON photo_messages
     FOR DELETE USING (sender_id = auth.uid());
+
+-- Mood messages policies
+CREATE POLICY "Users can read couple mood messages" ON mood_messages
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE couple_id = mood_messages.couple_id AND id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can send mood messages" ON mood_messages
+    FOR INSERT WITH CHECK (sender_id = auth.uid());
 
 -- =====================================================
 -- HELPER FUNCTIONS

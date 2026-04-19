@@ -23,6 +23,9 @@ class RouteNames {
   // Heartbeat routes
   static const String heartbeat = '/heartbeat';
 
+  // Mood routes
+  static const String mood = '/mood';
+
   // Photos routes
   static const String photos = '/photos';
 }

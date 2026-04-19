@@ -1,0 +1,60 @@
+import 'package:intl/intl.dart';
+
+class MoodMessageModel {
+  final String? id;
+  final String coupleId;
+  final String senderId;
+  final String receiverId;
+  final String mood;
+  final String callSign;
+  final DateTime sentAt;
+  final DateTime? createdAt;
+
+  MoodMessageModel({
+    this.id,
+    required this.coupleId,
+    required this.senderId,
+    required this.receiverId,
+    required this.mood,
+    required this.callSign,
+    required this.sentAt,
+    this.createdAt,
+  });
+
+  factory MoodMessageModel.fromJson(Map<String, dynamic> json) {
+    final sentAtValue = json['sent_at'] ?? json['created_at'];
+    return MoodMessageModel(
+      id: json['id'] as String?,
+      coupleId: json['couple_id'] as String? ?? '',
+      senderId: json['sender_id'] as String? ?? '',
+      receiverId: json['receiver_id'] as String? ?? '',
+      mood: json['mood'] as String? ?? '',
+      callSign: json['call_sign'] as String? ?? '',
+      sentAt: sentAtValue != null
+          ? DateTime.parse(sentAtValue as String)
+          : DateTime.now(),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (id != null) 'id': id,
+      'couple_id': coupleId,
+      'sender_id': senderId,
+      'receiver_id': receiverId,
+      'mood': mood,
+      'call_sign': callSign,
+      'sent_at': sentAt.toIso8601String(),
+      if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
+    };
+  }
+
+  String get formattedDate => DateFormat('MMM d, yyyy').format(sentAt);
+
+  String get formattedTime => DateFormat('h:mm a').format(sentAt);
+
+  String get formattedDateTime => '$formattedDate • $formattedTime';
+}

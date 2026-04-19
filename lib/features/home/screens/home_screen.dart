@@ -145,8 +145,7 @@ class HomeScreen extends StatelessWidget {
                   onTap: () => context.push(RouteNames.location),
                 ),
                 _buildHeartbeatCard(context),
-                _buildFeatureCard(
-                    context, Icons.emoji_emotions_outlined, 'Mood'),
+                _buildMoodCard(context),
                 _buildPhotosCard(context),
               ],
             ),
@@ -234,33 +233,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureCard(BuildContext context, IconData icon, String label) {
-    return AppCard(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 36, color: AppColors.lavender),
-          const SizedBox(height: AppDimensions.spacingSm),
-          Text(label, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: AppDimensions.spacingXs),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.lock_outline, size: 12, color: Colors.grey.shade400),
-              const SizedBox(width: 4),
-              Text(
-                AppStrings.comingSoon,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Colors.grey.shade400),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildHeartbeatCard(BuildContext context) {
     return AppCard(
@@ -307,6 +279,32 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: AppDimensions.spacingXs),
           Text(
             'Share moments',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMoodCard(BuildContext context) {
+    return AppCard(
+      onTap: () => context.push(RouteNames.mood),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.emoji_emotions_outlined,
+              size: 36, color: AppColors.lavender),
+          const SizedBox(height: AppDimensions.spacingSm),
+          Text(
+            'Mood',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: AppDimensions.spacingXs),
+          Text(
+            'Share feelings',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall

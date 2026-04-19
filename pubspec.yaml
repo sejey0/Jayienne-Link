@@ -55,9 +55,9 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/icon/road_to_forever_padded.png"
+  image_path: "assets/icon/road_to_forever_full.png"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/icon/road_to_forever_padded.png"
+  adaptive_icon_foreground: "assets/icon/road_to_forever_full.png"
 
 flutter:
   uses-material-design: true

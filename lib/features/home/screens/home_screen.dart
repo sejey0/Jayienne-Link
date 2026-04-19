@@ -121,7 +121,7 @@ class HomeScreen extends StatelessWidget {
                           label: Text(
                             couple.anniversary == null
                                 ? 'Set Anniversary'
-                                : 'Change Anniversary',
+                                : 'Update',
                           ),
                           style: TextButton.styleFrom(
                             foregroundColor: AppColors.softRose,

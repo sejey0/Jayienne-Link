@@ -422,7 +422,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                     ),
                   const SizedBox(height: 2),
                   LiveTimeText(
-                    textBuilder: () => heartbeat.timeAgo,
+                    textBuilder: () => heartbeat.formattedTime,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Colors.grey.shade700,
                         ),

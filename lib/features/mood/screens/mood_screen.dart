@@ -114,6 +114,7 @@ class _MoodScreenState extends State<MoodScreen> {
     final moodProvider = context.watch<MoodProvider>();
     final userProvider = context.watch<UserProvider>();
     final coupleProvider = context.watch<CoupleProvider>();
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     final user = userProvider.user;
     final partner = coupleProvider.partner;
@@ -178,12 +179,16 @@ class _MoodScreenState extends State<MoodScreen> {
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
+                AnimatedPadding(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.fromLTRB(
                     AppDimensions.spacingLg,
                     AppDimensions.spacingSm,
                     AppDimensions.spacingLg,
-                    AppDimensions.spacingLg,
+                    isKeyboardOpen
+                        ? AppDimensions.spacingXs
+                        : AppDimensions.spacingLg,
                   ),
                   child: _buildMoodComposer(
                     context,
@@ -201,98 +206,125 @@ class _MoodScreenState extends State<MoodScreen> {
   }) {
     final canSend = provider.canSend && !provider.isSending;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
     final fieldFillColor =
         isDark ? AppColors.darkSurface : Colors.grey.shade100;
     final hintColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
     final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
     final textColor = isDark ? AppColors.darkText : AppColors.deepCharcoal;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxComposerHeight =
+        isKeyboardOpen ? screenHeight * 0.32 : double.infinity;
+    final verticalSpacing =
+        isKeyboardOpen ? AppDimensions.spacingXs : AppDimensions.spacingMd;
+    final cardPadding = EdgeInsets.fromLTRB(
+      AppDimensions.cardPadding,
+      isKeyboardOpen ? AppDimensions.spacingSm : AppDimensions.cardPadding,
+      AppDimensions.cardPadding,
+      isKeyboardOpen ? AppDimensions.spacingSm : AppDimensions.cardPadding,
+    );
 
-    return AppCard(
-      child: Column(
-        children: [
-          Text(
-            'Send a mood',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppDimensions.spacingMd),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _callSignController,
-            builder: (context, value, _) {
-              final callSign = value.text.trim();
-              final canSendMood = canSend && callSign.isNotEmpty;
-              return Column(
-                children: [
-                  TextField(
-                    controller: _callSignController,
-                    focusNode: _callSignFocusNode,
-                    enabled: canSend,
-                    textInputAction: TextInputAction.done,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: textColor,
-                        ),
-                    cursorColor:
-                        isDark ? AppColors.lavender : AppColors.softRose,
-                    decoration: InputDecoration(
-                      hintText: 'Callsign (e.g., wife)',
-                      hintStyle: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: hintColor),
-                      filled: true,
-                      fillColor: fieldFillColor,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppDimensions.spacingMd,
-                        vertical: AppDimensions.spacingSm,
+    final composerBody = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Send a mood',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+          textAlign: TextAlign.center,
+        ),
+        SizedBox(height: verticalSpacing),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _callSignController,
+          builder: (context, value, _) {
+            final callSign = value.text.trim();
+            final canSendMood = canSend && callSign.isNotEmpty;
+            return Column(
+              children: [
+                TextField(
+                  controller: _callSignController,
+                  focusNode: _callSignFocusNode,
+                  enabled: canSend,
+                  textInputAction: TextInputAction.done,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: textColor,
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppDimensions.borderRadiusMedium,
-                        ),
-                        borderSide: BorderSide(color: borderColor),
+                  cursorColor: isDark ? AppColors.lavender : AppColors.softRose,
+                  decoration: InputDecoration(
+                    hintText: 'Callsign (e.g., wife)',
+                    hintStyle: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: hintColor),
+                    filled: true,
+                    fillColor: fieldFillColor,
+                    isDense: isKeyboardOpen,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: AppDimensions.spacingMd,
+                      vertical: isKeyboardOpen
+                          ? AppDimensions.spacingXs
+                          : AppDimensions.spacingSm,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.borderRadiusMedium,
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppDimensions.borderRadiusMedium,
-                        ),
-                        borderSide: BorderSide(color: borderColor),
+                      borderSide: BorderSide(color: borderColor),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.borderRadiusMedium,
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppDimensions.borderRadiusMedium,
-                        ),
-                        borderSide: BorderSide(
-                          color:
-                              isDark ? AppColors.lavender : AppColors.softRose,
-                        ),
+                      borderSide: BorderSide(color: borderColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.borderRadiusMedium,
+                      ),
+                      borderSide: BorderSide(
+                        color: isDark ? AppColors.lavender : AppColors.softRose,
                       ),
                     ),
                   ),
-                  const SizedBox(height: AppDimensions.spacingSm),
-                  Wrap(
-                    spacing: AppDimensions.spacingSm,
-                    runSpacing: AppDimensions.spacingSm,
-                    alignment: WrapAlignment.center,
-                    children: _moodOptions.map((option) {
-                      return _MoodButton(
-                        option: option,
-                        enabled: canSendMood,
-                        onTap: () => _sendMood(
-                          provider,
-                          option.key,
-                          callSign,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
+                ),
+                const SizedBox(height: AppDimensions.spacingSm),
+                Wrap(
+                  spacing: AppDimensions.spacingSm,
+                  runSpacing: AppDimensions.spacingSm,
+                  alignment: WrapAlignment.center,
+                  children: _moodOptions.map((option) {
+                    return _MoodButton(
+                      option: option,
+                      enabled: canSendMood,
+                      onTap: () => _sendMood(
+                        provider,
+                        option.key,
+                        callSign,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+
+    final composerContent = ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxComposerHeight),
+      child: SingleChildScrollView(
+        physics: isKeyboardOpen
+            ? const ClampingScrollPhysics()
+            : const NeverScrollableScrollPhysics(),
+        child: composerBody,
       ),
+    );
+
+    return AppCard(
+      padding: cardPadding,
+      child: composerContent,
     );
   }
 

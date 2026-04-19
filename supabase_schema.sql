@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS heartbeats (
     couple_id UUID NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
     sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    message TEXT,
     sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

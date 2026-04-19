@@ -5,6 +5,7 @@ class HeartbeatModel {
   final String coupleId;
   final String senderId;
   final String receiverId;
+  final String? message;
   final DateTime sentAt;
   final DateTime? createdAt;
 
@@ -13,6 +14,7 @@ class HeartbeatModel {
     required this.coupleId,
     required this.senderId,
     required this.receiverId,
+    this.message,
     required this.sentAt,
     this.createdAt,
   });
@@ -24,6 +26,7 @@ class HeartbeatModel {
       coupleId: json['couple_id'] as String? ?? '',
       senderId: json['sender_id'] as String? ?? '',
       receiverId: json['receiver_id'] as String? ?? '',
+      message: json['message'] as String?,
       sentAt: sentAtValue != null
           ? DateTime.parse(sentAtValue as String)
           : DateTime.now(),
@@ -39,6 +42,8 @@ class HeartbeatModel {
       'couple_id': coupleId,
       'sender_id': senderId,
       'receiver_id': receiverId,
+      if (message != null && message!.trim().isNotEmpty)
+        'message': message!.trim(),
       'sent_at': sentAt.toIso8601String(),
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
     };

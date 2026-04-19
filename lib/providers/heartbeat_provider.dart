@@ -79,11 +79,11 @@ class HeartbeatProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> sendHeartbeat() async {
+  Future<bool> sendHeartbeat({String? message}) async {
     if (!canSend) {
       _error = 'Link your partner to send a heartbeat.';
       notifyListeners();
-      return;
+      return false;
     }
 
     _isSending = true;
@@ -91,15 +91,19 @@ class HeartbeatProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final trimmedMessage = message?.trim();
       final result = await _service.sendHeartbeat(
         coupleId: _coupleId!,
         senderId: _userId!,
         receiverId: _partnerId!,
+        message: trimmedMessage?.isNotEmpty == true ? trimmedMessage : null,
       );
       _heartbeats.insert(0, result);
+      return true;
     } catch (e) {
       _error = 'Failed to send heartbeat: $e';
       debugPrint(_error);
+      return false;
     } finally {
       _isSending = false;
       notifyListeners();

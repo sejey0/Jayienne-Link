@@ -116,23 +116,35 @@ void main() async {
           create: (_) => HeartbeatProvider(SupabaseHeartbeatService()),
           update: (_, userProv, coupleProv, heartbeatProv) {
             final user = userProv.user;
+            final coupleId = user?.coupleId;
             final couple = coupleProv.couple;
+            final cachedPartner = coupleProv.partner;
 
-            if (user == null || couple == null || user.coupleId == null) {
+            if (user == null || coupleId == null) {
               heartbeatProv!.clear();
               return heartbeatProv;
             }
 
-            final partnerId =
-                couple.getPartnerId(user.id.isNotEmpty ? user.id : user.uid);
-            if (partnerId.isEmpty || couple.id == null) {
+            String? partnerId;
+            if (couple != null) {
+              partnerId = couple.getPartnerId(
+                user.id.isNotEmpty ? user.id : user.uid,
+              );
+            }
+
+            if ((partnerId == null || partnerId.isEmpty) &&
+                cachedPartner != null) {
+              partnerId = cachedPartner.id;
+            }
+
+            if (partnerId == null || partnerId.isEmpty) {
               heartbeatProv!.clear();
               return heartbeatProv;
             }
 
             heartbeatProv!.initialize(
               userId: user.id,
-              coupleId: user.coupleId!,
+              coupleId: coupleId,
               partnerId: partnerId,
             );
             return heartbeatProv;

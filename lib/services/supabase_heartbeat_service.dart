@@ -44,12 +44,16 @@ class SupabaseHeartbeatService {
     required String coupleId,
     required String senderId,
     required String receiverId,
+    String? message,
   }) async {
+    final trimmedMessage = message?.trim();
     final payload = {
       'couple_id': coupleId,
       'sender_id': senderId,
       'receiver_id': receiverId,
       'sent_at': DateTime.now().toIso8601String(),
+      if (trimmedMessage != null && trimmedMessage.isNotEmpty)
+        'message': trimmedMessage,
     };
 
     final record = await SupabaseDataService.insertRecord(_tableName, payload);

@@ -7,12 +7,51 @@ import '../../../providers/couple_provider.dart';
 import '../../../providers/heartbeat_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_card.dart';
-import '../../../widgets/common/heart_animation.dart';
 import '../../../widgets/common/live_time_text.dart';
 import '../../../widgets/smart_profile_image.dart';
 
-class HeartbeatScreen extends StatelessWidget {
+class HeartbeatScreen extends StatefulWidget {
   const HeartbeatScreen({super.key});
+
+  @override
+  State<HeartbeatScreen> createState() => _HeartbeatScreenState();
+}
+
+class _HeartbeatScreenState extends State<HeartbeatScreen> {
+  final TextEditingController _messageController = TextEditingController();
+  final FocusNode _messageFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _messageFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSendMessage(HeartbeatProvider heartbeatProvider) async {
+    if (!heartbeatProvider.canSend || heartbeatProvider.isSending) return;
+
+    final message = _messageController.text.trim();
+    if (message.isEmpty) return;
+
+    final didSend = await heartbeatProvider.sendHeartbeat(
+      message: message,
+    );
+
+    if (didSend) {
+      _messageController.clear();
+      _messageFocusNode.unfocus();
+    }
+  }
+
+  Future<void> _handleSendHeart(HeartbeatProvider heartbeatProvider) async {
+    if (!heartbeatProvider.canSend || heartbeatProvider.isSending) return;
+
+    final didSend = await heartbeatProvider.sendHeartbeat();
+    if (didSend) {
+      _messageFocusNode.unfocus();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,66 +67,87 @@ class HeartbeatScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Heartbeat'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(AppDimensions.spacingLg),
-        child: Column(
-          children: [
-            if (user == null || partner == null)
-              _buildNotLinkedState(context)
-            else
-              _buildSendCard(
-                context,
-                heartbeatProvider: heartbeatProvider,
-                partnerName: partner.displayName,
-                lastHeartbeat: heartbeats.isNotEmpty ? heartbeats.first : null,
-              ),
-            if (heartbeatProvider.error != null)
-              Padding(
-                padding: const EdgeInsets.only(
-                  top: AppDimensions.spacingSm,
-                ),
-                child: Text(
-                  heartbeatProvider.error!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.error,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            const SizedBox(height: AppDimensions.spacingMd),
-            Row(
+      body: user == null || partner == null
+          ? Padding(
+              padding: const EdgeInsets.all(AppDimensions.spacingLg),
+              child: _buildNotLinkedState(context),
+            )
+          : Column(
               children: [
-                Text(
-                  'Recent Heartbeats',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppDimensions.spacingLg,
+                      AppDimensions.spacingLg,
+                      AppDimensions.spacingLg,
+                      0,
+                    ),
+                    child: Column(
+                      children: [
+                        if (heartbeatProvider.error != null)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppDimensions.spacingSm,
+                            ),
+                            child: Text(
+                              heartbeatProvider.error!,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: AppColors.error,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        Expanded(
+                          child: heartbeats.isEmpty
+                              ? _buildEmptyState(context)
+                              : ListView.separated(
+                                  reverse: true,
+                                  padding: const EdgeInsets.only(
+                                    bottom: AppDimensions.spacingSm,
+                                  ),
+                                  itemCount: heartbeats.length,
+                                  separatorBuilder: (_, __) => const SizedBox(
+                                      height: AppDimensions.spacingSm),
+                                  itemBuilder: (context, index) {
+                                    return _buildHeartbeatTile(
+                                      context,
+                                      heartbeat: heartbeats[index],
+                                      userId: user.id,
+                                      userPhotoUrl: user.photoUrl,
+                                      partnerPhotoUrl: partner.photoUrl,
+                                      partnerName: partner.displayName,
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppDimensions.spacingLg,
+                    AppDimensions.spacingSm,
+                    AppDimensions.spacingLg,
+                    AppDimensions.spacingLg,
+                  ),
+                  child: _buildSendCard(
+                    context,
+                    heartbeatProvider: heartbeatProvider,
+                    partnerName: partner.displayName,
+                    lastHeartbeat:
+                        heartbeats.isNotEmpty ? heartbeats.first : null,
+                    messageController: _messageController,
+                    messageFocusNode: _messageFocusNode,
+                    onSendMessage: () => _handleSendMessage(heartbeatProvider),
+                    onSendHeart: () => _handleSendHeart(heartbeatProvider),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: AppDimensions.spacingSm),
-            Expanded(
-              child: heartbeats.isEmpty
-                  ? _buildEmptyState(context)
-                  : ListView.separated(
-                      itemCount: heartbeats.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: AppDimensions.spacingSm),
-                      itemBuilder: (context, index) {
-                        return _buildHeartbeatTile(
-                          context,
-                          heartbeat: heartbeats[index],
-                          userId: user?.id,
-                          userPhotoUrl: user?.photoUrl,
-                          partnerPhotoUrl: partner?.photoUrl,
-                          partnerName: partner?.displayName,
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -96,10 +156,12 @@ class HeartbeatScreen extends StatelessWidget {
     required HeartbeatProvider heartbeatProvider,
     required String partnerName,
     HeartbeatModel? lastHeartbeat,
+    required TextEditingController messageController,
+    required FocusNode messageFocusNode,
+    required VoidCallback onSendMessage,
+    required VoidCallback onSendHeart,
   }) {
     final canSend = heartbeatProvider.canSend && !heartbeatProvider.isSending;
-    final buttonColor =
-        canSend ? AppColors.softRose : AppColors.softRose.withOpacity(0.5);
 
     return AppCard(
       child: Column(
@@ -119,36 +181,85 @@ class HeartbeatScreen extends StatelessWidget {
                 ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: AppDimensions.spacingMd),
-          InkWell(
-            onTap: canSend ? heartbeatProvider.sendHeartbeat : null,
-            borderRadius: BorderRadius.circular(100),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: buttonColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: buttonColor.withOpacity(0.4),
-                    blurRadius: 12,
-                    spreadRadius: 2,
+          const SizedBox(height: AppDimensions.spacingSm),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: messageController,
+            builder: (context, value, _) {
+              final hasMessage = value.text.trim().isNotEmpty;
+              final canSendMessage = canSend && hasMessage;
+
+              return Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: messageController,
+                      focusNode: messageFocusNode,
+                      enabled: canSend,
+                      minLines: 1,
+                      maxLines: 3,
+                      textInputAction: TextInputAction.send,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.deepCharcoal,
+                          ),
+                      cursorColor: AppColors.softRose,
+                      onSubmitted: (text) => onSendMessage(),
+                      decoration: InputDecoration(
+                        hintText: 'Type a message',
+                        hintStyle:
+                            Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.grey.shade600,
+                                ),
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppDimensions.spacingMd,
+                          vertical: AppDimensions.spacingSm,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.borderRadiusMedium,
+                          ),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.borderRadiusMedium,
+                          ),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.borderRadiusMedium,
+                          ),
+                          borderSide:
+                              const BorderSide(color: AppColors.softRose),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppDimensions.spacingSm),
+                  _buildActionButton(
+                    icon: Icons.send_rounded,
+                    backgroundColor: canSendMessage
+                        ? AppColors.lavender
+                        : Colors.grey.shade300,
+                    iconColor:
+                        canSendMessage ? Colors.white : Colors.grey.shade600,
+                    onPressed: canSendMessage ? onSendMessage : null,
+                    tooltip: 'Send message',
+                  ),
+                  const SizedBox(width: AppDimensions.spacingXs),
+                  _buildActionButton(
+                    icon: Icons.favorite,
+                    backgroundColor:
+                        canSend ? AppColors.softRose : Colors.grey.shade300,
+                    iconColor: canSend ? Colors.white : Colors.grey.shade600,
+                    onPressed: canSend ? onSendHeart : null,
+                    tooltip: 'Send heartbeat',
                   ),
                 ],
-              ),
-              child: Center(
-                child: heartbeatProvider.isSending
-                    ? const CircularProgressIndicator(
-                        color: Colors.white,
-                      )
-                    : const HeartAnimation(
-                        size: 64,
-                        color: Colors.white,
-                      ),
-              ),
-            ),
+              );
+            },
           ),
           if (lastHeartbeat != null) ...[
             const SizedBox(height: AppDimensions.spacingMd),
@@ -195,6 +306,35 @@ class HeartbeatScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color backgroundColor,
+    required Color iconColor,
+    required VoidCallback? onPressed,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: backgroundColor,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Column(
@@ -226,61 +366,79 @@ class HeartbeatScreen extends StatelessWidget {
     required String? partnerName,
   }) {
     final isMine = heartbeat.senderId == userId;
-    final label = isMine ? 'You' : (partnerName ?? 'Your Person');
     final backgroundColor =
         isMine ? AppColors.lavenderLight : AppColors.softRoseLight;
+    final message = heartbeat.message?.trim();
+    final hasMessage = message != null && message.isNotEmpty;
+    final heartColor = isMine ? AppColors.lavender : AppColors.softRose;
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppDimensions.spacingMd,
-          vertical: AppDimensions.spacingSm,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.72,
         ),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (!isMine) ...[
-              _buildAvatar(
-                photoUrl: partnerPhotoUrl,
-                accentColor: AppColors.softRose,
-                fallbackIcon: Icons.favorite,
-              ),
-              const SizedBox(width: AppDimensions.spacingSm),
-            ],
-            Column(
-              crossAxisAlignment:
-                  isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$label sent a heartbeat',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.deepCharcoal,
-                      ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimensions.spacingMd,
+            vertical: AppDimensions.spacingSm,
+          ),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius:
+                BorderRadius.circular(AppDimensions.borderRadiusMedium),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isMine) ...[
+                _buildAvatar(
+                  photoUrl: partnerPhotoUrl,
+                  accentColor: AppColors.softRose,
+                  fallbackIcon: Icons.favorite,
                 ),
-                const SizedBox(height: 2),
-                LiveTimeText(
-                  textBuilder: () => heartbeat.timeAgo,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.grey.shade700,
+                const SizedBox(width: AppDimensions.spacingSm),
+              ],
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: isMine
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  children: [
+                    if (hasMessage)
+                      Text(
+                        message,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.deepCharcoal,
+                            ),
+                      )
+                    else
+                      Icon(
+                        Icons.favorite,
+                        color: heartColor,
+                        size: 18,
                       ),
+                    const SizedBox(height: 2),
+                    LiveTimeText(
+                      textBuilder: () => heartbeat.timeAgo,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Colors.grey.shade700,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isMine) ...[
+                const SizedBox(width: AppDimensions.spacingSm),
+                _buildAvatar(
+                  photoUrl: userPhotoUrl,
+                  accentColor: AppColors.lavender,
+                  fallbackIcon: Icons.person,
                 ),
               ],
-            ),
-            if (isMine) ...[
-              const SizedBox(width: AppDimensions.spacingSm),
-              _buildAvatar(
-                photoUrl: userPhotoUrl,
-                accentColor: AppColors.lavender,
-                fallbackIcon: Icons.person,
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );

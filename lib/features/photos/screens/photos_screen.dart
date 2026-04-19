@@ -47,36 +47,6 @@ class _PhotosScreenState extends State<PhotosScreen> {
     });
   }
 
-  void _showImageSourceSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_camera),
-                title: const Text('Camera'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Gallery'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _pickImage(ImageSource.gallery);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Future<void> _sendPhoto(PhotoMessageProvider provider) async {
     final imageFile = _selectedImage;
     if (imageFile == null) return;
@@ -185,7 +155,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
                   child: _buildComposer(
                     context,
                     photoProvider: photoProvider,
-                    onPickImage: () => _showImageSourceSheet(context),
+                    onPickGallery: () => _pickImage(ImageSource.gallery),
+                    onPickCamera: () => _pickImage(ImageSource.camera),
                     onSend: () => _sendPhoto(photoProvider),
                   ),
                 ),
@@ -197,7 +168,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
   Widget _buildComposer(
     BuildContext context, {
     required PhotoMessageProvider photoProvider,
-    required VoidCallback onPickImage,
+    required VoidCallback onPickGallery,
+    required VoidCallback onPickCamera,
     required VoidCallback onSend,
   }) {
     final canSend = photoProvider.canSend && !photoProvider.isSending;
@@ -320,10 +292,18 @@ class _PhotosScreenState extends State<PhotosScreen> {
               icon: Icons.photo_library_outlined,
               backgroundColor: AppColors.lavender,
               iconColor: Colors.white,
-              onPressed: canSend ? onPickImage : null,
-              tooltip: 'Choose photo',
+              onPressed: canSend ? onPickGallery : null,
+              tooltip: 'Gallery',
             ),
-            const SizedBox(width: AppDimensions.spacingSm),
+            SizedBox(width: isKeyboardOpen ? 4 : AppDimensions.spacingSm),
+            _buildActionButton(
+              icon: Icons.photo_camera,
+              backgroundColor: AppColors.softRose,
+              iconColor: Colors.white,
+              onPressed: canSend ? onPickCamera : null,
+              tooltip: 'Camera',
+            ),
+            SizedBox(width: isKeyboardOpen ? 4 : AppDimensions.spacingSm),
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: canSend && hasImage ? onSend : null,

@@ -5,6 +5,7 @@ import '../models/user_model.dart';
 import '../services/supabase_user_service.dart';
 import '../services/supabase_storage_service.dart';
 import '../services/supabase_couple_service.dart';
+import '../services/local_cache_service.dart';
 
 class UserProvider extends ChangeNotifier {
   final SupabaseUserService _userService;
@@ -26,42 +27,68 @@ class UserProvider extends ChangeNotifier {
 
   void loadUser(String uid) {
     _userSubscription?.cancel();
+    LocalCacheService.loadUser().then((cached) {
+      if (cached != null && cached.id == uid) {
+        _user = cached;
+        notifyListeners();
+      }
+    });
     _userSubscription = _userService.userStream(uid).listen((user) {
-      _user = user;
+      if (user != null) {
+        _user = user;
+        LocalCacheService.saveUser(user);
+      // ignore: curly_braces_in_flow_control_structures
+      } else _user ??= null;
       notifyListeners();
     });
   }
 
   void loadUserByEmail(String email) {
     _userSubscription?.cancel();
+    final normalizedEmail = email.trim().toLowerCase();
+    LocalCacheService.loadUser().then((cached) {
+      if (cached != null && cached.email.toLowerCase() == normalizedEmail) {
+        _user = cached;
+        notifyListeners();
+      }
+    });
     // First try to get user by email, then start stream with correct ID
-    _userService.getUserByEmail(email).then((user) {
+    _userService.getUserByEmail(normalizedEmail).then((user) {
       if (user != null) {
         debugPrint('✅ User found by email, loading stream for ID: ${user.id}');
         _user = user;
+        LocalCacheService.saveUser(user);
         notifyListeners();
         // Now start the stream with the correct database ID
         _userSubscription =
             _userService.userStream(user.id).listen((updatedUser) {
-          _user = updatedUser;
+          if (updatedUser != null) {
+            _user = updatedUser;
+            LocalCacheService.saveUser(updatedUser);
+          }
           notifyListeners();
         });
       } else {
         debugPrint(
             '⚠️ User not found for email: $email. Awaiting profile setup.');
-        _user = null;
-        notifyListeners();
+        if (_user == null || _user?.email.toLowerCase() != normalizedEmail) {
+          _user = null;
+          notifyListeners();
+        }
       }
     }).catchError((error) {
       debugPrint('❌ Error loading user by email: $error');
-      _user = null;
-      notifyListeners();
+      if (_user == null || _user?.email.toLowerCase() != normalizedEmail) {
+        _user = null;
+        notifyListeners();
+      }
     });
   }
 
   void clearUser() {
     _userSubscription?.cancel();
     _user = null;
+    LocalCacheService.clearUser();
     notifyListeners();
   }
 
@@ -119,6 +146,9 @@ class UserProvider extends ChangeNotifier {
         _user = dbUser;
       } else {
         _user = user;
+      }
+      if (_user != null) {
+        await LocalCacheService.saveUser(_user!);
       }
 
       _isLoading = false;

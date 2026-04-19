@@ -9,6 +9,7 @@ import '../services/supabase_location_sync_service.dart';
 import '../services/background_location_service.dart';
 import '../services/foreground_notification_service.dart';
 import '../services/supabase_user_service.dart';
+import '../services/local_cache_service.dart';
 
 /// Provider for managing location state across the app.
 /// Handles offline-first location sharing with partner.
@@ -16,7 +17,8 @@ class LocationProvider extends ChangeNotifier {
   final OfflineLocationService _locationService =
       OfflineLocationService.instance;
   final OfflineStorageService _storageService = OfflineStorageService.instance;
-  final SupabaseLocationSyncService _syncService = SupabaseLocationSyncService.instance;
+  final SupabaseLocationSyncService _syncService =
+      SupabaseLocationSyncService.instance;
   final BackgroundLocationService _backgroundService =
       BackgroundLocationService.instance;
   final ForegroundNotificationService _notificationService =
@@ -118,10 +120,35 @@ class LocationProvider extends ChangeNotifier {
             await _storageService.getPartnerLastLocation(partnerId);
       }
 
-      // Load user data for profile images
-      _currentUser = await _userService.getUser(userId);
+      final cachedUser = await LocalCacheService.loadUser();
+      if (cachedUser != null && cachedUser.id == userId) {
+        _currentUser = cachedUser;
+      }
       if (partnerId != null) {
-        _partnerUser = await _userService.getUser(partnerId);
+        final cachedPartner = await LocalCacheService.loadPartner();
+        if (cachedPartner != null && cachedPartner.id == partnerId) {
+          _partnerUser = cachedPartner;
+        }
+      }
+
+      // Load user data for profile images
+      try {
+        _currentUser = await _userService.getUser(userId);
+        if (_currentUser != null) {
+          await LocalCacheService.saveUser(_currentUser!);
+        }
+      } catch (e) {
+        debugPrint('Offline user fetch failed, using cache: $e');
+      }
+      if (partnerId != null) {
+        try {
+          _partnerUser = await _userService.getUser(partnerId);
+          if (_partnerUser != null) {
+            await LocalCacheService.savePartner(_partnerUser!);
+          }
+        } catch (e) {
+          debugPrint('Offline partner fetch failed, using cache: $e');
+        }
       }
 
       // Get pending sync count
@@ -329,9 +356,22 @@ class LocationProvider extends ChangeNotifier {
       if (_partnerId != null) {
         _partnerUser = await _userService.getUser(_partnerId!);
       }
+      if (_currentUser != null) {
+        await LocalCacheService.saveUser(_currentUser!);
+      }
+      if (_partnerUser != null) {
+        await LocalCacheService.savePartner(_partnerUser!);
+      }
       notifyListeners();
     } catch (e) {
       debugPrint('Error refreshing user data: $e');
+      final cachedUser = await LocalCacheService.loadUser();
+      _currentUser ??= cachedUser;
+      if (_partnerId != null) {
+        final cachedPartner = await LocalCacheService.loadPartner();
+        _partnerUser ??= cachedPartner;
+      }
+      notifyListeners();
     }
   }
 

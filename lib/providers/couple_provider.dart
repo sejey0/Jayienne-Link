@@ -6,6 +6,7 @@ import '../models/partner_request_model.dart';
 import '../models/user_model.dart';
 import '../services/supabase_couple_service.dart';
 import '../services/supabase_user_service.dart';
+import '../services/local_cache_service.dart';
 
 class CoupleProvider extends ChangeNotifier {
   final SupabaseCoupleService _coupleService;
@@ -343,17 +344,47 @@ class CoupleProvider extends ChangeNotifier {
 
   void loadCouple(String coupleId, String currentUserId) {
     _coupleSubscription?.cancel();
+    LocalCacheService.loadCouple().then((cachedCouple) {
+      if (cachedCouple != null && cachedCouple.id == coupleId) {
+        _couple = cachedCouple;
+        notifyListeners();
+        LocalCacheService.loadPartner().then((cachedPartner) {
+          if (cachedPartner != null) {
+            _partner = cachedPartner;
+            notifyListeners();
+          }
+        });
+      }
+    });
     _coupleSubscription =
         _coupleService.coupleStream(coupleId).listen((couple) async {
+      if (couple == null) {
+        if (_couple == null) {
+          _couple = null;
+          notifyListeners();
+        }
+        return;
+      }
+
       _couple = couple;
+      await LocalCacheService.saveCouple(couple);
 
       // Also load partner data
-      if (couple != null) {
-        final partnerId = couple.getPartnerId(currentUserId);
-        if (partnerId.isNotEmpty) {
+      final partnerId = couple.getPartnerId(currentUserId);
+      if (partnerId.isNotEmpty) {
+        try {
           _partner = await _userService.getUser(partnerId);
+          if (_partner != null) {
+            await LocalCacheService.savePartner(_partner!);
+          }
           debugPrint('✅ Partner loaded: ${_partner?.displayName}');
           debugPrint('   Partner photoUrl: ${_partner?.photoUrl ?? "null"}');
+        } catch (e) {
+          final cachedPartner = await LocalCacheService.loadPartner();
+          if (cachedPartner != null) {
+            _partner = cachedPartner;
+          }
+          debugPrint('⚠️ Partner load failed, using cached data: $e');
         }
       }
 
@@ -367,8 +398,19 @@ class CoupleProvider extends ChangeNotifier {
 
     final partnerId = _couple!.getPartnerId(currentUserId);
     if (partnerId.isNotEmpty) {
-      _partner = await _userService.getUser(partnerId);
-      notifyListeners();
+      try {
+        _partner = await _userService.getUser(partnerId);
+        if (_partner != null) {
+          await LocalCacheService.savePartner(_partner!);
+        }
+        notifyListeners();
+      } catch (e) {
+        final cachedPartner = await LocalCacheService.loadPartner();
+        if (cachedPartner != null) {
+          _partner = cachedPartner;
+          notifyListeners();
+        }
+      }
     }
   }
 
@@ -397,6 +439,8 @@ class CoupleProvider extends ChangeNotifier {
     _error = null;
     _isLoading = false;
     _isSearching = false;
+    LocalCacheService.clearCouple();
+    LocalCacheService.clearPartner();
     notifyListeners();
   }
 

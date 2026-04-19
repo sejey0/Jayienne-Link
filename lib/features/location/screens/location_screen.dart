@@ -9,6 +9,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
 import '../../../models/user_model.dart';
+import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../widgets/common/live_time_text.dart';
@@ -80,6 +81,10 @@ class _LocationScreenState extends State<LocationScreen> {
     final myLocation = provider.currentLocation;
     final partnerLocation = provider.partnerLocation;
     final isOnline = provider.isOnline;
+
+    if (!isOnline) {
+      return _buildOfflineMapPlaceholder(context, provider);
+    }
 
     // Default center (if no locations available)
     LatLng center = const LatLng(0, 0);
@@ -227,6 +232,133 @@ class _LocationScreenState extends State<LocationScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildOfflineMapPlaceholder(
+    BuildContext context,
+    LocationProvider provider,
+  ) {
+    final myLocation = provider.currentLocation;
+    final partnerLocation = provider.partnerLocation;
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.surface,
+            AppColors.warmWhite,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(AppDimensions.spacingLg),
+          margin: const EdgeInsets.all(AppDimensions.spacingLg),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardTheme.color ??
+                Theme.of(context).colorScheme.surface,
+            borderRadius:
+                BorderRadius.circular(AppDimensions.borderRadiusMedium),
+            border: Border.all(
+              color: Colors.grey.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.cloud_off,
+                size: 48,
+                color: AppColors.warning,
+              ),
+              const SizedBox(height: AppDimensions.spacingMd),
+              Text(
+                'Offline map',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: AppDimensions.spacingSm),
+              Text(
+                'Map tiles need internet. Your locations are still saved and will sync later.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppDimensions.spacingMd),
+              if (myLocation != null)
+                _buildOfflineLocationRow(
+                  label: 'My last location',
+                  location: myLocation,
+                  accent: AppColors.lavender,
+                ),
+              if (partnerLocation != null)
+                _buildOfflineLocationRow(
+                  label: 'Partner last location',
+                  location: partnerLocation,
+                  accent: AppColors.softRose,
+                ),
+              if (myLocation == null && partnerLocation == null)
+                Text(
+                  'No cached locations yet.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey,
+                      ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOfflineLocationRow({
+    required String label,
+    required LocationModel location,
+    required Color accent,
+  }) {
+    final coords =
+        '${location.latitude.toStringAsFixed(5)}, ${location.longitude.toStringAsFixed(5)}';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppDimensions.spacingSm),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: accent,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: AppDimensions.spacingSm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                Text(
+                  '$coords · ${location.timeAgo}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

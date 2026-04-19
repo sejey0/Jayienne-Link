@@ -20,6 +20,7 @@ class AuthProvider extends ChangeNotifier {
   String? _pendingPhoneNumber;
 
   AuthProvider(this._authService) {
+    _currentUser = _authService.currentUser;
     _authService.authStateChanges.listen((user) {
       _currentUser = user;
       notifyListeners();

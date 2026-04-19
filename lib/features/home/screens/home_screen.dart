@@ -266,18 +266,22 @@ class HomeScreen extends StatelessWidget {
   Widget _buildHeartbeatCard(BuildContext context) {
     return AppCard(
       onTap: () => context.push(RouteNames.heartbeat),
+      padding: const EdgeInsets.all(AppDimensions.spacingSm),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.favorite, size: 36, color: AppColors.softRose),
-          const SizedBox(height: AppDimensions.spacingSm),
+          const Icon(Icons.favorite, size: 32, color: AppColors.softRose),
+          const SizedBox(height: AppDimensions.spacingXs),
           Text(
-            'Heartbeat',
-            style: Theme.of(context).textTheme.titleSmall,
+            'Heartbeat\n&\nMessages',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  height: 1.05,
+                ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppDimensions.spacingXs),
           Text(
-            'Tap to send',
+            'Open chat',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall

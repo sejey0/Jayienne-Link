@@ -65,7 +65,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Heartbeat'),
+        title: const Text('Heartbeat & Messages'),
       ),
       body: user == null || partner == null
           ? Padding(
@@ -118,7 +118,6 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                                       userId: user.id,
                                       userPhotoUrl: user.photoUrl,
                                       partnerPhotoUrl: partner.photoUrl,
-                                      partnerName: partner.displayName,
                                     );
                                   },
                                 ),
@@ -137,9 +136,6 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                   child: _buildSendCard(
                     context,
                     heartbeatProvider: heartbeatProvider,
-                    partnerName: partner.displayName,
-                    lastHeartbeat:
-                        heartbeats.isNotEmpty ? heartbeats.first : null,
                     messageController: _messageController,
                     messageFocusNode: _messageFocusNode,
                     onSendMessage: () => _handleSendMessage(heartbeatProvider),
@@ -154,8 +150,6 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
   Widget _buildSendCard(
     BuildContext context, {
     required HeartbeatProvider heartbeatProvider,
-    required String partnerName,
-    HeartbeatModel? lastHeartbeat,
     required TextEditingController messageController,
     required FocusNode messageFocusNode,
     required VoidCallback onSendMessage,
@@ -167,21 +161,13 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
       child: Column(
         children: [
           Text(
-            'Send a heartbeat to $partnerName',
+            'Heartbeat & Messages',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: AppDimensions.spacingSm),
-          Text(
-            'Let your person know you are thinking of them.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppDimensions.spacingSm),
+          const SizedBox(height: AppDimensions.spacingMd),
           ValueListenableBuilder<TextEditingValue>(
             valueListenable: messageController,
             builder: (context, value, _) {
@@ -261,16 +247,6 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
               );
             },
           ),
-          if (lastHeartbeat != null) ...[
-            const SizedBox(height: AppDimensions.spacingMd),
-            LiveTimeText(
-              textBuilder: () =>
-                  'Last heartbeat ${lastHeartbeat.timeAgo} (${lastHeartbeat.formattedTime})',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-            ),
-          ],
         ],
       ),
     );
@@ -347,7 +323,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
           ),
           const SizedBox(height: AppDimensions.spacingSm),
           Text(
-            'No heartbeats yet',
+            'No messages yet',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Colors.grey,
                 ),
@@ -363,7 +339,6 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
     required String? userId,
     required String? userPhotoUrl,
     required String? partnerPhotoUrl,
-    required String? partnerName,
   }) {
     final isMine = heartbeat.senderId == userId;
     final backgroundColor =
@@ -371,6 +346,16 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
     final message = heartbeat.message?.trim();
     final hasMessage = message != null && message.isNotEmpty;
     final heartColor = isMine ? AppColors.lavender : AppColors.softRose;
+    final bubbleRadius = BorderRadius.only(
+      topLeft: const Radius.circular(AppDimensions.borderRadiusMedium),
+      topRight: const Radius.circular(AppDimensions.borderRadiusMedium),
+      bottomLeft: Radius.circular(
+        isMine ? AppDimensions.borderRadiusMedium : 6,
+      ),
+      bottomRight: Radius.circular(
+        isMine ? 6 : AppDimensions.borderRadiusMedium,
+      ),
+    );
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -378,67 +363,82 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.72,
         ),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimensions.spacingMd,
-            vertical: AppDimensions.spacingSm,
-          ),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius:
-                BorderRadius.circular(AppDimensions.borderRadiusMedium),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!isMine) ...[
-                _buildAvatar(
-                  photoUrl: partnerPhotoUrl,
-                  accentColor: AppColors.softRose,
-                  fallbackIcon: Icons.favorite,
-                ),
-                const SizedBox(width: AppDimensions.spacingSm),
-              ],
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: isMine
-                      ? CrossAxisAlignment.end
-                      : CrossAxisAlignment.start,
-                  children: [
-                    if (hasMessage)
-                      Text(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (!isMine) ...[
+              _buildAvatar(
+                photoUrl: partnerPhotoUrl,
+                accentColor: AppColors.softRose,
+                fallbackIcon: Icons.favorite,
+              ),
+              const SizedBox(width: AppDimensions.spacingSm),
+            ],
+            Flexible(
+              child: Column(
+                crossAxisAlignment:
+                    isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  if (hasMessage)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppDimensions.spacingMd,
+                        vertical: AppDimensions.spacingSm,
+                      ),
+                      decoration: BoxDecoration(
+                        color: backgroundColor,
+                        borderRadius: bubbleRadius,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
                         message,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: AppColors.deepCharcoal,
                             ),
-                      )
-                    else
-                      Icon(
+                      ),
+                    )
+                  else
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: heartColor.withOpacity(0.18),
+                        border: Border.all(color: heartColor, width: 1.2),
+                      ),
+                      child: Icon(
                         Icons.favorite,
                         color: heartColor,
                         size: 18,
                       ),
-                    const SizedBox(height: 2),
-                    LiveTimeText(
-                      textBuilder: () => heartbeat.timeAgo,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Colors.grey.shade700,
-                          ),
                     ),
-                  ],
-                ),
+                  const SizedBox(height: 2),
+                  LiveTimeText(
+                    textBuilder: () => heartbeat.timeAgo,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Colors.grey.shade700,
+                        ),
+                  ),
+                ],
               ),
-              if (isMine) ...[
-                const SizedBox(width: AppDimensions.spacingSm),
-                _buildAvatar(
-                  photoUrl: userPhotoUrl,
-                  accentColor: AppColors.lavender,
-                  fallbackIcon: Icons.person,
-                ),
-              ],
+            ),
+            if (isMine) ...[
+              const SizedBox(width: AppDimensions.spacingSm),
+              _buildAvatar(
+                photoUrl: userPhotoUrl,
+                accentColor: AppColors.lavender,
+                fallbackIcon: Icons.person,
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );

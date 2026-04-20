@@ -248,6 +248,15 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                   ),
                   const SizedBox(width: AppDimensions.spacingSm),
                   _buildActionButton(
+                    icon: Icons.favorite,
+                    backgroundColor:
+                        canSend ? AppColors.softRose : Colors.grey.shade300,
+                    iconColor: canSend ? Colors.white : Colors.grey.shade600,
+                    onPressed: canSend ? onSendHeart : null,
+                    tooltip: 'Send heartbeat',
+                  ),
+                  const SizedBox(width: AppDimensions.spacingXs),
+                  _buildActionButton(
                     icon: Icons.send_rounded,
                     backgroundColor: canSendMessage
                         ? AppColors.lavender
@@ -256,15 +265,6 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                         canSendMessage ? Colors.white : Colors.grey.shade600,
                     onPressed: canSendMessage ? onSendMessage : null,
                     tooltip: 'Send message',
-                  ),
-                  const SizedBox(width: AppDimensions.spacingXs),
-                  _buildActionButton(
-                    icon: Icons.favorite,
-                    backgroundColor:
-                        canSend ? AppColors.softRose : Colors.grey.shade300,
-                    iconColor: canSend ? Colors.white : Colors.grey.shade600,
-                    onPressed: canSend ? onSendHeart : null,
-                    tooltip: 'Send heartbeat',
                   ),
                 ],
               );

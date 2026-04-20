@@ -66,6 +66,11 @@ class _PhotosScreenState extends State<PhotosScreen> {
     }
   }
 
+  Future<void> _handleRefresh(PhotoMessageProvider provider) async {
+    if (provider.isRefreshing) return;
+    await provider.refreshNow();
+  }
+
   @override
   Widget build(BuildContext context) {
     final photoProvider = context.watch<PhotoMessageProvider>();
@@ -80,6 +85,24 @@ class _PhotosScreenState extends State<PhotosScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Photos'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: photoProvider.isRefreshing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.refresh),
+            onPressed: photoProvider.isRefreshing
+                ? null
+                : () => _handleRefresh(photoProvider),
+          ),
+        ],
       ),
       body: user == null || partner == null
           ? Padding(

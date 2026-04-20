@@ -13,6 +13,8 @@ class PhotoMessageProvider extends ChangeNotifier {
 
   final List<PhotoMessageModel> _messages = [];
   StreamSubscription<List<PhotoMessageModel>>? _messageSubscription;
+  Timer? _pollingTimer;
+  bool _isRefreshing = false;
 
   String? _userId;
   String? _coupleId;
@@ -24,6 +26,7 @@ class PhotoMessageProvider extends ChangeNotifier {
 
   List<PhotoMessageModel> get messages => List.unmodifiable(_messages);
   bool get isLoading => _isLoading;
+  bool get isRefreshing => _isRefreshing;
   bool get isSending => _isSending;
   String? get error => _error;
   bool get canSend =>
@@ -66,6 +69,44 @@ class PhotoMessageProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _refreshSilently() async {
+    if (_coupleId == null || _isRefreshing) return;
+    _isRefreshing = true;
+    notifyListeners();
+
+    try {
+      final results = await _service.getPhotoMessages(_coupleId!);
+      _messages
+        ..clear()
+        ..addAll(results);
+      notifyListeners();
+    } catch (e) {
+      _error = 'Live refresh failed: $e';
+      notifyListeners();
+    } finally {
+      _isRefreshing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshNow() async {
+    _error = null;
+    await _refreshSilently();
+  }
+
+  void _startPolling() {
+    if (_pollingTimer != null) return;
+    _pollingTimer = Timer.periodic(
+      const Duration(seconds: 6),
+      (_) => _refreshSilently(),
+    );
+  }
+
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
   void _subscribeToStream() {
     _messageSubscription?.cancel();
     if (_coupleId == null) return;
@@ -79,7 +120,10 @@ class PhotoMessageProvider extends ChangeNotifier {
     }, onError: (error) {
       _error = 'Live updates unavailable: $error';
       notifyListeners();
+      _startPolling();
     });
+
+    _startPolling();
   }
 
   Future<bool> sendPhotoMessage({
@@ -110,6 +154,7 @@ class PhotoMessageProvider extends ChangeNotifier {
         caption: trimmedCaption?.isNotEmpty == true ? trimmedCaption : null,
       );
       _messages.insert(0, result);
+      await _refreshSilently();
       return true;
     } catch (e) {
       _error = 'Failed to send photo: $e';
@@ -207,12 +252,14 @@ class PhotoMessageProvider extends ChangeNotifier {
   void clear() {
     _messageSubscription?.cancel();
     _messageSubscription = null;
+    _stopPolling();
     _messages.clear();
     _userId = null;
     _coupleId = null;
     _partnerId = null;
     _error = null;
     _isLoading = false;
+    _isRefreshing = false;
     _isSending = false;
     notifyListeners();
   }
@@ -220,6 +267,7 @@ class PhotoMessageProvider extends ChangeNotifier {
   @override
   void dispose() {
     _messageSubscription?.cancel();
+    _stopPolling();
     super.dispose();
   }
 }

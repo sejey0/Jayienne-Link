@@ -109,6 +109,11 @@ class _MoodScreenState extends State<MoodScreen> {
     await provider.sendMood(mood: mood, callSign: trimmedCallSign);
   }
 
+  Future<void> _handleRefresh(MoodProvider provider) async {
+    if (provider.isRefreshing) return;
+    await provider.refreshNow();
+  }
+
   @override
   Widget build(BuildContext context) {
     final moodProvider = context.watch<MoodProvider>();
@@ -134,6 +139,24 @@ class _MoodScreenState extends State<MoodScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mood'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: moodProvider.isRefreshing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.refresh),
+            onPressed: moodProvider.isRefreshing
+                ? null
+                : () => _handleRefresh(moodProvider),
+          ),
+        ],
       ),
       body: user == null || partner == null
           ? Padding(

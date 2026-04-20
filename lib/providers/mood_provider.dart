@@ -10,6 +10,8 @@ class MoodProvider extends ChangeNotifier {
 
   final List<MoodMessageModel> _moods = [];
   StreamSubscription<List<MoodMessageModel>>? _moodSubscription;
+  Timer? _pollingTimer;
+  bool _isRefreshing = false;
 
   String? _userId;
   String? _coupleId;
@@ -21,6 +23,7 @@ class MoodProvider extends ChangeNotifier {
 
   List<MoodMessageModel> get moods => List.unmodifiable(_moods);
   bool get isLoading => _isLoading;
+  bool get isRefreshing => _isRefreshing;
   bool get isSending => _isSending;
   String? get error => _error;
   bool get canSend =>
@@ -63,6 +66,44 @@ class MoodProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _refreshSilently() async {
+    if (_coupleId == null || _isRefreshing) return;
+    _isRefreshing = true;
+    notifyListeners();
+
+    try {
+      final results = await _service.getMoodMessages(_coupleId!);
+      _moods
+        ..clear()
+        ..addAll(results);
+      notifyListeners();
+    } catch (e) {
+      _error = 'Live refresh failed: $e';
+      notifyListeners();
+    } finally {
+      _isRefreshing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshNow() async {
+    _error = null;
+    await _refreshSilently();
+  }
+
+  void _startPolling() {
+    if (_pollingTimer != null) return;
+    _pollingTimer = Timer.periodic(
+      const Duration(seconds: 6),
+      (_) => _refreshSilently(),
+    );
+  }
+
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
   void _subscribeToStream() {
     _moodSubscription?.cancel();
     if (_coupleId == null) return;
@@ -76,7 +117,10 @@ class MoodProvider extends ChangeNotifier {
     }, onError: (error) {
       _error = 'Live updates unavailable: $error';
       notifyListeners();
+      _startPolling();
     });
+
+    _startPolling();
   }
 
   Future<bool> sendMood(
@@ -100,6 +144,7 @@ class MoodProvider extends ChangeNotifier {
         callSign: callSign,
       );
       _moods.insert(0, result);
+      await _refreshSilently();
       return true;
     } catch (e) {
       _error = 'Failed to send mood: $e';
@@ -114,12 +159,14 @@ class MoodProvider extends ChangeNotifier {
   void clear() {
     _moodSubscription?.cancel();
     _moodSubscription = null;
+    _stopPolling();
     _moods.clear();
     _userId = null;
     _coupleId = null;
     _partnerId = null;
     _error = null;
     _isLoading = false;
+    _isRefreshing = false;
     _isSending = false;
     notifyListeners();
   }
@@ -127,6 +174,7 @@ class MoodProvider extends ChangeNotifier {
   @override
   void dispose() {
     _moodSubscription?.cancel();
+    _stopPolling();
     super.dispose();
   }
 }

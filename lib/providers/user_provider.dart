@@ -37,8 +37,10 @@ class UserProvider extends ChangeNotifier {
       if (user != null) {
         _user = user;
         LocalCacheService.saveUser(user);
-      // ignore: curly_braces_in_flow_control_structures
-      } else _user ??= null;
+        // ignore: curly_braces_in_flow_control_structures
+      } else {
+        _user ??= null;
+      }
       notifyListeners();
     });
   }
@@ -239,6 +241,28 @@ class UserProvider extends ChangeNotifier {
 
       _isLoading = false;
       notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updateBubbleTheme(String themeKey) async {
+    final currentUser = _user;
+    if (currentUser == null) return false;
+
+    _user = currentUser.copyWith(bubbleTheme: themeKey);
+    notifyListeners();
+    await LocalCacheService.saveUser(_user!);
+
+    try {
+      await _userService.updateUser(currentUser.id, {
+        'bubbleTheme': themeKey,
+      });
+      return true;
+    } catch (e) {
+      _user = currentUser;
+      notifyListeners();
+      await LocalCacheService.saveUser(currentUser);
+      debugPrint('Bubble theme update error: $e');
       return false;
     }
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/theme/chat_bubble_theme.dart';
 import '../../../models/heartbeat_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/heartbeat_provider.dart';
@@ -71,6 +72,55 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
     await heartbeatProvider.refreshNow();
   }
 
+  void _showBubbleThemeSheet(
+    BuildContext context,
+    UserProvider userProvider,
+  ) {
+    final user = userProvider.user;
+    if (user == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        final selectedKey = user.bubbleTheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimensions.spacingLg,
+              AppDimensions.spacingSm,
+              AppDimensions.spacingLg,
+              AppDimensions.spacingLg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Chat bubble style',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: AppDimensions.spacingMd),
+                ...ChatBubbleThemes.all.map(
+                  (theme) => _buildBubbleThemeOption(
+                    context,
+                    theme: theme,
+                    isSelected: theme.key == selectedKey,
+                    onTap: () async {
+                      await userProvider.updateBubbleTheme(theme.key);
+                      if (context.mounted) Navigator.of(context).pop();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final heartbeatProvider = context.watch<HeartbeatProvider>();
@@ -85,6 +135,13 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
       appBar: AppBar(
         title: const Text('Heartbeat & Messages'),
         actions: [
+          IconButton(
+            tooltip: 'Chat bubble style',
+            icon: const Icon(Icons.palette_outlined),
+            onPressed: user == null
+                ? null
+                : () => _showBubbleThemeSheet(context, userProvider),
+          ),
           IconButton(
             tooltip: 'Refresh',
             icon: heartbeatProvider.isRefreshing
@@ -155,6 +212,8 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                                       userId: user.id,
                                       userPhotoUrl: user.photoUrl,
                                       partnerPhotoUrl: partner.photoUrl,
+                                      userBubbleTheme: user.bubbleTheme,
+                                      partnerBubbleTheme: partner.bubbleTheme,
                                     );
                                   },
                                 ),
@@ -395,14 +454,19 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
     required String? userId,
     required String? userPhotoUrl,
     required String? partnerPhotoUrl,
+    required String? userBubbleTheme,
+    required String? partnerBubbleTheme,
   }) {
     final isMine = heartbeat.senderId == userId;
-    final backgroundColor =
-        isMine ? AppColors.lavenderLight : AppColors.softRoseLight;
     final message = heartbeat.message?.trim();
     final hasMessage = message != null && message.isNotEmpty;
-    final heartColor = isMine ? AppColors.lavender : AppColors.softRose;
     final heartbeatId = heartbeat.id;
+    final themeKey = isMine ? userBubbleTheme : partnerBubbleTheme;
+    final bubbleTheme = ChatBubbleThemes.resolve(themeKey);
+    final brightness = Theme.of(context).brightness;
+    final bubbleColor = bubbleTheme.bubbleColor(brightness);
+    final bubbleTextColor = bubbleTheme.textColor(brightness);
+    final heartColor = bubbleTheme.accentColor;
     final hasReaction =
         heartbeatId != null && heartbeatProvider.hasReaction(heartbeatId);
     final reactionCount =
@@ -437,7 +501,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
               vertical: AppDimensions.spacingSm,
             ),
             decoration: BoxDecoration(
-              color: backgroundColor,
+              color: bubbleColor,
               borderRadius: bubbleRadius,
               boxShadow: [
                 BoxShadow(
@@ -451,7 +515,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
               message,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: AppColors.deepCharcoal,
+                    color: bubbleTextColor,
                   ),
             ),
           )
@@ -643,6 +707,69 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
             child: _TypingDots(color: dotColor),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBubbleThemeOption(
+    BuildContext context, {
+    required ChatBubbleThemeStyle theme,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final brightness = Theme.of(context).brightness;
+    final bubbleColor = theme.bubbleColor(brightness);
+    final textColor = theme.textColor(brightness);
+    final borderColor = isSelected
+        ? theme.accentColor
+        : (brightness == Brightness.dark
+            ? Colors.grey.shade700
+            : Colors.grey.shade300);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppDimensions.spacingSm),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimensions.spacingMd,
+            vertical: AppDimensions.spacingSm,
+          ),
+          decoration: BoxDecoration(
+            borderRadius:
+                BorderRadius.circular(AppDimensions.borderRadiusMedium),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimensions.spacingMd,
+                  vertical: AppDimensions.spacingSm,
+                ),
+                decoration: BoxDecoration(
+                  color: bubbleColor,
+                  borderRadius:
+                      BorderRadius.circular(AppDimensions.borderRadiusMedium),
+                ),
+                child: Text(
+                  theme.label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: textColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              const Spacer(),
+              if (isSelected)
+                Icon(
+                  Icons.check_circle,
+                  color: theme.accentColor,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

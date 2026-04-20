@@ -8,6 +8,7 @@ class UserModel {
   final DateTime? birthday;
   final String? coupleId;
   final String? inviteCode;
+  final String bubbleTheme;
   final bool profileComplete;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -21,6 +22,7 @@ class UserModel {
     this.birthday,
     this.coupleId,
     this.inviteCode,
+    this.bubbleTheme = 'capybara',
     this.profileComplete = false,
     required this.createdAt,
     required this.updatedAt,
@@ -38,6 +40,7 @@ class UserModel {
     DateTime? birthday,
     String? coupleId,
     String? inviteCode,
+    String? bubbleTheme,
     bool? profileComplete,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -51,6 +54,7 @@ class UserModel {
       birthday: birthday ?? this.birthday,
       coupleId: coupleId ?? this.coupleId,
       inviteCode: inviteCode ?? this.inviteCode,
+      bubbleTheme: bubbleTheme ?? this.bubbleTheme,
       profileComplete: profileComplete ?? this.profileComplete,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -70,6 +74,7 @@ class UserModel {
           : null,
       coupleId: json['couple_id'] as String?,
       inviteCode: json['invite_code'] as String?,
+      bubbleTheme: json['bubble_theme'] as String? ?? 'capybara',
       profileComplete: json['profile_complete'] as bool? ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
@@ -91,6 +96,7 @@ class UserModel {
       'birthday': birthday?.toIso8601String(),
       'couple_id': coupleId,
       'invite_code': inviteCode,
+      'bubble_theme': bubbleTheme,
       'profile_complete': profileComplete,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),

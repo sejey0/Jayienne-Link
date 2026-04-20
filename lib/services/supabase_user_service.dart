@@ -234,6 +234,9 @@ class SupabaseUserService {
         case 'inviteCode':
           pgData['invite_code'] = entry.value;
           break;
+        case 'bubbleTheme':
+          pgData['bubble_theme'] = entry.value;
+          break;
         case 'profileComplete':
           pgData['profile_complete'] = entry.value;
           break;

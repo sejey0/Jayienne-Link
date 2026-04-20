@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
     birthday TIMESTAMPTZ,
     couple_id UUID REFERENCES couples(id) ON DELETE SET NULL,
     invite_code TEXT,
+    bubble_theme TEXT NOT NULL DEFAULT 'capybara',
     profile_complete BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -176,6 +177,9 @@ CREATE TABLE IF NOT EXISTS mood_messages (
 
 ALTER TABLE mood_messages
     ADD COLUMN IF NOT EXISTS call_sign TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS bubble_theme TEXT NOT NULL DEFAULT 'capybara';
 
 -- =====================================================
 -- INDEXES

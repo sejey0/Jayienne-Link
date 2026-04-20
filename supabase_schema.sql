@@ -109,6 +109,18 @@ CREATE TABLE IF NOT EXISTS heartbeats (
 );
 
 -- =====================================================
+-- HEARTBEAT TYPING TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS heartbeat_typing (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    couple_id UUID NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    is_typing BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (couple_id, user_id)
+);
+
+-- =====================================================
 -- PHOTO MESSAGES TABLE
 -- =====================================================
 CREATE TABLE IF NOT EXISTS photo_messages (
@@ -183,6 +195,12 @@ CREATE INDEX IF NOT EXISTS idx_heartbeats_sender_id ON heartbeats(sender_id);
 CREATE INDEX IF NOT EXISTS idx_heartbeats_receiver_id ON heartbeats(receiver_id);
 CREATE INDEX IF NOT EXISTS idx_heartbeats_sent_at ON heartbeats(sent_at DESC);
 
+-- Heartbeat typing indexes
+CREATE INDEX IF NOT EXISTS idx_heartbeat_typing_couple_id
+    ON heartbeat_typing(couple_id);
+CREATE INDEX IF NOT EXISTS idx_heartbeat_typing_updated_at
+    ON heartbeat_typing(updated_at DESC);
+
 -- Photo messages indexes
 CREATE INDEX IF NOT EXISTS idx_photo_messages_couple_id ON photo_messages(couple_id);
 CREATE INDEX IF NOT EXISTS idx_photo_messages_sender_id ON photo_messages(sender_id);
@@ -227,6 +245,7 @@ ALTER TABLE partner_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE anniversary_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE heartbeats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE heartbeat_typing ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photo_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mood_messages ENABLE ROW LEVEL SECURITY;
 
@@ -252,6 +271,9 @@ DROP POLICY IF EXISTS "Users can insert own locations" ON locations;
 DROP POLICY IF EXISTS "Users can update own locations" ON locations;
 DROP POLICY IF EXISTS "Users can read couple heartbeats" ON heartbeats;
 DROP POLICY IF EXISTS "Users can send heartbeats" ON heartbeats;
+DROP POLICY IF EXISTS "Users can read couple typing" ON heartbeat_typing;
+DROP POLICY IF EXISTS "Users can insert own typing" ON heartbeat_typing;
+DROP POLICY IF EXISTS "Users can update own typing" ON heartbeat_typing;
 DROP POLICY IF EXISTS "Users can read couple photo messages" ON photo_messages;
 DROP POLICY IF EXISTS "Users can send photo messages" ON photo_messages;
 DROP POLICY IF EXISTS "Users can update photo messages" ON photo_messages;
@@ -364,6 +386,22 @@ CREATE POLICY "Users can read couple heartbeats" ON heartbeats
 
 CREATE POLICY "Users can send heartbeats" ON heartbeats
     FOR INSERT WITH CHECK (sender_id = auth.uid());
+
+-- Heartbeat typing policies
+CREATE POLICY "Users can read couple typing" ON heartbeat_typing
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE couple_id = heartbeat_typing.couple_id AND id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can insert own typing" ON heartbeat_typing
+    FOR INSERT WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own typing" ON heartbeat_typing
+    FOR UPDATE USING (user_id = auth.uid())
+    WITH CHECK (user_id = auth.uid());
 
 -- Photo messages policies
 CREATE POLICY "Users can read couple photo messages" ON photo_messages

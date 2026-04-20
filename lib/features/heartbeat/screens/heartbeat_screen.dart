@@ -22,10 +22,23 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
   final FocusNode _messageFocusNode = FocusNode();
 
   @override
+  void initState() {
+    super.initState();
+    _messageFocusNode.addListener(_handleFocusChange);
+  }
+
+  @override
   void dispose() {
+    _messageFocusNode.removeListener(_handleFocusChange);
     _messageController.dispose();
     _messageFocusNode.dispose();
     super.dispose();
+  }
+
+  void _handleFocusChange() {
+    if (!_messageFocusNode.hasFocus) {
+      context.read<HeartbeatProvider>().stopTyping();
+    }
   }
 
   Future<void> _handleSendMessage(HeartbeatProvider heartbeatProvider) async {
@@ -149,6 +162,23 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                     ),
                   ),
                 ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: heartbeatProvider.isPartnerTyping
+                      ? Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppDimensions.spacingLg,
+                            0,
+                            AppDimensions.spacingLg,
+                            AppDimensions.spacingSm,
+                          ),
+                          child: _buildTypingRow(
+                            context,
+                            partnerPhotoUrl: partner.photoUrl,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                     AppDimensions.spacingLg,
@@ -211,6 +241,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                             color: AppColors.deepCharcoal,
                           ),
                       cursorColor: AppColors.softRose,
+                      onChanged: heartbeatProvider.handleTypingChanged,
                       onSubmitted: (text) => onSendMessage(),
                       decoration: InputDecoration(
                         hintText: 'Type a message',
@@ -506,6 +537,112 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
         icon,
         size: 18,
         color: accentColor,
+      ),
+    );
+  }
+
+  Widget _buildTypingRow(
+    BuildContext context, {
+    required String? partnerPhotoUrl,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bubbleColor =
+        isDark ? AppColors.softRose.withOpacity(0.25) : AppColors.softRoseLight;
+    final dotColor = isDark ? AppColors.darkText : AppColors.deepCharcoal;
+    const bubbleRadius = BorderRadius.only(
+      topLeft: Radius.circular(AppDimensions.borderRadiusMedium),
+      topRight: Radius.circular(AppDimensions.borderRadiusMedium),
+      bottomLeft: Radius.circular(6),
+      bottomRight: Radius.circular(AppDimensions.borderRadiusMedium),
+    );
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _buildAvatar(
+            photoUrl: partnerPhotoUrl,
+            accentColor: AppColors.softRose,
+            fallbackIcon: Icons.favorite,
+          ),
+          const SizedBox(width: AppDimensions.spacingSm),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimensions.spacingMd,
+              vertical: AppDimensions.spacingSm,
+            ),
+            decoration: BoxDecoration(
+              color: bubbleColor,
+              borderRadius: bubbleRadius,
+            ),
+            child: _TypingDots(color: dotColor),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypingDots extends StatefulWidget {
+  const _TypingDots({required this.color});
+
+  final Color color;
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (index) => _buildDot(index)),
+    );
+  }
+
+  Widget _buildDot(int index) {
+    final animation = Tween<double>(begin: 0, end: -4).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Interval(
+          0.2 * index,
+          0.2 * index + 0.6,
+          curve: Curves.easeInOut,
+        ),
+      ),
+    );
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, animation.value),
+          child: child,
+        );
+      },
+      child: Container(
+        width: 6,
+        height: 6,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: widget.color,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }

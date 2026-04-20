@@ -1,8 +1,10 @@
 import '../models/heartbeat_model.dart';
+import '../models/heartbeat_typing_model.dart';
 import 'supabase_data_service.dart';
 
 class SupabaseHeartbeatService {
   static const String _tableName = 'heartbeats';
+  static const String _typingTableName = 'heartbeat_typing';
 
   Future<List<HeartbeatModel>> getHeartbeats(
     String coupleId, {
@@ -58,5 +60,36 @@ class SupabaseHeartbeatService {
 
     final record = await SupabaseDataService.insertRecord(_tableName, payload);
     return HeartbeatModel.fromJson(record);
+  }
+
+  Stream<List<HeartbeatTypingModel>> streamTypingStatuses(String coupleId) {
+    return SupabaseDataService.getRecordsStream(
+      _typingTableName,
+      whereColumn: 'couple_id',
+      whereValue: coupleId,
+      orderBy: 'updated_at',
+      ascending: false,
+    ).map((records) {
+      return records.map(HeartbeatTypingModel.fromJson).toList();
+    });
+  }
+
+  Future<void> upsertTypingStatus({
+    required String coupleId,
+    required String userId,
+    required bool isTyping,
+  }) async {
+    final payload = {
+      'couple_id': coupleId,
+      'user_id': userId,
+      'is_typing': isTyping,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    await SupabaseDataService.safeExecute(() async {
+      await SupabaseDataService.client
+          .from(_typingTableName)
+          .upsert(payload, onConflict: 'couple_id,user_id');
+    }, context: 'Upsert typing status for $coupleId');
   }
 }

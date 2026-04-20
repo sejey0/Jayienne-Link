@@ -233,7 +233,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-
   Widget _buildHeartbeatCard(BuildContext context) {
     return AppCard(
       onTap: () => context.push(RouteNames.heartbeat),
@@ -273,12 +272,12 @@ class HomeScreen extends StatelessWidget {
               size: 36, color: AppColors.lavender),
           const SizedBox(height: AppDimensions.spacingSm),
           Text(
-            'Photos',
+            'Photo Messages',
             style: Theme.of(context).textTheme.titleSmall,
           ),
           const SizedBox(height: AppDimensions.spacingXs),
           Text(
-            'Share moments',
+            'Share photos',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall

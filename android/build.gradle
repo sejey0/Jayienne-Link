@@ -26,6 +26,13 @@ subprojects {
 subprojects {
     pluginManager.withPlugin('com.android.library') {
         android {
+            if (hasProperty('namespace')) {
+                def current = namespace
+                if (current == null || current.toString().trim().isEmpty()) {
+                    def safeName = project.name.replace('-', '_')
+                    namespace = "com.jayienne.${safeName}"
+                }
+            }
             compileOptions {
                 sourceCompatibility JavaVersion.VERSION_17
                 targetCompatibility JavaVersion.VERSION_17

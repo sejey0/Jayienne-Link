@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
@@ -26,6 +30,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
   final ImagePicker _picker = ImagePicker();
   File? _selectedImage;
   bool _isComposerExpanded = true;
+  bool _isSaving = false;
   static const String _editConfirmationPhrase = 'i love you';
 
   @override
@@ -71,6 +76,97 @@ class _PhotosScreenState extends State<PhotosScreen> {
     await provider.refreshNow();
   }
 
+  Future<void> _downloadToGallery(
+    BuildContext context,
+    PhotoMessageModel message,
+  ) async {
+    if (_isSaving) return;
+    setState(() {
+      _isSaving = true;
+    });
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final hasPermission = await _ensureGalleryPermission();
+      if (!hasPermission) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Gallery permission is required.')),
+        );
+        return;
+      }
+
+      final bytes = await _loadImageBytes(message.imageUrl);
+      final name =
+          message.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+      final result = await ImageGallerySaver.saveImage(
+        bytes,
+        name: 'jayienne_$name',
+        quality: 95,
+      );
+
+      final success = result is Map &&
+          ((result['isSuccess'] == true) || (result['success'] == true));
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            success ? 'Saved to gallery.' : 'Save failed. Please try again.',
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Save failed: $e')),
+      );
+    } finally {
+      // ignore: control_flow_in_finally
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+      });
+    }
+  }
+
+  Future<bool> _ensureGalleryPermission() async {
+    if (Platform.isIOS) {
+      final status = await Permission.photos.request();
+      return status.isGranted || status.isLimited;
+    }
+
+    if (Platform.isAndroid) {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      if (androidInfo.version.sdkInt >= 29) {
+        return true;
+      }
+
+      final storageStatus = await Permission.storage.request();
+      return storageStatus.isGranted;
+    }
+
+    return true;
+  }
+
+  Future<Uint8List> _loadImageBytes(String imageUrl) async {
+    if (imageUrl.startsWith('data:image/')) {
+      final base64String = imageUrl.split(',').last;
+      return base64Decode(base64String);
+    }
+
+    final uri = Uri.parse(imageUrl);
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(uri);
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        throw Exception('Download failed (${response.statusCode})');
+      }
+      return await consolidateHttpClientResponseBytes(response);
+    } finally {
+      client.close();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final photoProvider = context.watch<PhotoMessageProvider>();
@@ -84,7 +180,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Photos'),
+        title: const Text('Photo Messages'),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -425,7 +521,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
           ),
           const SizedBox(height: AppDimensions.spacingMd),
           Text(
-            'Link with your partner to use Photos',
+            'Link with your partner to use Photo Messages',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -433,7 +529,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
           ),
           const SizedBox(height: AppDimensions.spacingXs),
           Text(
-            'Once linked, you can share photos instantly.',
+            'Once linked, you can share photo messages instantly.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.grey,
                 ),
@@ -485,7 +581,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
           ),
           const SizedBox(height: AppDimensions.spacingSm),
           Text(
-            'No photos yet',
+            'No photo messages yet',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Colors.grey,
                 ),
@@ -616,8 +712,6 @@ class _PhotosScreenState extends State<PhotosScreen> {
           ),
     );
 
-    if (!isMine) return timeText;
-
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -630,22 +724,38 @@ class _PhotosScreenState extends State<PhotosScreen> {
             color: Colors.grey.shade600,
           ),
           onSelected: (action) {
-            if (action == _PhotoMessageAction.edit) {
+            if (action == _PhotoMessageAction.download) {
+              _downloadToGallery(context, message);
+            } else if (action == _PhotoMessageAction.edit) {
               _showEditCaptionDialog(context, message);
             } else if (action == _PhotoMessageAction.delete) {
               _confirmDelete(context, message);
             }
           },
-          itemBuilder: (context) => const [
-            PopupMenuItem(
-              value: _PhotoMessageAction.edit,
-              child: Text('Edit caption'),
-            ),
-            PopupMenuItem(
-              value: _PhotoMessageAction.delete,
-              child: Text('Delete'),
-            ),
-          ],
+          itemBuilder: (context) {
+            return [
+              const PopupMenuItem(
+                value: _PhotoMessageAction.download,
+                child: Row(
+                  children: [
+                    Icon(Icons.download, size: 18),
+                    SizedBox(width: 8),
+                    Text('Download'),
+                  ],
+                ),
+              ),
+              if (isMine)
+                const PopupMenuItem(
+                  value: _PhotoMessageAction.edit,
+                  child: Text('Edit caption'),
+                ),
+              if (isMine)
+                const PopupMenuItem(
+                  value: _PhotoMessageAction.delete,
+                  child: Text('Delete'),
+                ),
+            ];
+          },
         ),
       ],
     );
@@ -757,9 +867,30 @@ class _PhotosScreenState extends State<PhotosScreen> {
               SafeArea(
                 child: Align(
                   alignment: Alignment.topRight,
-                  child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Save to gallery',
+                        icon: _isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.download, color: Colors.white),
+                        onPressed: _isSaving
+                            ? null
+                            : () => _downloadToGallery(context, message),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1005,4 +1136,4 @@ class _DeletePhotoDialogState extends State<_DeletePhotoDialog> {
   }
 }
 
-enum _PhotoMessageAction { edit, delete }
+enum _PhotoMessageAction { download, edit, delete }

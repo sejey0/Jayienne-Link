@@ -52,6 +52,10 @@
 	<string>Jayienne Link uses your location in the background to keep sharing with your person, even when the app is closed.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Jayienne Link uses background location to share with your person even when you're away from the app.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Jayienne Link saves shared photos to your gallery.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Jayienne Link needs access to your photo library to share and save photos.</string>
 	<!-- Background modes for location updates -->
 	<key>UIBackgroundModes</key>
 	<array>

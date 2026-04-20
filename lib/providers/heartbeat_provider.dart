@@ -97,6 +97,8 @@ class HeartbeatProvider extends ChangeNotifier {
       _heartbeats
         ..clear()
         ..addAll(results);
+      await _loadReactions();
+      await _loadReads();
       _scheduleMarkReads();
     } catch (e) {
       _error = 'Failed to load heartbeats: $e';
@@ -117,6 +119,8 @@ class HeartbeatProvider extends ChangeNotifier {
       _heartbeats
         ..clear()
         ..addAll(results);
+      await _loadReactions();
+      await _loadReads();
       _scheduleMarkReads();
       notifyListeners();
     } catch (e) {
@@ -200,6 +204,50 @@ class HeartbeatProvider extends ChangeNotifier {
     });
   }
 
+  Future<void> _loadReactions() async {
+    if (_coupleId == null) return;
+    try {
+      final heartbeatIds = _heartbeats
+          .map((heartbeat) => heartbeat.id)
+          .whereType<String>()
+          .toList();
+      final reactions = heartbeatIds.isEmpty
+          ? await _service.getReactions(_coupleId!)
+          : await _service.getReactionsForHeartbeats(
+              coupleId: _coupleId!,
+              heartbeatIds: heartbeatIds,
+            );
+      _reactionsByHeartbeat
+        ..clear()
+        ..addAll(_groupByHeartbeat(reactions));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to load reactions: $e');
+    }
+  }
+
+  Future<void> _loadReads() async {
+    if (_coupleId == null) return;
+    try {
+      final heartbeatIds = _heartbeats
+          .map((heartbeat) => heartbeat.id)
+          .whereType<String>()
+          .toList();
+      final reads = heartbeatIds.isEmpty
+          ? await _service.getReads(_coupleId!)
+          : await _service.getReadsForHeartbeats(
+              coupleId: _coupleId!,
+              heartbeatIds: heartbeatIds,
+            );
+      _readsByHeartbeat
+        ..clear()
+        ..addAll(_groupReadsByHeartbeat(reads));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to load reads: $e');
+    }
+  }
+
   void _subscribeToTypingStream() {
     _typingSubscription?.cancel();
     if (_coupleId == null) return;
@@ -265,8 +313,11 @@ class HeartbeatProvider extends ChangeNotifier {
 
   Future<void> toggleReaction(String heartbeatId) async {
     if (_coupleId == null || _userId == null) return;
+    final hadReaction = hasMyReaction(heartbeatId);
+    _applyLocalReaction(heartbeatId, userId: _userId!, add: !hadReaction);
+
     try {
-      if (hasMyReaction(heartbeatId)) {
+      if (hadReaction) {
         await _service.deleteReaction(
           heartbeatId: heartbeatId,
           userId: _userId!,
@@ -279,8 +330,29 @@ class HeartbeatProvider extends ChangeNotifier {
         );
       }
     } catch (e) {
+      _applyLocalReaction(heartbeatId, userId: _userId!, add: hadReaction);
       debugPrint('Failed to toggle reaction: $e');
     }
+  }
+
+  void _applyLocalReaction(
+    String heartbeatId, {
+    required String userId,
+    required bool add,
+  }) {
+    final reactions = _reactionsByHeartbeat.putIfAbsent(
+      heartbeatId,
+      () => <String>{},
+    );
+    if (add) {
+      reactions.add(userId);
+    } else {
+      reactions.remove(userId);
+      if (reactions.isEmpty) {
+        _reactionsByHeartbeat.remove(heartbeatId);
+      }
+    }
+    notifyListeners();
   }
 
   void _scheduleMarkReads() {

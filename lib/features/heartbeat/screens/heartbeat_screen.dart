@@ -420,7 +420,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
         isMine ? 6 : AppDimensions.borderRadiusMedium,
       ),
     );
-    final reactionColor = AppColors.lavender;
+    const reactionColor = AppColors.lavender;
     final reactionTextStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
           color: reactionColor,
           fontWeight: FontWeight.w600,
@@ -473,7 +473,6 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
     if (heartbeatId != null) {
       bubbleContent = GestureDetector(
         onDoubleTap: () => heartbeatProvider.toggleReaction(heartbeatId),
-        onLongPress: () => heartbeatProvider.toggleReaction(heartbeatId),
         child: bubbleContent,
       );
     }
@@ -511,7 +510,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                             ? MainAxisAlignment.end
                             : MainAxisAlignment.start,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.favorite,
                             size: 14,
                             color: reactionColor,

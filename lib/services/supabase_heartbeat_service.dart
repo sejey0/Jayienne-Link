@@ -78,6 +78,43 @@ class SupabaseHeartbeatService {
     });
   }
 
+  Future<List<HeartbeatReactionModel>> getReactions(
+    String coupleId, {
+    int limit = 200,
+  }) async {
+    final records = await SupabaseDataService.getRecords(
+      _reactionTableName,
+      whereColumn: 'couple_id',
+      whereValue: coupleId,
+      orderBy: 'updated_at',
+      ascending: false,
+      limit: limit,
+    );
+
+    return records.map(HeartbeatReactionModel.fromJson).toList();
+  }
+
+  Future<List<HeartbeatReactionModel>> getReactionsForHeartbeats({
+    required String coupleId,
+    required List<String> heartbeatIds,
+  }) async {
+    if (heartbeatIds.isEmpty) return [];
+
+    final formattedIds = heartbeatIds.map((id) => '"$id"').join(',');
+    final inFilter = '($formattedIds)';
+
+    final records = await SupabaseDataService.safeExecute(() async {
+      final response = await SupabaseDataService.client
+          .from(_reactionTableName)
+          .select()
+          .eq('couple_id', coupleId)
+          .filter('heartbeat_id', 'in', inFilter);
+      return List<Map<String, dynamic>>.from(response);
+    }, context: 'Fetch reactions for heartbeats');
+
+    return records?.map(HeartbeatReactionModel.fromJson).toList() ?? [];
+  }
+
   Future<void> upsertReaction({
     required String coupleId,
     required String heartbeatId,
@@ -121,6 +158,43 @@ class SupabaseHeartbeatService {
     ).map((records) {
       return records.map(HeartbeatReadModel.fromJson).toList();
     });
+  }
+
+  Future<List<HeartbeatReadModel>> getReads(
+    String coupleId, {
+    int limit = 200,
+  }) async {
+    final records = await SupabaseDataService.getRecords(
+      _readTableName,
+      whereColumn: 'couple_id',
+      whereValue: coupleId,
+      orderBy: 'read_at',
+      ascending: false,
+      limit: limit,
+    );
+
+    return records.map(HeartbeatReadModel.fromJson).toList();
+  }
+
+  Future<List<HeartbeatReadModel>> getReadsForHeartbeats({
+    required String coupleId,
+    required List<String> heartbeatIds,
+  }) async {
+    if (heartbeatIds.isEmpty) return [];
+
+    final formattedIds = heartbeatIds.map((id) => '"$id"').join(',');
+    final inFilter = '($formattedIds)';
+
+    final records = await SupabaseDataService.safeExecute(() async {
+      final response = await SupabaseDataService.client
+          .from(_readTableName)
+          .select()
+          .eq('couple_id', coupleId)
+          .filter('heartbeat_id', 'in', inFilter);
+      return List<Map<String, dynamic>>.from(response);
+    }, context: 'Fetch reads for heartbeats');
+
+    return records?.map(HeartbeatReadModel.fromJson).toList() ?? [];
   }
 
   Future<void> upsertRead({

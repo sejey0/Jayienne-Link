@@ -25,14 +25,20 @@ subprojects {
 // Force all subprojects (including plugins) to use Java 17
 subprojects {
     pluginManager.withPlugin('com.android.library') {
-        android {
-            if (hasProperty('namespace')) {
-                def current = namespace
-                if (current == null || current.toString().trim().isEmpty()) {
-                    def safeName = project.name.replace('-', '_')
-                    namespace = "com.jayienne.${safeName}"
-                }
+        def androidExt = project.extensions.findByName('android')
+        if (androidExt != null) {
+            def currentNamespace = null
+            try {
+                currentNamespace = androidExt.namespace
+            } catch (Throwable ignored) {
+                currentNamespace = null
             }
+            if (currentNamespace == null || currentNamespace.toString().trim().isEmpty()) {
+                def safeName = project.name.replace('-', '_')
+                androidExt.namespace = "com.jayienne.${safeName}"
+            }
+        }
+        android {
             compileOptions {
                 sourceCompatibility JavaVersion.VERSION_17
                 targetCompatibility JavaVersion.VERSION_17

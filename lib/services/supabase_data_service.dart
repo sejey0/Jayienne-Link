@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 
@@ -198,7 +199,16 @@ class SupabaseDataService {
         query.order(orderBy, ascending: ascending);
       }
 
-      return query.map((data) => List<Map<String, dynamic>>.from(data));
+      return query.transform(
+        StreamTransformer.fromHandlers(
+          handleData: (data, sink) {
+            sink.add(List<Map<String, dynamic>>.from(data));
+          },
+          handleError: (error, stack, sink) {
+            debugPrint('Stream error for $table: $error');
+          },
+        ),
+      );
     } catch (e) {
       debugPrint('Stream error for $table: $e');
       return Stream<List<Map<String, dynamic>>>.error(
@@ -215,11 +225,21 @@ class SupabaseDataService {
     required dynamic whereValue,
   }) {
     try {
-      return client
+      final query = client
           .from(table)
-          .stream(primaryKey: ['id'])
-          .eq(whereColumn, whereValue)
-          .map((records) => records.isNotEmpty ? records.first : null);
+          .stream(primaryKey: ['id']).eq(whereColumn, whereValue);
+
+      return query.transform(
+        StreamTransformer.fromHandlers(
+          handleData: (records, sink) {
+            final typed = List<Map<String, dynamic>>.from(records);
+            sink.add(typed.isNotEmpty ? typed.first : null);
+          },
+          handleError: (error, stack, sink) {
+            debugPrint('Single record stream error for $table: $error');
+          },
+        ),
+      );
     } catch (e) {
       debugPrint('Single record stream error for $table: $e');
       return Stream.error(_handleDatabaseError(e));

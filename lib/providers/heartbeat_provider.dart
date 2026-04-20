@@ -10,6 +10,8 @@ class HeartbeatProvider extends ChangeNotifier {
 
   final List<HeartbeatModel> _heartbeats = [];
   StreamSubscription<List<HeartbeatModel>>? _heartbeatSubscription;
+  Timer? _pollingTimer;
+  bool _isRefreshing = false;
 
   String? _userId;
   String? _coupleId;
@@ -21,6 +23,7 @@ class HeartbeatProvider extends ChangeNotifier {
 
   List<HeartbeatModel> get heartbeats => List.unmodifiable(_heartbeats);
   bool get isLoading => _isLoading;
+  bool get isRefreshing => _isRefreshing;
   bool get isSending => _isSending;
   String? get error => _error;
   bool get canSend =>
@@ -63,6 +66,44 @@ class HeartbeatProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _refreshSilently() async {
+    if (_coupleId == null || _isRefreshing) return;
+    _isRefreshing = true;
+    notifyListeners();
+
+    try {
+      final results = await _service.getHeartbeats(_coupleId!);
+      _heartbeats
+        ..clear()
+        ..addAll(results);
+      notifyListeners();
+    } catch (e) {
+      _error = 'Live refresh failed: $e';
+      notifyListeners();
+    } finally {
+      _isRefreshing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshNow() async {
+    _error = null;
+    await _refreshSilently();
+  }
+
+  void _startPolling() {
+    if (_pollingTimer != null) return;
+    _pollingTimer = Timer.periodic(
+      const Duration(seconds: 6),
+      (_) => _refreshSilently(),
+    );
+  }
+
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
   void _subscribeToStream() {
     _heartbeatSubscription?.cancel();
     if (_coupleId == null) return;
@@ -76,7 +117,10 @@ class HeartbeatProvider extends ChangeNotifier {
     }, onError: (error) {
       _error = 'Live updates unavailable: $error';
       notifyListeners();
+      _startPolling();
     });
+
+    _startPolling();
   }
 
   Future<bool> sendHeartbeat({String? message}) async {
@@ -99,6 +143,7 @@ class HeartbeatProvider extends ChangeNotifier {
         message: trimmedMessage?.isNotEmpty == true ? trimmedMessage : null,
       );
       _heartbeats.insert(0, result);
+      await _refreshSilently();
       return true;
     } catch (e) {
       _error = 'Failed to send heartbeat: $e';
@@ -113,6 +158,7 @@ class HeartbeatProvider extends ChangeNotifier {
   void clear() {
     _heartbeatSubscription?.cancel();
     _heartbeatSubscription = null;
+    _stopPolling();
     _heartbeats.clear();
     _userId = null;
     _coupleId = null;
@@ -126,6 +172,7 @@ class HeartbeatProvider extends ChangeNotifier {
   @override
   void dispose() {
     _heartbeatSubscription?.cancel();
+    _stopPolling();
     super.dispose();
   }
 }

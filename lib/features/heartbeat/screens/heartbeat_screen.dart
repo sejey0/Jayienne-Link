@@ -53,6 +53,11 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
     }
   }
 
+  Future<void> _handleRefresh(HeartbeatProvider heartbeatProvider) async {
+    if (heartbeatProvider.isRefreshing) return;
+    await heartbeatProvider.refreshNow();
+  }
+
   @override
   Widget build(BuildContext context) {
     final heartbeatProvider = context.watch<HeartbeatProvider>();
@@ -66,6 +71,24 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Heartbeat & Messages'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: heartbeatProvider.isRefreshing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.refresh),
+            onPressed: heartbeatProvider.isRefreshing
+                ? null
+                : () => _handleRefresh(heartbeatProvider),
+          ),
+        ],
       ),
       body: user == null || partner == null
           ? Padding(

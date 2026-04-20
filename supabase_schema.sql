@@ -121,6 +121,32 @@ CREATE TABLE IF NOT EXISTS heartbeat_typing (
 );
 
 -- =====================================================
+-- HEARTBEAT REACTIONS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS heartbeat_reactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    couple_id UUID NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    heartbeat_id UUID NOT NULL REFERENCES heartbeats(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reaction TEXT NOT NULL DEFAULT 'purple_heart',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (heartbeat_id, user_id)
+);
+
+-- =====================================================
+-- HEARTBEAT READS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS heartbeat_reads (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    couple_id UUID NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    heartbeat_id UUID NOT NULL REFERENCES heartbeats(id) ON DELETE CASCADE,
+    reader_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (heartbeat_id, reader_id)
+);
+
+-- =====================================================
 -- PHOTO MESSAGES TABLE
 -- =====================================================
 CREATE TABLE IF NOT EXISTS photo_messages (
@@ -201,6 +227,22 @@ CREATE INDEX IF NOT EXISTS idx_heartbeat_typing_couple_id
 CREATE INDEX IF NOT EXISTS idx_heartbeat_typing_updated_at
     ON heartbeat_typing(updated_at DESC);
 
+-- Heartbeat reactions indexes
+CREATE INDEX IF NOT EXISTS idx_heartbeat_reactions_couple_id
+    ON heartbeat_reactions(couple_id);
+CREATE INDEX IF NOT EXISTS idx_heartbeat_reactions_heartbeat_id
+    ON heartbeat_reactions(heartbeat_id);
+CREATE INDEX IF NOT EXISTS idx_heartbeat_reactions_user_id
+    ON heartbeat_reactions(user_id);
+
+-- Heartbeat reads indexes
+CREATE INDEX IF NOT EXISTS idx_heartbeat_reads_couple_id
+    ON heartbeat_reads(couple_id);
+CREATE INDEX IF NOT EXISTS idx_heartbeat_reads_heartbeat_id
+    ON heartbeat_reads(heartbeat_id);
+CREATE INDEX IF NOT EXISTS idx_heartbeat_reads_reader_id
+    ON heartbeat_reads(reader_id);
+
 -- Photo messages indexes
 CREATE INDEX IF NOT EXISTS idx_photo_messages_couple_id ON photo_messages(couple_id);
 CREATE INDEX IF NOT EXISTS idx_photo_messages_sender_id ON photo_messages(sender_id);
@@ -246,6 +288,8 @@ ALTER TABLE anniversary_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE heartbeats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE heartbeat_typing ENABLE ROW LEVEL SECURITY;
+ALTER TABLE heartbeat_reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE heartbeat_reads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photo_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mood_messages ENABLE ROW LEVEL SECURITY;
 
@@ -274,6 +318,13 @@ DROP POLICY IF EXISTS "Users can send heartbeats" ON heartbeats;
 DROP POLICY IF EXISTS "Users can read couple typing" ON heartbeat_typing;
 DROP POLICY IF EXISTS "Users can insert own typing" ON heartbeat_typing;
 DROP POLICY IF EXISTS "Users can update own typing" ON heartbeat_typing;
+DROP POLICY IF EXISTS "Users can read couple reactions" ON heartbeat_reactions;
+DROP POLICY IF EXISTS "Users can insert own reactions" ON heartbeat_reactions;
+DROP POLICY IF EXISTS "Users can update own reactions" ON heartbeat_reactions;
+DROP POLICY IF EXISTS "Users can delete own reactions" ON heartbeat_reactions;
+DROP POLICY IF EXISTS "Users can read couple reads" ON heartbeat_reads;
+DROP POLICY IF EXISTS "Users can insert own reads" ON heartbeat_reads;
+DROP POLICY IF EXISTS "Users can update own reads" ON heartbeat_reads;
 DROP POLICY IF EXISTS "Users can read couple photo messages" ON photo_messages;
 DROP POLICY IF EXISTS "Users can send photo messages" ON photo_messages;
 DROP POLICY IF EXISTS "Users can update photo messages" ON photo_messages;
@@ -402,6 +453,41 @@ CREATE POLICY "Users can insert own typing" ON heartbeat_typing
 CREATE POLICY "Users can update own typing" ON heartbeat_typing
     FOR UPDATE USING (user_id = auth.uid())
     WITH CHECK (user_id = auth.uid());
+
+-- Heartbeat reactions policies
+CREATE POLICY "Users can read couple reactions" ON heartbeat_reactions
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE couple_id = heartbeat_reactions.couple_id AND id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can insert own reactions" ON heartbeat_reactions
+    FOR INSERT WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own reactions" ON heartbeat_reactions
+    FOR UPDATE USING (user_id = auth.uid())
+    WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can delete own reactions" ON heartbeat_reactions
+    FOR DELETE USING (user_id = auth.uid());
+
+-- Heartbeat reads policies
+CREATE POLICY "Users can read couple reads" ON heartbeat_reads
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE couple_id = heartbeat_reads.couple_id AND id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can insert own reads" ON heartbeat_reads
+    FOR INSERT WITH CHECK (reader_id = auth.uid());
+
+CREATE POLICY "Users can update own reads" ON heartbeat_reads
+    FOR UPDATE USING (reader_id = auth.uid())
+    WITH CHECK (reader_id = auth.uid());
 
 -- Photo messages policies
 CREATE POLICY "Users can read couple photo messages" ON photo_messages

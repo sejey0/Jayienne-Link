@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/heartbeat_model.dart';
+import '../models/heartbeat_reaction_model.dart';
+import '../models/heartbeat_read_model.dart';
 import '../models/heartbeat_typing_model.dart';
 import '../services/supabase_heartbeat_service.dart';
 
@@ -11,14 +13,20 @@ class HeartbeatProvider extends ChangeNotifier {
 
   final List<HeartbeatModel> _heartbeats = [];
   StreamSubscription<List<HeartbeatModel>>? _heartbeatSubscription;
+  StreamSubscription<List<HeartbeatReactionModel>>? _reactionSubscription;
+  StreamSubscription<List<HeartbeatReadModel>>? _readSubscription;
   StreamSubscription<List<HeartbeatTypingModel>>? _typingSubscription;
   Timer? _pollingTimer;
   Timer? _typingStopTimer;
   Timer? _typingExpiryTimer;
+  Timer? _markReadTimer;
   bool _isRefreshing = false;
   bool _isTyping = false;
   bool _isPartnerTyping = false;
   DateTime? _lastTypingSentAt;
+
+  final Map<String, Set<String>> _reactionsByHeartbeat = {};
+  final Map<String, Set<String>> _readsByHeartbeat = {};
 
   static const Duration _typingStaleThreshold = Duration(seconds: 6);
   static const Duration _typingPingInterval = Duration(seconds: 2);
@@ -40,6 +48,24 @@ class HeartbeatProvider extends ChangeNotifier {
   bool get canSend =>
       _partnerId != null && _coupleId != null && _userId != null;
 
+  int reactionCount(String heartbeatId) {
+    return _reactionsByHeartbeat[heartbeatId]?.length ?? 0;
+  }
+
+  bool hasReaction(String heartbeatId) {
+    return reactionCount(heartbeatId) > 0;
+  }
+
+  bool hasMyReaction(String heartbeatId) {
+    if (_userId == null) return false;
+    return _reactionsByHeartbeat[heartbeatId]?.contains(_userId) ?? false;
+  }
+
+  bool isSeenByPartner(String heartbeatId) {
+    if (_partnerId == null) return false;
+    return _readsByHeartbeat[heartbeatId]?.contains(_partnerId) ?? false;
+  }
+
   Future<void> initialize({
     required String userId,
     required String coupleId,
@@ -54,6 +80,8 @@ class HeartbeatProvider extends ChangeNotifier {
 
     await _loadInitial();
     _subscribeToStream();
+    _subscribeToReactionStream();
+    _subscribeToReadStream();
     _subscribeToTypingStream();
   }
 
@@ -69,6 +97,7 @@ class HeartbeatProvider extends ChangeNotifier {
       _heartbeats
         ..clear()
         ..addAll(results);
+      _scheduleMarkReads();
     } catch (e) {
       _error = 'Failed to load heartbeats: $e';
       debugPrint(_error);
@@ -88,6 +117,7 @@ class HeartbeatProvider extends ChangeNotifier {
       _heartbeats
         ..clear()
         ..addAll(results);
+      _scheduleMarkReads();
       notifyListeners();
     } catch (e) {
       _error = 'Live refresh failed: $e';
@@ -122,10 +152,7 @@ class HeartbeatProvider extends ChangeNotifier {
 
     _heartbeatSubscription =
         _service.streamHeartbeats(_coupleId!).listen((events) {
-      _heartbeats
-        ..clear()
-        ..addAll(events);
-      notifyListeners();
+      _handleHeartbeatsUpdate(events);
     }, onError: (error) {
       _error = 'Live updates unavailable: $error';
       notifyListeners();
@@ -133,6 +160,44 @@ class HeartbeatProvider extends ChangeNotifier {
     });
 
     _startPolling();
+  }
+
+  void _handleHeartbeatsUpdate(List<HeartbeatModel> events) {
+    _heartbeats
+      ..clear()
+      ..addAll(events);
+    notifyListeners();
+    _scheduleMarkReads();
+  }
+
+  void _subscribeToReactionStream() {
+    _reactionSubscription?.cancel();
+    if (_coupleId == null) return;
+
+    _reactionSubscription =
+        _service.streamReactions(_coupleId!).listen((reactions) {
+      _reactionsByHeartbeat
+        ..clear()
+        ..addAll(_groupByHeartbeat(reactions));
+      notifyListeners();
+    }, onError: (error) {
+      debugPrint('Reaction stream error: $error');
+    });
+  }
+
+  void _subscribeToReadStream() {
+    _readSubscription?.cancel();
+    if (_coupleId == null) return;
+
+    _readSubscription = _service.streamReads(_coupleId!).listen((reads) {
+      _readsByHeartbeat
+        ..clear()
+        ..addAll(_groupReadsByHeartbeat(reads));
+      notifyListeners();
+      _scheduleMarkReads();
+    }, onError: (error) {
+      debugPrint('Read stream error: $error');
+    });
   }
 
   void _subscribeToTypingStream() {
@@ -145,6 +210,28 @@ class HeartbeatProvider extends ChangeNotifier {
     }, onError: (error) {
       _setPartnerTyping(false);
     });
+  }
+
+  Map<String, Set<String>> _groupByHeartbeat(
+    List<HeartbeatReactionModel> reactions,
+  ) {
+    final Map<String, Set<String>> grouped = {};
+    for (final reaction in reactions) {
+      grouped.putIfAbsent(reaction.heartbeatId, () => <String>{});
+      grouped[reaction.heartbeatId]!.add(reaction.userId);
+    }
+    return grouped;
+  }
+
+  Map<String, Set<String>> _groupReadsByHeartbeat(
+    List<HeartbeatReadModel> reads,
+  ) {
+    final Map<String, Set<String>> grouped = {};
+    for (final read in reads) {
+      grouped.putIfAbsent(read.heartbeatId, () => <String>{});
+      grouped[read.heartbeatId]!.add(read.readerId);
+    }
+    return grouped;
   }
 
   void handleTypingChanged(String text) {
@@ -174,6 +261,58 @@ class HeartbeatProvider extends ChangeNotifier {
   void stopTyping() {
     _typingStopTimer?.cancel();
     _setTyping(false);
+  }
+
+  Future<void> toggleReaction(String heartbeatId) async {
+    if (_coupleId == null || _userId == null) return;
+    try {
+      if (hasMyReaction(heartbeatId)) {
+        await _service.deleteReaction(
+          heartbeatId: heartbeatId,
+          userId: _userId!,
+        );
+      } else {
+        await _service.upsertReaction(
+          coupleId: _coupleId!,
+          heartbeatId: heartbeatId,
+          userId: _userId!,
+        );
+      }
+    } catch (e) {
+      debugPrint('Failed to toggle reaction: $e');
+    }
+  }
+
+  void _scheduleMarkReads() {
+    _markReadTimer?.cancel();
+    _markReadTimer = Timer(
+      const Duration(milliseconds: 300),
+      _markUnreadAsRead,
+    );
+  }
+
+  Future<void> _markUnreadAsRead() async {
+    if (_userId == null || _coupleId == null) return;
+    final unread = _heartbeats.where((heartbeat) {
+      final id = heartbeat.id;
+      return heartbeat.receiverId == _userId &&
+          id != null &&
+          !(_readsByHeartbeat[id]?.contains(_userId) ?? false);
+    }).toList();
+
+    if (unread.isEmpty) return;
+
+    try {
+      await Future.wait(unread.map((heartbeat) {
+        return _service.upsertRead(
+          coupleId: _coupleId!,
+          heartbeatId: heartbeat.id!,
+          readerId: _userId!,
+        );
+      }));
+    } catch (e) {
+      debugPrint('Failed to mark reads: $e');
+    }
   }
 
   Future<void> _setTyping(bool isTyping, {bool force = false}) async {
@@ -269,6 +408,10 @@ class HeartbeatProvider extends ChangeNotifier {
   void clear() {
     _heartbeatSubscription?.cancel();
     _heartbeatSubscription = null;
+    _reactionSubscription?.cancel();
+    _reactionSubscription = null;
+    _readSubscription?.cancel();
+    _readSubscription = null;
     _typingSubscription?.cancel();
     _typingSubscription = null;
     _stopPolling();
@@ -276,7 +419,11 @@ class HeartbeatProvider extends ChangeNotifier {
     _typingStopTimer = null;
     _typingExpiryTimer?.cancel();
     _typingExpiryTimer = null;
+    _markReadTimer?.cancel();
+    _markReadTimer = null;
     _heartbeats.clear();
+    _reactionsByHeartbeat.clear();
+    _readsByHeartbeat.clear();
     _userId = null;
     _coupleId = null;
     _partnerId = null;
@@ -292,10 +439,13 @@ class HeartbeatProvider extends ChangeNotifier {
   @override
   void dispose() {
     _heartbeatSubscription?.cancel();
+    _reactionSubscription?.cancel();
+    _readSubscription?.cancel();
     _typingSubscription?.cancel();
     _stopPolling();
     _typingStopTimer?.cancel();
     _typingExpiryTimer?.cancel();
+    _markReadTimer?.cancel();
     super.dispose();
   }
 }

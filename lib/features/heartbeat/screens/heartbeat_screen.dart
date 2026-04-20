@@ -151,6 +151,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                                     return _buildHeartbeatTile(
                                       context,
                                       heartbeat: heartbeats[index],
+                                      heartbeatProvider: heartbeatProvider,
                                       userId: user.id,
                                       userPhotoUrl: user.photoUrl,
                                       partnerPhotoUrl: partner.photoUrl,
@@ -390,6 +391,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
   Widget _buildHeartbeatTile(
     BuildContext context, {
     required HeartbeatModel heartbeat,
+    required HeartbeatProvider heartbeatProvider,
     required String? userId,
     required String? userPhotoUrl,
     required String? partnerPhotoUrl,
@@ -400,6 +402,14 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
     final message = heartbeat.message?.trim();
     final hasMessage = message != null && message.isNotEmpty;
     final heartColor = isMine ? AppColors.lavender : AppColors.softRose;
+    final heartbeatId = heartbeat.id;
+    final hasReaction =
+        heartbeatId != null && heartbeatProvider.hasReaction(heartbeatId);
+    final reactionCount =
+        heartbeatId != null ? heartbeatProvider.reactionCount(heartbeatId) : 0;
+    final hasSeen = heartbeatId != null &&
+        isMine &&
+        heartbeatProvider.isSeenByPartner(heartbeatId);
     final bubbleRadius = BorderRadius.only(
       topLeft: const Radius.circular(AppDimensions.borderRadiusMedium),
       topRight: const Radius.circular(AppDimensions.borderRadiusMedium),
@@ -410,6 +420,63 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
         isMine ? 6 : AppDimensions.borderRadiusMedium,
       ),
     );
+    final reactionColor = AppColors.lavender;
+    final reactionTextStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: reactionColor,
+          fontWeight: FontWeight.w600,
+        );
+    final seenTextStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w600,
+        );
+
+    Widget bubbleContent = hasMessage
+        ? Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimensions.spacingMd,
+              vertical: AppDimensions.spacingSm,
+            ),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: bubbleRadius,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.deepCharcoal,
+                  ),
+            ),
+          )
+        : Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: heartColor.withOpacity(0.18),
+              border: Border.all(color: heartColor, width: 1.2),
+            ),
+            child: Icon(
+              Icons.favorite,
+              color: heartColor,
+              size: 18,
+            ),
+          );
+
+    if (heartbeatId != null) {
+      bubbleContent = GestureDetector(
+        onDoubleTap: () => heartbeatProvider.toggleReaction(heartbeatId),
+        onLongPress: () => heartbeatProvider.toggleReaction(heartbeatId),
+        child: bubbleContent,
+      );
+    }
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -434,52 +501,49 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                 crossAxisAlignment:
                     isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
-                  if (hasMessage)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppDimensions.spacingMd,
-                        vertical: AppDimensions.spacingSm,
-                      ),
-                      decoration: BoxDecoration(
-                        color: backgroundColor,
-                        borderRadius: bubbleRadius,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                  bubbleContent,
+                  if (hasReaction)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: isMine
+                            ? MainAxisAlignment.end
+                            : MainAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.favorite,
+                            size: 14,
+                            color: reactionColor,
                           ),
-                        ],
-                      ),
-                      child: Text(
-                        message,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.deepCharcoal,
+                          if (reactionCount > 1) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              reactionCount.toString(),
+                              style: reactionTextStyle,
                             ),
-                      ),
-                    )
-                  else
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: heartColor.withOpacity(0.18),
-                        border: Border.all(color: heartColor, width: 1.2),
-                      ),
-                      child: Icon(
-                        Icons.favorite,
-                        color: heartColor,
-                        size: 18,
+                          ],
+                        ],
                       ),
                     ),
                   const SizedBox(height: 2),
-                  LiveTimeText(
-                    textBuilder: () => heartbeat.formattedTime,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.grey.shade700,
-                        ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: isMine
+                        ? MainAxisAlignment.end
+                        : MainAxisAlignment.start,
+                    children: [
+                      LiveTimeText(
+                        textBuilder: () => heartbeat.formattedTime,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Colors.grey.shade700,
+                            ),
+                      ),
+                      if (hasSeen) ...[
+                        const SizedBox(width: 6),
+                        Text('Seen', style: seenTextStyle),
+                      ],
+                    ],
                   ),
                 ],
               ),

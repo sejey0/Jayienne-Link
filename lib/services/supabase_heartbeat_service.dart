@@ -1,9 +1,13 @@
 import '../models/heartbeat_model.dart';
+import '../models/heartbeat_reaction_model.dart';
+import '../models/heartbeat_read_model.dart';
 import '../models/heartbeat_typing_model.dart';
 import 'supabase_data_service.dart';
 
 class SupabaseHeartbeatService {
   static const String _tableName = 'heartbeats';
+  static const String _reactionTableName = 'heartbeat_reactions';
+  static const String _readTableName = 'heartbeat_reads';
   static const String _typingTableName = 'heartbeat_typing';
 
   Future<List<HeartbeatModel>> getHeartbeats(
@@ -60,6 +64,82 @@ class SupabaseHeartbeatService {
 
     final record = await SupabaseDataService.insertRecord(_tableName, payload);
     return HeartbeatModel.fromJson(record);
+  }
+
+  Stream<List<HeartbeatReactionModel>> streamReactions(String coupleId) {
+    return SupabaseDataService.getRecordsStream(
+      _reactionTableName,
+      whereColumn: 'couple_id',
+      whereValue: coupleId,
+      orderBy: 'updated_at',
+      ascending: false,
+    ).map((records) {
+      return records.map(HeartbeatReactionModel.fromJson).toList();
+    });
+  }
+
+  Future<void> upsertReaction({
+    required String coupleId,
+    required String heartbeatId,
+    required String userId,
+  }) async {
+    final payload = {
+      'couple_id': coupleId,
+      'heartbeat_id': heartbeatId,
+      'user_id': userId,
+      'reaction': 'purple_heart',
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    await SupabaseDataService.safeExecute(() async {
+      await SupabaseDataService.client
+          .from(_reactionTableName)
+          .upsert(payload, onConflict: 'heartbeat_id,user_id');
+    }, context: 'Upsert heartbeat reaction for $heartbeatId');
+  }
+
+  Future<void> deleteReaction({
+    required String heartbeatId,
+    required String userId,
+  }) async {
+    await SupabaseDataService.safeExecute(() async {
+      await SupabaseDataService.client
+          .from(_reactionTableName)
+          .delete()
+          .eq('heartbeat_id', heartbeatId)
+          .eq('user_id', userId);
+    }, context: 'Delete heartbeat reaction for $heartbeatId');
+  }
+
+  Stream<List<HeartbeatReadModel>> streamReads(String coupleId) {
+    return SupabaseDataService.getRecordsStream(
+      _readTableName,
+      whereColumn: 'couple_id',
+      whereValue: coupleId,
+      orderBy: 'read_at',
+      ascending: false,
+    ).map((records) {
+      return records.map(HeartbeatReadModel.fromJson).toList();
+    });
+  }
+
+  Future<void> upsertRead({
+    required String coupleId,
+    required String heartbeatId,
+    required String readerId,
+  }) async {
+    final payload = {
+      'couple_id': coupleId,
+      'heartbeat_id': heartbeatId,
+      'reader_id': readerId,
+      'read_at': DateTime.now().toIso8601String(),
+    };
+
+    await SupabaseDataService.safeExecute(() async {
+      await SupabaseDataService.client
+          .from(_readTableName)
+          .upsert(payload, onConflict: 'heartbeat_id,reader_id');
+    }, context: 'Upsert heartbeat read for $heartbeatId');
   }
 
   Stream<List<HeartbeatTypingModel>> streamTypingStatuses(String coupleId) {

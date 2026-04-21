@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_dimensions.dart';
@@ -32,9 +33,11 @@ class AuthScreen extends StatelessWidget {
               const SizedBox(height: AppDimensions.spacingSm),
               Text(
                 AppStrings.appTagline,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.lavender,
-                    ),
+                style: GoogleFonts.playfairDisplay(
+                  textStyle: Theme.of(context).textTheme.bodyLarge,
+                  fontStyle: FontStyle.italic,
+                  color: AppColors.lavender,
+                ),
                 textAlign: TextAlign.center,
               ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
               const Spacer(flex: 3),

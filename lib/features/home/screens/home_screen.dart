@@ -89,8 +89,8 @@ class HomeScreen extends StatelessWidget {
                       const SizedBox(height: AppDimensions.spacingSm),
                       Text(
                         couple.anniversary != null
-                            ? 'anniversary: ${_formatAnniversary(couple.anniversary!)}'
-                            : 'anniversary: not set',
+                            ? 'Anniversary: ${_formatAnniversary(couple.anniversary!)}'
+                            : 'Anniversary: not set',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.grey,
                             ),

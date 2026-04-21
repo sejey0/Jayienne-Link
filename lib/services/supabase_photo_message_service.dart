@@ -1,8 +1,10 @@
 import '../models/photo_message_model.dart';
+import '../models/photo_message_read_model.dart';
 import 'supabase_data_service.dart';
 
 class SupabasePhotoMessageService {
   static const String _tableName = 'photo_messages';
+  static const String _readTableName = 'photo_message_reads';
 
   Future<List<PhotoMessageModel>> getPhotoMessages(
     String coupleId, {
@@ -102,5 +104,73 @@ class SupabasePhotoMessageService {
     );
 
     return deletedRecords?.isNotEmpty == true;
+  }
+
+  Stream<List<PhotoMessageReadModel>> streamReads(String coupleId) {
+    return SupabaseDataService.getRecordsStream(
+      _readTableName,
+      whereColumn: 'couple_id',
+      whereValue: coupleId,
+      orderBy: 'read_at',
+      ascending: false,
+    ).map((records) {
+      return records.map(PhotoMessageReadModel.fromJson).toList();
+    });
+  }
+
+  Future<List<PhotoMessageReadModel>> getReads(
+    String coupleId, {
+    int limit = 200,
+  }) async {
+    final records = await SupabaseDataService.getRecords(
+      _readTableName,
+      whereColumn: 'couple_id',
+      whereValue: coupleId,
+      orderBy: 'read_at',
+      ascending: false,
+      limit: limit,
+    );
+
+    return records.map(PhotoMessageReadModel.fromJson).toList();
+  }
+
+  Future<List<PhotoMessageReadModel>> getReadsForPhotoMessages({
+    required String coupleId,
+    required List<String> photoMessageIds,
+  }) async {
+    if (photoMessageIds.isEmpty) return [];
+
+    final formattedIds = photoMessageIds.map((id) => '"$id"').join(',');
+    final inFilter = '($formattedIds)';
+
+    final records = await SupabaseDataService.safeExecute(() async {
+      final response = await SupabaseDataService.client
+          .from(_readTableName)
+          .select()
+          .eq('couple_id', coupleId)
+          .filter('photo_message_id', 'in', inFilter);
+      return List<Map<String, dynamic>>.from(response);
+    }, context: 'Fetch reads for photo messages');
+
+    return records?.map(PhotoMessageReadModel.fromJson).toList() ?? [];
+  }
+
+  Future<void> upsertRead({
+    required String coupleId,
+    required String photoMessageId,
+    required String readerId,
+  }) async {
+    final payload = {
+      'couple_id': coupleId,
+      'photo_message_id': photoMessageId,
+      'reader_id': readerId,
+      'read_at': DateTime.now().toIso8601String(),
+    };
+
+    await SupabaseDataService.safeExecute(() async {
+      await SupabaseDataService.client
+          .from(_readTableName)
+          .upsert(payload, onConflict: 'photo_message_id,reader_id');
+    }, context: 'Upsert photo read for $photoMessageId');
   }
 }

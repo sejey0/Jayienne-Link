@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/photo_message_model.dart';
+import '../models/photo_message_read_model.dart';
 import '../services/supabase_photo_message_service.dart';
 import '../services/supabase_storage_service.dart';
 
@@ -13,8 +14,12 @@ class PhotoMessageProvider extends ChangeNotifier {
 
   final List<PhotoMessageModel> _messages = [];
   StreamSubscription<List<PhotoMessageModel>>? _messageSubscription;
+  StreamSubscription<List<PhotoMessageReadModel>>? _readSubscription;
   Timer? _pollingTimer;
+  Timer? _markReadTimer;
   bool _isRefreshing = false;
+
+  final Map<String, Set<String>> _readsByPhoto = {};
 
   String? _userId;
   String? _coupleId;
@@ -32,6 +37,11 @@ class PhotoMessageProvider extends ChangeNotifier {
   bool get canSend =>
       _partnerId != null && _coupleId != null && _userId != null;
 
+  bool isSeenByPartner(String photoMessageId) {
+    if (_partnerId == null) return false;
+    return _readsByPhoto[photoMessageId]?.contains(_partnerId) ?? false;
+  }
+
   Future<void> initialize({
     required String userId,
     required String coupleId,
@@ -46,6 +56,7 @@ class PhotoMessageProvider extends ChangeNotifier {
 
     await _loadInitial();
     _subscribeToStream();
+    _subscribeToReadStream();
   }
 
   Future<void> _loadInitial() async {
@@ -60,6 +71,8 @@ class PhotoMessageProvider extends ChangeNotifier {
       _messages
         ..clear()
         ..addAll(results);
+      await _loadReads();
+      _scheduleMarkReads();
     } catch (e) {
       _error = 'Failed to load photos: $e';
       debugPrint(_error);
@@ -79,6 +92,8 @@ class PhotoMessageProvider extends ChangeNotifier {
       _messages
         ..clear()
         ..addAll(results);
+      await _loadReads();
+      _scheduleMarkReads();
       notifyListeners();
     } catch (e) {
       _error = 'Live refresh failed: $e';
@@ -113,10 +128,7 @@ class PhotoMessageProvider extends ChangeNotifier {
 
     _messageSubscription =
         _service.streamPhotoMessages(_coupleId!).listen((events) {
-      _messages
-        ..clear()
-        ..addAll(events);
-      notifyListeners();
+      _handlePhotoUpdate(events);
     }, onError: (error) {
       _error = 'Live updates unavailable: $error';
       notifyListeners();
@@ -124,6 +136,92 @@ class PhotoMessageProvider extends ChangeNotifier {
     });
 
     _startPolling();
+  }
+
+  void _handlePhotoUpdate(List<PhotoMessageModel> events) {
+    _messages
+      ..clear()
+      ..addAll(events);
+    notifyListeners();
+    _scheduleMarkReads();
+  }
+
+  void _subscribeToReadStream() {
+    _readSubscription?.cancel();
+    if (_coupleId == null) return;
+
+    _readSubscription = _service.streamReads(_coupleId!).listen((reads) {
+      _readsByPhoto
+        ..clear()
+        ..addAll(_groupReadsByPhoto(reads));
+      notifyListeners();
+      _scheduleMarkReads();
+    }, onError: (error) {
+      debugPrint('Photo read stream error: $error');
+    });
+  }
+
+  Map<String, Set<String>> _groupReadsByPhoto(
+    List<PhotoMessageReadModel> reads,
+  ) {
+    final Map<String, Set<String>> grouped = {};
+    for (final read in reads) {
+      grouped.putIfAbsent(read.photoMessageId, () => <String>{});
+      grouped[read.photoMessageId]!.add(read.readerId);
+    }
+    return grouped;
+  }
+
+  Future<void> _loadReads() async {
+    if (_coupleId == null) return;
+    try {
+      final photoIds =
+          _messages.map((message) => message.id).whereType<String>().toList();
+      final reads = photoIds.isEmpty
+          ? await _service.getReads(_coupleId!)
+          : await _service.getReadsForPhotoMessages(
+              coupleId: _coupleId!,
+              photoMessageIds: photoIds,
+            );
+      _readsByPhoto
+        ..clear()
+        ..addAll(_groupReadsByPhoto(reads));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to load photo reads: $e');
+    }
+  }
+
+  void _scheduleMarkReads() {
+    _markReadTimer?.cancel();
+    _markReadTimer = Timer(
+      const Duration(milliseconds: 300),
+      _markUnreadAsRead,
+    );
+  }
+
+  Future<void> _markUnreadAsRead() async {
+    if (_userId == null || _coupleId == null) return;
+    final unread = _messages.where((message) {
+      final id = message.id;
+      return message.receiverId == _userId &&
+          id != null &&
+          !(_readsByPhoto[id]?.contains(_userId) ?? false);
+    }).toList();
+
+    if (unread.isEmpty) return;
+
+    try {
+      await Future.wait(unread.map((message) {
+        return _service.upsertRead(
+          coupleId: _coupleId!,
+          photoMessageId: message.id!,
+          readerId: _userId!,
+        );
+      }));
+    } catch (e) {
+      debugPrint('Failed to mark photo reads: $e');
+    }
   }
 
   Future<bool> sendPhotoMessage({
@@ -252,8 +350,13 @@ class PhotoMessageProvider extends ChangeNotifier {
   void clear() {
     _messageSubscription?.cancel();
     _messageSubscription = null;
+    _readSubscription?.cancel();
+    _readSubscription = null;
     _stopPolling();
+    _markReadTimer?.cancel();
+    _markReadTimer = null;
     _messages.clear();
+    _readsByPhoto.clear();
     _userId = null;
     _coupleId = null;
     _partnerId = null;
@@ -267,7 +370,9 @@ class PhotoMessageProvider extends ChangeNotifier {
   @override
   void dispose() {
     _messageSubscription?.cancel();
+    _readSubscription?.cancel();
     _stopPolling();
+    _markReadTimer?.cancel();
     super.dispose();
   }
 }

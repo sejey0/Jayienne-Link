@@ -1,11 +1,18 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/router/route_names.dart';
 import '../../../core/utils/snackbar_helper.dart';
+import '../../../models/couple_model.dart';
+import '../../../models/user_model.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/couple_provider.dart';
 import '../../../providers/theme_provider.dart';
+import '../../../providers/user_provider.dart';
 import '../../../services/supabase_storage_service.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -14,11 +21,43 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
+    final userProvider = context.watch<UserProvider>();
+    final coupleProvider = context.watch<CoupleProvider>();
+    final user = userProvider.user;
+    final couple = coupleProvider.couple;
+    final pendingAnniversary =
+        coupleProvider.outgoingAnniversaryRequests.isNotEmpty
+            ? coupleProvider.outgoingAnniversaryRequests.first
+            : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.settings)),
       body: ListView(
         children: [
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: const Text(AppStrings.profile),
+            subtitle: const Text('View or edit your profile'),
+            onTap: () => context.push(RouteNames.profile),
+          ),
+          if (user != null) ...[
+            ListTile(
+              leading: const Icon(Icons.cake_outlined),
+              title: const Text('Anniversary'),
+              subtitle: Text(
+                couple == null
+                    ? 'Link with your partner to set one'
+                    : pendingAnniversary != null
+                        ? 'Request pending for ${_formatAnniversary(pendingAnniversary.proposedDate)}'
+                        : couple.anniversary != null
+                            ? 'Current: ${_formatAnniversary(couple.anniversary!)}'
+                            : 'Not set',
+              ),
+              onTap: couple == null
+                  ? null
+                  : () => _requestAnniversary(context, user, couple),
+            ),
+          ],
           SwitchListTile(
             title: const Text(AppStrings.darkMode),
             secondary: Icon(
@@ -99,6 +138,66 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  String _formatAnniversary(DateTime date) {
+    return DateFormat('MMM d, yyyy').format(date);
+  }
+
+  Future<void> _requestAnniversary(
+    BuildContext context,
+    UserModel user,
+    CoupleModel couple,
+  ) async {
+    if (couple.id == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Couple not ready. Try again.')),
+        );
+      return;
+    }
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: couple.anniversary ?? DateTime.now(),
+      firstDate: DateTime(1990),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked == null) return;
+    if (!context.mounted) return;
+
+    final coupleProvider = context.read<CoupleProvider>();
+    final partnerId = couple.getPartnerId(user.id);
+    if (partnerId.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Partner not found.')),
+        );
+      return;
+    }
+    final success = await coupleProvider.sendAnniversaryRequest(
+      coupleId: couple.id!,
+      proposerId: user.id,
+      partnerId: partnerId,
+      proposedDate: picked,
+    );
+
+    if (!context.mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Anniversary request sent')),
+        );
+    } else if (coupleProvider.error != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(coupleProvider.error!)));
+    }
+  }
+
   void _showStorageInfo(BuildContext context) {
     showDialog(
       context: context,
@@ -114,8 +213,10 @@ class SettingsScreen extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
-              Text('• Primary: Supabase Storage - Best performance, supports images & videos'),
-              Text('• Fallback: Optimized Base64 - Always available, stored in user profile'),
+              Text(
+                  '• Primary: Supabase Storage - Best performance, supports images & videos'),
+              Text(
+                  '• Fallback: Optimized Base64 - Always available, stored in user profile'),
               SizedBox(height: 16),
               Text(
                 'Current Status:',
@@ -252,5 +353,4 @@ class SettingsScreen extends StatelessWidget {
       }
     }
   }
-
 }

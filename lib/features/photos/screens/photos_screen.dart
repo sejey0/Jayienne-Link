@@ -249,6 +249,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                                     return _buildPhotoTile(
                                       context,
                                       message: messages[index],
+                                      photoProvider: photoProvider,
                                       userId: user.id,
                                       userPhotoUrl: user.photoUrl,
                                       partnerPhotoUrl: partner.photoUrl,
@@ -594,6 +595,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
   Widget _buildPhotoTile(
     BuildContext context, {
     required PhotoMessageModel message,
+    required PhotoMessageProvider photoProvider,
     required String? userId,
     required String? userPhotoUrl,
     required String? partnerPhotoUrl,
@@ -682,7 +684,12 @@ class _PhotosScreenState extends State<PhotosScreen> {
                     ),
                   ],
                   const SizedBox(height: 2),
-                  _buildMetaRow(context, message, isMine),
+                  _buildMetaRow(
+                    context,
+                    message,
+                    isMine,
+                    photoProvider: photoProvider,
+                  ),
                 ],
               ),
             ),
@@ -703,8 +710,16 @@ class _PhotosScreenState extends State<PhotosScreen> {
   Widget _buildMetaRow(
     BuildContext context,
     PhotoMessageModel message,
-    bool isMine,
-  ) {
+    bool isMine, {
+    required PhotoMessageProvider photoProvider,
+  }) {
+    final messageId = message.id;
+    final hasSeen =
+        messageId != null && isMine && photoProvider.isSeenByPartner(messageId);
+    final seenTextStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w600,
+        );
     final timeText = Text(
       message.formattedDateTime,
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -716,6 +731,10 @@ class _PhotosScreenState extends State<PhotosScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         timeText,
+        if (hasSeen) ...[
+          const SizedBox(width: 6),
+          Text('Seen', style: seenTextStyle),
+        ],
         const SizedBox(width: 4),
         PopupMenuButton<_PhotoMessageAction>(
           icon: Icon(

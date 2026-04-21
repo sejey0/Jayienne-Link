@@ -191,6 +191,7 @@ class _MoodScreenState extends State<MoodScreen> {
                                     return _buildMoodTile(
                                       context,
                                       mood: moods[index],
+                                      moodProvider: moodProvider,
                                       userId: user.id,
                                       userPhotoUrl: user.photoUrl,
                                       partnerPhotoUrl: partner.photoUrl,
@@ -354,12 +355,16 @@ class _MoodScreenState extends State<MoodScreen> {
   Widget _buildMoodTile(
     BuildContext context, {
     required MoodMessageModel mood,
+    required MoodProvider moodProvider,
     required String? userId,
     required String? userPhotoUrl,
     required String? partnerPhotoUrl,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMine = mood.senderId == userId;
+    final moodId = mood.id;
+    final hasSeen =
+        moodId != null && isMine && moodProvider.isSeenByPartner(moodId);
     final bubbleRadius = BorderRadius.only(
       topLeft: const Radius.circular(AppDimensions.borderRadiusMedium),
       topRight: const Radius.circular(AppDimensions.borderRadiusMedium),
@@ -388,6 +393,10 @@ class _MoodScreenState extends State<MoodScreen> {
     final bubbleTextColor =
         isDark ? AppColors.darkText : AppColors.deepCharcoal;
     final metaColor = isDark ? Colors.grey.shade400 : Colors.grey.shade700;
+    final seenTextStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w600,
+        );
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -438,11 +447,20 @@ class _MoodScreenState extends State<MoodScreen> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    mood.formattedDateTime,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: metaColor,
-                        ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        mood.formattedDateTime,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: metaColor,
+                            ),
+                      ),
+                      if (hasSeen) ...[
+                        const SizedBox(width: 6),
+                        Text('Seen', style: seenTextStyle),
+                      ],
+                    ],
                   ),
                 ],
               ),

@@ -175,6 +175,30 @@ CREATE TABLE IF NOT EXISTS mood_messages (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- =====================================================
+-- MOOD MESSAGE READS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS mood_message_reads (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    couple_id UUID NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    mood_message_id UUID NOT NULL REFERENCES mood_messages(id) ON DELETE CASCADE,
+    reader_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (mood_message_id, reader_id)
+);
+
+-- =====================================================
+-- PHOTO MESSAGE READS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS photo_message_reads (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    couple_id UUID NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    photo_message_id UUID NOT NULL REFERENCES photo_messages(id) ON DELETE CASCADE,
+    reader_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (photo_message_id, reader_id)
+);
+
 ALTER TABLE mood_messages
     ADD COLUMN IF NOT EXISTS call_sign TEXT NOT NULL DEFAULT '';
 
@@ -259,6 +283,22 @@ CREATE INDEX IF NOT EXISTS idx_mood_messages_sender_id ON mood_messages(sender_i
 CREATE INDEX IF NOT EXISTS idx_mood_messages_receiver_id ON mood_messages(receiver_id);
 CREATE INDEX IF NOT EXISTS idx_mood_messages_sent_at ON mood_messages(sent_at DESC);
 
+-- Mood message reads indexes
+CREATE INDEX IF NOT EXISTS idx_mood_message_reads_couple_id
+    ON mood_message_reads(couple_id);
+CREATE INDEX IF NOT EXISTS idx_mood_message_reads_message_id
+    ON mood_message_reads(mood_message_id);
+CREATE INDEX IF NOT EXISTS idx_mood_message_reads_reader_id
+    ON mood_message_reads(reader_id);
+
+-- Photo message reads indexes
+CREATE INDEX IF NOT EXISTS idx_photo_message_reads_couple_id
+    ON photo_message_reads(couple_id);
+CREATE INDEX IF NOT EXISTS idx_photo_message_reads_message_id
+    ON photo_message_reads(photo_message_id);
+CREATE INDEX IF NOT EXISTS idx_photo_message_reads_reader_id
+    ON photo_message_reads(reader_id);
+
 -- =====================================================
 -- TRIGGERS
 -- =====================================================
@@ -296,6 +336,8 @@ ALTER TABLE heartbeat_reactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE heartbeat_reads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photo_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mood_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mood_message_reads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE photo_message_reads ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies
 DROP POLICY IF EXISTS "Users can read own profile" ON users;
@@ -335,6 +377,12 @@ DROP POLICY IF EXISTS "Users can update photo messages" ON photo_messages;
 DROP POLICY IF EXISTS "Users can delete photo messages" ON photo_messages;
 DROP POLICY IF EXISTS "Users can read couple mood messages" ON mood_messages;
 DROP POLICY IF EXISTS "Users can send mood messages" ON mood_messages;
+DROP POLICY IF EXISTS "Users can read couple mood reads" ON mood_message_reads;
+DROP POLICY IF EXISTS "Users can insert own mood reads" ON mood_message_reads;
+DROP POLICY IF EXISTS "Users can update own mood reads" ON mood_message_reads;
+DROP POLICY IF EXISTS "Users can read couple photo reads" ON photo_message_reads;
+DROP POLICY IF EXISTS "Users can insert own photo reads" ON photo_message_reads;
+DROP POLICY IF EXISTS "Users can update own photo reads" ON photo_message_reads;
 
 -- Users policies (users.id = auth.uid())
 CREATE POLICY "Users can read own profile" ON users
@@ -523,6 +571,38 @@ CREATE POLICY "Users can read couple mood messages" ON mood_messages
 
 CREATE POLICY "Users can send mood messages" ON mood_messages
     FOR INSERT WITH CHECK (sender_id = auth.uid());
+
+-- Mood message reads policies
+CREATE POLICY "Users can read couple mood reads" ON mood_message_reads
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE couple_id = mood_message_reads.couple_id AND id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can insert own mood reads" ON mood_message_reads
+    FOR INSERT WITH CHECK (reader_id = auth.uid());
+
+CREATE POLICY "Users can update own mood reads" ON mood_message_reads
+    FOR UPDATE USING (reader_id = auth.uid())
+    WITH CHECK (reader_id = auth.uid());
+
+-- Photo message reads policies
+CREATE POLICY "Users can read couple photo reads" ON photo_message_reads
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE couple_id = photo_message_reads.couple_id AND id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can insert own photo reads" ON photo_message_reads
+    FOR INSERT WITH CHECK (reader_id = auth.uid());
+
+CREATE POLICY "Users can update own photo reads" ON photo_message_reads
+    FOR UPDATE USING (reader_id = auth.uid())
+    WITH CHECK (reader_id = auth.uid());
 
 -- =====================================================
 -- HELPER FUNCTIONS

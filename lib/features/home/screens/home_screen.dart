@@ -9,7 +9,6 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
 import '../../../models/anniversary_request_model.dart';
-import '../../../models/couple_model.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/couple_provider.dart';
@@ -297,61 +296,6 @@ class HomeScreen extends StatelessWidget {
     return DateFormat('MMM d, yyyy').format(date);
   }
 
-  Future<void> _requestAnniversary(
-    BuildContext context,
-    UserModel user,
-    CoupleModel couple,
-  ) async {
-    if (couple.id == null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Couple not ready. Try again.')),
-        );
-      return;
-    }
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: couple.anniversary ?? DateTime.now(),
-      firstDate: DateTime(1990),
-      lastDate: DateTime.now(),
-    );
-
-    if (picked == null) return;
-    if (!context.mounted) return;
-
-    final coupleProvider = context.read<CoupleProvider>();
-    final partnerId = couple.getPartnerId(user.id);
-    if (partnerId.isEmpty) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Partner not found.')),
-        );
-      return;
-    }
-    final success = await coupleProvider.sendAnniversaryRequest(
-      coupleId: couple.id!,
-      proposerId: user.id,
-      partnerId: partnerId,
-      proposedDate: picked,
-    );
-
-    if (!context.mounted) return;
-
-    if (success) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Anniversary request sent')),
-        );
-    } else if (coupleProvider.error != null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(coupleProvider.error!)));
-    }
-  }
 
   Widget _buildAnniversaryRequestCard(
     BuildContext context,

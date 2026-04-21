@@ -3,7 +3,7 @@ class AppStrings {
 
   // App
   static const String appName = 'Jayienne Link';
-  static const String appTagline = 'Connect with your person';
+  static const String appTagline = '"Road to Forever"';
 
   // Auth
   static const String welcome = 'Welcome to Jayienne Link';

@@ -37,10 +37,6 @@ class HomeScreen extends StatelessWidget {
         title: const Text(AppStrings.appName),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => context.push(RouteNames.profile),
-          ),
-          IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => context.push(RouteNames.settings),
           ),
@@ -109,23 +105,6 @@ class HomeScreen extends StatelessWidget {
                                     color: Colors.grey,
                                   ),
                           textAlign: TextAlign.center,
-                        )
-                      else
-                        TextButton.icon(
-                          onPressed: () => _requestAnniversary(
-                            context,
-                            user,
-                            couple,
-                          ),
-                          icon: const Icon(Icons.cake_outlined),
-                          label: Text(
-                            couple.anniversary == null
-                                ? 'Set Anniversary'
-                                : 'Update Anniversary',
-                          ),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.softRose,
-                          ),
                         ),
                     ],
                   ),

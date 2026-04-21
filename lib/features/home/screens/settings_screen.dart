@@ -35,15 +35,17 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         children: [
           ListTile(
-            leading: const Icon(Icons.person_outline),
-            title: const Text(AppStrings.profile),
+            title: const Text('Edit Profile'),
             subtitle: const Text('View or edit your profile'),
-            onTap: () => context.push(RouteNames.profile),
+            onTap: null,
+            trailing: IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => context.push(RouteNames.profile),
+            ),
           ),
           if (user != null) ...[
             ListTile(
-              leading: const Icon(Icons.cake_outlined),
-              title: const Text('Anniversary'),
+              title: const Text('Update Anniversary'),
               subtitle: Text(
                 couple == null
                     ? 'Link with your partner to set one'
@@ -53,9 +55,16 @@ class SettingsScreen extends StatelessWidget {
                             ? 'Current: ${_formatAnniversary(couple.anniversary!)}'
                             : 'Not set',
               ),
-              onTap: couple == null
-                  ? null
-                  : () => _requestAnniversary(context, user, couple),
+              onTap: null,
+              trailing: IconButton(
+                icon: Icon(
+                  Icons.edit_outlined,
+                  color: couple == null ? Colors.grey.shade400 : null,
+                ),
+                onPressed: couple == null
+                    ? null
+                    : () => _requestAnniversary(context, user, couple),
+              ),
             ),
           ],
           SwitchListTile(

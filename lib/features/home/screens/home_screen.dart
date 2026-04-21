@@ -89,12 +89,24 @@ class HomeScreen extends StatelessWidget {
                       const SizedBox(height: AppDimensions.spacingSm),
                       Text(
                         couple.anniversary != null
-                            ? 'Anniversary: ${_formatAnniversary(couple.anniversary!)}'
-                            : 'Anniversary: not set',
+                            ? 'anniversary: ${_formatAnniversary(couple.anniversary!)}'
+                            : 'anniversary: not set',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.grey,
                             ),
                       ),
+                      if (couple.anniversary != null) ...[
+                        const SizedBox(height: AppDimensions.spacingXs),
+                        Text(
+                          _buildAnniversaryStatus(couple.daysTogether),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                       const SizedBox(height: AppDimensions.spacingSm),
                       if (pendingAnniversary != null)
                         Text(
@@ -292,10 +304,55 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  String _formatAnniversary(DateTime date) {
-    return DateFormat('MMM d, yyyy').format(date);
+  String _buildAnniversaryStatus(int daysTogether) {
+    if (daysTogether <= 0) {
+      return 'Just started!';
+    }
+
+    if (daysTogether % 365 == 0) {
+      final years = daysTogether ~/ 365;
+      return '${_formatOrdinal(years)} year anniversary';
+    }
+
+    final years = daysTogether ~/ 365;
+    final remainingDays = daysTogether % 365;
+    final months = (remainingDays / 30).floor();
+
+    if (years == 0) {
+      final monthCount = months == 0 ? 1 : months;
+      return '${_formatCount(monthCount, 'month')} and counting';
+    }
+
+    final monthCount = months == 0 ? 1 : months;
+    return '${_formatCount(years, 'year')} and ${_formatCount(monthCount, 'month')} and counting';
   }
 
+  String _formatOrdinal(int value) {
+    final absValue = value.abs();
+    final mod100 = absValue % 100;
+    if (mod100 >= 11 && mod100 <= 13) {
+      return '${value}th';
+    }
+    switch (absValue % 10) {
+      case 1:
+        return '${value}st';
+      case 2:
+        return '${value}nd';
+      case 3:
+        return '${value}rd';
+      default:
+        return '${value}th';
+    }
+  }
+
+  String _formatCount(int value, String unit) {
+    final label = value == 1 ? unit : '${unit}s';
+    return '$value $label';
+  }
+
+  String _formatAnniversary(DateTime date) {
+    return DateFormat('MMMM d, yyyy').format(date);
+  }
 
   Widget _buildAnniversaryRequestCard(
     BuildContext context,

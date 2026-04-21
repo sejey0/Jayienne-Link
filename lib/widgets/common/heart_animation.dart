@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/constants/app_colors.dart';
 
 class HeartAnimation extends StatelessWidget {
   final double size;
   final Color? color;
+  static const String _assetPath = 'assets/icon/road_to_forever, no bg.png';
 
   const HeartAnimation({
     super.key,
@@ -14,10 +14,13 @@ class HeartAnimation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Icon(
-      Icons.favorite,
-      size: size,
-      color: color ?? AppColors.softRose,
+    return Image.asset(
+      _assetPath,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      color: color,
+      colorBlendMode: color == null ? null : BlendMode.srcIn,
     )
         .animate(onPlay: (controller) => controller.repeat(reverse: true))
         .scale(

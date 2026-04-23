@@ -84,6 +84,13 @@ class PartnerLocationCard extends StatelessWidget {
   }
 
   Widget _buildNoLocationCard(BuildContext context, LocationProvider provider) {
+    final isOnline = provider.isOnline;
+    final message = !isOnline
+        ? 'Offline only'
+        : provider.hasPartner
+            ? 'Waiting for your person\'s location'
+            : 'Link with your person to see their location';
+
     return AppCard(
       child: Padding(
         padding: const EdgeInsets.all(AppDimensions.spacingLg),
@@ -96,15 +103,13 @@ class PartnerLocationCard extends StatelessWidget {
             ),
             const SizedBox(height: AppDimensions.spacingMd),
             Text(
-              provider.hasPartner
-                  ? 'Waiting for your person\'s location'
-                  : 'Link with your person to see their location',
+              message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.grey,
                   ),
               textAlign: TextAlign.center,
             ),
-            if (!provider.isOnline) ...[
+            if (!isOnline) ...[
               const SizedBox(height: AppDimensions.spacingSm),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,

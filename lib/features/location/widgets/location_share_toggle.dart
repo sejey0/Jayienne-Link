@@ -85,7 +85,10 @@ class LocationShareToggle extends StatelessWidget {
     String text;
     Color textColor;
 
-    if (!provider.hasPartner) {
+    if (!provider.isOnline) {
+      text = 'Offline only';
+      textColor = AppColors.warning;
+    } else if (!provider.hasPartner) {
       text = 'Link with your person first';
       textColor = Colors.grey;
     } else if (!provider.permissionStatus.canTrack) {
@@ -133,6 +136,17 @@ class LocationShareToggle extends StatelessWidget {
     LocationProvider provider,
     LocationPermissionStatus status,
   ) async {
+    // Offline notice
+    if (!provider.isOnline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Offline only'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
     // Check if partner is linked
     if (!provider.hasPartner) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -74,14 +74,25 @@ goto wireless_connect
 
 :wireless_guided
 echo.
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo [NOTE] Python not found, using quick manual mode.
-    goto wireless_manual
-)
-python "%~dp0adb_qr_pair.py"
+echo On your phone, tap "Pair device with pairing code"
 echo.
-goto check_device
+echo Enter the PAIRING address (e.g., 192.168.1.100:37215):
+set /p "PAIR_ADDR="
+echo Enter the PAIRING code shown on device:
+set /p "PAIR_CODE="
+echo.
+echo Pairing with device...
+"%ADB%" pair %PAIR_ADDR% %PAIR_CODE%
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Pairing failed! Check the address and code.
+    echo.
+    goto connection_menu
+)
+echo.
+echo Pairing successful!
+echo.
+goto wireless_direct
 
 :wireless_manual
 echo.

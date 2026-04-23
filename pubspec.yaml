@@ -62,7 +62,7 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "assets/icon/road_to_forever, no bg.png"
-  adaptive_icon_background: "#00000000"
+  adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/road_to_forever, no bg.png"
 
 flutter:

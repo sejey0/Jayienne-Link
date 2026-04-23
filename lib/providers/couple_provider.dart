@@ -7,12 +7,10 @@ import '../models/user_model.dart';
 import '../services/supabase_couple_service.dart';
 import '../services/supabase_user_service.dart';
 import '../services/local_cache_service.dart';
-import 'debug_provider.dart';
 
 class CoupleProvider extends ChangeNotifier {
   final SupabaseCoupleService _coupleService;
   final SupabaseUserService _userService;
-  final DebugProvider? _debugProvider;
 
   CoupleModel? _couple;
   UserModel? _partner;
@@ -35,7 +33,7 @@ class CoupleProvider extends ChangeNotifier {
   List<AnniversaryRequestModel> _outgoingAnniversaryRequests = [];
   String? _requestsUserId;
 
-  CoupleProvider(this._coupleService, this._userService, [this._debugProvider]);
+  CoupleProvider(this._coupleService, this._userService);
 
   CoupleModel? get couple => _couple;
   UserModel? get partner => _partner;
@@ -347,35 +345,23 @@ class CoupleProvider extends ChangeNotifier {
   void loadCouple(String coupleId, String currentUserId) {
     _coupleSubscription?.cancel();
 
-    // If in debug offline mode, load from cache immediately and skip stream
-    if (_debugProvider?.forceOfflineMode ?? false) {
-      LocalCacheService.loadCouple().then((cachedCouple) {
-        if (cachedCouple != null && cachedCouple.id == coupleId) {
-          _couple = cachedCouple;
-          notifyListeners();
-          LocalCacheService.loadPartner().then((cachedPartner) {
-            if (cachedPartner != null) {
-              _partner = cachedPartner;
-              notifyListeners();
-            }
-          });
-        }
-      });
-      return;
-    }
-
+    // Always load from cache first (works offline)
     LocalCacheService.loadCouple().then((cachedCouple) {
       if (cachedCouple != null && cachedCouple.id == coupleId) {
         _couple = cachedCouple;
         notifyListeners();
+
+        // Also load cached partner
         LocalCacheService.loadPartner().then((cachedPartner) {
-          if (cachedPartner != null) {
+          if (cachedPartner != null && _partner == null) {
             _partner = cachedPartner;
             notifyListeners();
           }
         });
       }
     });
+
+    // Then try to sync with server (if online)
     _coupleSubscription =
         _coupleService.coupleStream(coupleId).listen((couple) async {
       if (couple == null) {
@@ -389,7 +375,7 @@ class CoupleProvider extends ChangeNotifier {
       _couple = couple;
       await LocalCacheService.saveCouple(couple);
 
-      // Also load partner data
+      // Also load partner data from server
       final partnerId = couple.getPartnerId(currentUserId);
       if (partnerId.isNotEmpty) {
         try {
@@ -400,8 +386,9 @@ class CoupleProvider extends ChangeNotifier {
           debugPrint('✅ Partner loaded: ${_partner?.displayName}');
           debugPrint('   Partner photoUrl: ${_partner?.photoUrl ?? "null"}');
         } catch (e) {
+          // Fall back to cached partner if fetch fails
           final cachedPartner = await LocalCacheService.loadPartner();
-          if (cachedPartner != null) {
+          if (cachedPartner != null && _partner == null) {
             _partner = cachedPartner;
           }
           debugPrint('⚠️ Partner load failed, using cached data: $e');
@@ -410,11 +397,18 @@ class CoupleProvider extends ChangeNotifier {
 
       notifyListeners();
     }, onError: (error) {
-      // When stream errors (e.g., offline), try to load from cache
-      debugPrint('⚠️ Couple stream error: $error');
+      // When stream errors (e.g., offline), ensure cached data is loaded
+      debugPrint('⚠️ Couple stream error (offline?): $error');
+
+      // Make sure cache is loaded even on stream error
       LocalCacheService.loadCouple().then((cachedCouple) {
-        if (cachedCouple != null && _couple == null) {
-          _couple = cachedCouple;
+        if (cachedCouple != null) {
+          if (_couple == null) {
+            _couple = cachedCouple;
+            notifyListeners();
+          }
+
+          // Ensure partner is also cached
           LocalCacheService.loadPartner().then((cachedPartner) {
             if (cachedPartner != null && _partner == null) {
               _partner = cachedPartner;

@@ -7,6 +7,7 @@ import 'providers/auth_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/couple_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/debug_provider.dart';
 import 'providers/location_provider.dart';
 import 'providers/heartbeat_provider.dart';
 import 'providers/mood_provider.dart';
@@ -51,6 +52,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => DebugProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
         ChangeNotifierProxyProvider<AuthProvider, UserProvider>(
           create: (_) =>
@@ -91,10 +93,10 @@ void main() async {
             return safeCoupleProv;
           },
         ),
-        ChangeNotifierProxyProvider2<UserProvider, CoupleProvider,
-            LocationProvider>(
-          create: (_) => LocationProvider(userService),
-          update: (_, userProv, coupleProv, locationProv) {
+        ChangeNotifierProxyProvider3<UserProvider, CoupleProvider,
+            DebugProvider, LocationProvider>(
+          create: (_) => LocationProvider(userService, DebugProvider()),
+          update: (_, userProv, coupleProv, debugProv, locationProv) {
             final user = userProv.user;
             final couple = coupleProv.couple;
             if (user != null) {

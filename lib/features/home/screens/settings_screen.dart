@@ -11,6 +11,7 @@ import '../../../models/couple_model.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/couple_provider.dart';
+import '../../../providers/debug_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_storage_service.dart';
@@ -94,6 +95,33 @@ class SettingsScreen extends StatelessWidget {
                   horizontal: AppDimensions.spacingLg),
               child: Column(
                 children: [
+                  // Offline Mode Test Toggle
+                  Consumer<DebugProvider>(
+                    builder: (context, debugProvider, _) => SwitchListTile(
+                      title: const Text('Simulate Offline Mode'),
+                      subtitle: Text(
+                        debugProvider.forceOfflineMode
+                            ? 'Offline mode ON - Test offline features'
+                            : 'Online mode - Normal operation',
+                      ),
+                      value: debugProvider.forceOfflineMode,
+                      onChanged: (_) {
+                        debugProvider.toggleOfflineMode();
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                debugProvider.forceOfflineMode
+                                    ? 'Offline mode enabled - WiFi will not be used'
+                                    : 'Offline mode disabled - Normal operation',
+                              ),
+                            ),
+                          );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.spacingSm),
                   ElevatedButton(
                     onPressed: () => _testSupabaseStorage(context),
                     child: const Text('Test Supabase Storage'),

@@ -7,10 +7,12 @@ import '../models/user_model.dart';
 import '../services/supabase_couple_service.dart';
 import '../services/supabase_user_service.dart';
 import '../services/local_cache_service.dart';
+import 'debug_provider.dart';
 
 class CoupleProvider extends ChangeNotifier {
   final SupabaseCoupleService _coupleService;
   final SupabaseUserService _userService;
+  final DebugProvider? _debugProvider;
 
   CoupleModel? _couple;
   UserModel? _partner;
@@ -33,7 +35,7 @@ class CoupleProvider extends ChangeNotifier {
   List<AnniversaryRequestModel> _outgoingAnniversaryRequests = [];
   String? _requestsUserId;
 
-  CoupleProvider(this._coupleService, this._userService);
+  CoupleProvider(this._coupleService, this._userService, [this._debugProvider]);
 
   CoupleModel? get couple => _couple;
   UserModel? get partner => _partner;
@@ -344,6 +346,24 @@ class CoupleProvider extends ChangeNotifier {
 
   void loadCouple(String coupleId, String currentUserId) {
     _coupleSubscription?.cancel();
+
+    // If in debug offline mode, load from cache immediately and skip stream
+    if (_debugProvider?.forceOfflineMode ?? false) {
+      LocalCacheService.loadCouple().then((cachedCouple) {
+        if (cachedCouple != null && cachedCouple.id == coupleId) {
+          _couple = cachedCouple;
+          notifyListeners();
+          LocalCacheService.loadPartner().then((cachedPartner) {
+            if (cachedPartner != null) {
+              _partner = cachedPartner;
+              notifyListeners();
+            }
+          });
+        }
+      });
+      return;
+    }
+
     LocalCacheService.loadCouple().then((cachedCouple) {
       if (cachedCouple != null && cachedCouple.id == coupleId) {
         _couple = cachedCouple;
@@ -389,6 +409,20 @@ class CoupleProvider extends ChangeNotifier {
       }
 
       notifyListeners();
+    }, onError: (error) {
+      // When stream errors (e.g., offline), try to load from cache
+      debugPrint('⚠️ Couple stream error: $error');
+      LocalCacheService.loadCouple().then((cachedCouple) {
+        if (cachedCouple != null && _couple == null) {
+          _couple = cachedCouple;
+          LocalCacheService.loadPartner().then((cachedPartner) {
+            if (cachedPartner != null && _partner == null) {
+              _partner = cachedPartner;
+              notifyListeners();
+            }
+          });
+        }
+      });
     });
   }
 

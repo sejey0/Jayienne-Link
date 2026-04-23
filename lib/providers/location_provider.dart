@@ -10,6 +10,7 @@ import '../services/background_location_service.dart';
 import '../services/foreground_notification_service.dart';
 import '../services/supabase_user_service.dart';
 import '../services/local_cache_service.dart';
+import 'debug_provider.dart';
 
 /// Provider for managing location state across the app.
 /// Handles offline-first location sharing with partner.
@@ -24,8 +25,9 @@ class LocationProvider extends ChangeNotifier {
   final ForegroundNotificationService _notificationService =
       ForegroundNotificationService.instance;
   final SupabaseUserService _userService;
+  final DebugProvider? _debugProvider;
 
-  LocationProvider(this._userService);
+  LocationProvider(this._userService, [this._debugProvider]);
 
   // User info (set by initialize)
   String? _userId;
@@ -68,7 +70,8 @@ class LocationProvider extends ChangeNotifier {
   List<LocationModel> get partnerLocationHistory => _partnerLocationHistory;
   LocationSharingSettings get settings => _settings;
   LocationPermissionStatus get permissionStatus => _permissionStatus;
-  bool get isOnline => _isOnline;
+  bool get isOnline =>
+      _isOnline && !(_debugProvider?.forceOfflineMode ?? false);
   SyncStatus get syncStatus => _syncStatus;
   int get pendingSyncCount => _pendingSyncCount;
   bool get isLoading => _isLoading;

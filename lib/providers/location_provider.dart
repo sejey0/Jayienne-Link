@@ -57,6 +57,10 @@ class LocationProvider extends ChangeNotifier {
   StreamSubscription? _syncStatusSubscription;
   StreamSubscription<LocationModel>? _partnerLocationSubscription;
 
+  // Foreground capture timer (while location screen is open)
+  Timer? _foregroundCaptureTimer;
+  static const Duration _foregroundCaptureInterval = Duration(minutes: 1);
+
   // Getters
   LocationModel? get currentLocation => _currentLocation;
   LocationModel? get partnerLocation => _partnerLocation;
@@ -71,7 +75,7 @@ class LocationProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isSharingEnabled => _settings.sharingEnabled;
   bool get isBackgroundSharingEnabled => _settings.backgroundSharingEnabled;
-  bool get hasPartner => _partnerId != null;
+  bool get hasPartner => _coupleId != null && _coupleId!.isNotEmpty;
   bool get canShare => _permissionStatus.canTrack && hasPartner;
   UserModel? get currentUser => _currentUser;
   UserModel? get partnerUser => _partnerUser;
@@ -101,8 +105,8 @@ class LocationProvider extends ChangeNotifier {
       await _notificationService.initialize();
 
       // Store credentials for auto-sync when online
-      if (coupleId != null) {
-        _syncService.setCredentials(userId, coupleId);
+      if (_coupleId != null && _coupleId!.isNotEmpty) {
+        _syncService.setCredentials(userId, _coupleId!);
       }
 
       // Load settings
@@ -115,20 +119,38 @@ class LocationProvider extends ChangeNotifier {
       // Load last known locations
       _currentLocation = await _storageService.getLastKnownLocation(userId);
 
-      if (partnerId != null) {
+      if (_partnerId != null) {
         _partnerLocation =
-            await _storageService.getPartnerLastLocation(partnerId);
+            await _storageService.getPartnerLastLocation(_partnerId!);
       }
 
       final cachedUser = await LocalCacheService.loadUser();
       if (cachedUser != null && cachedUser.id == userId) {
         _currentUser = cachedUser;
+        if ((_coupleId == null || _coupleId!.isEmpty) &&
+            cachedUser.coupleId != null &&
+            cachedUser.coupleId!.isNotEmpty) {
+          _coupleId = cachedUser.coupleId;
+          _syncService.setCredentials(userId, _coupleId!);
+        }
       }
-      if (partnerId != null) {
-        final cachedPartner = await LocalCacheService.loadPartner();
-        if (cachedPartner != null && cachedPartner.id == partnerId) {
+
+      UserModel? cachedPartner;
+      if (_partnerId != null || _coupleId != null) {
+        cachedPartner = await LocalCacheService.loadPartner();
+      }
+      if (cachedPartner != null) {
+        if (_partnerId == null && _coupleId != null) {
+          _partnerId = cachedPartner.id;
+          _partnerUser = cachedPartner;
+        } else if (_partnerId != null && cachedPartner.id == _partnerId) {
           _partnerUser = cachedPartner;
         }
+      }
+
+      if (_partnerId != null && _partnerLocation == null) {
+        _partnerLocation =
+            await _storageService.getPartnerLastLocation(_partnerId!);
       }
 
       // Load user data for profile images
@@ -140,9 +162,9 @@ class LocationProvider extends ChangeNotifier {
       } catch (e) {
         debugPrint('Offline user fetch failed, using cache: $e');
       }
-      if (partnerId != null) {
+      if (_partnerId != null) {
         try {
-          _partnerUser = await _userService.getUser(partnerId);
+          _partnerUser = await _userService.getUser(_partnerId!);
           if (_partnerUser != null) {
             await LocalCacheService.savePartner(_partnerUser!);
           }
@@ -160,12 +182,12 @@ class LocationProvider extends ChangeNotifier {
       _subscribeToStreams();
 
       // Start partner location listening if coupled
-      if (coupleId != null && partnerId != null) {
+      if (_coupleId != null && _partnerId != null) {
         _startPartnerLocationListening();
       }
 
       // Auto-sync if online and has pending
-      if (_syncService.isOnline && _pendingSyncCount > 0 && coupleId != null) {
+      if (_syncService.isOnline && _pendingSyncCount > 0 && _coupleId != null) {
         syncLocations();
       }
     } catch (e) {
@@ -233,6 +255,33 @@ class LocationProvider extends ChangeNotifier {
   // =====================
   // LOCATION CAPTURE
   // =====================
+
+  /// Start lightweight foreground recording (works offline)
+  Future<void> startForegroundRecording() async {
+    if (_userId == null) return;
+    if (!_permissionStatus.canTrack) return;
+
+    // Capture once immediately for fresh data
+    await _locationService.captureLocationSmart(_userId!);
+
+    _foregroundCaptureTimer?.cancel();
+    _foregroundCaptureTimer = Timer.periodic(
+      _foregroundCaptureInterval,
+      (_) async {
+        if (_userId == null) return;
+        if (!_permissionStatus.canTrack) return;
+        if (_locationService.isTracking) return;
+
+        await _locationService.captureLocationSmart(_userId!);
+      },
+    );
+  }
+
+  /// Stop foreground recording
+  Future<void> stopForegroundRecording() async {
+    _foregroundCaptureTimer?.cancel();
+    _foregroundCaptureTimer = null;
+  }
 
   /// Capture current location (manual trigger)
   Future<bool> captureLocation() async {
@@ -578,6 +627,7 @@ class LocationProvider extends ChangeNotifier {
     _syncStatusSubscription?.cancel();
     _partnerLocationSubscription?.cancel();
     _syncService.stopListeningToPartner();
+    _foregroundCaptureTimer?.cancel();
     // Note: Don't stop background tracking on dispose - keep running in background
     super.dispose();
   }

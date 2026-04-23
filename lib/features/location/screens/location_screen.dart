@@ -33,7 +33,14 @@ class _LocationScreenState extends State<LocationScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshLocations();
+      context.read<LocationProvider>().startForegroundRecording();
     });
+  }
+
+  @override
+  void dispose() {
+    context.read<LocationProvider>().stopForegroundRecording();
+    super.dispose();
   }
 
   Future<void> _refreshLocations() async {

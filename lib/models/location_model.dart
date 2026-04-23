@@ -71,7 +71,10 @@ class LocationModel {
   }
 
   /// Create from Supabase JSON response
-  factory LocationModel.fromJson(Map<String, dynamic> json) {
+  factory LocationModel.fromJson(
+    Map<String, dynamic> json, {
+    LocationSource source = LocationSource.partner,
+  }) {
     return LocationModel(
       id: json['id'] as String?,
       coupleId: json['couple_id'] as String,
@@ -87,7 +90,7 @@ class LocationModel {
           ? DateTime.parse(json['created_at'] as String)
           : null,
       isSynced: true, // Data from Supabase is always synced
-      source: LocationSource.partner, // Assume partner data from server
+      source: source,
     );
   }
 

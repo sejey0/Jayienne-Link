@@ -262,6 +262,52 @@ class SupabaseLocationSyncService {
   }
 
   // =====================
+  // USER LOCATIONS
+  // =====================
+
+  /// Fetch user's recent locations from Supabase
+  Future<List<LocationModel>> fetchUserLocations(
+    String coupleId,
+    String userId, {
+    int limit = 100,
+    DateTime? since,
+  }) async {
+    if (!_isOnline) {
+      return await _storage.getLocationHistory(userId, limit: limit);
+    }
+
+    try {
+      final dynamic query = _supabase
+          .from(_locationsTable)
+          .select()
+          .eq('couple_id', coupleId)
+          .eq('owner_id', userId)
+          .order('timestamp', ascending: false);
+
+      if (since != null) {
+        query.gte('timestamp', since.toIso8601String());
+      }
+
+      final response = await query.limit(limit);
+      final locations = (response as List)
+          .map((data) => LocationModel.fromJson(
+                data as Map<String, dynamic>,
+                source: LocationSource.local,
+              ))
+          .toList();
+
+      // Cache locally for offline access
+      await _storage.storeRemoteLocations(locations);
+
+      debugPrint('✅ Fetched ${locations.length} user locations from Supabase');
+      return locations;
+    } catch (e) {
+      debugPrint('❌ Error fetching user locations: $e');
+      return await _storage.getLocationHistory(userId, limit: limit);
+    }
+  }
+
+  // =====================
   // PARTNER LOCATIONS
   // =====================
 
@@ -292,7 +338,10 @@ class SupabaseLocationSyncService {
             try {
               final locationData = payload.newRecord;
               if (locationData['couple_id'] == coupleId) {
-                final location = LocationModel.fromJson(locationData);
+                final location = LocationModel.fromJson(
+                  locationData,
+                  source: LocationSource.partner,
+                );
                 _partnerLocationController?.add(location);
 
                 // Cache locally for offline access
@@ -344,7 +393,10 @@ class SupabaseLocationSyncService {
 
       final response = await query.limit(limit);
       final locations = (response as List)
-          .map((data) => LocationModel.fromJson(data as Map<String, dynamic>))
+          .map((data) => LocationModel.fromJson(
+                data as Map<String, dynamic>,
+                source: LocationSource.partner,
+              ))
           .toList();
 
       // Cache locally for offline access
@@ -386,7 +438,10 @@ class SupabaseLocationSyncService {
         return cached;
       }
 
-      final latest = LocationModel.fromJson(response.first);
+      final latest = LocationModel.fromJson(
+        response.first,
+        source: LocationSource.partner,
+      );
 
       // Update cache
       await _storage.storePartnerLocations([latest]);

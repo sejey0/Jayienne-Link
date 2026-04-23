@@ -8,7 +8,8 @@ import '../models/location_model.dart';
 /// Provides offline-first storage with sync status tracking.
 class OfflineStorageService {
   static const String _databaseName = 'jayienne_link_locations.db';
-  static const int _databaseVersion = 3; // Added locations schema parity columns
+  static const int _databaseVersion =
+      3; // Added locations schema parity columns
   static const String _locationsTable = 'locations';
   static const String _settingsTable = 'location_settings';
 
@@ -300,11 +301,16 @@ class OfflineStorageService {
     );
   }
 
-  /// Store partner's locations received from Supabase
-  Future<void> storePartnerLocations(List<LocationModel> locations) async {
+  /// Store locations received from Supabase (avoids duplicates)
+  Future<void> storeRemoteLocations(List<LocationModel> locations) async {
+    if (locations.isEmpty) return;
+
     final db = await database;
     final batch = db.batch();
     for (final location in locations) {
+      if (location.id == null) {
+        continue;
+      }
       // Check if we already have this location by Supabase ID
       final existing = await db.query(
         _locationsTable,
@@ -322,6 +328,11 @@ class OfflineStorageService {
       }
     }
     await batch.commit(noResult: true);
+  }
+
+  /// Store partner's locations received from Supabase
+  Future<void> storePartnerLocations(List<LocationModel> locations) async {
+    await storeRemoteLocations(locations);
   }
 
   /// Clean up old locations (retention policy: 7 days)

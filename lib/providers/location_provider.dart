@@ -380,16 +380,32 @@ class LocationProvider extends ChangeNotifier {
   // =====================
 
   /// Load location history
-  Future<void> loadLocationHistory({int limit = 100}) async {
+  Future<void> loadLocationHistory(
+      {int limit = 100, bool forceRefresh = false}) async {
     if (_userId == null) return;
 
     _setLoading(true);
 
     try {
-      _locationHistory = await _storageService.getLocationHistory(
+      var localHistory = await _storageService.getLocationHistory(
         _userId!,
         limit: limit,
       );
+
+      final canFetchRemote = _coupleId != null && _syncService.isOnline;
+      if (canFetchRemote && (forceRefresh || localHistory.isEmpty)) {
+        await _syncService.fetchUserLocations(
+          _coupleId!,
+          _userId!,
+          limit: limit,
+        );
+        localHistory = await _storageService.getLocationHistory(
+          _userId!,
+          limit: limit,
+        );
+      }
+
+      _locationHistory = localHistory;
     } catch (e) {
       debugPrint('Error loading history: $e');
     } finally {

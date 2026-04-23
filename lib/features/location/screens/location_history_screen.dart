@@ -48,9 +48,9 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     super.dispose();
   }
 
-  Future<void> _loadHistory() async {
+  Future<void> _loadHistory({bool forceRefresh = false}) async {
     final provider = context.read<LocationProvider>();
-    await provider.loadLocationHistory();
+    await provider.loadLocationHistory(forceRefresh: forceRefresh);
     await provider.loadPartnerLocationHistory();
   }
 
@@ -137,7 +137,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     final grouped = _groupByDate(filteredLocations);
 
     return RefreshIndicator(
-      onRefresh: _loadHistory,
+      onRefresh: () => _loadHistory(forceRefresh: true),
       child: ListView.builder(
         padding: const EdgeInsets.all(AppDimensions.spacingMd),
         itemCount: grouped.length,

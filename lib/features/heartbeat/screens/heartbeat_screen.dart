@@ -128,6 +128,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
     final coupleProvider = context.watch<CoupleProvider>();
 
     final user = userProvider.user;
+    final couple = coupleProvider.couple;
     final partner = coupleProvider.partner;
     final heartbeats = heartbeatProvider.heartbeats;
 
@@ -160,7 +161,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
           ),
         ],
       ),
-      body: user == null || partner == null
+      body: user == null || couple == null
           ? Padding(
               padding: const EdgeInsets.all(AppDimensions.spacingLg),
               child: _buildNotLinkedState(context),
@@ -211,9 +212,9 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                                       heartbeatProvider: heartbeatProvider,
                                       userId: user.id,
                                       userPhotoUrl: user.photoUrl,
-                                      partnerPhotoUrl: partner.photoUrl,
+                                      partnerPhotoUrl: partner?.photoUrl,
                                       userBubbleTheme: user.bubbleTheme,
-                                      partnerBubbleTheme: partner.bubbleTheme,
+                                      partnerBubbleTheme: partner?.bubbleTheme,
                                     );
                                   },
                                 ),
@@ -234,7 +235,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
                           ),
                           child: _buildTypingRow(
                             context,
-                            partnerPhotoUrl: partner.photoUrl,
+                            partnerPhotoUrl: partner?.photoUrl,
                           ),
                         )
                       : const SizedBox.shrink(),

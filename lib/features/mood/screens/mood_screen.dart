@@ -122,6 +122,7 @@ class _MoodScreenState extends State<MoodScreen> {
     final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     final user = userProvider.user;
+    final couple = coupleProvider.couple;
     final partner = coupleProvider.partner;
     final moods = moodProvider.moods;
 
@@ -158,7 +159,7 @@ class _MoodScreenState extends State<MoodScreen> {
           ),
         ],
       ),
-      body: user == null || partner == null
+      body: user == null || couple == null
           ? Padding(
               padding: const EdgeInsets.all(AppDimensions.spacingLg),
               child: _buildNotLinkedState(context),
@@ -194,7 +195,7 @@ class _MoodScreenState extends State<MoodScreen> {
                                       moodProvider: moodProvider,
                                       userId: user.id,
                                       userPhotoUrl: user.photoUrl,
-                                      partnerPhotoUrl: partner.photoUrl,
+                                      partnerPhotoUrl: partner?.photoUrl,
                                     );
                                   },
                                 ),

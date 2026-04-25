@@ -175,6 +175,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
     final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     final user = userProvider.user;
+    final couple = coupleProvider.couple;
     final partner = coupleProvider.partner;
     final messages = photoProvider.messages;
 
@@ -200,7 +201,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
           ),
         ],
       ),
-      body: user == null || partner == null
+      body: user == null || couple == null
           ? Padding(
               padding: const EdgeInsets.all(AppDimensions.spacingLg),
               child: _buildNotLinkedState(context),
@@ -252,7 +253,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                                       photoProvider: photoProvider,
                                       userId: user.id,
                                       userPhotoUrl: user.photoUrl,
-                                      partnerPhotoUrl: partner.photoUrl,
+                                      partnerPhotoUrl: partner?.photoUrl,
                                     );
                                   },
                                 ),

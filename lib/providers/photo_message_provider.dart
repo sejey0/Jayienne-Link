@@ -55,8 +55,6 @@ class PhotoMessageProvider extends ChangeNotifier {
     if (!needsRefresh) return;
 
     await _loadInitial();
-    _subscribeToStream();
-    _subscribeToReadStream();
   }
 
   Future<void> _loadInitial() async {
@@ -109,56 +107,9 @@ class PhotoMessageProvider extends ChangeNotifier {
     await _refreshSilently();
   }
 
-  void _startPolling() {
-    if (_pollingTimer != null) return;
-    _pollingTimer = Timer.periodic(
-      const Duration(seconds: 6),
-      (_) => _refreshSilently(),
-    );
-  }
-
   void _stopPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
-  }
-
-  void _subscribeToStream() {
-    _messageSubscription?.cancel();
-    if (_coupleId == null) return;
-
-    _messageSubscription =
-        _service.streamPhotoMessages(_coupleId!).listen((events) {
-      _handlePhotoUpdate(events);
-    }, onError: (error) {
-      _error = 'Live updates unavailable: $error';
-      notifyListeners();
-      _startPolling();
-    });
-
-    _startPolling();
-  }
-
-  void _handlePhotoUpdate(List<PhotoMessageModel> events) {
-    _messages
-      ..clear()
-      ..addAll(events);
-    notifyListeners();
-    _scheduleMarkReads();
-  }
-
-  void _subscribeToReadStream() {
-    _readSubscription?.cancel();
-    if (_coupleId == null) return;
-
-    _readSubscription = _service.streamReads(_coupleId!).listen((reads) {
-      _readsByPhoto
-        ..clear()
-        ..addAll(_groupReadsByPhoto(reads));
-      notifyListeners();
-      _scheduleMarkReads();
-    }, onError: (error) {
-      debugPrint('Photo read stream error: $error');
-    });
   }
 
   Map<String, Set<String>> _groupReadsByPhoto(

@@ -181,7 +181,13 @@ class _PhotosScreenState extends State<PhotosScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Photo Messages'),
+        title: const SizedBox(
+          width: 150,
+          child: Text(
+            'Photo Messages',
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -483,6 +489,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                   IconButton(
@@ -617,12 +625,10 @@ class _PhotosScreenState extends State<PhotosScreen> {
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.72,
-        ),
+      child: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.5,
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             if (!isMine) ...[
@@ -639,6 +645,9 @@ class _PhotosScreenState extends State<PhotosScreen> {
                     isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   Container(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: bubbleRadius,
@@ -677,6 +686,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
                       ),
                       child: Text(
                         caption,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: AppColors.deepCharcoal,
@@ -723,6 +734,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
         );
     final timeText = Text(
       message.formattedDateTime,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
             color: Colors.grey.shade700,
           ),
@@ -730,52 +743,72 @@ class _PhotosScreenState extends State<PhotosScreen> {
 
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        timeText,
-        if (hasSeen) ...[
-          const SizedBox(width: 6),
-          Text('Seen', style: seenTextStyle),
-        ],
-        const SizedBox(width: 4),
-        PopupMenuButton<_PhotoMessageAction>(
-          icon: Icon(
-            Icons.more_horiz,
-            size: 18,
-            color: Colors.grey.shade600,
-          ),
-          onSelected: (action) {
-            if (action == _PhotoMessageAction.download) {
-              _downloadToGallery(context, message);
-            } else if (action == _PhotoMessageAction.edit) {
-              _showEditCaptionDialog(context, message);
-            } else if (action == _PhotoMessageAction.delete) {
-              _confirmDelete(context, message);
-            }
-          },
-          itemBuilder: (context) {
-            return [
-              const PopupMenuItem(
-                value: _PhotoMessageAction.download,
-                child: Row(
-                  children: [
-                    Icon(Icons.download, size: 18),
-                    SizedBox(width: 8),
-                    Text('Download'),
-                  ],
-                ),
+        Flexible(
+          child: Row(
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              Flexible(
+                child: timeText,
               ),
-              if (isMine)
-                const PopupMenuItem(
-                  value: _PhotoMessageAction.edit,
-                  child: Text('Edit caption'),
+              if (hasSeen) ...[
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text('Seen',
+                      style: seenTextStyle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
                 ),
-              if (isMine)
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 4),
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: PopupMenuButton<_PhotoMessageAction>(
+            padding: EdgeInsets.zero,
+            icon: Icon(
+              Icons.more_horiz,
+              size: 18,
+              color: Colors.grey.shade600,
+            ),
+            onSelected: (action) {
+              if (action == _PhotoMessageAction.download) {
+                _downloadToGallery(context, message);
+              } else if (action == _PhotoMessageAction.edit) {
+                _showEditCaptionDialog(context, message);
+              } else if (action == _PhotoMessageAction.delete) {
+                _confirmDelete(context, message);
+              }
+            },
+            itemBuilder: (context) {
+              return [
                 const PopupMenuItem(
-                  value: _PhotoMessageAction.delete,
-                  child: Text('Delete'),
+                  value: _PhotoMessageAction.download,
+                  child: Row(
+                    children: [
+                      Icon(Icons.download, size: 18),
+                      SizedBox(width: 8),
+                      Text('Download'),
+                    ],
+                  ),
                 ),
-            ];
-          },
+                if (isMine)
+                  const PopupMenuItem(
+                    value: _PhotoMessageAction.edit,
+                    child: Text('Edit caption'),
+                  ),
+                if (isMine)
+                  const PopupMenuItem(
+                    value: _PhotoMessageAction.delete,
+                    child: Text('Delete'),
+                  ),
+              ];
+            },
+          ),
         ),
       ],
     );
@@ -850,7 +883,6 @@ class _PhotosScreenState extends State<PhotosScreen> {
         return Image.memory(
           bytes,
           height: 200,
-          width: double.infinity,
           fit: BoxFit.cover,
         );
       } catch (_) {
@@ -861,7 +893,6 @@ class _PhotosScreenState extends State<PhotosScreen> {
     return CachedNetworkImage(
       imageUrl: imageUrl,
       height: 200,
-      width: double.infinity,
       fit: BoxFit.cover,
       placeholder: (_, __) => _buildImageFallback(isLoading: true),
       errorWidget: (_, __, ___) => _buildImageFallback(),

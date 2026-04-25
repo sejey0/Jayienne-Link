@@ -62,6 +62,24 @@ class SupabaseMoodService {
     return MoodMessageModel.fromJson(record);
   }
 
+  Future<void> updateMoodMessage({
+    required String moodMessageId,
+    required String coupleId,
+    required String mood,
+    required String callSign,
+  }) async {
+    await SupabaseDataService.safeExecute(() async {
+      await SupabaseDataService.client
+          .from(_tableName)
+          .update({
+            'mood': mood,
+            'call_sign': callSign,
+          })
+          .eq('id', moodMessageId)
+          .eq('couple_id', coupleId);
+    }, context: 'Update mood message $moodMessageId');
+  }
+
   Stream<List<MoodReadModel>> streamReads(String coupleId) {
     return SupabaseDataService.getRecordsStream(
       _readTableName,

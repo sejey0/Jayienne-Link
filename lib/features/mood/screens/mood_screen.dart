@@ -114,6 +114,105 @@ class _MoodScreenState extends State<MoodScreen> {
     await provider.refreshNow();
   }
 
+  Future<void> _showEditMoodDialog(
+    MoodProvider provider,
+    MoodMessageModel mood,
+  ) async {
+    final moodId = mood.id;
+    if (moodId == null) return;
+
+    String callSign = mood.callSign;
+    String selectedMood = mood.mood;
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              title: const Text('Edit Mood'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      initialValue: callSign,
+                      onChanged: (value) {
+                        callSign = value;
+                      },
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        labelText: 'Callsign',
+                        hintText: 'e.g., wife',
+                      ),
+                    ),
+                    const SizedBox(height: AppDimensions.spacingMd),
+                    Wrap(
+                      spacing: AppDimensions.spacingSm,
+                      runSpacing: AppDimensions.spacingSm,
+                      children: _moodOptions.map((option) {
+                        final selected = selectedMood == option.key;
+                        return ChoiceChip(
+                          label: Text(option.label),
+                          selected: selected,
+                          onSelected: (_) {
+                            setDialogState(() {
+                              selectedMood = option.key;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (shouldSave != true) return;
+
+    callSign = callSign.trim();
+
+    if (callSign.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Callsign cannot be empty.')),
+        );
+      return;
+    }
+
+    final success = await provider.updateMoodMessage(
+      moodMessageId: moodId,
+      mood: selectedMood,
+      callSign: callSign,
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Mood updated' : 'Failed to update mood'),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final moodProvider = context.watch<MoodProvider>();
@@ -450,6 +549,7 @@ class _MoodScreenState extends State<MoodScreen> {
                   const SizedBox(height: 2),
                   Row(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
                         mood.formattedDateTime,
@@ -457,6 +557,22 @@ class _MoodScreenState extends State<MoodScreen> {
                               color: metaColor,
                             ),
                       ),
+                      if (isMine && mood.id != null) ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: moodProvider.isSending
+                              ? null
+                              : () => _showEditMoodDialog(
+                                    moodProvider,
+                                    mood,
+                                  ),
+                          child: Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: metaColor,
+                          ),
+                        ),
+                      ],
                       if (hasSeen) ...[
                         const SizedBox(width: 6),
                         Text('Seen', style: seenTextStyle),

@@ -46,13 +46,11 @@ class SecretMediaProvider extends ChangeNotifier {
     if (!needsRefresh) return;
 
     await _loadInitial();
-    _subscribeToStream();
   }
 
   Future<void> refresh() async {
     if (_userId == null || _coupleId == null) return;
     await _loadInitial();
-    _subscribeToStream();
   }
 
   Future<void> _loadInitial() async {
@@ -79,28 +77,6 @@ class SecretMediaProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  void _subscribeToStream() {
-    _mediaSubscription?.cancel();
-    if (_coupleId == null) return;
-
-    _mediaSubscription = _service.streamSecretMedia(_coupleId!).listen(
-      (media) {
-        _allMedia
-          ..clear()
-          ..addAll(media.where((m) => !m.isHidden).toList());
-        _hiddenMedia
-          ..clear()
-          ..addAll(media.where((m) => m.isHidden).toList());
-        notifyListeners();
-      },
-      onError: (e) {
-        _error = 'Stream error: $e';
-        debugPrint(_error);
-        notifyListeners();
-      },
-    );
   }
 
   /// Add secret media (image or video)

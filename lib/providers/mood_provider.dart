@@ -52,8 +52,6 @@ class MoodProvider extends ChangeNotifier {
     if (!needsRefresh) return;
 
     await _loadInitial();
-    _subscribeToStream();
-    _subscribeToReadStream();
   }
 
   Future<void> _loadInitial() async {
@@ -106,56 +104,9 @@ class MoodProvider extends ChangeNotifier {
     await _refreshSilently();
   }
 
-  void _startPolling() {
-    if (_pollingTimer != null) return;
-    _pollingTimer = Timer.periodic(
-      const Duration(seconds: 6),
-      (_) => _refreshSilently(),
-    );
-  }
-
   void _stopPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
-  }
-
-  void _subscribeToStream() {
-    _moodSubscription?.cancel();
-    if (_coupleId == null) return;
-
-    _moodSubscription =
-        _service.streamMoodMessages(_coupleId!).listen((events) {
-      _handleMoodUpdate(events);
-    }, onError: (error) {
-      _error = 'Live updates unavailable: $error';
-      notifyListeners();
-      _startPolling();
-    });
-
-    _startPolling();
-  }
-
-  void _handleMoodUpdate(List<MoodMessageModel> events) {
-    _moods
-      ..clear()
-      ..addAll(events);
-    notifyListeners();
-    _scheduleMarkReads();
-  }
-
-  void _subscribeToReadStream() {
-    _readSubscription?.cancel();
-    if (_coupleId == null) return;
-
-    _readSubscription = _service.streamReads(_coupleId!).listen((reads) {
-      _readsByMood
-        ..clear()
-        ..addAll(_groupReadsByMood(reads));
-      notifyListeners();
-      _scheduleMarkReads();
-    }, onError: (error) {
-      debugPrint('Mood read stream error: $error');
-    });
   }
 
   Map<String, Set<String>> _groupReadsByMood(List<MoodReadModel> reads) {
@@ -240,11 +191,62 @@ class MoodProvider extends ChangeNotifier {
         callSign: callSign,
       );
       _moods.insert(0, result);
-      await _refreshSilently();
+      notifyListeners();
       return true;
     } catch (e) {
       _error = 'Failed to send mood: $e';
       debugPrint(_error);
+      return false;
+    } finally {
+      _isSending = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateMoodMessage({
+    required String moodMessageId,
+    required String mood,
+    required String callSign,
+  }) async {
+    if (_userId == null || _coupleId == null) {
+      _error = 'Please log in again to edit moods.';
+      notifyListeners();
+      return false;
+    }
+
+    _isSending = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _service.updateMoodMessage(
+        moodMessageId: moodMessageId,
+        coupleId: _coupleId!,
+        mood: mood,
+        callSign: callSign.trim(),
+      );
+
+      final index = _moods.indexWhere((item) => item.id == moodMessageId);
+      if (index != -1) {
+        final current = _moods[index];
+        _moods[index] = MoodMessageModel(
+          id: current.id,
+          coupleId: current.coupleId,
+          senderId: current.senderId,
+          receiverId: current.receiverId,
+          mood: mood,
+          callSign: callSign.trim(),
+          sentAt: current.sentAt,
+          createdAt: current.createdAt,
+        );
+      }
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to edit mood: $e';
+      debugPrint(_error);
+      notifyListeners();
       return false;
     } finally {
       _isSending = false;

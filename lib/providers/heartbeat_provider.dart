@@ -28,7 +28,6 @@ class HeartbeatProvider extends ChangeNotifier {
   final Map<String, Set<String>> _reactionsByHeartbeat = {};
   final Map<String, Set<String>> _readsByHeartbeat = {};
 
-  static const Duration _typingStaleThreshold = Duration(seconds: 6);
   static const Duration _typingPingInterval = Duration(seconds: 2);
 
   String? _userId;
@@ -79,10 +78,6 @@ class HeartbeatProvider extends ChangeNotifier {
     if (!needsRefresh) return;
 
     await _loadInitial();
-    _subscribeToStream();
-    _subscribeToReactionStream();
-    _subscribeToReadStream();
-    _subscribeToTypingStream();
   }
 
   Future<void> _loadInitial() async {
@@ -137,71 +132,9 @@ class HeartbeatProvider extends ChangeNotifier {
     await _refreshSilently();
   }
 
-  void _startPolling() {
-    if (_pollingTimer != null) return;
-    _pollingTimer = Timer.periodic(
-      const Duration(seconds: 6),
-      (_) => _refreshSilently(),
-    );
-  }
-
   void _stopPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
-  }
-
-  void _subscribeToStream() {
-    _heartbeatSubscription?.cancel();
-    if (_coupleId == null) return;
-
-    _heartbeatSubscription =
-        _service.streamHeartbeats(_coupleId!).listen((events) {
-      _handleHeartbeatsUpdate(events);
-    }, onError: (error) {
-      _error = 'Live updates unavailable: $error';
-      notifyListeners();
-      _startPolling();
-    });
-
-    _startPolling();
-  }
-
-  void _handleHeartbeatsUpdate(List<HeartbeatModel> events) {
-    _heartbeats
-      ..clear()
-      ..addAll(events);
-    notifyListeners();
-    _scheduleMarkReads();
-  }
-
-  void _subscribeToReactionStream() {
-    _reactionSubscription?.cancel();
-    if (_coupleId == null) return;
-
-    _reactionSubscription =
-        _service.streamReactions(_coupleId!).listen((reactions) {
-      _reactionsByHeartbeat
-        ..clear()
-        ..addAll(_groupByHeartbeat(reactions));
-      notifyListeners();
-    }, onError: (error) {
-      debugPrint('Reaction stream error: $error');
-    });
-  }
-
-  void _subscribeToReadStream() {
-    _readSubscription?.cancel();
-    if (_coupleId == null) return;
-
-    _readSubscription = _service.streamReads(_coupleId!).listen((reads) {
-      _readsByHeartbeat
-        ..clear()
-        ..addAll(_groupReadsByHeartbeat(reads));
-      notifyListeners();
-      _scheduleMarkReads();
-    }, onError: (error) {
-      debugPrint('Read stream error: $error');
-    });
   }
 
   Future<void> _loadReactions() async {
@@ -246,18 +179,6 @@ class HeartbeatProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Failed to load reads: $e');
     }
-  }
-
-  void _subscribeToTypingStream() {
-    _typingSubscription?.cancel();
-    if (_coupleId == null) return;
-
-    _typingSubscription =
-        _service.streamTypingStatuses(_coupleId!).listen((statuses) {
-      _updatePartnerTyping(statuses);
-    }, onError: (error) {
-      _setPartnerTyping(false);
-    });
   }
 
   Map<String, Set<String>> _groupByHeartbeat(
@@ -403,45 +324,6 @@ class HeartbeatProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Failed to update typing status: $e');
     }
-  }
-
-  void _updatePartnerTyping(List<HeartbeatTypingModel> statuses) {
-    if (_partnerId == null) return;
-    HeartbeatTypingModel? partnerStatus;
-    for (final status in statuses) {
-      if (status.userId == _partnerId) {
-        partnerStatus = status;
-        break;
-      }
-    }
-
-    if (partnerStatus == null || !partnerStatus.isTyping) {
-      _setPartnerTyping(false);
-      return;
-    }
-
-    final age = DateTime.now().difference(partnerStatus.updatedAt);
-    final remaining = _typingStaleThreshold - age;
-    if (remaining.isNegative || remaining.inMilliseconds == 0) {
-      _setPartnerTyping(false);
-      return;
-    }
-
-    _setPartnerTyping(true);
-    _typingExpiryTimer?.cancel();
-    _typingExpiryTimer = Timer(remaining, () {
-      _setPartnerTyping(false);
-    });
-  }
-
-  void _setPartnerTyping(bool isTyping) {
-    if (_isPartnerTyping == isTyping) return;
-    _isPartnerTyping = isTyping;
-    if (!isTyping) {
-      _typingExpiryTimer?.cancel();
-      _typingExpiryTimer = null;
-    }
-    notifyListeners();
   }
 
   Future<bool> sendHeartbeat({String? message}) async {

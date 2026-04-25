@@ -8,6 +8,8 @@ import 'package:image/image.dart' as img;
 class SupabaseStorageService {
   static const String _bucketName = 'profile-photos';
   static const String _chatBucketName = 'chat-photos';
+  static const String _secretMediaBucketName = 'secret-media';
+  static const String _legacySecretMediaBucketName = 'secret_media';
 
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -125,10 +127,10 @@ class SupabaseStorageService {
       final fileName =
           '${userId}_${timestamp}_${DateTime.now().toIso8601String().replaceAll(':', '-')}$fileExtension';
 
-      const bucketName = 'secret-media';
       final uploadPath = '$userId/$mediaType/$fileName';
 
-      debugPrint('Uploading to Supabase Storage: $bucketName/$uploadPath');
+      debugPrint(
+          'Uploading to Supabase Storage: $_secretMediaBucketName/$uploadPath');
 
       // Determine content type
       String contentType = 'application/octet-stream';
@@ -138,19 +140,16 @@ class SupabaseStorageService {
         contentType = _getVideoContentType(fileExtension);
       }
 
-      // Upload to Supabase Storage
-      await _supabase.storage.from(bucketName).uploadBinary(
-            uploadPath,
-            fileBytes,
-            fileOptions: FileOptions(
-              upsert: true,
-              contentType: contentType,
-            ),
-          );
+      // Upload to Supabase Storage (supports both new and legacy bucket names)
+      final bucketUsed = await _uploadSecretMediaToAvailableBucket(
+        uploadPath: uploadPath,
+        fileBytes: fileBytes,
+        contentType: contentType,
+      );
 
       // Get public URL
       final publicUrl =
-          _supabase.storage.from(bucketName).getPublicUrl(uploadPath);
+          _supabase.storage.from(bucketUsed).getPublicUrl(uploadPath);
 
       debugPrint('Secret media upload successful: $publicUrl');
 
@@ -159,6 +158,51 @@ class SupabaseStorageService {
       debugPrint('Secret media upload failed: $e');
       rethrow;
     }
+  }
+
+  Future<String> _uploadSecretMediaToAvailableBucket({
+    required String uploadPath,
+    required Uint8List fileBytes,
+    required String contentType,
+  }) async {
+    final candidateBuckets = <String>[
+      _secretMediaBucketName,
+      _legacySecretMediaBucketName,
+    ];
+
+    StorageException? lastStorageError;
+    Object? lastError;
+
+    for (final bucket in candidateBuckets) {
+      try {
+        await _supabase.storage.from(bucket).uploadBinary(
+              uploadPath,
+              fileBytes,
+              fileOptions: FileOptions(
+                upsert: true,
+                contentType: contentType,
+              ),
+            );
+        debugPrint('Secret media uploaded using bucket: $bucket');
+        return bucket;
+      } on StorageException catch (e) {
+        lastStorageError = e;
+        lastError = e;
+        final message = e.message.toLowerCase();
+        if (message.contains('bucket not found')) {
+          debugPrint('Bucket "$bucket" not found, trying next candidate...');
+          continue;
+        }
+        rethrow;
+      } catch (e) {
+        lastError = e;
+        rethrow;
+      }
+    }
+
+    throw Exception(
+      'Secret media storage bucket not found. Create either "$_secretMediaBucketName" or "$_legacySecretMediaBucketName" in Supabase Storage. Last error: ${lastStorageError?.message ?? lastError}',
+    );
   }
 
   /// Upload chat photo to Supabase Storage
@@ -348,15 +392,20 @@ class SupabaseStorageService {
     try {
       debugPrint('Initializing Supabase storage...');
 
-      // Test if bucket exists by trying to list files
+      // Test if profile bucket exists by trying to list files.
       await _supabase.storage.from(_bucketName).list();
+      // Test if chat bucket exists.
+      await _supabase.storage.from(_chatBucketName).list();
+      // Test if secret media bucket exists.
+      await _supabase.storage.from(_secretMediaBucketName).list();
 
-      debugPrint('✅ Supabase storage bucket ready: $_bucketName');
+      debugPrint(
+          '✅ Supabase storage buckets ready: $_bucketName, $_chatBucketName, $_secretMediaBucketName');
       return true;
     } catch (e) {
       debugPrint('❌ Supabase storage initialization failed: $e');
       debugPrint(
-          '💡 Make sure the "$_bucketName" bucket exists in your Supabase dashboard');
+          '💡 Make sure these buckets exist in Supabase: "$_bucketName", "$_chatBucketName", "$_secretMediaBucketName"');
       return false;
     }
   }

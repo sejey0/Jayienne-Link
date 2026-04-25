@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/providers/auth_provider.dart';
+import 'package:jayienne_link/providers/user_provider.dart';
 import 'package:jayienne_link/services/supabase_storage_service.dart';
 
 class AddSecretMediaScreen extends StatefulWidget {
@@ -19,7 +20,6 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
   File? _selectedFile;
   String _mediaType = 'image'; // 'image' or 'video'
   final TextEditingController _captionController = TextEditingController();
-  bool _isHidden = false;
   bool _isUploading = false;
 
   @override
@@ -67,11 +67,19 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
     }
 
     final authProvider = context.read<AuthProvider>();
+    final userProvider = context.read<UserProvider>();
     final secretMediaProvider = context.read<SecretMediaProvider>();
-    final storageService = context.read<SupabaseStorageService>();
+    final storageService = SupabaseStorageService();
 
     if (authProvider.currentUserId == null) {
       _showErrorSnackBar('User not authenticated');
+      return;
+    }
+
+    final user = userProvider.user;
+    final coupleId = user?.coupleId;
+    if (user == null || coupleId == null || coupleId.isEmpty) {
+      _showErrorSnackBar('Link with your partner first to use Secret Media');
       return;
     }
 
@@ -80,6 +88,12 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
     });
 
     try {
+      // Ensure provider has current user/couple context before uploading.
+      await secretMediaProvider.initialize(
+        userId: user.id,
+        coupleId: coupleId,
+      );
+
       // Upload to Supabase Storage
       final mediaUrl = await storageService.uploadSecretMedia(
         authProvider.currentUserId!,
@@ -88,24 +102,35 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
       );
 
       // Add to database
-      await secretMediaProvider.addSecretMedia(
+      final createdMedia = await secretMediaProvider.addSecretMedia(
         mediaType: _mediaType,
         mediaUrl: mediaUrl,
         caption:
             _captionController.text.isNotEmpty ? _captionController.text : null,
-        isHidden: _isHidden,
+        isHidden: true,
       );
 
+      if (createdMedia == null) {
+        throw Exception(secretMediaProvider.error ?? 'Failed to save media');
+      }
+
       if (mounted) {
-        _showSuccessSnackBar(
-          _isHidden
-              ? 'Media added to hidden vault!'
-              : 'Media added to secret gallery!',
-        );
+        _showSuccessSnackBar('Media added to hidden vault!');
         Navigator.pop(context);
       }
     } catch (e) {
-      _showErrorSnackBar('Upload failed: $e');
+      final message = e.toString();
+      if (message.contains('Bucket not found') ||
+          message.contains('secret-media')) {
+        _showErrorSnackBar(
+            'Secret Media storage is not configured. Please create the "secret-media" bucket in Supabase.');
+      } else if (message.contains('row-level security') ||
+          message.contains('Unauthorized')) {
+        _showErrorSnackBar(
+            'Storage permissions blocked upload. Check Supabase RLS policies.');
+      } else {
+        _showErrorSnackBar('Upload failed: $e');
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -321,7 +346,6 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Privacy Options
               Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
@@ -329,55 +353,18 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
                   color: Colors.grey.shade50,
                 ),
                 padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      'Privacy Settings',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                    const Icon(Icons.lock, color: Colors.deepPurple),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'All uploads go directly to Hidden Vault (private)',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _isHidden
-                                    ? 'Hidden Vault'
-                                    : 'Shared with Partner',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _isHidden
-                                    ? 'Only visible to you'
-                                    : 'Both of you can see this',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch(
-                          value: _isHidden,
-                          onChanged: (value) {
-                            setState(() {
-                              _isHidden = value;
-                            });
-                          },
-                          activeColor: Colors.deepPurple,
-                        ),
-                      ],
                     ),
                   ],
                 ),

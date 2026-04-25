@@ -3,10 +3,24 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/models/secret_media_model.dart';
+import 'add_secret_media_screen.dart';
 import 'secret_media_detail_screen.dart';
 
-class HiddenVaultScreen extends StatelessWidget {
+class HiddenVaultScreen extends StatefulWidget {
   const HiddenVaultScreen({super.key});
+
+  @override
+  State<HiddenVaultScreen> createState() => _HiddenVaultScreenState();
+}
+
+class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
+  String _selectedType = 'image';
+
+  List<SecretMediaModel> _filteredHiddenMedia(SecretMediaProvider provider) {
+    return provider.hiddenMedia
+        .where((media) => media.mediaType == _selectedType)
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +39,22 @@ class HiddenVaultScreen extends StatelessWidget {
       ),
       body: Consumer<SecretMediaProvider>(
         builder: (context, provider, _) {
+          final imageCount =
+              provider.hiddenMedia.where((m) => m.mediaType == 'image').length;
+          final videoCount =
+              provider.hiddenMedia.where((m) => m.mediaType == 'video').length;
+          final filteredMedia = _filteredHiddenMedia(provider);
+
+          if (_selectedType == 'image' && imageCount == 0 && videoCount > 0) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _selectedType = 'video';
+                });
+              }
+            });
+          }
+
           if (provider.isLoading) {
             return const Center(
               child: CircularProgressIndicator(color: Colors.red),
@@ -62,21 +92,95 @@ class HiddenVaultScreen extends StatelessWidget {
             );
           }
 
-          return GridView.builder(
-            padding: const EdgeInsets.all(12),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.8,
-            ),
-            itemCount: provider.hiddenMedia.length,
-            itemBuilder: (context, index) {
-              final media = provider.hiddenMedia[index];
-              return _buildMediaCard(context, media, provider);
-            },
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ChoiceChip(
+                        label: Text('Images ($imageCount)'),
+                        selected: _selectedType == 'image',
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedType = 'image';
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ChoiceChip(
+                        label: Text('Videos ($videoCount)'),
+                        selected: _selectedType == 'video',
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedType = 'video';
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: filteredMedia.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _selectedType == 'image'
+                                  ? Icons.image_outlined
+                                  : Icons.videocam_outlined,
+                              size: 56,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _selectedType == 'image'
+                                  ? 'No hidden images yet'
+                                  : 'No hidden videos yet',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : GridView.builder(
+                        padding: const EdgeInsets.all(12),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.8,
+                        ),
+                        itemCount: filteredMedia.length,
+                        itemBuilder: (context, index) {
+                          final media = filteredMedia[index];
+                          return _buildMediaCard(context, media, provider);
+                        },
+                      ),
+              ),
+            ],
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddSecretMediaScreen(),
+            ),
+          );
+        },
+        backgroundColor: Colors.red.shade700,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -112,33 +216,45 @@ class HiddenVaultScreen extends StatelessWidget {
             // Media image or thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                media.mediaType == 'video'
-                    ? (media.thumbnail ?? media.mediaUrl)
-                    : media.mediaUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.grey.shade300,
-                    child: const Icon(
-                      Icons.broken_image,
-                      size: 32,
-                      color: Colors.grey,
-                    ),
-                  );
-                },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    color: Colors.grey.shade300,
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.red,
+              child: media.mediaType == 'video' &&
+                      (media.thumbnail == null || media.thumbnail!.isEmpty)
+                  ? Container(
+                      color: Colors.black87,
+                      child: const Center(
+                        child: Icon(
+                          Icons.videocam,
+                          size: 40,
+                          color: Colors.white70,
+                        ),
                       ),
+                    )
+                  : Image.network(
+                      media.mediaType == 'video'
+                          ? (media.thumbnail ?? media.mediaUrl)
+                          : media.mediaUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey.shade300,
+                          child: const Icon(
+                            Icons.broken_image,
+                            size: 32,
+                            color: Colors.grey,
+                          ),
+                        );
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: Colors.grey.shade300,
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.red,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
             // Video badge
             if (media.mediaType == 'video')
@@ -191,23 +307,6 @@ class HiddenVaultScreen extends StatelessWidget {
                     size: 20,
                   ),
                   itemBuilder: (BuildContext context) => [
-                    PopupMenuItem(
-                      child: const Text('Move to Gallery'),
-                      onTap: () {
-                        _showConfirmDialog(
-                          context,
-                          'Move to Gallery?',
-                          'Your partner will be able to see this media.',
-                          () {
-                            provider.moveToShared(media.id!);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Moved to secret gallery')),
-                            );
-                          },
-                        );
-                      },
-                    ),
                     PopupMenuItem(
                       child: const Text('Delete'),
                       onTap: () {

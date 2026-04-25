@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/models/secret_media_model.dart';
+import 'package:video_player/video_player.dart';
 
 class SecretMediaDetailScreen extends StatefulWidget {
   final SecretMediaModel media;
@@ -22,17 +24,57 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   late TextEditingController _captionController;
   bool _isEditingCaption = false;
   bool _isSavingCaption = false;
+  VideoPlayerController? _videoController;
+  Future<void>? _videoInitializeFuture;
+  String? _videoError;
 
   @override
   void initState() {
     super.initState();
     _captionController =
         TextEditingController(text: widget.media.caption ?? '');
+
+    if (widget.media.mediaType == 'video') {
+      _initializeVideoPlayer();
+    }
+  }
+
+  void _initializeVideoPlayer() {
+    try {
+      final controller =
+          VideoPlayerController.networkUrl(Uri.parse(widget.media.mediaUrl));
+      _videoController = controller;
+      _videoInitializeFuture = controller.initialize().then((_) {
+        if (!mounted) return;
+        setState(() {});
+      }).catchError((error) {
+        if (!mounted) return;
+        setState(() {
+          _videoError = _buildVideoErrorMessage(error);
+        });
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _videoError = _buildVideoErrorMessage(error);
+      });
+    }
+  }
+
+  String _buildVideoErrorMessage(Object error) {
+    final message = error.toString();
+    if (error is PlatformException ||
+        message.contains('Unable to establish connection on channel') ||
+        message.contains('video_player_android')) {
+      return 'Video player is not initialized. Fully restart the app (stop and run again).';
+    }
+    return 'Failed to load video';
   }
 
   @override
   void dispose() {
     _captionController.dispose();
+    _videoController?.dispose();
     super.dispose();
   }
 
@@ -80,40 +122,6 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
           PopupMenuButton(
             icon: const Icon(Icons.more_vert, color: Colors.white),
             itemBuilder: (BuildContext context) => [
-              PopupMenuItem(
-                child: widget.media.isHidden
-                    ? const Text('Move to Gallery')
-                    : const Text('Move to Vault'),
-                onTap: () {
-                  _showConfirmDialog(
-                    widget.media.isHidden
-                        ? 'Move to Gallery?'
-                        : 'Move to Vault?',
-                    widget.media.isHidden
-                        ? 'Your partner will be able to see this media.'
-                        : 'This media will only be visible to you.',
-                    () {
-                      if (widget.media.isHidden) {
-                        context
-                            .read<SecretMediaProvider>()
-                            .moveToShared(widget.media.id!);
-                      } else {
-                        context
-                            .read<SecretMediaProvider>()
-                            .moveToHiddenVault(widget.media.id!);
-                      }
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(widget.media.isHidden
-                              ? 'Moved to gallery'
-                              : 'Moved to vault'),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
               PopupMenuItem(
                 child: const Text('Delete'),
                 onTap: () {
@@ -173,36 +181,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                         );
                       },
                     )
-                  : Container(
-                      height: 400,
-                      color: Colors.grey.shade900,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.videocam,
-                            size: 64,
-                            color: Colors.white70,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Video Media',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white70,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap to open in gallery',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white54,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  : _buildVideoPlayer(),
             ),
             // Details Panel
             Container(
@@ -237,38 +216,21 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                if (widget.media.isHidden)
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.withOpacity(0.3),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Text(
-                                      'HIDDEN',
-                                      style: TextStyle(
-                                        color: Colors.red,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.withOpacity(0.3),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Text(
-                                      'SHARED',
-                                      style: TextStyle(
-                                        color: Colors.green,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'HIDDEN',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
+                                ),
                                 const SizedBox(width: 8),
                                 if (widget.media.isEncrypted)
                                   Container(
@@ -416,6 +378,89 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildVideoPlayer() {
+    if (_videoError != null) {
+      return Container(
+        height: 400,
+        color: Colors.grey.shade900,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              _videoError!,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                color: Colors.white70,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final initializeFuture = _videoInitializeFuture;
+    final controller = _videoController;
+    if (initializeFuture == null || controller == null) {
+      return Container(
+        height: 400,
+        color: Colors.grey.shade900,
+      );
+    }
+
+    return FutureBuilder<void>(
+      future: initializeFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Container(
+            height: 400,
+            color: Colors.grey.shade900,
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          );
+        }
+
+        return Container(
+          height: 400,
+          color: Colors.black,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Center(
+                child: AspectRatio(
+                  aspectRatio: controller.value.aspectRatio,
+                  child: VideoPlayer(controller),
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (controller.value.isPlaying) {
+                      controller.pause();
+                    } else {
+                      controller.play();
+                    }
+                  });
+                },
+                child: Container(
+                  color: Colors.black26,
+                  child: Icon(
+                    controller.value.isPlaying
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_fill,
+                    size: 72,
+                    color: Colors.white70,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

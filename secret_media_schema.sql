@@ -27,13 +27,19 @@ CREATE INDEX IF NOT EXISTS idx_secret_media_uploaded_at ON secret_media(uploaded
 -- Enable Row Level Security (RLS)
 ALTER TABLE secret_media ENABLE ROW LEVEL SECURITY;
 
+-- Re-runnable policy cleanup
+DROP POLICY IF EXISTS "Users can view their couple's media" ON secret_media;
+DROP POLICY IF EXISTS "Users can insert media for their couple" ON secret_media;
+DROP POLICY IF EXISTS "Users can update their own media" ON secret_media;
+DROP POLICY IF EXISTS "Users can delete their own media" ON secret_media;
+
 -- RLS Policy: Users can only see media from their couple
 CREATE POLICY "Users can view their couple's media" ON secret_media
   FOR SELECT
   USING (
     couple_id IN (
       SELECT id FROM couples 
-      WHERE user_id_1 = auth.uid() OR user_id_2 = auth.uid()
+      WHERE auth.uid() = ANY(partner_ids)
     )
   );
 
@@ -43,7 +49,7 @@ CREATE POLICY "Users can insert media for their couple" ON secret_media
   WITH CHECK (
     couple_id IN (
       SELECT id FROM couples 
-      WHERE user_id_1 = auth.uid() OR user_id_2 = auth.uid()
+      WHERE auth.uid() = ANY(partner_ids)
     )
     AND uploaded_by_id = auth.uid()
   );
@@ -54,14 +60,14 @@ CREATE POLICY "Users can update their own media" ON secret_media
   USING (
     couple_id IN (
       SELECT id FROM couples 
-      WHERE user_id_1 = auth.uid() OR user_id_2 = auth.uid()
+      WHERE auth.uid() = ANY(partner_ids)
     )
     AND uploaded_by_id = auth.uid()
   )
   WITH CHECK (
     couple_id IN (
       SELECT id FROM couples 
-      WHERE user_id_1 = auth.uid() OR user_id_2 = auth.uid()
+      WHERE auth.uid() = ANY(partner_ids)
     )
     AND uploaded_by_id = auth.uid()
   );
@@ -72,7 +78,7 @@ CREATE POLICY "Users can delete their own media" ON secret_media
   USING (
     couple_id IN (
       SELECT id FROM couples 
-      WHERE user_id_1 = auth.uid() OR user_id_2 = auth.uid()
+      WHERE auth.uid() = ANY(partner_ids)
     )
     AND uploaded_by_id = auth.uid()
   );
@@ -96,15 +102,47 @@ CREATE TRIGGER secret_media_updated_at_trigger
   EXECUTE FUNCTION update_secret_media_updated_at();
 
 -- Create storage bucket for secret media (if not exists)
--- Note: Run this manually in Supabase dashboard or via API
--- INSERT INTO storage.buckets (id, name, public) VALUES ('secret_media', 'secret_media', false);
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('secret-media', 'secret-media', true)
+ON CONFLICT (id) DO NOTHING;
 
--- Storage policies for the secret_media bucket
--- These should be created via Supabase dashboard:
--- 1. Users can upload to their own folder:
---    authenticated -> CREATE -> /secret_media/{auth.uid()}/*
--- 2. Users can view files from their couple:
---    authenticated -> SELECT -> /secret_media/*/*(applies to couple storage structure)
+-- Storage policies for secret-media bucket (re-runnable)
+DROP POLICY IF EXISTS "Secret media upload own folder" ON storage.objects;
+DROP POLICY IF EXISTS "Secret media read own folder" ON storage.objects;
+DROP POLICY IF EXISTS "Secret media update own folder" ON storage.objects;
+DROP POLICY IF EXISTS "Secret media delete own folder" ON storage.objects;
+
+CREATE POLICY "Secret media upload own folder" ON storage.objects
+FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'secret-media'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+CREATE POLICY "Secret media read own folder" ON storage.objects
+FOR SELECT TO authenticated
+USING (
+  bucket_id = 'secret-media'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+CREATE POLICY "Secret media update own folder" ON storage.objects
+FOR UPDATE TO authenticated
+USING (
+  bucket_id = 'secret-media'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+)
+WITH CHECK (
+  bucket_id = 'secret-media'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+CREATE POLICY "Secret media delete own folder" ON storage.objects
+FOR DELETE TO authenticated
+USING (
+  bucket_id = 'secret-media'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
 
 -- Grant permissions
 GRANT ALL ON secret_media TO authenticated;

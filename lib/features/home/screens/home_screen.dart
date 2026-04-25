@@ -15,6 +15,7 @@ import '../../../providers/couple_provider.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/heart_animation.dart';
+import '../../secret_media/screens/hidden_vault_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -286,6 +287,15 @@ class HomeScreen extends StatelessWidget {
                         subtitle: Text(item.subtitle),
                         onTap: () {
                           Navigator.pop(modalContext);
+                          if (item.route == RouteNames.secretMediaHiddenVault) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const HiddenVaultScreen(),
+                              ),
+                            );
+                            return;
+                          }
                           context.push(item.route);
                         },
                       );
@@ -448,10 +458,10 @@ class HomeScreen extends StatelessWidget {
           route: RouteNames.photos,
         ),
         _FeatureDrawerItem(
-          title: 'Secret Media',
-          subtitle: 'Open private gallery and vault',
+          title: 'Hidden Vault',
+          subtitle: 'Private vault with image and video sections',
           icon: Icons.image_not_supported_outlined,
-          route: RouteNames.secretMediaGallery,
+          route: RouteNames.secretMediaHiddenVault,
         ),
       ];
 }

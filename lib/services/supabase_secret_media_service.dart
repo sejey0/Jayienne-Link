@@ -4,8 +4,19 @@ import '../models/secret_media_model.dart';
 
 class SupabaseSecretMediaService {
   final SupabaseClient _supabase;
+  static const String _tableName = 'secret_media';
+  static const String _missingTableHelp =
+      'Secret Media is not configured in Supabase yet. Run secret_media_schema.sql in the Supabase SQL Editor.';
 
   SupabaseSecretMediaService(this._supabase);
+
+  bool _isMissingSecretMediaTable(Object error) {
+    return error is PostgrestException && error.code == 'PGRST205';
+  }
+
+  Exception _tableSetupException() {
+    return Exception(_missingTableHelp);
+  }
 
   // Get all secret media for a couple
   Future<List<SecretMediaModel>> getSecretMedia(String coupleId,
@@ -15,13 +26,13 @@ class SupabaseSecretMediaService {
 
       if (includeHidden) {
         response = await _supabase
-            .from('secret_media')
+            .from(_tableName)
             .select()
             .eq('couple_id', coupleId)
             .order('uploaded_at', ascending: false);
       } else {
         response = await _supabase
-            .from('secret_media')
+            .from(_tableName)
             .select()
             .eq('couple_id', coupleId)
             .eq('is_hidden', false)
@@ -33,6 +44,10 @@ class SupabaseSecretMediaService {
               (item) => SecretMediaModel.fromJson(item as Map<String, dynamic>))
           .toList();
     } catch (e) {
+      if (_isMissingSecretMediaTable(e)) {
+        debugPrint('Error fetching secret media: $_missingTableHelp');
+        throw _tableSetupException();
+      }
       debugPrint('Error fetching secret media: $e');
       rethrow;
     }
@@ -42,7 +57,7 @@ class SupabaseSecretMediaService {
   Future<List<SecretMediaModel>> getHiddenSecretMedia(String coupleId) async {
     try {
       final response = await _supabase
-          .from('secret_media')
+          .from(_tableName)
           .select()
           .eq('couple_id', coupleId)
           .eq('is_hidden', true)
@@ -50,6 +65,10 @@ class SupabaseSecretMediaService {
 
       return response.map((item) => SecretMediaModel.fromJson(item)).toList();
     } catch (e) {
+      if (_isMissingSecretMediaTable(e)) {
+        debugPrint('Error fetching hidden secret media: $_missingTableHelp');
+        throw _tableSetupException();
+      }
       debugPrint('Error fetching hidden secret media: $e');
       rethrow;
     }
@@ -67,7 +86,7 @@ class SupabaseSecretMediaService {
     bool isHidden = false,
   }) async {
     try {
-      final response = await _supabase.from('secret_media').insert({
+      final response = await _supabase.from(_tableName).insert({
         'couple_id': coupleId,
         'uploaded_by_id': uploadedById,
         'media_type': mediaType,
@@ -85,6 +104,10 @@ class SupabaseSecretMediaService {
 
       return SecretMediaModel.fromJson(response[0]);
     } catch (e) {
+      if (_isMissingSecretMediaTable(e)) {
+        debugPrint('Error adding secret media: $_missingTableHelp');
+        throw _tableSetupException();
+      }
       debugPrint('Error adding secret media: $e');
       rethrow;
     }
@@ -106,7 +129,7 @@ class SupabaseSecretMediaService {
       }
 
       final response = await _supabase
-          .from('secret_media')
+          .from(_tableName)
           .update(updates)
           .eq('id', mediaId)
           .select();
@@ -117,6 +140,10 @@ class SupabaseSecretMediaService {
 
       return SecretMediaModel.fromJson(response[0]);
     } catch (e) {
+      if (_isMissingSecretMediaTable(e)) {
+        debugPrint('Error updating secret media: $_missingTableHelp');
+        throw _tableSetupException();
+      }
       debugPrint('Error updating secret media: $e');
       rethrow;
     }
@@ -125,8 +152,12 @@ class SupabaseSecretMediaService {
   // Delete secret media
   Future<void> deleteSecretMedia(String mediaId) async {
     try {
-      await _supabase.from('secret_media').delete().eq('id', mediaId);
+      await _supabase.from(_tableName).delete().eq('id', mediaId);
     } catch (e) {
+      if (_isMissingSecretMediaTable(e)) {
+        debugPrint('Error deleting secret media: $_missingTableHelp');
+        throw _tableSetupException();
+      }
       debugPrint('Error deleting secret media: $e');
       rethrow;
     }
@@ -135,14 +166,20 @@ class SupabaseSecretMediaService {
   // Stream secret media updates
   Stream<List<SecretMediaModel>> streamSecretMedia(String coupleId) {
     return _supabase
-        .from('secret_media')
+        .from(_tableName)
         .stream(primaryKey: ['id'])
         .eq('couple_id', coupleId)
         .order('uploaded_at', ascending: false)
         .map((data) => (data as List)
             .cast<Map<String, dynamic>>()
             .map((item) => SecretMediaModel.fromJson(item))
-            .toList());
+            .toList())
+        .handleError((error) {
+          if (_isMissingSecretMediaTable(error)) {
+            throw _tableSetupException();
+          }
+          throw error;
+        });
   }
 
   // Toggle hidden status (move to vault or make visible)
@@ -150,7 +187,7 @@ class SupabaseSecretMediaService {
       String mediaId, bool shouldBeHidden) async {
     try {
       final response = await _supabase
-          .from('secret_media')
+          .from(_tableName)
           .update({'is_hidden': shouldBeHidden})
           .eq('id', mediaId)
           .select();
@@ -161,6 +198,10 @@ class SupabaseSecretMediaService {
 
       return SecretMediaModel.fromJson(response[0]);
     } catch (e) {
+      if (_isMissingSecretMediaTable(e)) {
+        debugPrint('Error toggling hidden status: $_missingTableHelp');
+        throw _tableSetupException();
+      }
       debugPrint('Error toggling hidden status: $e');
       rethrow;
     }

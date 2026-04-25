@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:jayienne_link/providers/auth_provider.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/models/secret_media_model.dart';
 import 'package:video_player/video_player.dart';
@@ -27,6 +28,11 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   VideoPlayerController? _videoController;
   Future<void>? _videoInitializeFuture;
   String? _videoError;
+
+  bool get _isUploader {
+    final currentUserId = context.read<AuthProvider>().currentUserId;
+    return currentUserId != null && currentUserId == widget.media.uploadedById;
+  }
 
   @override
   void initState() {
@@ -274,7 +280,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      if (!_isEditingCaption)
+                      if (_isUploader && !_isEditingCaption)
                         GestureDetector(
                           onTap: () {
                             setState(() {
@@ -290,7 +296,19 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (_isEditingCaption)
+                  if (!_isUploader)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'Only the uploader can edit this description.',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  if (_isUploader && _isEditingCaption)
                     Column(
                       children: [
                         TextField(
@@ -457,6 +475,26 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                   ),
                 ),
               ),
+              Positioned(
+                top: 12,
+                right: 12,
+                child: IconButton(
+                  icon: const Icon(Icons.fullscreen, color: Colors.white),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SecretMediaFullscreenVideoScreen(
+                          title: widget.media.caption?.isNotEmpty == true
+                              ? widget.media.caption!
+                              : 'Video',
+                          videoUrl: widget.media.mediaUrl,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ],
           ),
         );
@@ -491,6 +529,98 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class SecretMediaFullscreenVideoScreen extends StatefulWidget {
+  final String title;
+  final String videoUrl;
+
+  const SecretMediaFullscreenVideoScreen({
+    super.key,
+    required this.title,
+    required this.videoUrl,
+  });
+
+  @override
+  State<SecretMediaFullscreenVideoScreen> createState() =>
+      _SecretMediaFullscreenVideoScreenState();
+}
+
+class _SecretMediaFullscreenVideoScreenState
+    extends State<SecretMediaFullscreenVideoScreen> {
+  VideoPlayerController? _controller;
+  Future<void>? _initFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final controller =
+        VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    _controller = controller;
+    _initFuture = controller.initialize().then((_) {
+      if (!mounted) return;
+      setState(() {});
+      controller.play();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    final initFuture = _initFuture;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black87,
+        title: Text(widget.title),
+      ),
+      body: controller == null || initFuture == null
+          ? const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            )
+          : FutureBuilder<void>(
+              future: initFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  );
+                }
+
+                return Center(
+                  child: AspectRatio(
+                    aspectRatio: controller.value.aspectRatio,
+                    child: VideoPlayer(controller),
+                  ),
+                );
+              },
+            ),
+      floatingActionButton: controller == null
+          ? null
+          : FloatingActionButton(
+              backgroundColor: Colors.red.shade700,
+              onPressed: () {
+                setState(() {
+                  if (controller.value.isPlaying) {
+                    controller.pause();
+                  } else {
+                    controller.play();
+                  }
+                });
+              },
+              child: Icon(
+                controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+              ),
+            ),
     );
   }
 }

@@ -145,6 +145,32 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
         ),
         backgroundColor: Colors.red.shade700,
         elevation: 0,
+        actions: _isUnlocked
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.white),
+                  onPressed: () async {
+                    final provider = context.read<SecretMediaProvider>();
+                    await provider.refresh();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Vault refreshed')),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add, color: Colors.white),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AddSecretMediaScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ]
+            : null,
       ),
       body: !_isUnlocked
           ? _buildLockGate()
@@ -286,20 +312,6 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _isUnlocked
-            ? () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AddSecretMediaScreen(),
-                  ),
-                );
-              }
-            : null,
-        backgroundColor: Colors.red.shade700,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
     );
   }
 

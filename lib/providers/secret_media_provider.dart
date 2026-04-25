@@ -49,6 +49,12 @@ class SecretMediaProvider extends ChangeNotifier {
     _subscribeToStream();
   }
 
+  Future<void> refresh() async {
+    if (_userId == null || _coupleId == null) return;
+    await _loadInitial();
+    _subscribeToStream();
+  }
+
   Future<void> _loadInitial() async {
     if (_coupleId == null) return;
 

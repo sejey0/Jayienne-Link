@@ -25,6 +25,8 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   late TextEditingController _captionController;
   bool _isEditingCaption = false;
   bool _isSavingCaption = false;
+  bool _isPressingImage = false;
+  bool _showVideoControls = false;
   VideoPlayerController? _videoController;
   Future<void>? _videoInitializeFuture;
   String? _videoError;
@@ -158,35 +160,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
             Container(
               color: Colors.black,
               child: widget.media.mediaType == 'image'
-                  ? Image.network(
-                      widget.media.mediaUrl,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          height: 400,
-                          color: Colors.grey.shade800,
-                          child: const Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              size: 48,
-                              color: Colors.white,
-                            ),
-                          ),
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          height: 400,
-                          color: Colors.grey.shade900,
-                          child: const Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
-                          ),
-                        );
-                      },
-                    )
+                  ? _buildImagePreview()
                   : _buildVideoPlayer(),
             ),
             // Details Panel
@@ -399,6 +373,113 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
     );
   }
 
+  Widget _buildImagePreview() {
+    return GestureDetector(
+      onTapDown: (_) {
+        setState(() {
+          _isPressingImage = true;
+        });
+      },
+      onTapUp: (_) {
+        setState(() {
+          _isPressingImage = false;
+        });
+      },
+      onTapCancel: () {
+        setState(() {
+          _isPressingImage = false;
+        });
+      },
+      child: Container(
+        height: 400,
+        color: Colors.black,
+        child: Stack(
+          children: [
+            if (_isPressingImage)
+              Positioned.fill(
+                child: Image.network(
+                  widget.media.mediaUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey.shade800,
+                      child: const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 48,
+                          color: Colors.white,
+                        ),
+                      ),
+                    );
+                  },
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      color: Colors.black,
+                      child: const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              Positioned.fill(
+                child: Container(color: Colors.black),
+              ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.12),
+                      Colors.black.withOpacity(0.08),
+                      Colors.black.withOpacity(0.3),
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            if (!_isPressingImage)
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white24, width: 1),
+                  ),
+                  child: const Icon(
+                    Icons.touch_app,
+                    size: 44,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            if (!_isPressingImage)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 20,
+                child: Text(
+                  'Press and hold to view',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildVideoPlayer() {
     if (_videoError != null) {
       return Container(
@@ -445,57 +526,77 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
         return Container(
           height: 400,
           color: Colors.black,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Center(
-                child: AspectRatio(
-                  aspectRatio: controller.value.aspectRatio,
-                  child: VideoPlayer(controller),
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    if (controller.value.isPlaying) {
-                      controller.pause();
-                    } else {
-                      controller.play();
-                    }
-                  });
-                },
-                child: Container(
-                  color: Colors.black26,
-                  child: Icon(
-                    controller.value.isPlaying
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_fill,
-                    size: 72,
-                    color: Colors.white70,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() {
+                _showVideoControls = !_showVideoControls;
+              });
+            },
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: controller.value.aspectRatio,
+                    child: VideoPlayer(controller),
                   ),
                 ),
-              ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: IconButton(
-                  icon: const Icon(Icons.fullscreen, color: Colors.white),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => SecretMediaFullscreenVideoScreen(
-                          title: widget.media.caption?.isNotEmpty == true
-                              ? widget.media.caption!
-                              : 'Video',
-                          videoUrl: widget.media.mediaUrl,
+                if (_showVideoControls)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 16,
+                    child: Center(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(32),
+                        ),
+                        child: IconButton(
+                          onPressed: () {
+                            setState(() {
+                              if (controller.value.isPlaying) {
+                                controller.pause();
+                              } else {
+                                controller.play();
+                              }
+                            });
+                          },
+                          icon: Icon(
+                            controller.value.isPlaying
+                                ? Icons.pause_circle_filled
+                                : Icons.play_circle_fill,
+                            size: 36,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
-            ],
+                    ),
+                  ),
+                if (_showVideoControls)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: IconButton(
+                      icon: const Icon(Icons.fullscreen, color: Colors.white),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => SecretMediaFullscreenVideoScreen(
+                              title: widget.media.caption?.isNotEmpty == true
+                                  ? widget.media.caption!
+                                  : 'Video',
+                              videoUrl: widget.media.mediaUrl,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
           ),
         );
       },
@@ -552,6 +653,7 @@ class _SecretMediaFullscreenVideoScreenState
     extends State<SecretMediaFullscreenVideoScreen> {
   VideoPlayerController? _controller;
   Future<void>? _initFuture;
+  bool _showVideoControls = false;
 
   @override
   void initState() {
@@ -597,29 +699,57 @@ class _SecretMediaFullscreenVideoScreenState
                 }
 
                 return Center(
-                  child: AspectRatio(
-                    aspectRatio: controller.value.aspectRatio,
-                    child: VideoPlayer(controller),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      setState(() {
+                        _showVideoControls = !_showVideoControls;
+                      });
+                    },
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        AspectRatio(
+                          aspectRatio: controller.value.aspectRatio,
+                          child: VideoPlayer(controller),
+                        ),
+                        if (_showVideoControls)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 24,
+                            child: Center(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(32),
+                                ),
+                                child: IconButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      if (controller.value.isPlaying) {
+                                        controller.pause();
+                                      } else {
+                                        controller.play();
+                                      }
+                                    });
+                                  },
+                                  icon: Icon(
+                                    controller.value.isPlaying
+                                        ? Icons.pause_circle_filled
+                                        : Icons.play_circle_fill,
+                                    size: 36,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 );
               },
-            ),
-      floatingActionButton: controller == null
-          ? null
-          : FloatingActionButton(
-              backgroundColor: Colors.red.shade700,
-              onPressed: () {
-                setState(() {
-                  if (controller.value.isPlaying) {
-                    controller.pause();
-                  } else {
-                    controller.play();
-                  }
-                });
-              },
-              child: Icon(
-                controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-              ),
             ),
     );
   }

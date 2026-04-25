@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -33,6 +34,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
     super.initState();
     _lockControllers =
         List.generate(_vaultLocks.length, (_) => TextEditingController());
+    _isUnlocked = kDebugMode;
   }
 
   @override
@@ -346,45 +348,54 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
             // Media image or thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: media.mediaType == 'video' &&
-                      (media.thumbnail == null || media.thumbnail!.isEmpty)
+              child: media.mediaType == 'image'
                   ? Container(
-                      color: Colors.black87,
+                      color: Colors.black,
                       child: const Center(
                         child: Icon(
-                          Icons.videocam,
-                          size: 40,
+                          Icons.image_not_supported_outlined,
+                          size: 38,
                           color: Colors.white70,
                         ),
                       ),
                     )
-                  : Image.network(
-                      media.mediaType == 'video'
-                          ? (media.thumbnail ?? media.mediaUrl)
-                          : media.mediaUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey.shade300,
-                          child: const Icon(
-                            Icons.broken_image,
-                            size: 32,
-                            color: Colors.grey,
-                          ),
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: Colors.grey.shade300,
+                  : media.mediaType == 'video' &&
+                          (media.thumbnail == null || media.thumbnail!.isEmpty)
+                      ? Container(
+                          color: Colors.black87,
                           child: const Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.red,
+                            child: Icon(
+                              Icons.videocam,
+                              size: 40,
+                              color: Colors.white70,
                             ),
                           ),
-                        );
-                      },
-                    ),
+                        )
+                      : Image.network(
+                          media.thumbnail ?? media.mediaUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey.shade300,
+                              child: const Icon(
+                                Icons.broken_image,
+                                size: 32,
+                                color: Colors.grey,
+                              ),
+                            );
+                          },
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: Colors.grey.shade300,
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.red,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
             ),
             // Video badge
             if (media.mediaType == 'video')

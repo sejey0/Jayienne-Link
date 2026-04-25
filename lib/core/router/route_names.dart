@@ -28,4 +28,10 @@ class RouteNames {
 
   // Photos routes
   static const String photos = '/photos';
+
+  // Secret Media routes
+  static const String secretMediaGallery = '/secret-media/gallery';
+  static const String secretMediaAdd = '/secret-media/add';
+  static const String secretMediaDetail = '/secret-media/detail';
+  static const String secretMediaHiddenVault = '/secret-media/vault';
 }

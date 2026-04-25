@@ -21,7 +21,12 @@ import '../../features/location/screens/location_history_screen.dart';
 import '../../features/heartbeat/screens/heartbeat_screen.dart';
 import '../../features/mood/screens/mood_screen.dart';
 import '../../features/photos/screens/photos_screen.dart';
+import '../../models/secret_media_model.dart';
 import 'route_names.dart';
+import '../../features/secret_media/screens/secret_media_gallery_screen.dart';
+import '../../features/secret_media/screens/add_secret_media_screen.dart';
+import '../../features/secret_media/screens/secret_media_detail_screen.dart';
+import '../../features/secret_media/screens/hidden_vault_screen.dart';
 
 class AppRouter {
   AppRouter._();
@@ -166,6 +171,32 @@ class AppRouter {
         GoRoute(
           path: RouteNames.photos,
           builder: (context, state) => const PhotosScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.secretMediaGallery,
+          builder: (context, state) => const SecretMediaGalleryScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.secretMediaAdd,
+          builder: (context, state) => const AddSecretMediaScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.secretMediaDetail,
+          builder: (context, state) {
+            final media = state.extra;
+            if (media is SecretMediaModel) {
+              return SecretMediaDetailScreen(media: media);
+            }
+            return const Scaffold(
+              body: Center(
+                child: Text('Secret media item not found.'),
+              ),
+            );
+          },
+        ),
+        GoRoute(
+          path: RouteNames.secretMediaHiddenVault,
+          builder: (context, state) => const HiddenVaultScreen(),
         ),
       ],
     );

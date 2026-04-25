@@ -104,6 +104,63 @@ class SupabaseStorageService {
     }
   }
 
+  /// Upload secret media (images and videos)
+  Future<String> uploadSecretMedia(
+      String userId, File mediaFile, String mediaType) async {
+    try {
+      debugPrint(
+          'Starting secret media upload for user: $userId, type: $mediaType');
+
+      // Check if file exists
+      if (!await mediaFile.exists()) {
+        throw Exception('Media file does not exist');
+      }
+
+      final fileBytes = await mediaFile.readAsBytes();
+      debugPrint('Media file size: ${fileBytes.length} bytes');
+
+      // Create unique filename with timestamp
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileExtension = path.extension(mediaFile.path).toLowerCase();
+      final fileName =
+          '${userId}_${timestamp}_${DateTime.now().toIso8601String().replaceAll(':', '-')}$fileExtension';
+
+      const bucketName = 'secret-media';
+      final uploadPath = '$userId/$mediaType/$fileName';
+
+      debugPrint('Uploading to Supabase Storage: $bucketName/$uploadPath');
+
+      // Determine content type
+      String contentType = 'application/octet-stream';
+      if (mediaType == 'image') {
+        contentType = _getImageContentType(fileExtension);
+      } else if (mediaType == 'video') {
+        contentType = _getVideoContentType(fileExtension);
+      }
+
+      // Upload to Supabase Storage
+      await _supabase.storage.from(bucketName).uploadBinary(
+            uploadPath,
+            fileBytes,
+            fileOptions: FileOptions(
+              upsert: true,
+              contentType: contentType,
+            ),
+          );
+
+      // Get public URL
+      final publicUrl =
+          _supabase.storage.from(bucketName).getPublicUrl(uploadPath);
+
+      debugPrint('Secret media upload successful: $publicUrl');
+
+      return publicUrl;
+    } catch (e) {
+      debugPrint('Secret media upload failed: $e');
+      rethrow;
+    }
+  }
+
   /// Upload chat photo to Supabase Storage
   Future<String> uploadChatPhoto(String userId, File imageFile) async {
     try {
@@ -335,5 +392,38 @@ Uint8List _optimizeImageIsolate(_ImageOptimizeParams params) {
     return Uint8List.fromList(optimizedBytes);
   } catch (_) {
     return params.bytes;
+  }
+}
+
+String _getImageContentType(String extension) {
+  switch (extension.toLowerCase()) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.gif':
+      return 'image/gif';
+    case '.webp':
+      return 'image/webp';
+    default:
+      return 'image/jpeg';
+  }
+}
+
+String _getVideoContentType(String extension) {
+  switch (extension.toLowerCase()) {
+    case '.mp4':
+      return 'video/mp4';
+    case '.mov':
+      return 'video/quicktime';
+    case '.avi':
+      return 'video/x-msvideo';
+    case '.mkv':
+      return 'video/x-matroska';
+    case '.webm':
+      return 'video/webm';
+    default:
+      return 'video/mp4';
   }
 }

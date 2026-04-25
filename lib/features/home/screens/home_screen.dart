@@ -15,7 +15,6 @@ import '../../../providers/couple_provider.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/heart_animation.dart';
-import '../../location/widgets/partner_location_card.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -122,22 +121,43 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: AppDimensions.spacingXl),
-            // Quick actions grid
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: AppDimensions.spacingMd,
-              mainAxisSpacing: AppDimensions.spacingMd,
-              children: [
-                // Location - Now working!
-                PartnerLocationCardCompact(
-                  onTap: () => context.push(RouteNames.location),
+            AppCard(
+              child: Padding(
+                padding: const EdgeInsets.all(AppDimensions.spacingLg),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.grid_view_rounded,
+                      size: 40,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: AppDimensions.spacingMd),
+                    Text(
+                      'Access all features from here',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppDimensions.spacingSm),
+                    Text(
+                      'Tap the button below, then choose a feature.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: Colors.grey.shade600),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppDimensions.spacingMd),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showAllFeaturesModal(context),
+                        icon: const Icon(Icons.dashboard_customize_outlined),
+                        label: const Text('Open Features'),
+                      ),
+                    ),
+                  ],
                 ),
-                _buildHeartbeatCard(context),
-                _buildMoodCard(context),
-                _buildPhotosCard(context),
-              ],
+              ),
             ),
           ],
         ),
@@ -223,84 +243,60 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeartbeatCard(BuildContext context) {
-    return AppCard(
-      onTap: () => context.push(RouteNames.heartbeat),
-      padding: const EdgeInsets.all(AppDimensions.spacingSm),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.favorite, size: 32, color: AppColors.softRose),
-          const SizedBox(height: AppDimensions.spacingXs),
-          Text(
-            'Heartbeat\n&\nMessages',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  height: 1.05,
+  Future<void> _showAllFeaturesModal(BuildContext context) {
+    final items = _featureItems;
+
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (modalContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: AppDimensions.spacingMd),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimensions.spacingLg,
+                    vertical: AppDimensions.spacingSm,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.grid_view_rounded,
+                          color: AppColors.softRose),
+                      const SizedBox(width: AppDimensions.spacingSm),
+                      Text(
+                        'All Features',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
                 ),
-            textAlign: TextAlign.center,
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return ListTile(
+                        leading: Icon(item.icon),
+                        title: Text(item.title),
+                        subtitle: Text(item.subtitle),
+                        onTap: () {
+                          Navigator.pop(modalContext);
+                          context.push(item.route);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: AppDimensions.spacingXs),
-          Text(
-            'Open chat',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: Colors.grey.shade500),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPhotosCard(BuildContext context) {
-    return AppCard(
-      onTap: () => context.push(RouteNames.photos),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.photo_library_outlined,
-              size: 36, color: AppColors.lavender),
-          const SizedBox(height: AppDimensions.spacingSm),
-          Text(
-            'Photo Messages',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: AppDimensions.spacingXs),
-          Text(
-            'Share photos',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: Colors.grey.shade500),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMoodCard(BuildContext context) {
-    return AppCard(
-      onTap: () => context.push(RouteNames.mood),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.emoji_emotions_outlined,
-              size: 36, color: AppColors.lavender),
-          const SizedBox(height: AppDimensions.spacingSm),
-          Text(
-            'Mood',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: AppDimensions.spacingXs),
-          Text(
-            'Share feelings',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: Colors.grey.shade500),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -419,4 +415,57 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+
+  List<_FeatureDrawerItem> get _featureItems => const [
+        _FeatureDrawerItem(
+          title: 'Location',
+          subtitle: 'See live location updates',
+          icon: Icons.location_on_outlined,
+          route: RouteNames.location,
+        ),
+        _FeatureDrawerItem(
+          title: 'Location History',
+          subtitle: 'View movement timeline',
+          icon: Icons.history,
+          route: RouteNames.locationHistory,
+        ),
+        _FeatureDrawerItem(
+          title: 'Heartbeat & Messages',
+          subtitle: 'Open your couple chat',
+          icon: Icons.favorite_border,
+          route: RouteNames.heartbeat,
+        ),
+        _FeatureDrawerItem(
+          title: 'Mood',
+          subtitle: 'Share your current feeling',
+          icon: Icons.emoji_emotions_outlined,
+          route: RouteNames.mood,
+        ),
+        _FeatureDrawerItem(
+          title: 'Photo Messages',
+          subtitle: 'Send and view photos',
+          icon: Icons.photo_library_outlined,
+          route: RouteNames.photos,
+        ),
+        _FeatureDrawerItem(
+          title: 'Secret Media',
+          subtitle: 'Open private gallery and vault',
+          icon: Icons.image_not_supported_outlined,
+          route: RouteNames.secretMediaGallery,
+        ),
+      ];
+}
+
+class _FeatureDrawerItem {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final String route;
+
+  const _FeatureDrawerItem({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.route,
+  });
 }

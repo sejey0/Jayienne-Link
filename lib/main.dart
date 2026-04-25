@@ -13,6 +13,8 @@ import 'providers/heartbeat_provider.dart';
 import 'providers/mood_provider.dart';
 import 'providers/photo_message_provider.dart';
 import 'services/supabase_auth_service.dart';
+import 'providers/secret_media_provider.dart';
+import 'services/supabase_secret_media_service.dart';
 import 'services/supabase_user_service.dart';
 import 'services/supabase_couple_service.dart';
 import 'services/supabase_storage_service.dart';
@@ -235,6 +237,27 @@ void main() async {
               partnerId: partnerId,
             );
             return photoProv;
+          },
+        ),
+        ChangeNotifierProxyProvider2<UserProvider, CoupleProvider,
+            SecretMediaProvider>(
+          create: (_) => SecretMediaProvider(
+            SupabaseSecretMediaService(Supabase.instance.client),
+          ),
+          update: (_, userProv, coupleProv, secretMediaProv) {
+            final user = userProv.user;
+            final coupleId = user?.coupleId;
+
+            if (user == null || coupleId == null) {
+              secretMediaProv!.clear();
+              return secretMediaProv;
+            }
+
+            secretMediaProv!.initialize(
+              userId: user.id,
+              coupleId: coupleId,
+            );
+            return secretMediaProv;
           },
         ),
       ],

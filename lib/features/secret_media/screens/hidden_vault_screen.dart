@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
+import 'package:jayienne_link/providers/auth_provider.dart';
 import 'package:jayienne_link/models/secret_media_model.dart';
 import 'add_secret_media_screen.dart';
 import 'secret_media_detail_screen.dart';
@@ -322,6 +323,10 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
     SecretMediaModel media,
     SecretMediaProvider provider,
   ) {
+    final currentUserId = context.read<AuthProvider>().currentUserId;
+    final canDelete =
+        currentUserId != null && currentUserId == media.uploadedById;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -432,42 +437,42 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
                 ),
               ),
             ),
-            // Menu button
-            Positioned(
-              top: 8,
-              left: 8,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  shape: BoxShape.circle,
-                ),
-                child: PopupMenuButton(
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: Colors.white,
-                    size: 20,
+            if (canDelete)
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
                   ),
-                  itemBuilder: (BuildContext context) => [
-                    PopupMenuItem(
-                      child: const Text('Delete'),
-                      onTap: () {
-                        _showConfirmDialog(
-                          context,
-                          'Delete Media?',
-                          'This action cannot be undone.',
-                          () {
-                            provider.deleteSecretMedia(media.id!);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Media deleted')),
-                            );
-                          },
-                        );
-                      },
+                  child: PopupMenuButton(
+                    icon: const Icon(
+                      Icons.more_vert,
+                      color: Colors.white,
+                      size: 20,
                     ),
-                  ],
+                    itemBuilder: (BuildContext context) => [
+                      PopupMenuItem(
+                        child: const Text('Delete'),
+                        onTap: () {
+                          _showConfirmDialog(
+                            context,
+                            'Delete Media?',
+                            'This action cannot be undone.',
+                            () {
+                              provider.deleteSecretMedia(media.id!);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Media deleted')),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),

@@ -285,6 +285,10 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
     SecretMediaModel media,
     SecretMediaProvider provider,
   ) {
+    final currentUserId = context.read<AuthProvider>().currentUserId;
+    final canDelete =
+        currentUserId != null && currentUserId == media.uploadedById;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -408,22 +412,23 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                         );
                       },
                     ),
-                    PopupMenuItem(
-                      child: const Text('Delete'),
-                      onTap: () {
-                        _showConfirmDialog(
-                          context,
-                          'Delete Media?',
-                          'This action cannot be undone.',
-                          () {
-                            provider.deleteSecretMedia(media.id!);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Media deleted')),
-                            );
-                          },
-                        );
-                      },
-                    ),
+                    if (canDelete)
+                      PopupMenuItem(
+                        child: const Text('Delete'),
+                        onTap: () {
+                          _showConfirmDialog(
+                            context,
+                            'Delete Media?',
+                            'This action cannot be undone.',
+                            () {
+                              provider.deleteSecretMedia(media.id!);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Media deleted')),
+                              );
+                            },
+                          );
+                        },
+                      ),
                   ],
                 ),
               ),

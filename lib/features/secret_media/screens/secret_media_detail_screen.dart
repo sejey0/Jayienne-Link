@@ -33,7 +33,16 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
 
   bool get _isUploader {
     final currentUserId = context.read<AuthProvider>().currentUserId;
-    return currentUserId != null && currentUserId == widget.media.uploadedById;
+    final isUploader = currentUserId != null &&
+        currentUserId.isNotEmpty &&
+        widget.media.uploadedById.isNotEmpty &&
+        currentUserId == widget.media.uploadedById;
+
+    // Debug: Print to console to help troubleshoot
+    debugPrint(
+        'Delete Permission Check: currentUser=$currentUserId, uploadedBy=${widget.media.uploadedById}, canDelete=$isUploader');
+
+    return isUploader;
   }
 
   @override
@@ -127,30 +136,31 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            itemBuilder: (BuildContext context) => [
-              PopupMenuItem(
-                child: const Text('Delete'),
-                onTap: () {
-                  _showConfirmDialog(
-                    'Delete Media?',
-                    'This action cannot be undone.',
-                    () {
-                      context
-                          .read<SecretMediaProvider>()
-                          .deleteSecretMedia(widget.media.id!);
-                      Navigator.pop(context);
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Media deleted')),
-                      );
-                    },
-                  );
-                },
-              ),
-            ],
-          ),
+          if (_isUploader)
+            PopupMenuButton(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              itemBuilder: (BuildContext context) => [
+                PopupMenuItem(
+                  child: const Text('Delete'),
+                  onTap: () {
+                    _showConfirmDialog(
+                      'Delete Media?',
+                      'This action cannot be undone.',
+                      () {
+                        context
+                            .read<SecretMediaProvider>()
+                            .deleteSecretMedia(widget.media.id!);
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Media deleted')),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -444,8 +454,8 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                       tooltip: _isImageMasked ? 'Show Image' : 'Hide Image',
                       icon: Icon(
                         _isImageMasked
-                            ? Icons.visibility
-                            : Icons.visibility_off,
+                            ? Icons.visibility_off
+                            : Icons.visibility,
                         color: Colors.white,
                       ),
                       onPressed: () {

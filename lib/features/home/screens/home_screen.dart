@@ -250,6 +250,7 @@ class HomeScreen extends StatelessWidget {
     return showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isDismissible: true,
       builder: (modalContext) {
         return SafeArea(
           child: Padding(
@@ -286,7 +287,7 @@ class HomeScreen extends StatelessWidget {
                         title: Text(item.title),
                         subtitle: Text(item.subtitle),
                         onTap: () {
-                          Navigator.pop(modalContext);
+                          // Keep modal open - don't close it
                           if (item.route == RouteNames.secretMediaHiddenVault) {
                             Navigator.push(
                               context,

@@ -7,6 +7,7 @@ class LocalCacheService {
   static const String _userKey = 'cache_user';
   static const String _partnerKey = 'cache_partner';
   static const String _coupleKey = 'cache_couple';
+  static const String _firstLaunchKey = 'is_first_launch';
 
   static Future<void> saveUser(UserModel user) async {
     final prefs = await SharedPreferences.getInstance();
@@ -76,5 +77,16 @@ class LocalCacheService {
     await prefs.remove(_userKey);
     await prefs.remove(_partnerKey);
     await prefs.remove(_coupleKey);
+  }
+
+  static Future<bool> isFirstLaunch() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Returns true if the key doesn't exist (first launch)
+    return prefs.getBool(_firstLaunchKey) ?? true;
+  }
+
+  static Future<void> markFirstLaunchComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_firstLaunchKey, false);
   }
 }

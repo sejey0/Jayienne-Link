@@ -14,6 +14,10 @@ class CoupleProvider extends ChangeNotifier {
   final SupabaseUserService _userService;
   final DebugProvider? _debugProvider;
 
+  // Static in-memory cache to preserve data across provider lifecycle
+  static CoupleModel? _staticCoupleCache;
+  static UserModel? _staticPartnerCache;
+
   CoupleModel? _couple;
   UserModel? _partner;
   UserModel? _searchResult;
@@ -35,7 +39,14 @@ class CoupleProvider extends ChangeNotifier {
   List<AnniversaryRequestModel> _outgoingAnniversaryRequests = [];
   String? _requestsUserId;
 
-  CoupleProvider(this._coupleService, this._userService, [this._debugProvider]);
+  CoupleProvider(this._coupleService, this._userService,
+      [this._debugProvider]) {
+    // Initialize with static cache if available
+    if (_staticCoupleCache != null && _staticPartnerCache != null) {
+      _couple = _staticCoupleCache;
+      _partner = _staticPartnerCache;
+    }
+  }
 
   CoupleModel? get couple => _couple;
   UserModel? get partner => _partner;
@@ -352,10 +363,12 @@ class CoupleProvider extends ChangeNotifier {
       LocalCacheService.loadCouple().then((cachedCouple) {
         if (cachedCouple != null && cachedCouple.id == coupleId) {
           _couple = cachedCouple;
+          _staticCoupleCache = cachedCouple;
           notifyListeners();
           LocalCacheService.loadPartner().then((cachedPartner) {
             if (cachedPartner != null) {
               _partner = cachedPartner;
+              _staticPartnerCache = cachedPartner;
               notifyListeners();
             }
           });
@@ -364,29 +377,37 @@ class CoupleProvider extends ChangeNotifier {
       return;
     }
 
-    LocalCacheService.loadCouple().then((cachedCouple) {
-      if (cachedCouple != null && cachedCouple.id == coupleId) {
-        _couple = cachedCouple;
-        notifyListeners();
-        LocalCacheService.loadPartner().then((cachedPartner) {
-          if (cachedPartner != null) {
-            _partner = cachedPartner;
-            notifyListeners();
-          }
-        });
-      }
-    });
+    // Load from cache first if we don't have data yet
+    if (_couple == null) {
+      LocalCacheService.loadCouple().then((cachedCouple) {
+        if (cachedCouple != null && cachedCouple.id == coupleId) {
+          _couple = cachedCouple;
+          _staticCoupleCache = cachedCouple;
+          notifyListeners();
+          LocalCacheService.loadPartner().then((cachedPartner) {
+            if (cachedPartner != null) {
+              _partner = cachedPartner;
+              _staticPartnerCache = cachedPartner;
+              notifyListeners();
+            }
+          });
+        }
+      });
+    }
+
     _coupleSubscription =
         _coupleService.coupleStream(coupleId).listen((couple) async {
       if (couple == null) {
         if (_couple == null) {
           _couple = null;
+          _staticCoupleCache = null;
           notifyListeners();
         }
         return;
       }
 
       _couple = couple;
+      _staticCoupleCache = couple;
       await LocalCacheService.saveCouple(couple);
 
       // Also load partner data
@@ -395,6 +416,7 @@ class CoupleProvider extends ChangeNotifier {
         try {
           _partner = await _userService.getUser(partnerId);
           if (_partner != null) {
+            _staticPartnerCache = _partner;
             await LocalCacheService.savePartner(_partner!);
           }
           debugPrint('✅ Partner loaded: ${_partner?.displayName}');
@@ -403,6 +425,7 @@ class CoupleProvider extends ChangeNotifier {
           final cachedPartner = await LocalCacheService.loadPartner();
           if (cachedPartner != null) {
             _partner = cachedPartner;
+            _staticPartnerCache = cachedPartner;
           }
           debugPrint('⚠️ Partner load failed, using cached data: $e');
         }
@@ -415,9 +438,11 @@ class CoupleProvider extends ChangeNotifier {
       LocalCacheService.loadCouple().then((cachedCouple) {
         if (cachedCouple != null && _couple == null) {
           _couple = cachedCouple;
+          _staticCoupleCache = cachedCouple;
           LocalCacheService.loadPartner().then((cachedPartner) {
             if (cachedPartner != null && _partner == null) {
               _partner = cachedPartner;
+              _staticPartnerCache = cachedPartner;
               notifyListeners();
             }
           });

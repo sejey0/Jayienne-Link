@@ -5,6 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/router/route_names.dart';
 import '../../widgets/common/heart_animation.dart';
+import '../../services/local_cache_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,7 +22,16 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _navigateAfterDelay() async {
-    await Future.delayed(const Duration(seconds: 2));
+    // Check if this is the first launch
+    final isFirstLaunch = await LocalCacheService.isFirstLaunch();
+
+    // Only add delay on first launch
+    if (isFirstLaunch) {
+      await Future.delayed(const Duration(seconds: 2));
+      // Mark first launch as complete
+      await LocalCacheService.markFirstLaunchComplete();
+    }
+
     if (mounted) {
       context.go(RouteNames.auth);
     }
@@ -41,17 +51,14 @@ class _SplashScreenState extends State<SplashScreen> {
               style: Theme.of(context).textTheme.displayLarge?.copyWith(
                     color: AppColors.softRose,
                   ),
-            )
-                .animate()
-                .fadeIn(duration: 600.ms, delay: 200.ms)
-                .slideY(begin: 0.2, end: 0),
+            ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
             const SizedBox(height: 8),
             Text(
               AppStrings.appTagline,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppColors.lavender,
                   ),
-            ).animate().fadeIn(duration: 600.ms, delay: 500.ms),
+            ).animate().fadeIn(duration: 600.ms),
           ],
         ),
       ),

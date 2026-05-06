@@ -42,6 +42,7 @@ class SupabaseSecretMediaService {
       return response
           .map(
               (item) => SecretMediaModel.fromJson(item as Map<String, dynamic>))
+          .where((media) => media.deletedAt == null)
           .toList();
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
@@ -63,7 +64,11 @@ class SupabaseSecretMediaService {
           .eq('is_hidden', true)
           .order('uploaded_at', ascending: false);
 
-      return response.map((item) => SecretMediaModel.fromJson(item)).toList();
+      return (response as List)
+          .map(
+              (item) => SecretMediaModel.fromJson(item as Map<String, dynamic>))
+          .where((media) => media.deletedAt == null)
+          .toList();
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
         debugPrint('Error fetching hidden secret media: $_missingTableHelp');
@@ -149,16 +154,80 @@ class SupabaseSecretMediaService {
     }
   }
 
-  // Delete secret media
+  // Soft delete secret media (moves to trash)
   Future<void> deleteSecretMedia(String mediaId) async {
     try {
-      await _supabase.from(_tableName).delete().eq('id', mediaId);
+      await _supabase.from(_tableName).update(
+          {'deleted_at': DateTime.now().toIso8601String()}).eq('id', mediaId);
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
         debugPrint('Error deleting secret media: $_missingTableHelp');
         throw _tableSetupException();
       }
       debugPrint('Error deleting secret media: $e');
+      rethrow;
+    }
+  }
+
+  // Get deleted (trash) secret media
+  Future<List<SecretMediaModel>> getDeletedSecretMedia(String coupleId) async {
+    try {
+      final response = await _supabase
+          .from(_tableName)
+          .select()
+          .eq('couple_id', coupleId)
+          .order('deleted_at', ascending: false);
+
+      return (response as List)
+          .cast<Map<String, dynamic>>()
+          .map((item) => SecretMediaModel.fromJson(item))
+          .where((media) => media.deletedAt != null)
+          .toList();
+    } catch (e) {
+      if (_isMissingSecretMediaTable(e)) {
+        debugPrint('Error fetching deleted secret media: $_missingTableHelp');
+        throw _tableSetupException();
+      }
+      debugPrint('Error fetching deleted secret media: $e');
+      rethrow;
+    }
+  }
+
+  // Restore deleted secret media
+  Future<SecretMediaModel> restoreSecretMedia(String mediaId) async {
+    try {
+      final response = await _supabase
+          .from(_tableName)
+          .update({'deleted_at': null as dynamic})
+          .eq('id', mediaId)
+          .select();
+
+      if (response.isEmpty) {
+        throw Exception('Failed to restore secret media');
+      }
+
+      return SecretMediaModel.fromJson(response[0]);
+    } catch (e) {
+      if (_isMissingSecretMediaTable(e)) {
+        debugPrint('Error restoring secret media: $_missingTableHelp');
+        throw _tableSetupException();
+      }
+      debugPrint('Error restoring secret media: $e');
+      rethrow;
+    }
+  }
+
+  // Permanently delete secret media
+  Future<void> permanentlyDeleteSecretMedia(String mediaId) async {
+    try {
+      await _supabase.from(_tableName).delete().eq('id', mediaId);
+    } catch (e) {
+      if (_isMissingSecretMediaTable(e)) {
+        debugPrint(
+            'Error permanently deleting secret media: $_missingTableHelp');
+        throw _tableSetupException();
+      }
+      debugPrint('Error permanently deleting secret media: $e');
       rethrow;
     }
   }

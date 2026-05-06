@@ -9,6 +9,7 @@ class SecretMediaModel {
   final DateTime uploadedAt;
   final bool isEncrypted;
   final bool isHidden; // For completely private media
+  final DateTime? deletedAt; // Soft delete timestamp
 
   SecretMediaModel({
     this.id,
@@ -21,10 +22,12 @@ class SecretMediaModel {
     required this.uploadedAt,
     this.isEncrypted = true,
     this.isHidden = false,
+    this.deletedAt,
   });
 
   factory SecretMediaModel.fromJson(Map<String, dynamic> json) {
     final uploadedAtValue = json['uploaded_at'] ?? json['created_at'];
+    final deletedAtValue = json['deleted_at'];
     return SecretMediaModel(
       id: json['id'] as String?,
       coupleId: json['couple_id'] as String? ?? '',
@@ -38,6 +41,9 @@ class SecretMediaModel {
           : DateTime.now(),
       isEncrypted: json['is_encrypted'] as bool? ?? true,
       isHidden: json['is_hidden'] as bool? ?? false,
+      deletedAt: deletedAtValue != null
+          ? DateTime.parse(deletedAtValue as String)
+          : null,
     );
   }
 
@@ -55,6 +61,7 @@ class SecretMediaModel {
       'uploaded_at': uploadedAt.toIso8601String(),
       'is_encrypted': isEncrypted,
       'is_hidden': isHidden,
+      if (deletedAt != null) 'deleted_at': deletedAt!.toIso8601String(),
     };
   }
 
@@ -69,6 +76,7 @@ class SecretMediaModel {
     DateTime? uploadedAt,
     bool? isEncrypted,
     bool? isHidden,
+    DateTime? deletedAt,
   }) {
     return SecretMediaModel(
       id: id ?? this.id,
@@ -81,6 +89,7 @@ class SecretMediaModel {
       uploadedAt: uploadedAt ?? this.uploadedAt,
       isEncrypted: isEncrypted ?? this.isEncrypted,
       isHidden: isHidden ?? this.isHidden,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 }

@@ -233,6 +233,85 @@ class SecretMediaProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Recover deleted secret media from URL
+  Future<bool> recoverDeletedMedia({
+    required String mediaUrl,
+    required String mediaType,
+    String? caption,
+    bool isHidden = false,
+  }) async {
+    if (_coupleId == null || _userId == null) {
+      _error = 'Couple or user ID not initialized';
+      return false;
+    }
+
+    try {
+      await _service.addSecretMedia(
+        coupleId: _coupleId!,
+        uploadedById: _userId!,
+        mediaType: mediaType,
+        mediaUrl: mediaUrl,
+        caption: caption,
+        isEncrypted: true,
+        isHidden: isHidden,
+      );
+      _error = null;
+      await _loadInitial();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to recover media: $e';
+      debugPrint(_error);
+      return false;
+    }
+  }
+
+  /// Get deleted/trash media
+  Future<List<SecretMediaModel>> getTrashMedia() async {
+    if (_coupleId == null) {
+      _error = 'Couple ID not initialized';
+      return [];
+    }
+
+    try {
+      return await _service.getDeletedSecretMedia(_coupleId!);
+    } catch (e) {
+      _error = 'Failed to fetch trash: $e';
+      debugPrint(_error);
+      return [];
+    }
+  }
+
+  /// Restore media from trash
+  Future<bool> restoreFromTrash(String mediaId) async {
+    try {
+      await _service.restoreSecretMedia(mediaId);
+      _error = null;
+      await _loadInitial();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to restore media: $e';
+      debugPrint(_error);
+      return false;
+    }
+  }
+
+  /// Permanently delete media
+  Future<bool> permanentlyDelete(String mediaId) async {
+    try {
+      await _service.permanentlyDeleteSecretMedia(mediaId);
+      _error = null;
+      await _loadInitial();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to permanently delete media: $e';
+      debugPrint(_error);
+      return false;
+    }
+  }
+
   @override
   void dispose() {
     _mediaSubscription?.cancel();

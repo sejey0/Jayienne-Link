@@ -731,6 +731,33 @@ class _SecretMediaFullscreenVideoScreenState
   VideoPlayerController? _controller;
   Future<void>? _initFuture;
   bool _showVideoControls = false;
+  bool _isLandscapeMode = false;
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  Future<void> _toggleLandscapeMode() async {
+    final nextMode = !_isLandscapeMode;
+
+    setState(() {
+      _isLandscapeMode = nextMode;
+    });
+
+    await SystemChrome.setPreferredOrientations(
+      nextMode
+          ? [
+              DeviceOrientation.landscapeLeft,
+              DeviceOrientation.landscapeRight,
+            ]
+          : [
+              DeviceOrientation.portraitUp,
+              DeviceOrientation.portraitDown,
+            ],
+    );
+  }
 
   @override
   void initState() {
@@ -740,6 +767,11 @@ class _SecretMediaFullscreenVideoScreenState
     _controller = controller;
     _initFuture = controller.initialize().then((_) {
       if (!mounted) return;
+      controller.addListener(() {
+        if (mounted) {
+          setState(() {});
+        }
+      });
       setState(() {});
       controller.play();
     });
@@ -747,6 +779,9 @@ class _SecretMediaFullscreenVideoScreenState
 
   @override
   void dispose() {
+    SystemChrome.setPreferredOrientations(
+      [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown],
+    );
     _controller?.dispose();
     super.dispose();
   }
@@ -794,31 +829,132 @@ class _SecretMediaFullscreenVideoScreenState
                           Positioned(
                             left: 0,
                             right: 0,
-                            bottom: 24,
-                            child: Center(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(32),
-                                ),
-                                child: IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      if (controller.value.isPlaying) {
-                                        controller.pause();
-                                      } else {
-                                        controller.play();
-                                      }
-                                    });
-                                  },
-                                  icon: Icon(
-                                    controller.value.isPlaying
-                                        ? Icons.pause_circle_filled
-                                        : Icons.play_circle_fill,
-                                    size: 36,
-                                    color: Colors.white,
+                            bottom: 12,
+                            child: SafeArea(
+                              minimum: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SliderTheme(
+                                    data: SliderTheme.of(context).copyWith(
+                                      trackHeight: 3,
+                                      thumbShape: const RoundSliderThumbShape(
+                                        enabledThumbRadius: 7,
+                                      ),
+                                      overlayShape:
+                                          const RoundSliderOverlayShape(
+                                        overlayRadius: 14,
+                                      ),
+                                      activeTrackColor: Colors.white,
+                                      inactiveTrackColor: Colors.white30,
+                                      thumbColor: Colors.white,
+                                    ),
+                                    child: Slider(
+                                      value: controller
+                                              .value.position.inMilliseconds
+                                              .clamp(
+                                                0,
+                                                controller.value.duration
+                                                    .inMilliseconds,
+                                              )
+                                              .toDouble() /
+                                          (controller
+                                              .value.duration.inMilliseconds
+                                              .clamp(
+                                                  1, double.maxFinite.toInt())
+                                              .toDouble()),
+                                      onChanged: controller.value.duration
+                                                  .inMilliseconds ==
+                                              0
+                                          ? null
+                                          : (value) {
+                                              final targetPosition = Duration(
+                                                milliseconds: (controller
+                                                            .value
+                                                            .duration
+                                                            .inMilliseconds *
+                                                        value)
+                                                    .round(),
+                                              );
+                                              controller.seekTo(targetPosition);
+                                            },
+                                    ),
                                   ),
-                                ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          _formatDuration(
+                                              controller.value.position),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatDuration(
+                                              controller.value.duration),
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
+                                    children: [
+                                      DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: Colors.black54,
+                                          borderRadius:
+                                              BorderRadius.circular(32),
+                                        ),
+                                        child: IconButton(
+                                          onPressed: _toggleLandscapeMode,
+                                          icon: Icon(
+                                            _isLandscapeMode
+                                                ? Icons.screen_rotation
+                                                : Icons.stay_current_landscape,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: Colors.black54,
+                                          borderRadius:
+                                              BorderRadius.circular(32),
+                                        ),
+                                        child: IconButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              if (controller.value.isPlaying) {
+                                                controller.pause();
+                                              } else {
+                                                controller.play();
+                                              }
+                                            });
+                                          },
+                                          icon: Icon(
+                                            controller.value.isPlaying
+                                                ? Icons.pause_circle_filled
+                                                : Icons.play_circle_fill,
+                                            size: 36,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           ),

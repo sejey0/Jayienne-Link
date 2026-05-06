@@ -25,7 +25,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   late TextEditingController _captionController;
   bool _isEditingCaption = false;
   bool _isSavingCaption = false;
-  bool _isPressingImage = false;
+  bool _isImageMasked = false;
   bool _showVideoControls = false;
   VideoPlayerController? _videoController;
   Future<void>? _videoInitializeFuture;
@@ -374,109 +374,151 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   }
 
   Widget _buildImagePreview() {
-    return GestureDetector(
-      onTapDown: (_) {
-        setState(() {
-          _isPressingImage = true;
-        });
-      },
-      onTapUp: (_) {
-        setState(() {
-          _isPressingImage = false;
-        });
-      },
-      onTapCancel: () {
-        setState(() {
-          _isPressingImage = false;
-        });
-      },
-      child: Container(
-        height: 400,
-        color: Colors.black,
-        child: Stack(
-          children: [
-            if (_isPressingImage)
-              Positioned.fill(
-                child: Image.network(
-                  widget.media.mediaUrl,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.grey.shade800,
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 48,
-                          color: Colors.white,
-                        ),
-                      ),
-                    );
-                  },
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: Colors.black,
-                      child: const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      ),
-                    );
-                  },
-                ),
-              )
-            else
-              Positioned.fill(
-                child: Container(color: Colors.black),
-              ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.12),
-                      Colors.black.withOpacity(0.08),
-                      Colors.black.withOpacity(0.3),
-                    ],
-                    stops: const [0.0, 0.5, 1.0],
+    return SizedBox(
+      height: 400,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.network(
+              widget.media.mediaUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey.shade800,
+                  child: const Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      size: 48,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
+                );
+              },
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  color: Colors.black,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                );
+              },
+            ),
+          ),
+          if (_isImageMasked)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black,
               ),
             ),
-            if (!_isPressingImage)
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white24, width: 1),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 16,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Material(
+                    color: Colors.redAccent,
+                    elevation: 6,
+                    shadowColor: Colors.black54,
+                    shape: const CircleBorder(
+                      side: BorderSide(color: Colors.white24, width: 1),
+                    ),
+                    child: IconButton(
+                      tooltip: 'Full View',
+                      icon: const Icon(Icons.fullscreen, color: Colors.white),
+                      onPressed: _showFullImageViewer,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.touch_app,
-                    size: 44,
-                    color: Colors.white,
+                  const SizedBox(width: 12),
+                  Material(
+                    color: Colors.black87,
+                    elevation: 6,
+                    shadowColor: Colors.black54,
+                    shape: const CircleBorder(
+                      side: BorderSide(color: Colors.white24, width: 1),
+                    ),
+                    child: IconButton(
+                      tooltip: _isImageMasked ? 'Show Image' : 'Hide Image',
+                      icon: Icon(
+                        _isImageMasked
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isImageMasked = !_isImageMasked;
+                        });
+                      },
+                    ),
                   ),
-                ),
+                ],
               ),
-            if (!_isPressingImage)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 20,
-                child: Text(
-                  'Press and hold to view',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  void _showFullImageViewer() {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black,
+      builder: (dialogContext) {
+        return Dialog.fullscreen(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4,
+                  child: Image.network(
+                    widget.media.mediaUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.grey.shade800,
+                        child: const Center(
+                          child: Icon(
+                            Icons.broken_image,
+                            size: 48,
+                            color: Colors.white,
+                          ),
+                        ),
+                      );
+                    },
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        color: Colors.black,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

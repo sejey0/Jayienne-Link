@@ -23,6 +23,8 @@ class SecretMediaDetailScreen extends StatefulWidget {
 
 class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   late TextEditingController _captionController;
+  final FocusNode _captionFocusNode = FocusNode();
+  String? _currentCaption;
   bool _isEditingCaption = false;
   bool _isSavingCaption = false;
   bool _isImageMasked = false;
@@ -48,6 +50,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _currentCaption = widget.media.caption;
     _captionController =
         TextEditingController(text: widget.media.caption ?? '');
 
@@ -91,12 +94,31 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   @override
   void dispose() {
     _captionController.dispose();
+    _captionFocusNode.dispose();
     _videoController?.dispose();
     super.dispose();
   }
 
+  void _startEditingCaption() {
+    setState(() {
+      _isEditingCaption = true;
+      _captionController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _captionController.text.length),
+      );
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _captionFocusNode.requestFocus();
+      }
+    });
+  }
+
   Future<void> _saveCaption() async {
-    if (_captionController.text == widget.media.caption) {
+    final newCaption = _captionController.text.trim();
+    final currentCaption = _currentCaption?.trim() ?? '';
+
+    if (newCaption == currentCaption) {
       setState(() {
         _isEditingCaption = false;
       });
@@ -108,13 +130,13 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
     });
 
     final provider = context.read<SecretMediaProvider>();
-    final success =
-        await provider.updateCaption(widget.media.id!, _captionController.text);
+    final success = await provider.updateCaption(widget.media.id!, newCaption);
 
     if (mounted) {
       setState(() {
         _isSavingCaption = false;
         if (success) {
+          _currentCaption = newCaption.isEmpty ? null : newCaption;
           _isEditingCaption = false;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Caption updated')),
@@ -265,13 +287,9 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                         ),
                       ),
                       if (_isUploader && !_isEditingCaption)
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _isEditingCaption = true;
-                            });
-                          },
-                          child: const Icon(
+                        IconButton(
+                          onPressed: _startEditingCaption,
+                          icon: const Icon(
                             Icons.edit,
                             color: Colors.white70,
                             size: 18,
@@ -297,7 +315,11 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                       children: [
                         TextField(
                           controller: _captionController,
+                          focusNode: _captionFocusNode,
+                          autofocus: true,
                           maxLines: 4,
+                          keyboardType: TextInputType.multiline,
+                          textInputAction: TextInputAction.newline,
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
                             hintText: 'Add a caption...',
@@ -317,27 +339,30 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [
-                            TextButton(
+                            OutlinedButton(
                               onPressed: () {
-                                _captionController.text =
-                                    widget.media.caption ?? '';
+                                _captionController.text = _currentCaption ?? '';
+                                _captionFocusNode.unfocus();
                                 setState(() {
                                   _isEditingCaption = false;
                                 });
                               },
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(color: Colors.white70),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.white54),
+                                foregroundColor: Colors.white70,
                               ),
+                              child: const Text('Cancel'),
                             ),
-                            const SizedBox(width: 8),
                             ElevatedButton(
                               onPressed: _isSavingCaption ? null : _saveCaption,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
                               ),
                               child: _isSavingCaption
                                   ? const SizedBox(
@@ -363,11 +388,11 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        widget.media.caption?.isNotEmpty ?? false
-                            ? widget.media.caption!
+                        _currentCaption?.isNotEmpty ?? false
+                            ? _currentCaption!
                             : 'No caption',
                         style: GoogleFonts.poppins(
-                          color: widget.media.caption?.isNotEmpty ?? false
+                          color: _currentCaption?.isNotEmpty ?? false
                               ? Colors.white
                               : Colors.white54,
                           fontSize: 14,
@@ -637,8 +662,8 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => SecretMediaFullscreenVideoScreen(
-                              title: widget.media.caption?.isNotEmpty == true
-                                  ? widget.media.caption!
+                              title: _currentCaption?.isNotEmpty == true
+                                  ? _currentCaption!
                                   : 'Video',
                               videoUrl: widget.media.mediaUrl,
                             ),

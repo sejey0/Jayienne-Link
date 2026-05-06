@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/app_lock_provider.dart';
 import 'providers/couple_provider.dart';
 import 'providers/user_provider.dart';
 import 'core/theme/app_theme.dart';
@@ -23,10 +24,15 @@ class _JayienneLinkAppState extends State<JayienneLinkApp> {
     super.initState();
     // Create router once in initState
     final authProvider = context.read<AuthProvider>();
+    final appLockProvider = context.read<AppLockProvider>();
     final userProvider = context.read<UserProvider>();
     final coupleProvider = context.read<CoupleProvider>();
-    _router =
-        AppRouter.createRouter(authProvider, userProvider, coupleProvider);
+    _router = AppRouter.createRouter(
+      authProvider,
+      userProvider,
+      coupleProvider,
+      appLockProvider,
+    );
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/app_lock_provider.dart';
 import '../../providers/couple_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../features/splash/splash_screen.dart';
@@ -16,6 +17,7 @@ import '../../features/couple/screens/couple_linking_screen.dart';
 import '../../features/couple/screens/couple_success_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/home/screens/settings_screen.dart';
+import '../../features/home/screens/app_lock_screen.dart';
 import '../../features/location/screens/location_screen.dart';
 import '../../features/location/screens/location_history_screen.dart';
 import '../../features/heartbeat/screens/heartbeat_screen.dart';
@@ -34,6 +36,7 @@ class AppRouter {
     AuthProvider authProvider,
     UserProvider userProvider,
     CoupleProvider coupleProvider,
+    AppLockProvider appLockProvider,
   ) {
     return GoRouter(
       initialLocation: RouteNames.splash,
@@ -63,6 +66,7 @@ class AppRouter {
         final isOnProfileSetup = location == RouteNames.profileSetup;
         final isOnCoupleLink = location == RouteNames.coupleLink;
         final isOnCoupleSuccess = location == RouteNames.coupleSuccess;
+        final isOnAppLock = location == RouteNames.appLock;
 
         // Not authenticated -> go to auth
         if (!isAuthenticated) {
@@ -83,11 +87,23 @@ class AppRouter {
         // Fully linked - redirect away from auth/setup routes
         if (hasCoupleId &&
             (isOnAuthRoute || isOnProfileSetup || isOnCoupleLink)) {
-          return RouteNames.home;
+          return appLockProvider.requiresUnlock
+              ? RouteNames.appLock
+              : RouteNames.home;
         }
 
         // User skipped couple linking - redirect away from auth/setup but allow couple link access
         if (hasSkippedCoupleLink && (isOnAuthRoute || isOnProfileSetup)) {
+          return appLockProvider.requiresUnlock
+              ? RouteNames.appLock
+              : RouteNames.home;
+        }
+
+        if (appLockProvider.requiresUnlock) {
+          return isOnAppLock ? null : RouteNames.appLock;
+        }
+
+        if (isOnAppLock) {
           return RouteNames.home;
         }
 
@@ -145,6 +161,10 @@ class AppRouter {
         GoRoute(
           path: RouteNames.settings,
           builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.appLock,
+          builder: (context, state) => const AppLockScreen(),
         ),
         GoRoute(
           path: RouteNames.location,

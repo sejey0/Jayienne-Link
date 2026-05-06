@@ -10,6 +10,7 @@ import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/couple_model.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/app_lock_provider.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/debug_provider.dart';
 import '../../../providers/theme_provider.dart';
@@ -75,6 +76,48 @@ class SettingsScreen extends StatelessWidget {
             ),
             value: themeProvider.isDarkMode,
             onChanged: (_) => themeProvider.toggleTheme(),
+          ),
+          Consumer<AppLockProvider>(
+            builder: (context, appLockProvider, _) {
+              final enabled = appLockProvider.isEnabled;
+              return Column(
+                children: [
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.lock_outline),
+                    title: const Text('App Lock'),
+                    subtitle: Text(
+                      enabled
+                          ? 'Password required after login until you unlock the app.'
+                          : 'Add a password to lock the app after login.',
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimensions.spacingLg,
+                    ),
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () =>
+                              _showPinDialog(context, appLockProvider),
+                          child: Text(
+                              enabled ? 'Change Password' : 'Set Password'),
+                        ),
+                        if (enabled)
+                          OutlinedButton(
+                            onPressed: () =>
+                                _showDisablePinDialog(context, appLockProvider),
+                            child: const Text('Disable Password'),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const Divider(),
           ListTile(
@@ -150,6 +193,275 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildPinField({
+    required String label,
+    required TextEditingController controller,
+    required bool obscureText,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
+  Future<void> _showPinDialog(
+    BuildContext context,
+    AppLockProvider appLockProvider,
+  ) async {
+    final isChanging = appLockProvider.isEnabled;
+    final currentPinController = TextEditingController();
+    final newPinController = TextEditingController();
+    final confirmPinController = TextEditingController();
+    String? errorText;
+    bool isSaving = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return AlertDialog(
+            title:
+                Text(isChanging ? 'Change App Password' : 'Set App Password'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isChanging) ...[
+                    _buildPinField(
+                      label: 'Current Password',
+                      controller: currentPinController,
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  _buildPinField(
+                    label: 'New Password',
+                    controller: newPinController,
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildPinField(
+                    label: 'Confirm Password',
+                    controller: confirmPinController,
+                    obscureText: true,
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      errorText!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed:
+                    isSaving ? null : () => Navigator.pop(dialogContext, false),
+                child: const Text(AppStrings.cancel),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final currentPin = currentPinController.text.trim();
+                        final newPin = newPinController.text.trim();
+                        final confirmPin = confirmPinController.text.trim();
+
+                        if (isChanging && currentPin.isEmpty) {
+                          setDialogState(() {
+                            errorText = 'Enter your current password.';
+                          });
+                          return;
+                        }
+
+                        if (newPin.isEmpty) {
+                          setDialogState(() {
+                            errorText = 'Password cannot be empty.';
+                          });
+                          return;
+                        }
+
+                        if (newPin != confirmPin) {
+                          setDialogState(() {
+                            errorText = 'Passwords do not match.';
+                          });
+                          return;
+                        }
+
+                        setDialogState(() {
+                          isSaving = true;
+                          errorText = null;
+                        });
+
+                        final success = isChanging
+                            ? await appLockProvider.changePin(
+                                currentPin,
+                                newPin,
+                                notify: false,
+                              )
+                            : await appLockProvider.setPin(
+                                newPin,
+                                notify: false,
+                              );
+
+                        if (!dialogContext.mounted) return;
+
+                        if (success) {
+                          Navigator.pop(dialogContext, true);
+                        } else {
+                          setDialogState(() {
+                            isSaving = false;
+                            errorText = appLockProvider.error ??
+                                'Unable to save password.';
+                          });
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      currentPinController.dispose();
+      newPinController.dispose();
+      confirmPinController.dispose();
+    });
+
+    if (result == true && context.mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await appLockProvider.load();
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(content: Text('App password saved')),
+          );
+      });
+    }
+  }
+
+  Future<void> _showDisablePinDialog(
+    BuildContext context,
+    AppLockProvider appLockProvider,
+  ) async {
+    final currentPinController = TextEditingController();
+    String? errorText;
+    bool isSaving = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return AlertDialog(
+            title: const Text('Disable App Password'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildPinField(
+                    label: 'Current Password',
+                    controller: currentPinController,
+                    obscureText: true,
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      errorText!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed:
+                    isSaving ? null : () => Navigator.pop(dialogContext, false),
+                child: const Text(AppStrings.cancel),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final currentPin = currentPinController.text.trim();
+                        if (currentPin.isEmpty) {
+                          setDialogState(() {
+                            errorText = 'Enter your current password.';
+                          });
+                          return;
+                        }
+
+                        setDialogState(() {
+                          isSaving = true;
+                          errorText = null;
+                        });
+
+                        final success = await appLockProvider.disablePin(
+                          currentPin,
+                          notify: false,
+                        );
+
+                        if (!dialogContext.mounted) return;
+
+                        if (success) {
+                          Navigator.pop(dialogContext, true);
+                        } else {
+                          setDialogState(() {
+                            isSaving = false;
+                            errorText = appLockProvider.error ??
+                                'Unable to disable password.';
+                          });
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Disable'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      currentPinController.dispose();
+    });
+
+    if (result == true && context.mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await appLockProvider.load();
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(content: Text('App password disabled')),
+          );
+      });
+    }
   }
 
   void _confirmSignOut(BuildContext context) {

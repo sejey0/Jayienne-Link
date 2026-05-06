@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:jayienne_link/app.dart';
+import 'package:jayienne_link/providers/app_lock_provider.dart';
 import 'package:jayienne_link/providers/auth_provider.dart';
 import 'package:jayienne_link/providers/couple_provider.dart';
 import 'package:jayienne_link/providers/debug_provider.dart';
@@ -49,6 +50,8 @@ void main() async {
   final userService = SupabaseUserService();
   final coupleService = SupabaseCoupleService();
   final storageService = SupabaseStorageService();
+  final appLockProvider = AppLockProvider();
+  await appLockProvider.load();
 
   runApp(
     MultiProvider(
@@ -56,6 +59,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => DebugProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
+        ChangeNotifierProvider.value(value: appLockProvider),
         ChangeNotifierProxyProvider<AuthProvider, UserProvider>(
           create: (_) =>
               UserProvider(userService, storageService, coupleService),

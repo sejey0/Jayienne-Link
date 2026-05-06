@@ -11,6 +11,7 @@ class RouteNames {
   static const String profileSetup = '/profile-setup';
   static const String coupleLink = '/couple-link';
   static const String coupleSuccess = '/couple-success';
+  static const String appLock = '/app-lock';
   static const String home = '/';
   static const String profile = '/profile';
   static const String editProfile = '/edit-profile';

@@ -12,7 +12,7 @@ class SupabaseHeartbeatService {
 
   Future<List<HeartbeatModel>> getHeartbeats(
     String coupleId, {
-    int limit = 50,
+    int? limit,
   }) async {
     final records = await SupabaseDataService.getRecords(
       _tableName,
@@ -28,7 +28,7 @@ class SupabaseHeartbeatService {
 
   Stream<List<HeartbeatModel>> streamHeartbeats(
     String coupleId, {
-    int limit = 50,
+    int? limit,
   }) {
     return SupabaseDataService.getRecordsStream(
       _tableName,
@@ -39,7 +39,7 @@ class SupabaseHeartbeatService {
     ).map((records) {
       final models = records.map(HeartbeatModel.fromJson).toList();
       models.sort((a, b) => b.sentAt.compareTo(a.sentAt));
-      if (models.length > limit) {
+      if (limit != null && limit > 0 && models.length > limit) {
         return models.sublist(0, limit);
       }
       return models;

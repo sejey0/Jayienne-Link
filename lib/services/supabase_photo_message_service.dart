@@ -8,7 +8,7 @@ class SupabasePhotoMessageService {
 
   Future<List<PhotoMessageModel>> getPhotoMessages(
     String coupleId, {
-    int limit = 50,
+    int? limit,
   }) async {
     final records = await SupabaseDataService.getRecords(
       _tableName,
@@ -24,7 +24,7 @@ class SupabasePhotoMessageService {
 
   Stream<List<PhotoMessageModel>> streamPhotoMessages(
     String coupleId, {
-    int limit = 50,
+    int? limit,
   }) {
     return SupabaseDataService.getRecordsStream(
       _tableName,
@@ -35,7 +35,7 @@ class SupabasePhotoMessageService {
     ).map((records) {
       final models = records.map(PhotoMessageModel.fromJson).toList();
       models.sort((a, b) => b.sentAt.compareTo(a.sentAt));
-      if (models.length > limit) {
+      if (limit != null && limit > 0 && models.length > limit) {
         return models.sublist(0, limit);
       }
       return models;

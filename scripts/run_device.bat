@@ -4,6 +4,12 @@ title Jayienne Link - Run on Physical Device
 
 cd /d "%~dp0.."
 
+if not exist "%JAVA_HOME%\bin\java.exe" (
+    if exist "C:\Program Files\Java\jdk-22\bin\java.exe" (
+        set "JAVA_HOME=C:\Program Files\Java\jdk-22"
+    )
+)
+
 if not exist "pubspec.yaml" (
     echo [ERROR] pubspec.yaml not found in %cd%
     echo Please run this script from the Flutter project scripts folder.

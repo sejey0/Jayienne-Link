@@ -65,13 +65,13 @@ class BackgroundLocationService {
       backgroundLocationTask,
       frequency: Duration(minutes: intervalMinutes),
       constraints: Constraints(
-        networkType: NetworkType.not_required, // Works offline - GPS only
+        networkType: NetworkType.notRequired, // Works offline - GPS only
         requiresBatteryNotLow: false,
         requiresCharging: false,
         requiresDeviceIdle: false,
         requiresStorageNotLow: false,
       ),
-      existingWorkPolicy: ExistingWorkPolicy.replace,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
       backoffPolicy: BackoffPolicy.linear,
       backoffPolicyDelay: const Duration(minutes: 5),
     );
@@ -107,7 +107,7 @@ class BackgroundLocationService {
       'oneTimeLocation_${DateTime.now().millisecondsSinceEpoch}',
       backgroundLocationTask,
       constraints: Constraints(
-        networkType: NetworkType.not_required,
+        networkType: NetworkType.notRequired,
       ),
     );
   }

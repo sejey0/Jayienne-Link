@@ -2,13 +2,14 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://maven.google.com' }
     }
 }
 
 // Expose Flutter SDK properties to all subprojects (needed by geolocator and other plugins)
 ext {
     set('flutter', [
-        compileSdkVersion: 35,
+        compileSdkVersion: 36,
         targetSdkVersion: 35,
         minSdkVersion: 23
     ])

@@ -25,6 +25,12 @@ dependencies:
   supabase_flutter: ^2.5.6
   flutter_dotenv: ^5.1.0
 
+  # Security & Storage
+  flutter_secure_storage: ^9.0.0
+  local_auth: ^2.2.0
+  crypto: ^3.0.3
+  flutter_cache_manager: ^3.3.1
+
   # Utilities
   share_plus: ^9.0.0
   image_picker: ^1.1.0

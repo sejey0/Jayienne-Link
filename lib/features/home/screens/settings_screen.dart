@@ -199,14 +199,23 @@ class SettingsScreen extends StatelessWidget {
     required String label,
     required TextEditingController controller,
     required bool obscureText,
+    VoidCallback? onToggleObscure,
   }) {
     return TextField(
       controller: controller,
       obscureText: obscureText,
-      keyboardType: TextInputType.text,
+      keyboardType: TextInputType.visiblePassword,
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
+        suffixIcon: onToggleObscure != null
+            ? IconButton(
+                icon: Icon(
+                  obscureText ? Icons.visibility_off : Icons.visibility,
+                ),
+                onPressed: onToggleObscure,
+              )
+            : null,
       ),
     );
   }
@@ -219,6 +228,11 @@ class SettingsScreen extends StatelessWidget {
     final currentPinController = TextEditingController();
     final newPinController = TextEditingController();
     final confirmPinController = TextEditingController();
+    
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+
     String? errorText;
     bool isSaving = false;
 
@@ -229,35 +243,50 @@ class SettingsScreen extends StatelessWidget {
         builder: (dialogContext, setDialogState) {
           return AlertDialog(
             title:
-                Text(isChanging ? 'Change App Password' : 'Set App Password'),
+                Text(isChanging ? 'Change Passcode' : 'Set Passcode'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isChanging) ...[
                     _buildPinField(
-                      label: 'Current Password',
+                      label: 'Current Passcode',
                       controller: currentPinController,
-                      obscureText: true,
+                      obscureText: obscureCurrent,
+                      onToggleObscure: () {
+                        setDialogState(() {
+                          obscureCurrent = !obscureCurrent;
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
                   ],
                   _buildPinField(
-                    label: 'New Password',
+                    label: 'New Passcode (min 8 chars)',
                     controller: newPinController,
-                    obscureText: true,
+                    obscureText: obscureNew,
+                    onToggleObscure: () {
+                      setDialogState(() {
+                        obscureNew = !obscureNew;
+                      });
+                    },
                   ),
                   const SizedBox(height: 12),
                   _buildPinField(
-                    label: 'Confirm Password',
+                    label: 'Confirm Passcode',
                     controller: confirmPinController,
-                    obscureText: true,
+                    obscureText: obscureConfirm,
+                    onToggleObscure: () {
+                      setDialogState(() {
+                        obscureConfirm = !obscureConfirm;
+                      });
+                    },
                   ),
                   if (errorText != null) ...[
                     const SizedBox(height: 12),
                     Text(
                       errorText!,
-                      style: const TextStyle(color: Colors.red),
+                      style: const TextStyle(color: Colors.red, fontSize: 13),
                     ),
                   ],
                 ],
@@ -279,21 +308,22 @@ class SettingsScreen extends StatelessWidget {
 
                         if (isChanging && currentPin.isEmpty) {
                           setDialogState(() {
-                            errorText = 'Enter your current password.';
+                            errorText = 'Enter your current passcode.';
                           });
                           return;
                         }
 
-                        if (newPin.isEmpty) {
+                        if (newPin.length < AppLockProvider.minPasscodeLength) {
                           setDialogState(() {
-                            errorText = 'Password cannot be empty.';
+                            errorText =
+                                'Passcode must be at least ${AppLockProvider.minPasscodeLength} characters long.';
                           });
                           return;
                         }
 
                         if (newPin != confirmPin) {
                           setDialogState(() {
-                            errorText = 'Passwords do not match.';
+                            errorText = 'Passcodes do not match.';
                           });
                           return;
                         }
@@ -322,7 +352,7 @@ class SettingsScreen extends StatelessWidget {
                           setDialogState(() {
                             isSaving = false;
                             errorText = appLockProvider.error ??
-                                'Unable to save password.';
+                                'Unable to save passcode.';
                           });
                         }
                       },

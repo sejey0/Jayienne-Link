@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/route_names.dart';
 import '../../secret_media/screens/hidden_vault_screen.dart';
 
-/// Senior Feature Selection Modal Bottom Sheet with Direct Home Return Navigation
+/// Senior Feature Selection Modal Bottom Sheet with Single Instance Back-Stack Persistence & Haptic Feedback
 class FeaturesSelectionBottomSheet extends StatelessWidget {
   const FeaturesSelectionBottomSheet({super.key});
 
@@ -154,7 +155,10 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.pop(context);
+                    },
                     icon: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
@@ -172,7 +176,7 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Selection Grid Tiles with Direct Routing
+              // Selection Grid Tiles (Single-instance back-stack return)
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -187,20 +191,18 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
                   final item = featureItems[index];
                   return _FeatureModalTile(
                     item: item,
-                    onTap: () {
-                      // STEP 1: Dismiss sheet immediately
-                      Navigator.pop(context);
-
-                      // STEP 2: Navigate to target feature screen
+                    onTap: () async {
+                      HapticFeedback.lightImpact();
+                      // Push target feature screen directly over active bottom sheet context
                       if (item.isCustomScreen) {
-                        Navigator.push(
+                        await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const HiddenVaultScreen(),
                           ),
                         );
                       } else {
-                        context.push(item.route);
+                        await context.push(item.route);
                       }
                     },
                   );

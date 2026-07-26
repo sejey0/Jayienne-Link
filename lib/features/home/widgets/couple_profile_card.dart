@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -6,7 +7,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 
-/// Senior Redesigned Couple Profile Card with Beating Heart Animation & Ambient Glassmorphism Aesthetics
+/// Senior Redesigned Couple Profile Card with Beating Heart Animation & Haptic Touch Feedback
 class CoupleProfileCard extends StatefulWidget {
   const CoupleProfileCard({super.key});
 
@@ -106,26 +107,29 @@ class _CoupleProfileCardState extends State<CoupleProfileCard>
 
                 const SizedBox(width: 20),
 
-                // Pulsing Beating Heart Animation
-                ScaleTransition(
-                  scale: _pulseAnimation,
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.softRose.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.softRose.withValues(alpha: 0.5),
-                          blurRadius: 16,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.favorite_rounded,
-                      color: AppColors.softRose,
-                      size: 28,
+                // Pulsing Beating Heart Animation with Haptic Feedback on Tap
+                GestureDetector(
+                  onTap: () => HapticFeedback.lightImpact(),
+                  child: ScaleTransition(
+                    scale: _pulseAnimation,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.softRose.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.softRose.withValues(alpha: 0.5),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.favorite_rounded,
+                        color: AppColors.softRose,
+                        size: 28,
+                      ),
                     ),
                   ),
                 ),

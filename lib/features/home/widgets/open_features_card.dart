@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import 'features_selection_bottom_sheet.dart';
@@ -13,6 +14,19 @@ class OpenFeaturesCard extends StatefulWidget {
 
 class _OpenFeaturesCardState extends State<OpenFeaturesCard> {
   bool _isPressed = false;
+  bool _isSheetOpen = false;
+
+  Future<void> _openFeaturesSheet() async {
+    if (_isSheetOpen) return;
+    HapticFeedback.lightImpact();
+    setState(() => _isSheetOpen = true);
+
+    await FeaturesSelectionBottomSheet.show(context);
+
+    if (mounted) {
+      setState(() => _isSheetOpen = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +39,7 @@ class _OpenFeaturesCardState extends State<OpenFeaturesCard> {
         onTapDown: (_) => setState(() => _isPressed = true),
         onTapUp: (_) {
           setState(() => _isPressed = false);
-          FeaturesSelectionBottomSheet.show(context);
+          _openFeaturesSheet();
         },
         onTapCancel: () => setState(() => _isPressed = false),
         child: AnimatedScale(
@@ -85,7 +99,7 @@ class _OpenFeaturesCardState extends State<OpenFeaturesCard> {
                       ),
                       SizedBox(height: 3),
                       Text(
-                        'Tap to open feature menu',
+                        'Tap to select features & tools',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -94,20 +108,6 @@ class _OpenFeaturesCardState extends State<OpenFeaturesCard> {
                         ),
                       ),
                     ],
-                  ),
-                ),
-
-                // Upward Arrow / Expand Indicator Badge
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.keyboard_arrow_up_rounded,
-                    color: Colors.white,
-                    size: 24,
                   ),
                 ),
               ],

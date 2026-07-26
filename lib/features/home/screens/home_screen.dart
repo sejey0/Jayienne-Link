@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/router/route_names.dart';
 import '../../../models/anniversary_request_model.dart';
 import '../../../models/user_model.dart';
@@ -19,6 +19,39 @@ import '../widgets/open_features_card.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  /// Dynamic Time-of-Day Romantic Greeting Header Formula
+  String _getDynamicGreeting(UserModel? user, CoupleProvider coupleProvider) {
+    final now = DateTime.now();
+    final hour = now.hour;
+
+    String timeGreeting;
+    String emoji;
+    if (hour >= 5 && hour < 12) {
+      timeGreeting = 'Good morning';
+      emoji = '☀️';
+    } else if (hour >= 12 && hour < 18) {
+      timeGreeting = 'Good afternoon';
+      emoji = '🌤️';
+    } else {
+      timeGreeting = 'Good evening';
+      emoji = '🌙';
+    }
+
+    final partner = coupleProvider.partner;
+    final myName = (user != null && user.displayName.isNotEmpty)
+        ? user.displayName
+        : 'CJay';
+    final partnerName = (partner != null && partner.displayName.isNotEmpty)
+        ? partner.displayName
+        : 'Aienne';
+
+    if (partner != null) {
+      return '$timeGreeting, $myName & $partnerName $emoji';
+    } else {
+      return '$timeGreeting, $myName $emoji';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
@@ -27,13 +60,35 @@ class HomeScreen extends StatelessWidget {
     final couple = coupleProvider.couple;
     final incomingAnniversary = coupleProvider.incomingAnniversaryRequests;
 
+    final greetingText = _getDynamicGreeting(user, coupleProvider);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.appName),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [AppColors.softRose, AppColors.lavender],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ).createShader(bounds),
+            child: Text(
+              greetingText,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push(RouteNames.settings),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              context.push(RouteNames.settings);
+            },
           ),
         ],
       ),
@@ -92,7 +147,10 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppDimensions.spacingMd),
               ElevatedButton.icon(
-                onPressed: () => context.push(RouteNames.coupleLink),
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  context.push(RouteNames.coupleLink);
+                },
                 icon: const Icon(Icons.link),
                 label: const Text('Link Now'),
               ),
@@ -138,6 +196,7 @@ class HomeScreen extends StatelessWidget {
                     label: 'Accept',
                     variant: AppButtonVariant.secondary,
                     onPressed: () async {
+                      HapticFeedback.lightImpact();
                       final success = await coupleProvider
                           .acceptAnniversaryRequest(request);
                       if (!context.mounted) return;
@@ -159,6 +218,7 @@ class HomeScreen extends StatelessWidget {
                     label: 'Decline',
                     variant: AppButtonVariant.text,
                     onPressed: () async {
+                      HapticFeedback.lightImpact();
                       await coupleProvider
                           .declineAnniversaryRequest(request.id);
                       if (!context.mounted) return;
@@ -172,5 +232,4 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-
 }

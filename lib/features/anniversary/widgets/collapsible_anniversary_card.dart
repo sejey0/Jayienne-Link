@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -32,6 +33,7 @@ class _CollapsibleAnniversaryCardState
   }
 
   void _toggleExpanded() {
+    HapticFeedback.lightImpact();
     setState(() {
       _isExpanded = !_isExpanded;
     });
@@ -333,7 +335,10 @@ class _CollapsibleAnniversaryCardState
               ),
             ),
             TextButton.icon(
-              onPressed: () => context.push(RouteNames.relationshipTimeline),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                context.push(RouteNames.relationshipTimeline);
+              },
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
                 backgroundColor: Colors.white.withValues(alpha: 0.22),
@@ -379,7 +384,10 @@ class _CollapsibleAnniversaryCardState
         ),
         const SizedBox(height: 12),
         ElevatedButton.icon(
-          onPressed: () => _showDatePickerDialog(context, provider),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            _showDatePickerDialog(context, provider);
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white,
             foregroundColor: AppColors.softRose,

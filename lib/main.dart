@@ -25,6 +25,8 @@ import 'package:jayienne_link/services/supabase_photo_message_service.dart';
 import 'package:jayienne_link/services/supabase_secret_media_service.dart';
 import 'package:jayienne_link/services/supabase_storage_service.dart';
 import 'package:jayienne_link/services/supabase_user_service.dart';
+import 'package:jayienne_link/providers/anniversary_provider.dart';
+import 'package:jayienne_link/services/supabase_milestone_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -262,6 +264,37 @@ void main() async {
               coupleId: coupleId,
             );
             return secretMediaProv;
+          },
+        ),
+        ChangeNotifierProxyProvider2<UserProvider, CoupleProvider,
+            AnniversaryProvider>(
+          create: (_) => AnniversaryProvider(SupabaseMilestoneService()),
+          update: (_, userProv, coupleProv, anniversaryProv) {
+            final user = userProv.user;
+            final coupleId = user?.coupleId;
+            final couple = coupleProv.couple;
+
+            final safeProv = anniversaryProv ??
+                AnniversaryProvider(SupabaseMilestoneService());
+
+            if (user == null || coupleId == null) {
+              return safeProv;
+            }
+
+            String? partnerId;
+            if (couple != null) {
+              partnerId = couple.getPartnerId(
+                user.id.isNotEmpty ? user.id : user.uid,
+              );
+            }
+
+            safeProv.initialize(
+              coupleId: coupleId,
+              userId: user.id,
+              partnerId: partnerId,
+              initialAnniversaryDate: couple?.anniversary,
+            );
+            return safeProv;
           },
         ),
       ],

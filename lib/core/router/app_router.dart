@@ -28,6 +28,7 @@ import 'route_names.dart';
 import '../../features/secret_media/screens/add_secret_media_screen.dart';
 import '../../features/secret_media/screens/secret_media_detail_screen.dart';
 import '../../features/secret_media/screens/hidden_vault_screen.dart';
+import '../../features/anniversary/screens/relationship_timeline_screen.dart';
 
 class AppRouter {
   AppRouter._();
@@ -216,6 +217,10 @@ class AppRouter {
         GoRoute(
           path: RouteNames.secretMediaHiddenVault,
           builder: (context, state) => const HiddenVaultScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.relationshipTimeline,
+          builder: (context, state) => const RelationshipTimelineScreen(),
         ),
       ],
     );

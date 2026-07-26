@@ -16,6 +16,7 @@ import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/heart_animation.dart';
 import '../../secret_media/screens/hidden_vault_screen.dart';
+import '../../anniversary/widgets/anniversary_card_widget.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -45,6 +46,9 @@ class HomeScreen extends StatelessWidget {
         padding: const EdgeInsets.all(AppDimensions.spacingLg),
         child: Column(
           children: [
+            // Embedded Glassmorphism Anniversary & Live Love Counter Card
+            const AnniversaryCardWidget(),
+            const SizedBox(height: AppDimensions.spacingMd),
             // Link with partner card (shown when skipped)
             if (user != null && user.hasSkippedCoupleLink)
               _buildLinkPartnerCard(context, user),
@@ -169,7 +173,7 @@ class HomeScreen extends StatelessWidget {
   Widget _buildAvatar(BuildContext context, String? photoUrl) {
     return CircleAvatar(
       radius: AppDimensions.avatarSizeMedium / 2,
-      backgroundColor: AppColors.peach.withOpacity(0.3),
+      backgroundColor: AppColors.peach.withValues(alpha: 0.3),
       backgroundImage: _getProfileImageProvider(photoUrl),
       child: photoUrl == null
           ? const Icon(Icons.person, size: 32, color: AppColors.softRose)
@@ -457,6 +461,12 @@ class HomeScreen extends StatelessWidget {
           subtitle: 'Send and view photos',
           icon: Icons.photo_library_outlined,
           route: RouteNames.photos,
+        ),
+        _FeatureDrawerItem(
+          title: 'Relationship Timeline',
+          subtitle: 'Milestones, memories & couple analytics',
+          icon: Icons.timeline_rounded,
+          route: RouteNames.relationshipTimeline,
         ),
         _FeatureDrawerItem(
           title: 'Hidden Vault',

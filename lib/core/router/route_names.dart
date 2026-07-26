@@ -35,4 +35,7 @@ class RouteNames {
   static const String secretMediaAdd = '/secret-media/add';
   static const String secretMediaDetail = '/secret-media/detail';
   static const String secretMediaHiddenVault = '/secret-media/vault';
+
+  // Anniversary & Timeline routes
+  static const String relationshipTimeline = '/timeline';
 }

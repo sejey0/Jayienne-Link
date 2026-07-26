@@ -14,6 +14,7 @@ import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../anniversary/widgets/anniversary_card_widget.dart';
 import '../widgets/couple_profile_card.dart';
+import '../widgets/daily_quote_card.dart';
 import '../widgets/open_features_card.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -110,6 +111,7 @@ class HomeScreen extends StatelessWidget {
             // Couple header (shown when linked)
             if (couple != null && user != null && user.hasRealPartner)
               const CoupleProfileCard(),
+            const DailyQuoteCard(),
             const OpenFeaturesCard(),
           ],
         ),

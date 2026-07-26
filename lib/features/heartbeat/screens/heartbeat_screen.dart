@@ -8,6 +8,7 @@ import '../../../providers/couple_provider.dart';
 import '../../../providers/heartbeat_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_card.dart';
+import '../../../widgets/common/heartbeat_canvas_painter.dart';
 import '../../../widgets/common/live_time_text.dart';
 import '../../../widgets/smart_profile_image.dart';
 
@@ -18,18 +19,45 @@ class HeartbeatScreen extends StatefulWidget {
   State<HeartbeatScreen> createState() => _HeartbeatScreenState();
 }
 
-class _HeartbeatScreenState extends State<HeartbeatScreen> {
+class _HeartbeatScreenState extends State<HeartbeatScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _messageFocusNode = FocusNode();
+  late AnimationController _canvasTickerController;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _messageFocusNode.addListener(_handleFocusChange);
+
+    // 60 FPS Ticker for lerp interpolation & trail fading
+    _canvasTickerController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..addListener(() {
+        context.read<HeartbeatProvider>().tickInterpolation(0.2);
+      })..repeat();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<HeartbeatProvider>().startTouchSession();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      context.read<HeartbeatProvider>().stopTouchSession();
+    } else if (state == AppLifecycleState.resumed) {
+      context.read<HeartbeatProvider>().startTouchSession();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    context.read<HeartbeatProvider>().stopTouchSession();
+    _canvasTickerController.dispose();
     _messageFocusNode.removeListener(_handleFocusChange);
     _messageController.dispose();
     _messageFocusNode.dispose();
@@ -166,97 +194,132 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
               padding: const EdgeInsets.all(AppDimensions.spacingLg),
               child: _buildNotLinkedState(context),
             )
-          : Column(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppDimensions.spacingLg,
-                      AppDimensions.spacingLg,
-                      AppDimensions.spacingLg,
-                      0,
+          : Listener(
+              onPointerDown: (event) {
+                heartbeatProvider.sendLocalTouch(event.localPosition, 'down');
+              },
+              onPointerMove: (event) {
+                heartbeatProvider.sendLocalTouch(event.localPosition, 'move');
+              },
+              onPointerUp: (event) {
+                heartbeatProvider.sendLocalTouch(event.localPosition, 'up');
+              },
+              onPointerCancel: (event) {
+                heartbeatProvider.sendLocalTouch(event.localPosition, 'up');
+              },
+              behavior: HitTestBehavior.translucent,
+              child: Stack(
+                children: [
+                  // Realtime Touch Canvas Overlay
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: HeartbeatCanvasPainter(
+                        localTouch: heartbeatProvider.localCurrentTouch,
+                        partnerTouch: heartbeatProvider.partnerCurrentTouch,
+                        isLocalTouching: heartbeatProvider.isLocalTouching,
+                        isPartnerTouching: heartbeatProvider.isPartnerTouching,
+                        localTrail: heartbeatProvider.localTouchTrail,
+                        partnerTrail: heartbeatProvider.partnerTouchTrail,
+                        isColliding: heartbeatProvider.isColliding,
+                        collisionPoint: heartbeatProvider.collisionPoint,
+                        collisionRippleRadius: heartbeatProvider.collisionRippleRadius,
+                      ),
                     ),
-                    child: Column(
-                      children: [
-                        if (heartbeatProvider.error != null)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppDimensions.spacingSm,
-                            ),
-                            child: Text(
-                              heartbeatProvider.error!,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: AppColors.error,
-                                  ),
-                              textAlign: TextAlign.center,
-                            ),
+                  ),
+                  Column(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppDimensions.spacingLg,
+                            AppDimensions.spacingLg,
+                            AppDimensions.spacingLg,
+                            0,
                           ),
-                        Expanded(
-                          child: heartbeats.isEmpty
-                              ? _buildEmptyState(context)
-                              : ListView.separated(
-                                  reverse: true,
+                          child: Column(
+                            children: [
+                              if (heartbeatProvider.error != null)
+                                Padding(
                                   padding: const EdgeInsets.only(
                                     bottom: AppDimensions.spacingSm,
                                   ),
-                                  itemCount: heartbeats.length,
-                                  separatorBuilder: (_, __) => const SizedBox(
-                                      height: AppDimensions.spacingSm),
-                                  itemBuilder: (context, index) {
-                                    return _buildHeartbeatTile(
-                                      context,
-                                      heartbeat: heartbeats[index],
-                                      heartbeatProvider: heartbeatProvider,
-                                      userId: user.id,
-                                      userPhotoUrl: user.photoUrl,
-                                      partnerPhotoUrl: partner?.photoUrl,
-                                      userBubbleTheme: user.bubbleTheme,
-                                      partnerBubbleTheme: partner?.bubbleTheme,
-                                    );
-                                  },
+                                  child: Text(
+                                    heartbeatProvider.error!,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: AppColors.error,
+                                        ),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
+                              Expanded(
+                                child: heartbeats.isEmpty
+                                    ? _buildEmptyState(context)
+                                    : ListView.separated(
+                                        reverse: true,
+                                        padding: const EdgeInsets.only(
+                                          bottom: AppDimensions.spacingSm,
+                                        ),
+                                        itemCount: heartbeats.length,
+                                        separatorBuilder: (_, __) => const SizedBox(
+                                            height: AppDimensions.spacingSm),
+                                        itemBuilder: (context, index) {
+                                          return _buildHeartbeatTile(
+                                            context,
+                                            heartbeat: heartbeats[index],
+                                            heartbeatProvider: heartbeatProvider,
+                                            userId: user.id,
+                                            userPhotoUrl: user.photoUrl,
+                                            partnerPhotoUrl: partner?.photoUrl,
+                                            userBubbleTheme: user.bubbleTheme,
+                                            partnerBubbleTheme: partner?.bubbleTheme,
+                                          );
+                                        },
+                                      ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: heartbeatProvider.isPartnerTyping
+                            ? Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppDimensions.spacingLg,
+                                  0,
+                                  AppDimensions.spacingLg,
+                                  AppDimensions.spacingSm,
+                                ),
+                                child: _buildTypingRow(
+                                  context,
+                                  partnerPhotoUrl: partner?.photoUrl,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppDimensions.spacingLg,
+                          AppDimensions.spacingSm,
+                          AppDimensions.spacingLg,
+                          AppDimensions.spacingLg,
+                        ),
+                        child: _buildSendCard(
+                          context,
+                          heartbeatProvider: heartbeatProvider,
+                          messageController: _messageController,
+                          messageFocusNode: _messageFocusNode,
+                          onSendMessage: () => _handleSendMessage(heartbeatProvider),
+                          onSendHeart: () => _handleSendHeart(heartbeatProvider),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: heartbeatProvider.isPartnerTyping
-                      ? Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            AppDimensions.spacingLg,
-                            0,
-                            AppDimensions.spacingLg,
-                            AppDimensions.spacingSm,
-                          ),
-                          child: _buildTypingRow(
-                            context,
-                            partnerPhotoUrl: partner?.photoUrl,
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppDimensions.spacingLg,
-                    AppDimensions.spacingSm,
-                    AppDimensions.spacingLg,
-                    AppDimensions.spacingLg,
-                  ),
-                  child: _buildSendCard(
-                    context,
-                    heartbeatProvider: heartbeatProvider,
-                    messageController: _messageController,
-                    messageFocusNode: _messageFocusNode,
-                    onSendMessage: () => _handleSendMessage(heartbeatProvider),
-                    onSendHeart: () => _handleSendHeart(heartbeatProvider),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
     );
   }
@@ -506,7 +569,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
               borderRadius: bubbleRadius,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
@@ -525,7 +588,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
             height: 34,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: heartColor.withOpacity(0.18),
+              color: heartColor.withValues(alpha: 0.18),
               border: Border.all(color: heartColor, width: 1.2),
             ),
             child: Icon(
@@ -660,7 +723,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
     return Container(
       width: size,
       height: size,
-      color: accentColor.withOpacity(0.15),
+      color: accentColor.withValues(alpha: 0.15),
       child: Icon(
         icon,
         size: 18,
@@ -675,7 +738,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bubbleColor =
-        isDark ? AppColors.softRose.withOpacity(0.25) : AppColors.softRoseLight;
+        isDark ? AppColors.softRose.withValues(alpha: 0.25) : AppColors.softRoseLight;
     final dotColor = isDark ? AppColors.darkText : AppColors.deepCharcoal;
     const bubbleRadius = BorderRadius.only(
       topLeft: Radius.circular(AppDimensions.borderRadiusMedium),

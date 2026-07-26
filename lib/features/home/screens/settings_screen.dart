@@ -394,6 +394,7 @@ class SettingsScreen extends StatelessWidget {
     AppLockProvider appLockProvider,
   ) async {
     final currentPinController = TextEditingController();
+    bool obscureCurrent = true;
     String? errorText;
     bool isSaving = false;
 
@@ -403,21 +404,26 @@ class SettingsScreen extends StatelessWidget {
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           return AlertDialog(
-            title: const Text('Disable App Password'),
+            title: const Text('Disable App Passcode'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildPinField(
-                    label: 'Current Password',
+                    label: 'Current Passcode',
                     controller: currentPinController,
-                    obscureText: true,
+                    obscureText: obscureCurrent,
+                    onToggleObscure: () {
+                      setDialogState(() {
+                        obscureCurrent = !obscureCurrent;
+                      });
+                    },
                   ),
                   if (errorText != null) ...[
                     const SizedBox(height: 12),
                     Text(
                       errorText!,
-                      style: const TextStyle(color: Colors.red),
+                      style: const TextStyle(color: Colors.red, fontSize: 13),
                     ),
                   ],
                 ],

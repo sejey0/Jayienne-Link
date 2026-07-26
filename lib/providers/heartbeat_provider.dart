@@ -1,10 +1,31 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../models/heartbeat_model.dart';
 import '../models/heartbeat_reaction_model.dart';
 import '../models/heartbeat_read_model.dart';
 import '../models/heartbeat_typing_model.dart';
 import '../services/supabase_heartbeat_service.dart';
+
+/// Representation of a touch point along a fading touch trail
+class TouchTrailPoint {
+  final Offset position;
+  final DateTime timestamp;
+  final double intensity;
+
+  TouchTrailPoint({
+    required this.position,
+    required this.timestamp,
+    this.intensity = 1.0,
+  });
+
+  double get opacity {
+    final ageMs = DateTime.now().difference(timestamp).inMilliseconds;
+    const maxAgeMs = 400; // Trail fades over 400ms
+    if (ageMs >= maxAgeMs) return 0.0;
+    return (1.0 - (ageMs / maxAgeMs)).clamp(0.0, 1.0);
+  }
+}
 
 class HeartbeatProvider extends ChangeNotifier {
   final SupabaseHeartbeatService _service;
@@ -16,10 +37,13 @@ class HeartbeatProvider extends ChangeNotifier {
   StreamSubscription<List<HeartbeatReactionModel>>? _reactionSubscription;
   StreamSubscription<List<HeartbeatReadModel>>? _readSubscription;
   StreamSubscription<List<HeartbeatTypingModel>>? _typingSubscription;
+  StreamSubscription<TouchPayload>? _touchSubscription;
+
   Timer? _pollingTimer;
   Timer? _typingStopTimer;
   Timer? _typingExpiryTimer;
   Timer? _markReadTimer;
+
   bool _isRefreshing = false;
   bool _isTyping = false;
   bool _isPartnerTyping = false;
@@ -38,14 +62,47 @@ class HeartbeatProvider extends ChangeNotifier {
   bool _isSending = false;
   String? _error;
 
+  // ===================================================
+  // REALTIME TOUCH & GRAPHICS STATE
+  // ===================================================
+  Offset? _localCurrentTouch;
+  Offset? _partnerCurrentTouch;
+  Offset? _partnerTargetTouch;
+  bool _isLocalTouching = false;
+  bool _isPartnerTouching = false;
+
+  final List<TouchTrailPoint> _localTouchTrail = [];
+  final List<TouchTrailPoint> _partnerTouchTrail = [];
+
+  // Proximity & Collision State
+  bool _isColliding = false;
+  Offset? _collisionPoint;
+  double _collisionRippleRadius = 0.0;
+  DateTime? _lastCollisionHapticTime;
+  DateTime? _lastGeneralHapticTime;
+
+  static const double _collisionThreshold = 30.0; // Logical pixels
+  static const Duration _minHapticInterval = Duration(milliseconds: 70); // Rate-limited ~14Hz
+
+  // Getters
   List<HeartbeatModel> get heartbeats => List.unmodifiable(_heartbeats);
   bool get isLoading => _isLoading;
   bool get isRefreshing => _isRefreshing;
   bool get isSending => _isSending;
   bool get isPartnerTyping => _isPartnerTyping;
   String? get error => _error;
-  bool get canSend =>
-      _partnerId != null && _coupleId != null && _userId != null;
+  bool get canSend => _partnerId != null && _coupleId != null && _userId != null;
+
+  // Touch getters
+  Offset? get localCurrentTouch => _localCurrentTouch;
+  Offset? get partnerCurrentTouch => _partnerCurrentTouch;
+  bool get isLocalTouching => _isLocalTouching;
+  bool get isPartnerTouching => _isPartnerTouching;
+  List<TouchTrailPoint> get localTouchTrail => List.unmodifiable(_localTouchTrail);
+  List<TouchTrailPoint> get partnerTouchTrail => List.unmodifiable(_partnerTouchTrail);
+  bool get isColliding => _isColliding;
+  Offset? get collisionPoint => _collisionPoint;
+  double get collisionRippleRadius => _collisionRippleRadius;
 
   int reactionCount(String heartbeatId) {
     return _reactionsByHeartbeat[heartbeatId]?.length ?? 0;
@@ -79,6 +136,146 @@ class HeartbeatProvider extends ChangeNotifier {
 
     await _loadInitial();
   }
+
+  // ===================================================
+  // REALTIME TOUCH BROADCAST & INTERPOLATION LOGIC
+  // ===================================================
+
+  /// Start Realtime Touch Subscription Session
+  void startTouchSession() {
+    if (_coupleId == null) return;
+    _touchSubscription?.cancel();
+    _touchSubscription = _service.subscribeToTouchBroadcast(_coupleId!).listen((payload) {
+      if (payload.userId != _userId) {
+        _onPartnerTouchReceived(payload);
+      }
+    });
+  }
+
+  /// Stop Realtime Touch Subscription Session
+  void stopTouchSession() {
+    _touchSubscription?.cancel();
+    _touchSubscription = null;
+    _service.unsubscribeTouchBroadcast();
+    _localCurrentTouch = null;
+    _partnerCurrentTouch = null;
+    _partnerTargetTouch = null;
+    _isLocalTouching = false;
+    _isPartnerTouching = false;
+    _localTouchTrail.clear();
+    _partnerTouchTrail.clear();
+  }
+
+  /// Send Local User Touch Update (Throttled at 30 FPS via Service)
+  void sendLocalTouch(Offset position, String state, {double intensity = 1.0}) {
+    if (_coupleId == null || _userId == null) return;
+
+    _localCurrentTouch = position;
+    _isLocalTouching = state != 'up';
+
+    if (_isLocalTouching) {
+      _localTouchTrail.add(TouchTrailPoint(
+        position: position,
+        timestamp: DateTime.now(),
+        intensity: intensity,
+      ));
+    }
+
+    // Broadcast over WebSocket (Throttled at 30 FPS)
+    _service.broadcastTouchThrottled(
+      coupleId: _coupleId!,
+      userId: _userId!,
+      x: position.dx,
+      y: position.dy,
+      state: state,
+      intensity: intensity,
+    );
+
+    _checkProximityAndHaptics();
+    notifyListeners();
+  }
+
+  /// Partner touch event handler
+  void _onPartnerTouchReceived(TouchPayload payload) {
+    final newPos = Offset(payload.x, payload.y);
+    _partnerTargetTouch = newPos;
+    _isPartnerTouching = payload.state != 'up';
+
+    if (payload.state == 'down' || _partnerCurrentTouch == null) {
+      _partnerCurrentTouch = newPos;
+    }
+
+    if (_isPartnerTouching) {
+      _partnerTouchTrail.add(TouchTrailPoint(
+        position: newPos,
+        timestamp: DateTime.now(),
+        intensity: payload.intensity,
+      ));
+    }
+
+    _triggerRateLimitedHaptic();
+    _checkProximityAndHaptics();
+    notifyListeners();
+  }
+
+  /// 60 FPS Interpolation Step called by CustomPainter Ticker
+  void tickInterpolation(double deltaRatio) {
+    // 1. Interpolate Partner Position smoothly using lerp
+    if (_partnerTargetTouch != null && _partnerCurrentTouch != null) {
+      _partnerCurrentTouch = Offset.lerp(_partnerCurrentTouch!, _partnerTargetTouch!, deltaRatio.clamp(0.1, 0.4));
+    }
+
+    // 2. Clean up expired trail points
+    _localTouchTrail.removeWhere((p) => p.opacity <= 0.0);
+    _partnerTouchTrail.removeWhere((p) => p.opacity <= 0.0);
+
+    // 3. Animate collision ripple pulse radius
+    if (_isColliding) {
+      _collisionRippleRadius += 3.5;
+      if (_collisionRippleRadius > 60.0) {
+        _isColliding = false;
+        _collisionRippleRadius = 0.0;
+      }
+    }
+
+    notifyListeners();
+  }
+
+  /// Proximity & Collision Calculation (Proximity < 30 logical pixels)
+  void _checkProximityAndHaptics() {
+    if (_isLocalTouching && _isPartnerTouching && _localCurrentTouch != null && _partnerCurrentTouch != null) {
+      final distance = (_localCurrentTouch! - _partnerCurrentTouch!).distance;
+
+      if (distance <= _collisionThreshold) {
+        final now = DateTime.now();
+        if (_lastCollisionHapticTime == null || now.difference(_lastCollisionHapticTime!) >= const Duration(milliseconds: 150)) {
+          _lastCollisionHapticTime = now;
+          _isColliding = true;
+          _collisionPoint = Offset(
+            (_localCurrentTouch!.dx + _partnerCurrentTouch!.dx) / 2,
+            (_localCurrentTouch!.dy + _partnerCurrentTouch!.dy) / 2,
+          );
+          _collisionRippleRadius = 5.0;
+
+          // Intense heartbeat vibration pulse on intersection
+          HapticFeedback.heavyImpact();
+        }
+      }
+    }
+  }
+
+  /// Rate-limited general touch haptic feedback (Max 14 Hz)
+  void _triggerRateLimitedHaptic() {
+    final now = DateTime.now();
+    if (_lastGeneralHapticTime == null || now.difference(_lastGeneralHapticTime!) >= _minHapticInterval) {
+      _lastGeneralHapticTime = now;
+      HapticFeedback.selectionClick();
+    }
+  }
+
+  // ===================================================
+  // DATABASE MESSAGING & REACTION METHODS
+  // ===================================================
 
   Future<void> _loadInitial() async {
     if (_coupleId == null) return;
@@ -360,6 +557,7 @@ class HeartbeatProvider extends ChangeNotifier {
   }
 
   void clear() {
+    stopTouchSession();
     _heartbeatSubscription?.cancel();
     _heartbeatSubscription = null;
     _reactionSubscription?.cancel();
@@ -392,6 +590,7 @@ class HeartbeatProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    stopTouchSession();
     _heartbeatSubscription?.cancel();
     _reactionSubscription?.cancel();
     _readSubscription?.cancel();

@@ -1,14 +1,176 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/heartbeat_model.dart';
 import '../models/heartbeat_reaction_model.dart';
 import '../models/heartbeat_read_model.dart';
 import '../models/heartbeat_typing_model.dart';
 import 'supabase_data_service.dart';
 
+/// Data payload representation for transient realtime touch events
+class TouchPayload {
+  final String userId;
+  final double x;
+  final double y;
+  final String state; // 'down', 'move', 'up'
+  final double intensity;
+  final int timestamp;
+
+  TouchPayload({
+    required this.userId,
+    required this.x,
+    required this.y,
+    required this.state,
+    required this.intensity,
+    required this.timestamp,
+  });
+
+  factory TouchPayload.fromMap(Map<String, dynamic> map) {
+    return TouchPayload(
+      userId: map['user_id'] as String? ?? '',
+      x: (map['x'] as num? ?? 0.0).toDouble(),
+      y: (map['y'] as num? ?? 0.0).toDouble(),
+      state: map['state'] as String? ?? 'move',
+      intensity: (map['intensity'] as num? ?? 1.0).toDouble(),
+      timestamp: map['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'user_id': userId,
+      'x': x,
+      'y': y,
+      'state': state,
+      'intensity': intensity,
+      'timestamp': timestamp,
+    };
+  }
+}
+
 class SupabaseHeartbeatService {
   static const String _tableName = 'heartbeats';
   static const String _reactionTableName = 'heartbeat_reactions';
   static const String _readTableName = 'heartbeat_reads';
   static const String _typingTableName = 'heartbeat_typing';
+
+  // Realtime Broadcast Channel State
+  RealtimeChannel? _touchChannel;
+  String? _activeChannelCoupleId;
+  StreamController<TouchPayload>? _touchStreamController;
+
+  // Throttling state for 30 FPS touch streaming
+  Timer? _touchThrottleTimer;
+  Map<String, dynamic>? _pendingTouchPayload;
+
+  // ===================================================
+  // REALTIME TOUCH BROADCAST ENGINE (Ephemeral 30 FPS)
+  // ===================================================
+
+  /// Subscribe to ephemeral touch broadcast channel for a couple
+  Stream<TouchPayload> subscribeToTouchBroadcast(String coupleId) {
+    if (_touchChannel != null && _activeChannelCoupleId == coupleId && _touchStreamController != null) {
+      return _touchStreamController!.stream;
+    }
+
+    unsubscribeTouchBroadcast();
+
+    _activeChannelCoupleId = coupleId;
+    _touchStreamController = StreamController<TouchPayload>.broadcast();
+    final client = SupabaseDataService.client;
+
+    _touchChannel = client.channel('heartbeat:$coupleId');
+    _touchChannel!.onBroadcast(
+      event: 'touch',
+      callback: (payload) {
+        try {
+          final touch = TouchPayload.fromMap(payload);
+          _touchStreamController?.add(touch);
+        } catch (e) {
+          debugPrint('[SupabaseHeartbeatService] Error parsing touch payload: $e');
+        }
+      },
+    );
+
+    try {
+      _touchChannel!.subscribe();
+    } catch (e) {
+      debugPrint('[SupabaseHeartbeatService] Error subscribing to touch channel: $e');
+    }
+
+    return _touchStreamController!.stream;
+  }
+
+  /// Broadcast touch event throttled at ~30 FPS (~33ms intervals)
+  void broadcastTouchThrottled({
+    required String coupleId,
+    required String userId,
+    required double x,
+    required double y,
+    required String state, // 'down', 'move', 'up'
+    double intensity = 1.0,
+  }) {
+    final payload = {
+      'user_id': userId,
+      'x': x,
+      'y': y,
+      'state': state,
+      'intensity': intensity,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    };
+
+    // 'down' and 'up' events are sent immediately for zero perceived latency on touch start/end
+    if (state == 'down' || state == 'up') {
+      _touchThrottleTimer?.cancel();
+      _pendingTouchPayload = null;
+      _sendBroadcastNow(coupleId, payload);
+      return;
+    }
+
+    // 'move' events are buffered at 33ms (30 FPS)
+    _pendingTouchPayload = payload;
+    if (_touchThrottleTimer == null || !_touchThrottleTimer!.isActive) {
+      _touchThrottleTimer = Timer(const Duration(milliseconds: 33), () {
+        if (_pendingTouchPayload != null) {
+          _sendBroadcastNow(coupleId, _pendingTouchPayload!);
+          _pendingTouchPayload = null;
+        }
+      });
+    }
+  }
+
+  void _sendBroadcastNow(String coupleId, Map<String, dynamic> payload) async {
+    if (_touchChannel == null || _activeChannelCoupleId != coupleId) {
+      subscribeToTouchBroadcast(coupleId);
+    }
+    try {
+      await _touchChannel?.sendBroadcastMessage(
+        event: 'touch',
+        payload: payload,
+      );
+    } catch (e) {
+      debugPrint('[SupabaseHeartbeatService] Broadcast send failed: $e');
+    }
+  }
+
+  /// Unsubscribe and dispose realtime channel
+  void unsubscribeTouchBroadcast() {
+    _touchThrottleTimer?.cancel();
+    _touchThrottleTimer = null;
+    _pendingTouchPayload = null;
+
+    if (_touchChannel != null) {
+      SupabaseDataService.client.removeChannel(_touchChannel!);
+      _touchChannel = null;
+    }
+    _activeChannelCoupleId = null;
+    _touchStreamController?.close();
+    _touchStreamController = null;
+  }
+
+  // ===================================================
+  // DATABASE PERSISTENCE METHODS
+  // ===================================================
 
   Future<List<HeartbeatModel>> getHeartbeats(
     String coupleId, {

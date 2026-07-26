@@ -4,6 +4,15 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/route_names.dart';
 import '../../secret_media/screens/hidden_vault_screen.dart';
+import '../screens/decision_spinner_screen.dart';
+import '../screens/love_nudge_screen.dart';
+
+enum _ActionType {
+  route,
+  customScreen,
+  loveNudgeScreen,
+  decisionSpinnerScreen,
+}
 
 /// Senior Feature Selection Modal Bottom Sheet with Single Instance Back-Stack Persistence & Haptic Feedback
 class FeaturesSelectionBottomSheet extends StatelessWidget {
@@ -22,7 +31,7 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Strict Pink & Purple Palette Tile Items
+    // Strict Pink & Purple Palette Tile Items (8 Interactive Tiles)
     const featureItems = [
       _FeatureModalItem(
         title: 'Live Location',
@@ -60,12 +69,26 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
         route: RouteNames.photos,
       ),
       _FeatureModalItem(
+        title: 'Love Nudge 💋',
+        subtitle: 'Send virtual kiss & hug',
+        icon: Icons.favorite_rounded,
+        gradientColors: [Color(0xFFFF4081), Color(0xFFD81B60)],
+        actionType: _ActionType.loveNudgeScreen,
+      ),
+      _FeatureModalItem(
+        title: 'Decision Spinner 🎲',
+        subtitle: 'Date & food picker',
+        icon: Icons.casino_rounded,
+        gradientColors: [Color(0xFFBA68C8), Color(0xFF7B1FA2)],
+        actionType: _ActionType.decisionSpinnerScreen,
+      ),
+      _FeatureModalItem(
         title: 'Hidden Vault',
         subtitle: 'Private photos & video',
         icon: Icons.lock_rounded,
         gradientColors: [Color(0xFFC2185B), Color(0xFF512DA8)],
         route: RouteNames.secretMediaHiddenVault,
-        isCustomScreen: true,
+        actionType: _ActionType.customScreen,
       ),
     ];
 
@@ -183,7 +206,7 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
                 itemCount: featureItems.length,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 2.2,
+                  childAspectRatio: 2.15,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
@@ -193,12 +216,25 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
                     item: item,
                     onTap: () async {
                       HapticFeedback.lightImpact();
-                      // Push target feature screen directly over active bottom sheet context
-                      if (item.isCustomScreen) {
+                      if (item.actionType == _ActionType.customScreen) {
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const HiddenVaultScreen(),
+                          ),
+                        );
+                      } else if (item.actionType == _ActionType.loveNudgeScreen) {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LoveNudgeScreen(),
+                          ),
+                        );
+                      } else if (item.actionType == _ActionType.decisionSpinnerScreen) {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const DecisionSpinnerScreen(),
                           ),
                         );
                       } else {
@@ -223,15 +259,15 @@ class _FeatureModalItem {
   final IconData icon;
   final List<Color> gradientColors;
   final String route;
-  final bool isCustomScreen;
+  final _ActionType actionType;
 
   const _FeatureModalItem({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.gradientColors,
-    required this.route,
-    this.isCustomScreen = false,
+    this.route = '',
+    this.actionType = _ActionType.route,
   });
 }
 

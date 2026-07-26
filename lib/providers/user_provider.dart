@@ -19,6 +19,14 @@ class UserProvider extends ChangeNotifier {
 
   UserProvider(this._userService, this._storageService, this._coupleService);
 
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -319,6 +327,7 @@ class UserProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _userSubscription?.cancel();
     super.dispose();
   }

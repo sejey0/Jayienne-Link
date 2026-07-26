@@ -56,6 +56,7 @@ class _AppLockScreenState extends State<AppLockScreen>
         .animate(_shakeController);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _initMode();
       _checkAndTriggerBiometrics();
       if (mounted) {
@@ -65,13 +66,14 @@ class _AppLockScreenState extends State<AppLockScreen>
   }
 
   void _initMode() {
+    if (!mounted) return;
     final lockProvider = context.read<AppLockProvider>();
     if (widget.mode != null) {
       _currentMode = widget.mode!;
     } else {
       _currentMode = lockProvider.hasPasscode ? AppLockMode.unlock : AppLockMode.setup;
     }
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   @override

@@ -36,16 +36,19 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
       vsync: this,
       duration: const Duration(seconds: 1),
     )..addListener(() {
+        if (!mounted) return;
         context.read<HeartbeatProvider>().tickInterpolation(0.2);
       })..repeat();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<HeartbeatProvider>().startTouchSession();
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       context.read<HeartbeatProvider>().stopTouchSession();
     } else if (state == AppLifecycleState.resumed) {
@@ -54,9 +57,17 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
   }
 
   @override
+  void deactivate() {
+    if (mounted) {
+      context.read<HeartbeatProvider>().stopTouchSession();
+    }
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    context.read<HeartbeatProvider>().stopTouchSession();
+    _canvasTickerController.stop();
     _canvasTickerController.dispose();
     _messageFocusNode.removeListener(_handleFocusChange);
     _messageController.dispose();

@@ -9,8 +9,15 @@ import '../services/supabase_storage_service.dart';
 class PhotoMessageProvider extends ChangeNotifier {
   final SupabasePhotoMessageService _service;
   final SupabaseStorageService _storageService;
+  bool _disposed = false;
 
   PhotoMessageProvider(this._service, this._storageService);
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
 
   final List<PhotoMessageModel> _messages = [];
   StreamSubscription<List<PhotoMessageModel>>? _messageSubscription;
@@ -320,6 +327,7 @@ class PhotoMessageProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _messageSubscription?.cancel();
     _readSubscription?.cancel();
     _stopPolling();

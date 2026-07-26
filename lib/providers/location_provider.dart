@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:flutter_map/flutter_map.dart';
 import '../models/location_model.dart';
 import '../models/user_model.dart';
 import '../services/offline_location_service.dart';
@@ -12,24 +15,29 @@ import '../services/supabase_user_service.dart';
 import '../services/local_cache_service.dart';
 import 'debug_provider.dart';
 
-/// Provider for managing location state across the app.
-/// Handles offline-first location sharing with partner.
+/// Senior GIS & Location Provider managing Geolocator streams, battery efficiency,
+/// real-time partner location lerp interpolation, geodesic distance calculations, and camera bounds.
 class LocationProvider extends ChangeNotifier {
-  final OfflineLocationService _locationService =
-      OfflineLocationService.instance;
+  final OfflineLocationService _locationService = OfflineLocationService.instance;
   final OfflineStorageService _storageService = OfflineStorageService.instance;
-  final SupabaseLocationSyncService _syncService =
-      SupabaseLocationSyncService.instance;
-  final BackgroundLocationService _backgroundService =
-      BackgroundLocationService.instance;
-  final ForegroundNotificationService _notificationService =
-      ForegroundNotificationService.instance;
+  final SupabaseLocationSyncService _syncService = SupabaseLocationSyncService.instance;
+  final BackgroundLocationService _backgroundService = BackgroundLocationService.instance;
+  final ForegroundNotificationService _notificationService = ForegroundNotificationService.instance;
   final SupabaseUserService _userService;
   final DebugProvider? _debugProvider;
+  final Battery _battery = Battery();
 
   LocationProvider(this._userService, [this._debugProvider]);
 
-  // User info (set by initialize)
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
+  // User credentials & models
   String? _userId;
   String? _coupleId;
   String? _partnerId;
@@ -42,25 +50,34 @@ class LocationProvider extends ChangeNotifier {
   List<LocationModel> _locationHistory = [];
   List<LocationModel> _partnerLocationHistory = [];
 
-  // Settings
+  // Smooth Interpolation State
+  LatLng? _visualPartnerLatLng;
+
+  // Battery State
+  int _batteryLevel = 100;
+  BatteryState _batteryState = BatteryState.full;
+
+  // Settings & Permission
   LocationSharingSettings _settings = LocationSharingSettings();
   LocationPermissionStatus _permissionStatus = LocationPermissionStatus.denied;
 
-  // Status
+  // Status flags
   bool _isOnline = false;
   SyncStatus _syncStatus = SyncStatus.synced;
   int _pendingSyncCount = 0;
   bool _isLoading = false;
   String? _error;
 
-  // Stream subscriptions
+  // Stream Subscriptions
+  StreamSubscription<Position>? _devicePositionSubscription;
+  StreamSubscription<BatteryState>? _batterySubscription;
   StreamSubscription? _locationSubscription;
   StreamSubscription? _connectivitySubscription;
   StreamSubscription? _syncStatusSubscription;
   StreamSubscription<LocationModel>? _partnerLocationSubscription;
-
-  // Foreground capture timer (while location screen is open)
   Timer? _foregroundCaptureTimer;
+
+  static const Distance _distanceCalculator = Distance();
   static const Duration _foregroundCaptureInterval = Duration(minutes: 1);
 
   // Getters
@@ -70,8 +87,7 @@ class LocationProvider extends ChangeNotifier {
   List<LocationModel> get partnerLocationHistory => _partnerLocationHistory;
   LocationSharingSettings get settings => _settings;
   LocationPermissionStatus get permissionStatus => _permissionStatus;
-  bool get isOnline =>
-      _isOnline && !(_debugProvider?.forceOfflineMode ?? false);
+  bool get isOnline => _isOnline && !(_debugProvider?.forceOfflineMode ?? false);
   SyncStatus get syncStatus => _syncStatus;
   int get pendingSyncCount => _pendingSyncCount;
   bool get isLoading => _isLoading;
@@ -82,12 +98,90 @@ class LocationProvider extends ChangeNotifier {
   bool get canShare => _permissionStatus.canTrack && hasPartner;
   UserModel? get currentUser => _currentUser;
   UserModel? get partnerUser => _partnerUser;
+  int get batteryLevel => _batteryLevel;
+  BatteryState get batteryState => _batteryState;
+
+  /// Current user position as LatLng
+  LatLng? get myLatLng {
+    if (_currentLocation == null) return null;
+    return LatLng(_currentLocation!.latitude, _currentLocation!.longitude);
+  }
+
+  /// Partner position as LatLng
+  LatLng? get partnerLatLng {
+    if (_partnerLocation == null) return null;
+    return LatLng(_partnerLocation!.latitude, _partnerLocation!.longitude);
+  }
+
+  LatLng _interpolateLatLng(LatLng a, LatLng b, double t) {
+    return LatLng(
+      a.latitude + (b.latitude - a.latitude) * t,
+      a.longitude + (b.longitude - a.longitude) * t,
+    );
+  }
+
+  /// Smoothly interpolated partner position for 60 FPS map rendering
+  LatLng? get interpolatedPartnerLatLng {
+    final target = partnerLatLng;
+    if (target == null) return null;
+    if (_visualPartnerLatLng == null) {
+      _visualPartnerLatLng = target;
+      return target;
+    }
+    _visualPartnerLatLng = _interpolateLatLng(_visualPartnerLatLng!, target, 0.25);
+    return _visualPartnerLatLng;
+  }
+
+  /// Real-time geodesic distance in meters between partners
+  double get distanceInMeters {
+    final p1 = myLatLng;
+    final p2 = partnerLatLng;
+    if (p1 == null || p2 == null) return 0.0;
+    return _distanceCalculator.as(LengthUnit.Meter, p1, p2);
+  }
+
+  /// Formatted real-time distance string (e.g., "450 m away" or "12.4 km away")
+  String get formattedDistance {
+    final meters = distanceInMeters;
+    if (meters <= 0.0) return 'Location unknown';
+    if (meters < 1000) {
+      return '${meters.round()} m away';
+    }
+    final km = meters / 1000;
+    return '${km.toStringAsFixed(1)} km away';
+  }
+
+  /// Movement activity status derived from partner speed
+  String get partnerActivityStatus {
+    if (_partnerLocation == null || _partnerLocation!.speed == null) {
+      return 'Stationary';
+    }
+    final speedMs = _partnerLocation!.speed!;
+    final speedKmh = speedMs * 3.6;
+
+    if (speedKmh < 2.0) {
+      return 'Stationary';
+    } else if (speedKmh < 8.0) {
+      return 'Walking';
+    } else if (speedKmh < 25.0) {
+      return 'Cycling (${speedKmh.toStringAsFixed(0)} km/h)';
+    } else {
+      return 'Driving (${speedKmh.toStringAsFixed(0)} km/h)';
+    }
+  }
+
+  /// Calculate bounding box fitting both partners on the map
+  LatLngBounds? get coupleBounds {
+    final p1 = myLatLng;
+    final p2 = partnerLatLng;
+    if (p1 == null || p2 == null) return null;
+    return LatLngBounds.fromPoints([p1, p2]);
+  }
 
   // =====================
   // INITIALIZATION
   // =====================
 
-  /// Initialize the provider with user context
   Future<void> initialize({
     required String userId,
     String? coupleId,
@@ -100,31 +194,21 @@ class LocationProvider extends ChangeNotifier {
     _setLoading(true);
 
     try {
-      // Initialize sync service
       await _syncService.initialize();
-
-      // Initialize background services
       await _backgroundService.initialize();
       await _notificationService.initialize();
+      await _initBatteryMonitoring();
 
-      // Store credentials for auto-sync when online
       if (_coupleId != null && _coupleId!.isNotEmpty) {
         _syncService.setCredentials(userId, _coupleId!);
       }
 
-      // Load settings
-      _settings = await _storageService.getSettings(userId) ??
-          LocationSharingSettings();
-
-      // Check permission status
+      _settings = await _storageService.getSettings(userId) ?? LocationSharingSettings();
       _permissionStatus = await _locationService.getPermissionStatus();
-
-      // Load last known locations
       _currentLocation = await _storageService.getLastKnownLocation(userId);
 
       if (_partnerId != null) {
-        _partnerLocation =
-            await _storageService.getPartnerLastLocation(_partnerId!);
+        _partnerLocation = await _storageService.getPartnerLastLocation(_partnerId!);
       }
 
       final cachedUser = await LocalCacheService.loadUser();
@@ -151,20 +235,15 @@ class LocationProvider extends ChangeNotifier {
         }
       }
 
-      if (_partnerId != null && _partnerLocation == null) {
-        _partnerLocation =
-            await _storageService.getPartnerLastLocation(_partnerId!);
-      }
-
-      // Load user data for profile images
       try {
         _currentUser = await _userService.getUser(userId);
         if (_currentUser != null) {
           await LocalCacheService.saveUser(_currentUser!);
         }
       } catch (e) {
-        debugPrint('Offline user fetch failed, using cache: $e');
+        debugPrint('Offline user fetch failed: $e');
       }
+
       if (_partnerId != null) {
         try {
           _partnerUser = await _userService.getUser(_partnerId!);
@@ -172,24 +251,20 @@ class LocationProvider extends ChangeNotifier {
             await LocalCacheService.savePartner(_partnerUser!);
           }
         } catch (e) {
-          debugPrint('Offline partner fetch failed, using cache: $e');
+          debugPrint('Offline partner fetch failed: $e');
         }
       }
 
-      // Get pending sync count
       _pendingSyncCount = await _storageService.getUnsyncedCount(userId);
-      _syncStatus =
-          _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.synced;
+      _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.synced;
 
-      // Subscribe to streams
       _subscribeToStreams();
+      _startBatterySmartLocationStream();
 
-      // Start partner location listening if coupled
       if (_coupleId != null && _partnerId != null) {
         _startPartnerLocationListening();
       }
 
-      // Auto-sync if online and has pending
       if (_syncService.isOnline && _pendingSyncCount > 0 && _coupleId != null) {
         syncLocations();
       }
@@ -201,8 +276,60 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
+  /// Initialize Battery Monitoring
+  Future<void> _initBatteryMonitoring() async {
+    try {
+      _batteryLevel = await _battery.batteryLevel;
+      _batteryState = await _battery.batteryState;
+      _batterySubscription = _battery.onBatteryStateChanged.listen((state) async {
+        _batteryState = state;
+        _batteryLevel = await _battery.batteryLevel;
+        notifyListeners();
+      });
+    } catch (e) {
+      debugPrint('Battery info unavailable: $e');
+    }
+  }
+
+  /// Start battery-smart Geolocator stream with distance filter (10m)
+  void _startBatterySmartLocationStream() {
+    if (!_permissionStatus.canTrack) return;
+
+    _devicePositionSubscription?.cancel();
+    const locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10, // Only trigger after 10m movement to save battery
+    );
+
+    _devicePositionSubscription = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen((Position position) {
+      if (_userId == null) return;
+
+      final locationModel = LocationModel(
+        coupleId: _coupleId ?? '',
+        ownerId: _userId!,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: position.speed,
+        accuracy: position.accuracy,
+        batteryLevel: _batteryLevel,
+        timestamp: DateTime.now(),
+        createdAt: DateTime.now(),
+      );
+
+      _currentLocation = locationModel;
+      _storageService.insertLocation(locationModel);
+
+      if (_isOnline && _coupleId != null) {
+        syncLocations();
+      }
+
+      notifyListeners();
+    });
+  }
+
   void _subscribeToStreams() {
-    // Listen to location updates
     _locationSubscription = _locationService.locationStream.listen(
       (location) {
         _currentLocation = location;
@@ -212,14 +339,12 @@ class LocationProvider extends ChangeNotifier {
       },
     );
 
-    // Listen to connectivity changes
     _connectivitySubscription = _syncService.connectivityStream.listen(
       (isOnline) {
         final wasOffline = !_isOnline;
         _isOnline = isOnline;
 
         if (isOnline && wasOffline && _pendingSyncCount > 0) {
-          // Auto-sync when coming online
           syncLocations();
         }
 
@@ -231,7 +356,6 @@ class LocationProvider extends ChangeNotifier {
       },
     );
 
-    // Listen to sync status
     _syncStatusSubscription = _syncService.syncStatusStream.listen(
       (status) {
         _syncStatus = status;
@@ -256,37 +380,30 @@ class LocationProvider extends ChangeNotifier {
   }
 
   // =====================
-  // LOCATION CAPTURE
+  // LOCATION CAPTURE & TRACKING
   // =====================
 
-  /// Start lightweight foreground recording (works offline)
   Future<void> startForegroundRecording() async {
-    if (_userId == null) return;
-    if (!_permissionStatus.canTrack) return;
+    if (_userId == null || !_permissionStatus.canTrack) return;
 
-    // Capture once immediately for fresh data
     await _locationService.captureLocationSmart(_userId!);
 
     _foregroundCaptureTimer?.cancel();
     _foregroundCaptureTimer = Timer.periodic(
       _foregroundCaptureInterval,
       (_) async {
-        if (_userId == null) return;
-        if (!_permissionStatus.canTrack) return;
+        if (_userId == null || !_permissionStatus.canTrack) return;
         if (_locationService.isTracking) return;
-
         await _locationService.captureLocationSmart(_userId!);
       },
     );
   }
 
-  /// Stop foreground recording
   Future<void> stopForegroundRecording() async {
     _foregroundCaptureTimer?.cancel();
     _foregroundCaptureTimer = null;
   }
 
-  /// Capture current location (manual trigger)
   Future<bool> captureLocation() async {
     if (_userId == null) return false;
     if (!_permissionStatus.canTrack) {
@@ -305,11 +422,9 @@ class LocationProvider extends ChangeNotifier {
         _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
         _syncStatus = SyncStatus.pending;
 
-        // Try to sync if online
         if (_isOnline && _coupleId != null) {
           syncLocations();
         }
-
         return true;
       }
       return false;
@@ -321,19 +436,14 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
-  /// Start continuous location tracking
   Future<bool> startTracking() async {
-    if (_userId == null) return false;
-    if (!_permissionStatus.canTrack) return false;
+    if (_userId == null || !_permissionStatus.canTrack) return false;
 
     final success = await _locationService.startTracking(_userId!);
     if (success) {
       await _updateSettings(_settings.copyWith(sharingEnabled: true));
-
-      // Show foreground notification
       await _notificationService.showTrackingNotification();
 
-      // Start background periodic tracking if coupled
       if (_coupleId != null) {
         await _backgroundService.startPeriodicTracking(
           userId: _userId!,
@@ -345,12 +455,9 @@ class LocationProvider extends ChangeNotifier {
     return success;
   }
 
-  /// Stop continuous location tracking
   Future<void> stopTracking() async {
     await _locationService.stopTracking();
     await _updateSettings(_settings.copyWith(sharingEnabled: false));
-
-    // Hide notification and stop background tracking
     await _notificationService.hideTrackingNotification();
     await _backgroundService.stopPeriodicTracking();
   }
@@ -359,7 +466,6 @@ class LocationProvider extends ChangeNotifier {
   // SYNC OPERATIONS
   // =====================
 
-  /// Sync unsynced locations to Supabase
   Future<SyncResult> syncLocations() async {
     if (_userId == null || _coupleId == null) {
       return SyncResult(
@@ -373,15 +479,13 @@ class LocationProvider extends ChangeNotifier {
 
     if (result.success) {
       _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
-      _syncStatus =
-          _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.synced;
+      _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.synced;
     }
 
     notifyListeners();
     return result;
   }
 
-  /// Force refresh partner's location
   Future<void> refreshPartnerLocation() async {
     if (_coupleId == null || _partnerId == null) return;
 
@@ -399,7 +503,6 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
-  /// Refresh user data including profile images
   Future<void> refreshUserData() async {
     if (_userId == null) return;
 
@@ -417,44 +520,24 @@ class LocationProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error refreshing user data: $e');
-      final cachedUser = await LocalCacheService.loadUser();
-      _currentUser ??= cachedUser;
-      if (_partnerId != null) {
-        final cachedPartner = await LocalCacheService.loadPartner();
-        _partnerUser ??= cachedPartner;
-      }
-      notifyListeners();
     }
   }
 
   // =====================
-  // HISTORY
+  // HISTORY & PERMISSIONS
   // =====================
 
-  /// Load location history
-  Future<void> loadLocationHistory(
-      {int limit = 100, bool forceRefresh = false}) async {
+  Future<void> loadLocationHistory({int limit = 100, bool forceRefresh = false}) async {
     if (_userId == null) return;
-
     _setLoading(true);
 
     try {
-      var localHistory = await _storageService.getLocationHistory(
-        _userId!,
-        limit: limit,
-      );
-
+      var localHistory = await _storageService.getLocationHistory(_userId!, limit: limit);
       final canFetchRemote = _coupleId != null && _syncService.isOnline;
+
       if (canFetchRemote && (forceRefresh || localHistory.isEmpty)) {
-        await _syncService.fetchUserLocations(
-          _coupleId!,
-          _userId!,
-          limit: limit,
-        );
-        localHistory = await _storageService.getLocationHistory(
-          _userId!,
-          limit: limit,
-        );
+        await _syncService.fetchUserLocations(_coupleId!, _userId!, limit: limit);
+        localHistory = await _storageService.getLocationHistory(_userId!, limit: limit);
       }
 
       _locationHistory = localHistory;
@@ -465,10 +548,8 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
-  /// Load partner's location history
   Future<void> loadPartnerLocationHistory({int limit = 100}) async {
     if (_coupleId == null || _partnerId == null) return;
-
     _setLoading(true);
 
     try {
@@ -484,21 +565,14 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
-  // =====================
-  // PERMISSIONS
-  // =====================
-
-  /// Request location permission
   Future<bool> requestPermission() async {
     final permission = await _locationService.requestPermission();
     _permissionStatus = await _locationService.getPermissionStatus();
+    _startBatterySmartLocationStream();
     notifyListeners();
-
-    return permission != LocationPermission.denied &&
-        permission != LocationPermission.deniedForever;
+    return permission != LocationPermission.denied && permission != LocationPermission.deniedForever;
   }
 
-  /// Request background location permission
   Future<bool> requestBackgroundPermission() async {
     final granted = await _locationService.requestBackgroundPermission();
     _permissionStatus = await _locationService.getPermissionStatus();
@@ -506,7 +580,6 @@ class LocationProvider extends ChangeNotifier {
     return granted;
   }
 
-  /// Open device settings
   Future<void> openSettings() async {
     if (_permissionStatus == LocationPermissionStatus.serviceDisabled) {
       await _locationService.openLocationSettings();
@@ -515,11 +588,6 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
-  // =====================
-  // SETTINGS
-  // =====================
-
-  /// Toggle location sharing
   Future<void> toggleSharing() async {
     if (_settings.sharingEnabled) {
       await stopTracking();
@@ -528,64 +596,44 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
-  /// Toggle background sharing
   Future<void> toggleBackgroundSharing() async {
     final enabled = !_settings.backgroundSharingEnabled;
-
     if (enabled) {
       final granted = await requestBackgroundPermission();
       if (!granted) return;
 
-      // Start background periodic tracking
       if (_userId != null && _coupleId != null) {
         await _backgroundService.startPeriodicTracking(
           userId: _userId!,
           coupleId: _coupleId!,
           intervalMinutes: _settings.updateIntervalMinutes,
         );
-        await _notificationService.showTrackingNotification(
-          title: 'Background tracking active',
-          body: 'Location updates every ${_settings.updateIntervalMinutes} min',
-        );
       }
     } else {
-      // Stop background tracking
       await _backgroundService.stopPeriodicTracking();
       await _notificationService.hideTrackingNotification();
     }
 
-    await _updateSettings(
-        _settings.copyWith(backgroundSharingEnabled: enabled));
+    await _updateSettings(_settings.copyWith(backgroundSharingEnabled: enabled));
   }
 
-  /// Toggle data saver mode for slow connections
   Future<void> toggleDataSaver() async {
     final enabled = !_settings.dataSaverEnabled;
     await _updateSettings(_settings.copyWith(dataSaverEnabled: enabled));
-
-    // Update sync service with data saver setting
     _syncService.setDataSaverEnabled(enabled);
   }
 
-  /// Check if data saver is enabled
   bool get isDataSaverEnabled => _settings.dataSaverEnabled;
 
   Future<void> _updateSettings(LocationSharingSettings newSettings) async {
     if (_userId == null) return;
-
     _settings = newSettings;
     await _storageService.saveSettings(_userId!, newSettings);
     notifyListeners();
   }
 
-  // =====================
-  // PRIVACY
-  // =====================
-
-  /// Delete all location history
   Future<void> deleteAllHistory() async {
     if (_userId == null || _coupleId == null) return;
-
     _setLoading(true);
 
     try {
@@ -600,22 +648,16 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
-  // =====================
-  // UTILITY
-  // =====================
-
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
   }
 
-  /// Clear any error state
   void clearError() {
     _error = null;
     notifyListeners();
   }
 
-  /// Update partner info (when couple links)
   void updatePartnerInfo(String coupleId, String partnerId) {
     _coupleId = coupleId;
     _partnerId = partnerId;
@@ -625,17 +667,18 @@ class LocationProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _devicePositionSubscription?.cancel();
+    _batterySubscription?.cancel();
     _locationSubscription?.cancel();
     _connectivitySubscription?.cancel();
     _syncStatusSubscription?.cancel();
     _partnerLocationSubscription?.cancel();
     _syncService.stopListeningToPartner();
     _foregroundCaptureTimer?.cancel();
-    // Note: Don't stop background tracking on dispose - keep running in background
     super.dispose();
   }
 
-  /// Method to restore background tracking state on app resume
   Future<void> restoreBackgroundTrackingState() async {
     if (_userId == null || _coupleId == null) return;
 

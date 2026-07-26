@@ -12,6 +12,8 @@ class LocationModel {
   final double latitude;
   final double longitude;
   final double accuracy; // GPS accuracy in meters
+  final double? speed; // Movement speed in m/s
+  final int? batteryLevel; // Battery percentage 0-100
   final DateTime timestamp;
   final DateTime? createdAt; // When record was created in database
   final bool isSynced; // Whether synced to Supabase
@@ -26,6 +28,8 @@ class LocationModel {
     required this.latitude,
     required this.longitude,
     required this.accuracy,
+    this.speed,
+    this.batteryLevel,
     required this.timestamp,
     this.createdAt,
     this.isSynced = false,
@@ -37,17 +41,19 @@ class LocationModel {
     return LocationModel(
       localId: map['id'] as int?,
       id: map['supabase_id'] as String?,
-      coupleId: map['couple_id'] as String,
-      ownerId: map['owner_id'] as String,
+      coupleId: map['couple_id'] as String? ?? '',
+      ownerId: map['owner_id'] as String? ?? '',
       partnerId: map['partner_id'] as String?,
-      latitude: map['latitude'] as double,
-      longitude: map['longitude'] as double,
-      accuracy: map['accuracy'] as double,
+      latitude: (map['latitude'] as num).toDouble(),
+      longitude: (map['longitude'] as num).toDouble(),
+      accuracy: (map['accuracy'] as num?)?.toDouble() ?? 15.0,
+      speed: (map['speed'] as num?)?.toDouble(),
+      batteryLevel: map['battery_level'] as int?,
       timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int),
       createdAt: map['created_at'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int)
           : null,
-      isSynced: (map['is_synced'] as int) == 1,
+      isSynced: (map['is_synced'] as int?) == 1,
       source: LocationSource.values[map['source'] as int? ?? 0],
     );
   }
@@ -63,6 +69,8 @@ class LocationModel {
       'latitude': latitude,
       'longitude': longitude,
       'accuracy': accuracy,
+      if (speed != null) 'speed': speed,
+      if (batteryLevel != null) 'battery_level': batteryLevel,
       'timestamp': timestamp.millisecondsSinceEpoch,
       'created_at': createdAt?.millisecondsSinceEpoch,
       'is_synced': isSynced ? 1 : 0,
@@ -77,12 +85,14 @@ class LocationModel {
   }) {
     return LocationModel(
       id: json['id'] as String?,
-      coupleId: json['couple_id'] as String,
-      ownerId: json['owner_id'] as String,
+      coupleId: json['couple_id'] as String? ?? '',
+      ownerId: json['owner_id'] as String? ?? '',
       partnerId: json['partner_id'] as String?,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       accuracy: (json['accuracy'] as num?)?.toDouble() ?? 15.0,
+      speed: (json['speed'] as num?)?.toDouble(),
+      batteryLevel: json['battery_level'] as int?,
       timestamp: json['timestamp'] != null
           ? DateTime.parse(json['timestamp'] as String)
           : DateTime.now(),
@@ -105,7 +115,8 @@ class LocationModel {
         'latitude': double.parse(latitude.toStringAsFixed(4)),
         'longitude': double.parse(longitude.toStringAsFixed(4)),
         'timestamp': timestamp.toIso8601String(),
-        // Skip accuracy, partner_id, created_at to save data
+        if (speed != null) 'speed': speed,
+        if (batteryLevel != null) 'battery_level': batteryLevel,
       };
     }
 
@@ -117,6 +128,8 @@ class LocationModel {
       'latitude': latitude,
       'longitude': longitude,
       'accuracy': accuracy,
+      if (speed != null) 'speed': speed,
+      if (batteryLevel != null) 'battery_level': batteryLevel,
       'timestamp': timestamp.toIso8601String(),
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
     };
@@ -151,6 +164,8 @@ class LocationModel {
     double? latitude,
     double? longitude,
     double? accuracy,
+    double? speed,
+    int? batteryLevel,
     DateTime? timestamp,
     DateTime? createdAt,
     bool? isSynced,
@@ -165,6 +180,8 @@ class LocationModel {
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       accuracy: accuracy ?? this.accuracy,
+      speed: speed ?? this.speed,
+      batteryLevel: batteryLevel ?? this.batteryLevel,
       timestamp: timestamp ?? this.timestamp,
       createdAt: createdAt ?? this.createdAt,
       isSynced: isSynced ?? this.isSynced,

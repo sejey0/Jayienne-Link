@@ -5,8 +5,15 @@ import '../services/supabase_secret_media_service.dart';
 
 class SecretMediaProvider extends ChangeNotifier {
   final SupabaseSecretMediaService _service;
+  bool _disposed = false;
 
   SecretMediaProvider(this._service);
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
 
   final List<SecretMediaModel> _allMedia = [];
   final List<SecretMediaModel> _hiddenMedia = [];
@@ -314,6 +321,7 @@ class SecretMediaProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _mediaSubscription?.cancel();
     super.dispose();
   }

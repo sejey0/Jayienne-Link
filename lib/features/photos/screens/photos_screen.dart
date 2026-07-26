@@ -45,7 +45,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
       source: source,
       imageQuality: 85,
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
 
     setState(() {
       _selectedImage = File(picked.path);
@@ -61,6 +61,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
       imageFile: imageFile,
       caption: caption.isNotEmpty ? caption : null,
     );
+
+    if (!mounted) return;
 
     if (didSend) {
       setState(() {
@@ -89,6 +91,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
 
     try {
       final hasPermission = await _ensureGalleryPermission();
+      if (!mounted) return;
       if (!hasPermission) {
         messenger.showSnackBar(
           const SnackBar(content: Text('Gallery permission is required.')),
@@ -97,6 +100,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
       }
 
       final bytes = await _loadImageBytes(message.imageUrl);
+      if (!mounted) return;
       final name =
           message.id ?? DateTime.now().millisecondsSinceEpoch.toString();
       final result = await ImageGallerySaver.saveImage(
@@ -104,6 +108,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
         name: 'jayienne_$name',
         quality: 95,
       );
+
+      if (!mounted) return;
 
       final success = result is Map &&
           ((result['isSuccess'] == true) || (result['success'] == true));
@@ -116,9 +122,11 @@ class _PhotosScreenState extends State<PhotosScreen> {
         ),
       );
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Save failed: $e')),
-      );
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Save failed: $e')),
+        );
+      }
     } finally {
       // ignore: control_flow_in_finally
       if (!mounted) return;

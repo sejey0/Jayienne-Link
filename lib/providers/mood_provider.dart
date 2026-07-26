@@ -6,8 +6,15 @@ import '../services/supabase_mood_service.dart';
 
 class MoodProvider extends ChangeNotifier {
   final SupabaseMoodService _service;
+  bool _disposed = false;
 
   MoodProvider(this._service);
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
 
   final List<MoodMessageModel> _moods = [];
   StreamSubscription<List<MoodMessageModel>>? _moodSubscription;
@@ -276,6 +283,7 @@ class MoodProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _moodSubscription?.cancel();
     _readSubscription?.cancel();
     _stopPolling();

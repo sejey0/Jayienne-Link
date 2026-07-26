@@ -39,6 +39,14 @@ class CoupleProvider extends ChangeNotifier {
   List<AnniversaryRequestModel> _outgoingAnniversaryRequests = [];
   String? _requestsUserId;
 
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
   CoupleProvider(this._coupleService, this._userService,
       [this._debugProvider]) {
     // Initialize with static cache if available
@@ -532,6 +540,7 @@ class CoupleProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _coupleSubscription?.cancel();
     _incomingRequestsSubscription?.cancel();
     _outgoingRequestsSubscription?.cancel();

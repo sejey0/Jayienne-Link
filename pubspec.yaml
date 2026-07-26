@@ -55,6 +55,7 @@ dependencies:
   flutter_map: ^6.0.0
   latlong2: ^0.9.0
   workmanager: ^0.9.0
+  battery_plus: ^6.0.2
 
 dev_dependencies:
   flutter_test:

@@ -29,8 +29,15 @@ class TouchTrailPoint {
 
 class HeartbeatProvider extends ChangeNotifier {
   final SupabaseHeartbeatService _service;
+  bool _disposed = false;
 
   HeartbeatProvider(this._service);
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
 
   final List<HeartbeatModel> _heartbeats = [];
   StreamSubscription<List<HeartbeatModel>>? _heartbeatSubscription;
@@ -590,11 +597,14 @@ class HeartbeatProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     stopTouchSession();
+    _service.unsubscribeTouchBroadcast();
     _heartbeatSubscription?.cancel();
     _reactionSubscription?.cancel();
     _readSubscription?.cancel();
     _typingSubscription?.cancel();
+    _touchSubscription?.cancel();
     _stopPolling();
     _typingStopTimer?.cancel();
     _typingExpiryTimer?.cancel();

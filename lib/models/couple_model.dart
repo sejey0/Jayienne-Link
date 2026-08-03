@@ -22,10 +22,17 @@ class CoupleModel {
     this.status = 'active',
   });
 
-  String getPartnerName(String myUid) {
+  String getPartnerName(String myUid, {String? livePartnerName}) {
+    if (livePartnerName != null && livePartnerName.trim().isNotEmpty) {
+      return livePartnerName.trim();
+    }
     final myIndex = partnerIds.indexOf(myUid);
     if (myIndex == -1) return 'Unknown Partner';
-    return partnerNames[myIndex == 0 ? 1 : 0];
+    final targetIndex = myIndex == 0 ? 1 : 0;
+    if (targetIndex < partnerNames.length && partnerNames[targetIndex].isNotEmpty) {
+      return partnerNames[targetIndex];
+    }
+    return 'Partner';
   }
 
   String getPartnerId(String myUid) {

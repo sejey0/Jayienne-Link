@@ -19,7 +19,7 @@ class _DailyQuoteCardState extends State<DailyQuoteCard> {
   static const List<String> _romanticQuotes = [
     'Every love story is beautiful, but ours is my favorite.',
     'Together is my favorite place to be.',
-    'In CJay & Aienne\'s world, love grows stronger every single day.',
+    'In our shared world, love grows stronger every single day.',
     'You are my today and all of my tomorrows.',
     'I loved you yesterday, love you still, always have, always will.',
     'My heart is, and always will be, yours.',

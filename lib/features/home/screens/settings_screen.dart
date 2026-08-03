@@ -45,6 +45,16 @@ class SettingsScreen extends StatelessWidget {
               onPressed: () => context.push(RouteNames.profile),
             ),
           ),
+          if (user != null && user.isAdmin) ...[
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.admin_panel_settings_rounded, color: Colors.purple),
+              title: const Text('Admin Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Manage users, activate/deactivate accounts'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.push(RouteNames.adminDashboard),
+            ),
+          ],
           if (user != null) ...[
             ListTile(
               title: const Text('Update Anniversary'),

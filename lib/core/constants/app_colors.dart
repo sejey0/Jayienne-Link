@@ -21,6 +21,10 @@ class AppColors {
   static const Color success = Color(0xFF27AE60);
   static const Color warning = Color(0xFFF39C12);
 
+  // Primary & Text aliases
+  static const Color primary = softRose;
+  static const Color textPrimaryLight = deepCharcoal;
+
   // Soft variants for backgrounds / containers
   static const Color softRoseLight = Color(0xFFFFE0E3);
   static const Color lavenderLight = Color(0xFFE0E3FF);

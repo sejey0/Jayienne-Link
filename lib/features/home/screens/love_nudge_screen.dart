@@ -5,68 +5,9 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../providers/couple_provider.dart';
-
-/// Vector Kiss Lips Mark Painter guaranteeing 100% crisp visibility across ALL devices & themes
-class KissLipsIcon extends StatelessWidget {
-  final double size;
-  final Color color;
-
-  const KissLipsIcon({
-    super.key,
-    this.size = 26,
-    this.color = Colors.white,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size * 0.75,
-      child: CustomPaint(
-        painter: _KissLipsPainter(color: color),
-      ),
-    );
-  }
-}
-
-class _KissLipsPainter extends CustomPainter {
-  final Color color;
-
-  _KissLipsPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-
-    final w = size.width;
-    final h = size.height;
-
-    // Top Lip
-    final topLip = Path();
-    topLip.moveTo(0, h * 0.45);
-    topLip.cubicTo(w * 0.22, h * 0.05, w * 0.38, h * 0.35, w * 0.5, h * 0.22);
-    topLip.cubicTo(w * 0.62, h * 0.35, w * 0.78, h * 0.05, w, h * 0.45);
-    topLip.cubicTo(w * 0.75, h * 0.52, w * 0.5, h * 0.42, w * 0.5, h * 0.42);
-    topLip.cubicTo(w * 0.5, h * 0.42, w * 0.25, h * 0.52, 0, h * 0.45);
-    topLip.close();
-    canvas.drawPath(topLip, paint);
-
-    // Bottom Lip
-    final bottomLip = Path();
-    bottomLip.moveTo(w * 0.08, h * 0.50);
-    bottomLip.cubicTo(w * 0.3, h * 0.52, w * 0.5, h * 0.54, w * 0.5, h * 0.54);
-    bottomLip.cubicTo(w * 0.5, h * 0.54, w * 0.7, h * 0.52, w * 0.92, h * 0.50);
-    bottomLip.cubicTo(w * 0.8, h * 0.98, w * 0.2, h * 0.98, w * 0.08, h * 0.50);
-    bottomLip.close();
-    canvas.drawPath(bottomLip, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
+import '../../../providers/user_provider.dart';
+import '../../../services/supabase_love_nudge_service.dart';
+import '../../../widgets/common/love_nudge_logo_widget.dart';
 
 /// Senior Love Nudge Screen with Back Button returning to Features Selection Sheet
 class LoveNudgeScreen extends StatefulWidget {
@@ -82,6 +23,21 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
 
   void _triggerNudge({required bool isKiss, required String partnerName}) {
     HapticFeedback.mediumImpact();
+
+    final coupleProvider = context.read<CoupleProvider>();
+    final userProvider = context.read<UserProvider>();
+    final couple = coupleProvider.couple;
+    final user = userProvider.user;
+
+    // Send Realtime Broadcast to Partner
+    if (couple != null && couple.id != null && user != null) {
+      SupabaseLoveNudgeService().sendLoveNudge(
+        coupleId: couple.id!,
+        senderId: user.uid,
+        senderName: user.displayName.isNotEmpty ? user.displayName : 'Your Partner',
+        nudgeType: isKiss ? 'kiss' : 'hug',
+      );
+    }
 
     // Spawn Floating Hearts Particle Overlay across screen
     _showFloatingHeartsOverlay(context, isKiss: isKiss);
@@ -140,9 +96,15 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final coupleProvider = context.watch<CoupleProvider>();
     final partner = coupleProvider.partner;
+    final couple = coupleProvider.couple;
+    final userProvider = context.watch<UserProvider>();
+    final user = userProvider.user;
+
     final partnerName = (partner != null && partner.displayName.isNotEmpty)
         ? partner.displayName
-        : 'Aienne';
+        : (couple != null && user != null
+            ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
+            : 'Partner');
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF120E19) : const Color(0xFFFFF7F9),
@@ -157,7 +119,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
                 color: Colors.white,
               ),
             ),
-            KissLipsIcon(size: 20, color: Colors.white),
+            LoveNudgeHeaderIcon(size: 22, color: Colors.white),
           ],
         ),
         centerTitle: true,
@@ -209,15 +171,6 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
                 ),
                 child: Column(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.25),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const KissLipsIcon(size: 42, color: Colors.white),
-                    ),
-                    const SizedBox(height: 16),
                     Text(
                       'Send a Touch to $partnerName',
                       textAlign: TextAlign.center,
@@ -383,10 +336,9 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.volunteer_activism_rounded,
-                            color: Colors.white,
+                          child: const WarmHugIcon(
                             size: 30,
+                            color: Colors.white,
                           ),
                         ),
                         const SizedBox(width: 16),

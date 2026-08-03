@@ -320,43 +320,17 @@ class _CollapsibleAnniversaryCardState
             ),
           ],
         ),
-        const SizedBox(height: 16),
-
-        // Quick Shortcut Button to Relationship Timeline
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Tap card header to collapse',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-              ),
+        const SizedBox(height: 12),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Tap card header to collapse',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
             ),
-            TextButton.icon(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                context.push(RouteNames.relationshipTimeline);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Colors.white.withValues(alpha: 0.22),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-              ),
-              icon: const Icon(Icons.timeline_rounded, size: 18),
-              label: const Text(
-                'View Timeline',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+          ),
         ),
       ],
     );

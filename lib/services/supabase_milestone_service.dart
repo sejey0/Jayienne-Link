@@ -114,7 +114,7 @@ class SupabaseMilestoneService {
   Future<bool> updateAnniversaryDate(String coupleId, DateTime anniversaryDate) async {
     try {
       await _client.from(_couplesTable).update({
-        'anniversary_date': anniversaryDate.toIso8601String(),
+        'anniversary': anniversaryDate.toIso8601String(),
       }).eq('id', coupleId);
       return true;
     } catch (e) {
@@ -128,12 +128,12 @@ class SupabaseMilestoneService {
     try {
       final response = await _client
           .from(_couplesTable)
-          .select('anniversary_date')
+          .select('anniversary')
           .eq('id', coupleId)
           .maybeSingle();
 
-      if (response != null && response['anniversary_date'] != null) {
-        return DateTime.parse(response['anniversary_date'] as String);
+      if (response != null && response['anniversary'] != null) {
+        return DateTime.parse(response['anniversary'] as String);
       }
     } catch (e) {
       debugPrint('[SupabaseMilestoneService] Error fetching anniversary date: $e');

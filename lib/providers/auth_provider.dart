@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import '../services/supabase_auth_service.dart';
 import '../services/supabase_data_service.dart';
+import '../services/local_cache_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final SupabaseAuthService _authService;
@@ -12,6 +13,7 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   bool _needsProfileSetup = false;
+  bool _isPasswordRecovery = false;
 
   // Phone auth state
   String? _verificationId;
@@ -25,6 +27,13 @@ class AuthProvider extends ChangeNotifier {
       _currentUser = user;
       notifyListeners();
     });
+
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        _isPasswordRecovery = true;
+        notifyListeners();
+      }
+    });
   }
 
   bool get isAuthenticated => _currentUser != null;
@@ -35,9 +44,15 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get needsProfileSetup => _needsProfileSetup;
+  bool get isPasswordRecovery => _isPasswordRecovery;
   String? get verificationId => _verificationId;
   String? get pendingPhoneNumber => _pendingPhoneNumber;
   bool get isEmailVerified => _authService.checkEmailVerified();
+
+  void clearPasswordRecovery() {
+    _isPasswordRecovery = false;
+    notifyListeners();
+  }
 
   void clearError() {
     _error = null;
@@ -188,11 +203,81 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> verifyPasswordResetOtp({
+    required String email,
+    required String token,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.verifyPasswordResetOtp(email: email, token: token);
+      _isLoading = false;
+      notifyListeners();
+
+      Future.microtask(() {
+        _isPasswordRecovery = true;
+        notifyListeners();
+      });
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updatePassword(String newPassword) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.updatePassword(newPassword);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> directChangePassword({
+    required String email,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      if (isAuthenticated) {
+        await _authService.updatePassword(newPassword);
+      } else {
+        await _authService.sendPasswordResetEmail(email);
+      }
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> signOut() async {
     _pendingVerificationEmail = null;
     _verificationId = null;
     _pendingPhoneNumber = null;
     _error = null;
+    await LocalCacheService.clearAll();
     await _authService.signOut();
     notifyListeners();
   }

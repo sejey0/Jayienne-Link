@@ -6,6 +6,7 @@ import '../../../core/router/route_names.dart';
 import '../../secret_media/screens/hidden_vault_screen.dart';
 import '../screens/decision_spinner_screen.dart';
 import '../screens/love_nudge_screen.dart';
+import '../../../widgets/common/love_nudge_logo_widget.dart';
 
 enum _ActionType {
   route,
@@ -335,11 +336,13 @@ class _FeatureModalTileState extends State<_FeatureModalTile> {
                     ),
                   ],
                 ),
-                child: Icon(
-                  widget.item.icon,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                child: widget.item.actionType == _ActionType.loveNudgeScreen
+                    ? const LoveNudgeHeaderIcon(size: 20, color: Colors.white)
+                    : Icon(
+                        widget.item.icon,
+                        color: Colors.white,
+                        size: 20,
+                      ),
               ),
               const SizedBox(width: 10),
               Expanded(

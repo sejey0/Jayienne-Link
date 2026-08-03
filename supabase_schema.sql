@@ -654,6 +654,66 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION update_couple_partner_names()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.display_name IS DISTINCT FROM OLD.display_name AND NEW.couple_id IS NOT NULL THEN
+        UPDATE couples
+        SET partner_names = ARRAY(
+            SELECT u.display_name
+            FROM unnest(partner_ids) WITH ORDINALITY AS p(partner_id, ord)
+            JOIN users u ON u.id = partner_id
+            ORDER BY ord
+        ),
+        updated_at = NOW()
+        WHERE id = NEW.couple_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_update_couple_partner_names ON users;
+CREATE TRIGGER trg_update_couple_partner_names
+AFTER UPDATE OF display_name ON users
+FOR EACH ROW
+EXECUTE FUNCTION update_couple_partner_names();
+
+-- Create decision_ideas table for dynamic date & food options
+CREATE TABLE IF NOT EXISTS public.decision_ideas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    category TEXT NOT NULL CHECK (category IN ('food', 'activity')),
+    title TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.decision_ideas ENABLE ROW LEVEL SECURITY;
+
+-- Allow public read access to decision ideas
+DROP POLICY IF EXISTS "Allow public read access to decision ideas" ON public.decision_ideas;
+CREATE POLICY "Allow public read access to decision ideas"
+    ON public.decision_ideas FOR SELECT
+    USING (true);
+
+-- Seed initial online decision ideas
+INSERT INTO public.decision_ideas (category, title) VALUES
+('food', 'Korean BBQ Grill'),
+('food', 'Artisanal Coffee & Waffles'),
+('food', 'Gourmet Burger & Fries'),
+('food', 'Homemade Pasta Night'),
+('food', 'Matcha & Boba Tea'),
+('food', 'Gelato & Churros'),
+('food', 'Authentic Tonkotsu Ramen'),
+('food', 'Woodfired Neapolitan Pizza'),
+('activity', 'Open-Air Drive-in Movie'),
+('activity', 'Botanical Garden Stroll'),
+('activity', 'Co-op Video Game Quest'),
+('activity', 'Acoustic Jam & Karaoke'),
+('activity', 'Scenic Highway Night Drive'),
+('activity', 'Telescope Stargazing'),
+('activity', 'Board Game Tournament')
+ON CONFLICT DO NOTHING;
+
 -- =====================================================
 -- PERMISSIONS
 -- =====================================================

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/router/route_names.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/auth_provider.dart';
@@ -74,23 +77,8 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _forgotPassword() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      SnackbarHelper.showError(context, 'Enter your email first');
-      return;
-    }
-
-    final auth = context.read<AuthProvider>();
-    final success = await auth.sendPasswordResetEmail(email);
-
-    if (!mounted) return;
-
-    if (success) {
-      SnackbarHelper.showSuccess(context, AppStrings.resetPasswordSent);
-    } else if (auth.error != null) {
-      SnackbarHelper.showError(context, auth.error!);
-    }
+  void _forgotPassword() {
+    context.push(RouteNames.resetPassword);
   }
 
   @override

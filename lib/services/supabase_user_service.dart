@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../services/supabase_data_service.dart';
+import '../services/supabase_couple_service.dart';
 
 /// Supabase user service for PostgreSQL database operations
 class SupabaseUserService {
@@ -62,9 +63,9 @@ class SupabaseUserService {
       );
 
       if (existing != null) {
-        // User already exists, update instead (don't include id to avoid FK conflicts)
+        // User already exists, update profile while preserving role and is_active
         debugPrint('User already exists, updating profile: ${user.email}');
-        final updateData = user.toUpdateJson();
+        final updateData = user.toUpdateJson(includeAdminFields: false);
         await SupabaseDataService.updateRecords(
           _tableName,
           updateData,
@@ -85,7 +86,11 @@ class SupabaseUserService {
   }
 
   /// Update user profile data
-  Future<void> updateUser(String uid, Map<String, dynamic> data) async {
+  Future<List<Map<String, dynamic>>> updateUser(
+    String uid,
+    Map<String, dynamic> data, {
+    bool includeAdminFields = false,
+  }) async {
     try {
       debugPrint('Updating user profile: $uid');
 
@@ -95,14 +100,37 @@ class SupabaseUserService {
       // Add updated timestamp
       pgData['updated_at'] = DateTime.now().toIso8601String();
 
-      await SupabaseDataService.updateRecords(
+      if (!includeAdminFields) {
+        if (!data.containsKey('isActive') && !data.containsKey('is_active')) {
+          pgData.remove('is_active');
+        }
+        if (!data.containsKey('role')) {
+          pgData.remove('role');
+        }
+      }
+
+      final result = await SupabaseDataService.updateRecords(
         _tableName,
         pgData,
         whereColumn: 'id',
         whereValue: uid,
       );
 
+      // If display_name was updated, sync it to the couples table as well
+      if (pgData.containsKey('display_name') && pgData['display_name'] is String) {
+        final newName = pgData['display_name'] as String;
+        final currentUserData = await getUser(uid);
+        if (currentUserData != null && currentUserData.coupleId != null) {
+          await SupabaseCoupleService().updateCouplePartnerName(
+            currentUserData.coupleId!,
+            uid,
+            newName,
+          );
+        }
+      }
+
       debugPrint('✅ User profile updated successfully: $uid');
+      return result;
     } catch (e) {
       debugPrint('❌ Failed to update user $uid: $e');
       throw Exception('Failed to update user profile: $e');
@@ -240,6 +268,12 @@ class SupabaseUserService {
         case 'profileComplete':
           pgData['profile_complete'] = entry.value;
           break;
+        case 'isActive':
+          pgData['is_active'] = entry.value;
+          break;
+        case 'role':
+          pgData['role'] = entry.value;
+          break;
         case 'createdAt':
           pgData['created_at'] = entry.value is DateTime
               ? (entry.value as DateTime).toIso8601String()
@@ -261,6 +295,70 @@ class SupabaseUserService {
     }
 
     return pgData;
+  }
+
+  /// Get all users in the system (Admin operation)
+  Future<List<UserModel>> getAllUsers() async {
+    try {
+      final records = await SupabaseDataService.getRecords(
+        _tableName,
+        orderBy: 'created_at',
+        ascending: false,
+      );
+
+      return records.map((data) => UserModel.fromJson(data)).toList();
+    } catch (e) {
+      debugPrint('Failed to fetch all users for admin: $e');
+      return [];
+    }
+  }
+
+  /// Real-time stream of all users (Admin operation)
+  Stream<List<UserModel>> allUsersStream() {
+    try {
+      return SupabaseDataService.getRecordsStream(
+        _tableName,
+        orderBy: 'created_at',
+        ascending: false,
+      ).map((records) {
+        return records.map((data) => UserModel.fromJson(data)).toList();
+      }).handleError((error) {
+        debugPrint('All users stream error: $error');
+      });
+    } catch (e) {
+      debugPrint('Failed to create all users stream: $e');
+      return Stream.error(e);
+    }
+  }
+
+  /// Set user account active/deactivated status (Admin operation)
+  Future<void> setUserActiveStatus(String uid, bool isActive) async {
+    try {
+      debugPrint('Setting active status for $uid to $isActive');
+      final updated = await updateUser(uid, {'isActive': isActive}, includeAdminFields: true);
+      if (updated.isEmpty) {
+        throw Exception('Database update returned 0 modified rows. Please run Admin RLS policies in Supabase SQL Editor.');
+      }
+      debugPrint('✅ Active status updated successfully for $uid');
+    } catch (e) {
+      debugPrint('❌ Failed to update active status for $uid: $e');
+      rethrow;
+    }
+  }
+
+  /// Set user role (Admin operation e.g. 'admin' or 'user')
+  Future<void> setUserRole(String uid, String role) async {
+    try {
+      debugPrint('Setting role for $uid to $role');
+      final updated = await updateUser(uid, {'role': role}, includeAdminFields: true);
+      if (updated.isEmpty) {
+        throw Exception('Database update returned 0 modified rows. Please run Admin RLS policies in Supabase SQL Editor.');
+      }
+      debugPrint('✅ Role updated successfully for $uid');
+    } catch (e) {
+      debugPrint('❌ Failed to update role for $uid: $e');
+      rethrow;
+    }
   }
 
   /// Test database connectivity

@@ -261,6 +261,44 @@ class SupabaseCoupleService {
     }
   }
 
+  /// Update a partner's name in the couples table partner_names array
+  Future<void> updateCouplePartnerName(
+    String coupleId,
+    String userId,
+    String newName,
+  ) async {
+    try {
+      final coupleData = await SupabaseDataService.getSingleRecord(
+        _couplesTable,
+        whereColumn: 'id',
+        whereValue: coupleId,
+      );
+
+      if (coupleData == null) return;
+
+      final couple = CoupleModel.fromJson(coupleData);
+      final index = couple.partnerIds.indexOf(userId);
+
+      if (index != -1 && index < couple.partnerNames.length) {
+        final updatedNames = List<String>.from(couple.partnerNames);
+        updatedNames[index] = newName;
+
+        await SupabaseDataService.updateRecords(
+          _couplesTable,
+          {
+            'partner_names': updatedNames,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          whereColumn: 'id',
+          whereValue: coupleId,
+        );
+        debugPrint('✅ Updated couple $coupleId partner_names: $updatedNames');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Failed to update couple partner_names: $e');
+    }
+  }
+
   /// Send a partner request from one user to another
   Future<PartnerRequestModel> sendPartnerRequest({
     required UserModel sender,

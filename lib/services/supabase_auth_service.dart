@@ -135,15 +135,48 @@ class SupabaseAuthService {
   }
 
   /// Send password reset email
-  Future<void> sendPasswordResetEmail(String email) async {
+  Future<void> sendPasswordResetEmail(String email, {String? redirectTo}) async {
     try {
       debugPrint('🔓 Sending password reset email to: $email');
 
-      await _supabase.auth.resetPasswordForEmail(email);
+      await _supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo: redirectTo ?? 'jayiennelink://reset-password',
+      );
 
       debugPrint('✅ Password reset email sent successfully');
     } catch (e) {
       debugPrint('❌ Failed to send password reset email: $e');
+      throw _handleAuthError(e);
+    }
+  }
+
+  /// Verify Password Reset Code/Token/OTP
+  Future<AuthResponse> verifyPasswordResetOtp({
+    required String email,
+    required String token,
+  }) async {
+    try {
+      debugPrint('🔑 Verifying password reset token for: $email');
+
+      String cleanToken = token.trim();
+      if (cleanToken.contains('code=')) {
+        try {
+          final uri = Uri.parse(cleanToken);
+          cleanToken = uri.queryParameters['code'] ?? cleanToken;
+        } catch (_) {}
+      }
+
+      final response = await _supabase.auth.verifyOTP(
+        type: OtpType.recovery,
+        email: email.trim(),
+        token: cleanToken,
+      );
+
+      debugPrint('✅ Password reset OTP verified successfully');
+      return response;
+    } catch (e) {
+      debugPrint('❌ Failed to verify reset OTP: $e');
       throw _handleAuthError(e);
     }
   }

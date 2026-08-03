@@ -12,6 +12,7 @@ import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/app_card.dart';
+import '../../../widgets/common/love_nudge_overlay_listener.dart';
 import '../../anniversary/widgets/anniversary_card_widget.dart';
 import '../widgets/couple_profile_card.dart';
 import '../widgets/daily_quote_card.dart';
@@ -39,14 +40,18 @@ class HomeScreen extends StatelessWidget {
     }
 
     final partner = coupleProvider.partner;
+    final couple = coupleProvider.couple;
+
     final myName = (user != null && user.displayName.isNotEmpty)
         ? user.displayName
-        : 'CJay';
+        : 'You';
     final partnerName = (partner != null && partner.displayName.isNotEmpty)
         ? partner.displayName
-        : 'Aienne';
+        : (couple != null && user != null
+            ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
+            : 'Partner');
 
-    if (partner != null) {
+    if (coupleProvider.isLinked || partner != null) {
       return '$timeGreeting, $myName & $partnerName $emoji';
     } else {
       return '$timeGreeting, $myName $emoji';
@@ -63,36 +68,37 @@ class HomeScreen extends StatelessWidget {
 
     final greetingText = _getDynamicGreeting(user, coupleProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [AppColors.softRose, AppColors.lavender],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ).createShader(bounds),
-            child: Text(
-              greetingText,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: Colors.white,
+    return LoveNudgeOverlayListener(
+      child: Scaffold(
+        appBar: AppBar(
+          title: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [AppColors.softRose, AppColors.lavender],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ).createShader(bounds),
+              child: Text(
+                greetingText,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                context.push(RouteNames.settings);
+              },
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              context.push(RouteNames.settings);
-            },
-          ),
-        ],
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppDimensions.spacingLg),
         child: Column(
@@ -116,8 +122,9 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildLinkPartnerCard(BuildContext context, UserModel user) {
     return Padding(

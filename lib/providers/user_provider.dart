@@ -227,6 +227,14 @@ class UserProvider extends ChangeNotifier {
 
       if (updates.isNotEmpty) {
         await _userService.updateUser(uid, updates);
+        if (_user != null) {
+          _user = _user!.copyWith(
+            displayName: displayName ?? _user!.displayName,
+            birthday: birthday ?? _user!.birthday,
+            photoUrl: updates.containsKey('photoUrl') ? updates['photoUrl'] as String? : _user!.photoUrl,
+          );
+          await LocalCacheService.saveUser(_user!);
+        }
       }
 
       _isLoading = false;

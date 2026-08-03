@@ -59,7 +59,7 @@ class _CoupleProfileCardState extends State<CoupleProfileCard>
     }
 
     final myName = user.displayName.isNotEmpty ? user.displayName : 'You';
-    final partnerName = couple.getPartnerName(user.uid);
+    final partnerName = couple.getPartnerName(user.uid, livePartnerName: partner?.displayName);
     final isPartnerConnected = partner != null;
 
     return Container(

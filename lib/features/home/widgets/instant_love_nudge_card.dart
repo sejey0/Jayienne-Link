@@ -5,6 +5,9 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../providers/couple_provider.dart';
+import '../../../providers/user_provider.dart';
+import '../../../services/supabase_love_nudge_service.dart';
+import '../../../widgets/common/love_nudge_logo_widget.dart';
 
 /// Senior Instant Love Nudge Card with Floating Heart Particle Overlay Animation
 class InstantLoveNudgeCard extends StatefulWidget {
@@ -20,6 +23,21 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
 
   void _triggerNudge({required bool isKiss, required String partnerName}) {
     HapticFeedback.mediumImpact();
+
+    final coupleProvider = context.read<CoupleProvider>();
+    final userProvider = context.read<UserProvider>();
+    final couple = coupleProvider.couple;
+    final user = userProvider.user;
+
+    // Send Realtime Broadcast to Partner
+    if (couple != null && couple.id != null && user != null) {
+      SupabaseLoveNudgeService().sendLoveNudge(
+        coupleId: couple.id!,
+        senderId: user.uid,
+        senderName: user.displayName.isNotEmpty ? user.displayName : 'Your Partner',
+        nudgeType: isKiss ? 'kiss' : 'hug',
+      );
+    }
 
     // Spawn Floating Hearts Particle Overlay across screen
     _showFloatingHeartsOverlay(context, isKiss: isKiss);
@@ -75,11 +93,16 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
 
   @override
   Widget build(BuildContext context) {
-    final coupleProvider = context.watch<CoupleProvider>();
     final partner = coupleProvider.partner;
+    final couple = coupleProvider.couple;
+    final userProvider = context.watch<UserProvider>();
+    final user = userProvider.user;
+
     final partnerName = (partner != null && partner.displayName.isNotEmpty)
         ? partner.displayName
-        : 'Aienne';
+        : (couple != null && user != null
+            ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
+            : 'Partner');
 
     return Container(
       margin: const EdgeInsets.symmetric(
@@ -112,18 +135,7 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
             // Card Header Row
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.favorite_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
+                const LoveNudgeLogoWidget(size: 42),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Column(

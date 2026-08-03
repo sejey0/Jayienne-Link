@@ -10,6 +10,8 @@ class UserModel {
   final String? inviteCode;
   final String bubbleTheme;
   final bool profileComplete;
+  final String role;
+  final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -24,12 +26,18 @@ class UserModel {
     this.inviteCode,
     this.bubbleTheme = 'capybara',
     this.profileComplete = false,
+    this.role = 'user',
+    this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
   });
 
   /// Compatibility getter for existing code that expects 'uid'
   String get uid => id;
+
+  /// Role getters
+  bool get isAdmin => role == 'admin';
+  bool get isDeactivated => !isActive;
 
   UserModel copyWith({
     String? id,
@@ -42,6 +50,8 @@ class UserModel {
     String? inviteCode,
     String? bubbleTheme,
     bool? profileComplete,
+    String? role,
+    bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -56,6 +66,8 @@ class UserModel {
       inviteCode: inviteCode ?? this.inviteCode,
       bubbleTheme: bubbleTheme ?? this.bubbleTheme,
       profileComplete: profileComplete ?? this.profileComplete,
+      role: role ?? this.role,
+      isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -76,6 +88,8 @@ class UserModel {
       inviteCode: json['invite_code'] as String?,
       bubbleTheme: json['bubble_theme'] as String? ?? 'capybara',
       profileComplete: json['profile_complete'] as bool? ?? false,
+      role: json['role'] as String? ?? 'user',
+      isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -98,6 +112,8 @@ class UserModel {
       'invite_code': inviteCode,
       'bubble_theme': bubbleTheme,
       'profile_complete': profileComplete,
+      'role': role,
+      'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -111,12 +127,16 @@ class UserModel {
     return json;
   }
 
-  /// Convert to JSON for database updates (excludes immutable fields)
-  Map<String, dynamic> toUpdateJson() {
+  /// Convert to JSON for database updates (excludes immutable & admin-only fields by default)
+  Map<String, dynamic> toUpdateJson({bool includeAdminFields = false}) {
     final json = toJson();
     json.remove('id'); // Immutable
     json.remove('created_at'); // Immutable
     json.remove('updated_at'); // Updated by trigger
+    if (!includeAdminFields) {
+      json.remove('role'); // Managed by Admin
+      json.remove('is_active'); // Managed by Admin
+    }
     return json;
   }
 

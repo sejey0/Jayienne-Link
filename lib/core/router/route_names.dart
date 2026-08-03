@@ -8,6 +8,7 @@ class RouteNames {
   static const String phoneAuth = '/auth/phone';
   static const String otpVerification = '/auth/otp';
   static const String emailVerification = '/auth/verify-email';
+  static const String resetPassword = '/auth/reset-password';
   static const String profileSetup = '/profile-setup';
   static const String coupleLink = '/couple-link';
   static const String coupleSuccess = '/couple-success';
@@ -38,4 +39,8 @@ class RouteNames {
 
   // Anniversary & Timeline routes
   static const String relationshipTimeline = '/timeline';
+
+  // Admin & Security routes
+  static const String adminDashboard = '/admin';
+  static const String deactivated = '/deactivated';
 }

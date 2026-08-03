@@ -81,7 +81,7 @@ class ProfileViewScreen extends StatelessWidget {
               const Divider(),
               const SizedBox(height: AppDimensions.spacingMd),
               Text(
-                'Linked with ${coupleProvider.couple!.getPartnerName(user.uid)}',
+                'Linked with ${coupleProvider.couple!.getPartnerName(user.uid, livePartnerName: coupleProvider.partner?.displayName)}',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppColors.softRose,
                     ),

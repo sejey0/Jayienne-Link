@@ -29,9 +29,15 @@ import '../../features/secret_media/screens/add_secret_media_screen.dart';
 import '../../features/secret_media/screens/secret_media_detail_screen.dart';
 import '../../features/secret_media/screens/hidden_vault_screen.dart';
 import '../../features/anniversary/screens/relationship_timeline_screen.dart';
+import '../../features/auth/screens/deactivated_screen.dart';
+import '../../features/admin/screens/admin_dashboard_screen.dart';
+import '../../features/auth/screens/reset_password_screen.dart';
 
 class AppRouter {
   AppRouter._();
+
+  static final GlobalKey<NavigatorState> rootNavigatorKey =
+      GlobalKey<NavigatorState>(debugLabel: 'rootNavigatorKey');
 
   static GoRouter createRouter(
     AuthProvider authProvider,
@@ -40,6 +46,7 @@ class AppRouter {
     AppLockProvider appLockProvider,
   ) {
     return GoRouter(
+      navigatorKey: rootNavigatorKey,
       initialLocation: RouteNames.splash,
       refreshListenable:
           Listenable.merge([authProvider, userProvider, coupleProvider]),
@@ -61,6 +68,31 @@ class AppRouter {
 
         // Avoid redirecting during auth transitions (sign-in/sign-out)
         if (auth.isLoading) return null;
+
+        // Password Recovery Redirect Guard
+        if (auth.isPasswordRecovery) {
+          return location == RouteNames.resetPassword ? null : RouteNames.resetPassword;
+        }
+
+        // Check if user account is deactivated by Admin
+        final isDeactivated = user.user?.isDeactivated ?? false;
+        final isOnDeactivated = location == RouteNames.deactivated;
+
+        if (isAuthenticated && isDeactivated) {
+          return isOnDeactivated ? null : RouteNames.deactivated;
+        }
+
+        if (isOnDeactivated && !isDeactivated) {
+          return RouteNames.home;
+        }
+
+        // Admin Route Guard
+        final isOnAdmin = location == RouteNames.adminDashboard;
+        final isAdmin = user.user?.isAdmin ?? false;
+
+        if (isOnAdmin && !isAdmin) {
+          return RouteNames.home;
+        }
 
         // Auth routes that don't need redirect
         final isOnAuthRoute = location.startsWith('/auth');
@@ -134,6 +166,10 @@ class AppRouter {
         GoRoute(
           path: RouteNames.otpVerification,
           builder: (context, state) => const OtpVerificationScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.resetPassword,
+          builder: (context, state) => const ResetPasswordScreen(),
         ),
         GoRoute(
           path: RouteNames.profileSetup,
@@ -221,6 +257,14 @@ class AppRouter {
         GoRoute(
           path: RouteNames.relationshipTimeline,
           builder: (context, state) => const RelationshipTimelineScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.adminDashboard,
+          builder: (context, state) => const AdminDashboardScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.deactivated,
+          builder: (context, state) => const DeactivatedScreen(),
         ),
       ],
     );

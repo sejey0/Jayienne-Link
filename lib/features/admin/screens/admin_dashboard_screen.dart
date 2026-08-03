@@ -6,7 +6,9 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/admin_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../widgets/smart_profile_image.dart';
 
+/// Senior Admin Dashboard Screen accurately aligned with Jayienne Link design system
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
@@ -39,16 +41,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final currentUser = context.watch<UserProvider>().user;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF8F9FE),
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.admin_panel_settings_rounded, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Admin Dashboard'),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.softRose.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.admin_panel_settings_rounded,
+                color: AppColors.softRose,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Admin Dashboard',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
-        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -59,6 +75,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () => adminProvider.loadUsers(),
+        color: AppColors.softRose,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -89,7 +106,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             if (adminProvider.isLoading && adminProvider.allUsers.isEmpty)
               const SliverFillRemaining(
                 child: Center(
-                  child: CircularProgressIndicator(),
+                  child: CircularProgressIndicator(color: AppColors.softRose),
                 ),
               )
             else if (adminProvider.filteredUsers.isEmpty)
@@ -109,6 +126,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         'No users found',
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: Colors.grey.shade600,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -171,7 +189,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 title: 'Total Users',
                 value: provider.totalUsersCount.toString(),
                 icon: Icons.groups_rounded,
-                color: Colors.blue,
+                color: AppColors.softRose,
                 isDark: isDark,
               ),
             ),
@@ -182,7 +200,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 title: 'Active Users',
                 value: provider.activeUsersCount.toString(),
                 icon: Icons.check_circle_rounded,
-                color: Colors.green,
+                color: const Color(0xFF4CAF50),
                 isDark: isDark,
               ),
             ),
@@ -197,7 +215,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 title: 'Deactivated',
                 value: provider.deactivatedUsersCount.toString(),
                 icon: Icons.block_rounded,
-                color: Colors.redAccent,
+                color: AppColors.error,
                 isDark: isDark,
               ),
             ),
@@ -208,7 +226,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 title: 'Admins',
                 value: provider.adminUsersCount.toString(),
                 icon: Icons.security_rounded,
-                color: Colors.purple,
+                color: AppColors.lavender,
                 isDark: isDark,
               ),
             ),
@@ -226,31 +244,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required Color color,
     required bool isDark,
   }) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
+            color: color.withValues(alpha: 0.08),
             blurRadius: 10,
+            spreadRadius: 1,
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.1),
-        ),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -262,7 +283,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
                   ),
                 ),
                 Text(
@@ -286,15 +307,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     AdminProvider provider,
     bool isDark,
   ) {
+    final theme = Theme.of(context);
     return TextField(
       controller: _searchController,
       onChanged: (val) => provider.setSearchQuery(val),
+      style: TextStyle(
+        color: isDark ? Colors.white : AppColors.deepCharcoal,
+      ),
       decoration: InputDecoration(
-        hintText: 'Search by display name or email...',
-        prefixIcon: const Icon(Icons.search_rounded),
+        hintText: 'Search display name or email...',
+        hintStyle: TextStyle(
+          color: isDark ? Colors.white38 : Colors.grey.shade500,
+          fontSize: 14,
+        ),
+        prefixIcon: const Icon(Icons.search_rounded, color: AppColors.softRose),
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
-                icon: const Icon(Icons.clear_rounded),
+                icon: const Icon(Icons.clear_rounded, color: Colors.grey),
                 onPressed: () {
                   _searchController.clear();
                   provider.setSearchQuery('');
@@ -302,23 +331,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               )
             : null,
         filled: true,
-        fillColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        fillColor: theme.cardColor,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide(
-            color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.shade300,
+            color: AppColors.softRose.withValues(alpha: 0.3),
           ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide(
-            color: isDark ? Colors.white.withOpacity(0.08) : Colors.grey.shade200,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.grey.shade300,
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(20),
+          borderSide: const BorderSide(color: AppColors.softRose, width: 2),
         ),
       ),
     );
@@ -357,21 +388,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => provider.setFilter(filter),
-      selectedColor: AppColors.primary.withOpacity(0.2),
-      backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      selectedColor: AppColors.softRose.withValues(alpha: 0.2),
+      backgroundColor: Theme.of(context).cardColor,
       labelStyle: TextStyle(
         color: isSelected
-            ? AppColors.primary
+            ? AppColors.softRose
             : (isDark ? Colors.white70 : Colors.black87),
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         fontSize: 13,
       ),
       side: BorderSide(
         color: isSelected
-            ? AppColors.primary
-            : (isDark ? Colors.white.withOpacity(0.1) : Colors.grey.shade300),
+            ? AppColors.softRose
+            : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade300),
+        width: isSelected ? 1.5 : 1.0,
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     );
   }
 
@@ -383,55 +415,81 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     AdminProvider provider,
     bool isDark,
   ) {
-    return Card(
+    final theme = Theme.of(context);
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
           color: user.isDeactivated
-              ? Colors.red.withOpacity(0.3)
-              : (isDark ? Colors.white.withOpacity(0.06) : Colors.grey.shade200),
-          width: user.isDeactivated ? 1.5 : 1.0,
+              ? AppColors.error.withValues(alpha: 0.4)
+              : (user.isAdmin
+                  ? AppColors.softRose.withValues(alpha: 0.4)
+                  : (isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.grey.shade300)),
+          width: 1.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         onTap: () => _showUserDetailsModal(context, user, isDark),
         child: Padding(
-          padding: const EdgeInsets.all(14.0),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // User Avatar
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: AppColors.primary.withOpacity(0.15),
-                    backgroundImage: (user.photoUrl != null &&
-                            user.photoUrl!.isNotEmpty &&
-                            !user.photoUrl!.startsWith('data:image'))
-                        ? NetworkImage(user.photoUrl!)
-                        : null,
-                    child: (user.photoUrl == null ||
-                            user.photoUrl!.isEmpty ||
-                            user.photoUrl!.startsWith('data:image'))
-                        ? Text(
-                            user.displayName.isNotEmpty
-                                ? user.displayName[0].toUpperCase()
-                                : 'U',
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
+                  // User Avatar via SmartProfileImage
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: user.isAdmin ? AppColors.softRose : AppColors.lavender,
+                        width: 2,
+                      ),
+                    ),
+                    child: ClipOval(
+                      child: SmartProfileImage(
+                        imageUrl: user.photoUrl,
+                        width: 48,
+                        height: 48,
+                        placeholder: Container(
+                          color: AppColors.softRose.withValues(alpha: 0.15),
+                          child: Center(
+                            child: Text(
+                              user.displayName.isNotEmpty
+                                  ? user.displayName[0].toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                color: AppColors.softRose,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
                             ),
-                          )
-                        : null,
+                          ),
+                        ),
+                        errorWidget: Container(
+                          color: AppColors.softRose.withValues(alpha: 0.15),
+                          child: const Icon(Icons.person, color: AppColors.softRose, size: 24),
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
+
                   // Name and Email
                   Expanded(
                     child: Column(
@@ -447,7 +505,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: isDark ? Colors.white : Colors.black87,
+                                  color: isDark ? Colors.white : AppColors.deepCharcoal,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -456,24 +514,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
+                                    horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: AppColors.softRose.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: AppColors.softRose.withValues(alpha: 0.5),
+                                    width: 1,
+                                  ),
                                 ),
                                 child: const Text(
                                   'YOU',
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.blue,
+                                    color: AppColors.softRose,
                                   ),
                                 ),
                               ),
                             ],
                           ],
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
                           user.email,
                           style: TextStyle(
@@ -486,7 +548,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   ),
 
-                  // Actions menu / toggle button
+                  // Popup Menu Actions
                   PopupMenuButton<String>(
                     icon: Icon(
                       Icons.more_vert_rounded,
@@ -502,11 +564,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       }
                     },
                     itemBuilder: (ctx) => [
-                      PopupMenuItem(
+                      const PopupMenuItem(
                         value: 'details',
                         child: Row(
-                          children: const [
-                            Icon(Icons.info_outline, size: 18),
+                          children: [
+                            Icon(Icons.info_outline_rounded, size: 18, color: AppColors.softRose),
                             SizedBox(width: 8),
                             Text('View Details'),
                           ],
@@ -520,15 +582,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icon(
                                 user.isActive
                                     ? Icons.block_rounded
-                                    : Icons.check_circle_outline,
+                                    : Icons.check_circle_outline_rounded,
                                 size: 18,
-                                color: user.isActive ? Colors.red : Colors.green,
+                                color: user.isActive ? AppColors.error : const Color(0xFF4CAF50),
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 user.isActive ? 'Deactivate Account' : 'Activate Account',
                                 style: TextStyle(
-                                  color: user.isActive ? Colors.red : Colors.green,
+                                  color: user.isActive ? AppColors.error : const Color(0xFF4CAF50),
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
@@ -540,15 +603,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             children: [
                               Icon(
                                 user.isAdmin
-                                    ? Icons.person_outline
+                                    ? Icons.person_outline_rounded
                                     : Icons.admin_panel_settings_outlined,
                                 size: 18,
-                                color: Colors.purple,
+                                color: AppColors.lavender,
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 user.isAdmin ? 'Demote to User' : 'Promote to Admin',
-                                style: const TextStyle(color: Colors.purple),
+                                style: const TextStyle(
+                                  color: AppColors.lavender,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
@@ -560,8 +626,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
 
               const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 10),
+              Divider(height: 1, color: isDark ? Colors.white10 : Colors.grey.shade200),
+              const SizedBox(height: 12),
 
               // Badges Row
               Row(
@@ -569,7 +635,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   // Status Badge
                   _buildBadge(
                     label: user.isActive ? 'Active' : 'Deactivated',
-                    color: user.isActive ? Colors.green : Colors.red,
+                    color: user.isActive ? const Color(0xFF4CAF50) : AppColors.error,
                     icon: user.isActive
                         ? Icons.check_circle_rounded
                         : Icons.block_rounded,
@@ -579,7 +645,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   // Role Badge
                   _buildBadge(
                     label: user.isAdmin ? 'Admin' : 'User',
-                    color: user.isAdmin ? Colors.purple : Colors.blue,
+                    color: user.isAdmin ? AppColors.lavender : AppColors.softRose,
                     icon: user.isAdmin
                         ? Icons.security_rounded
                         : Icons.person_rounded,
@@ -589,7 +655,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   // Couple Status Badge
                   _buildBadge(
                     label: user.hasRealPartner ? 'Coupled' : 'Single',
-                    color: user.hasRealPartner ? Colors.pink : Colors.grey,
+                    color: user.hasRealPartner ? AppColors.softRose : Colors.grey,
                     icon: user.hasRealPartner
                         ? Icons.favorite_rounded
                         : Icons.person_outline_rounded,
@@ -607,16 +673,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: user.isActive ? Colors.green : Colors.red,
+                            color: user.isActive ? const Color(0xFF4CAF50) : AppColors.error,
                           ),
                         ),
                         Transform.scale(
                           scale: 0.8,
                           child: Switch(
                             value: user.isActive,
-                            activeColor: Colors.green,
-                            inactiveTrackColor: Colors.red.withOpacity(0.2),
-                            inactiveThumbColor: Colors.red,
+                            activeColor: const Color(0xFF4CAF50),
+                            inactiveTrackColor: AppColors.error.withValues(alpha: 0.2),
+                            inactiveThumbColor: AppColors.error,
                             onChanged: (_) =>
                                 _confirmToggleActive(context, user, provider),
                           ),
@@ -638,11 +704,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required IconData icon,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3), width: 0.8),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -672,7 +738,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(willDeactivate ? 'Deactivate Account?' : 'Activate Account?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          willDeactivate ? 'Deactivate Account?' : 'Activate Account?',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: Text(
           willDeactivate
               ? 'Are you sure you want to deactivate ${targetUser.displayName} (${targetUser.email})? They will be blocked from accessing the app.'
@@ -696,7 +766,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ? 'Account deactivated successfully.'
                             : 'Account activated successfully.',
                       ),
-                      backgroundColor: willDeactivate ? Colors.red : Colors.green,
+                      backgroundColor: willDeactivate ? AppColors.error : const Color(0xFF4CAF50),
                     ),
                   );
                 } else if (provider.error != null) {
@@ -707,7 +777,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: willDeactivate ? Colors.red : Colors.green,
+              backgroundColor: willDeactivate ? AppColors.error : const Color(0xFF4CAF50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: Text(willDeactivate ? 'Deactivate' : 'Activate'),
           ),
@@ -725,7 +796,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(willBeAdmin ? 'Promote to Admin?' : 'Demote to User?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          willBeAdmin ? 'Promote to Admin?' : 'Demote to User?',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: Text(
           willBeAdmin
               ? 'Grant admin rights to ${targetUser.displayName}? They will gain full control over user accounts and admin settings.'
@@ -749,6 +824,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ? '${targetUser.displayName} is now an Admin.'
                             : '${targetUser.displayName} is now a standard User.',
                       ),
+                      backgroundColor: AppColors.softRose,
                     ),
                   );
                 } else if (provider.error != null) {
@@ -758,6 +834,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 }
               }
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.softRose,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             child: Text(willBeAdmin ? 'Promote' : 'Demote'),
           ),
         ],
@@ -768,11 +848,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // --- USER DETAILS MODAL ---
   void _showUserDetailsModal(BuildContext context, UserModel user, bool isDark) {
     final dateFormat = DateFormat('MMM dd, yyyy - hh:mm a');
+    final theme = Theme.of(context);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      backgroundColor: theme.cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -795,17 +876,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: AppColors.primary.withOpacity(0.15),
-                  child: Text(
-                    user.displayName.isNotEmpty
-                        ? user.displayName[0].toUpperCase()
-                        : 'U',
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: user.isAdmin ? AppColors.softRose : AppColors.lavender,
+                      width: 2,
+                    ),
+                  ),
+                  child: ClipOval(
+                    child: SmartProfileImage(
+                      imageUrl: user.photoUrl,
+                      width: 56,
+                      height: 56,
+                      placeholder: Container(
+                        color: AppColors.softRose.withValues(alpha: 0.15),
+                        child: Center(
+                          child: Text(
+                            user.displayName.isNotEmpty
+                                ? user.displayName[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                              color: AppColors.softRose,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                            ),
+                          ),
+                        ),
+                      ),
+                      errorWidget: Container(
+                        color: AppColors.softRose.withValues(alpha: 0.15),
+                        child: const Icon(Icons.person, color: AppColors.softRose, size: 28),
+                      ),
                     ),
                   ),
                 ),
@@ -816,9 +920,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     children: [
                       Text(
                         user.displayName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : AppColors.deepCharcoal,
                         ),
                       ),
                       Text(
@@ -832,8 +937,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            const Divider(),
+            const SizedBox(height: 20),
+            Divider(color: isDark ? Colors.white10 : Colors.grey.shade200),
             const SizedBox(height: 12),
             _buildDetailRow('User ID', user.id, isDark),
             _buildDetailRow('Role', user.role.toUpperCase(), isDark),
@@ -847,8 +952,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.softRose),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Close'),
+                child: const Text(
+                  'Close',
+                  style: TextStyle(color: AppColors.softRose, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],
@@ -879,7 +993,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               value,
               style: TextStyle(
                 fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white : Colors.black87,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
                 fontSize: 13,
               ),
             ),

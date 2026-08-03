@@ -8,9 +8,11 @@ import '../../../core/router/route_names.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/loading_overlay.dart';
+import 'deactivated_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,14 +45,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
 
-    if (!success && auth.error != null) {
+    if (success) {
+      final user = context.read<UserProvider>().user;
+      if (user != null && user.isDeactivated) {
+        DeactivatedScreen.showDeactivatedDialog(context);
+      }
+    } else if (auth.error != null) {
       final errorText = auth.error!.toLowerCase();
+      final isDeactivated = errorText.contains('deactivated');
       final isInvalidCredentials =
           errorText.contains('invalid email or password') ||
               errorText.contains('invalid login credentials');
       final isUserNotFound = errorText.contains('no account found');
 
-      if (isInvalidCredentials || isUserNotFound) {
+      if (isDeactivated) {
+        DeactivatedScreen.showDeactivatedDialog(context);
+      } else if (isInvalidCredentials || isUserNotFound) {
         _showAccountNotFoundDialog();
       } else {
         SnackbarHelper.showError(context, auth.error!);

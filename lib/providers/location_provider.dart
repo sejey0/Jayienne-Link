@@ -27,7 +27,28 @@ class LocationProvider extends ChangeNotifier {
   final DebugProvider? _debugProvider;
   final Battery _battery = Battery();
 
-  LocationProvider(this._userService, [this._debugProvider]);
+  LocationProvider(this._userService, [this._debugProvider]) {
+    _debugProvider?.addListener(_onDebugModeChanged);
+  }
+
+  void _onDebugModeChanged() async {
+    final forcedOffline = _debugProvider?.forceOfflineMode ?? false;
+    if (_userId != null) {
+      _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
+    }
+    if (forcedOffline) {
+      _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.offline;
+    } else {
+      if (isOnline && _pendingSyncCount > 0 && _coupleId != null) {
+        syncLocations();
+      } else {
+        _syncStatus = isOnline
+            ? (_pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.synced)
+            : SyncStatus.offline;
+      }
+    }
+    notifyListeners();
+  }
 
   bool _disposed = false;
 
@@ -303,7 +324,7 @@ class LocationProvider extends ChangeNotifier {
 
     _devicePositionSubscription = Geolocator.getPositionStream(
       locationSettings: locationSettings,
-    ).listen((Position position) {
+    ).listen((Position position) async {
       if (_userId == null) return;
 
       final locationModel = LocationModel(
@@ -319,10 +340,13 @@ class LocationProvider extends ChangeNotifier {
       );
 
       _currentLocation = locationModel;
-      _storageService.insertLocation(locationModel);
+      await _storageService.insertLocation(locationModel);
+      _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
 
-      if (_isOnline && _coupleId != null) {
+      if (isOnline && _coupleId != null) {
         syncLocations();
+      } else {
+        _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.offline;
       }
 
       notifyListeners();
@@ -331,25 +355,29 @@ class LocationProvider extends ChangeNotifier {
 
   void _subscribeToStreams() {
     _locationSubscription = _locationService.locationStream.listen(
-      (location) {
+      (location) async {
         _currentLocation = location;
-        _pendingSyncCount++;
-        _syncStatus = SyncStatus.pending;
+        if (_userId != null) {
+          _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
+        } else {
+          _pendingSyncCount++;
+        }
+        _syncStatus = isOnline ? SyncStatus.pending : SyncStatus.offline;
         notifyListeners();
       },
     );
 
     _connectivitySubscription = _syncService.connectivityStream.listen(
-      (isOnline) {
-        final wasOffline = !_isOnline;
-        _isOnline = isOnline;
+      (realtimeOnline) {
+        final wasOffline = isOnline;
+        _isOnline = realtimeOnline;
 
-        if (isOnline && wasOffline && _pendingSyncCount > 0) {
+        if (isOnline && !wasOffline && _pendingSyncCount > 0) {
           syncLocations();
         }
 
         if (!isOnline) {
-          _syncStatus = SyncStatus.offline;
+          _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.offline;
         }
 
         notifyListeners();
@@ -420,9 +448,11 @@ class LocationProvider extends ChangeNotifier {
       if (location != null) {
         _currentLocation = location;
         _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
-        _syncStatus = SyncStatus.pending;
+        _syncStatus = isOnline
+            ? (_pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.synced)
+            : (_pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.offline);
 
-        if (_isOnline && _coupleId != null) {
+        if (isOnline && _coupleId != null) {
           syncLocations();
         }
         return true;
@@ -668,6 +698,7 @@ class LocationProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _debugProvider?.removeListener(_onDebugModeChanged);
     _devicePositionSubscription?.cancel();
     _batterySubscription?.cancel();
     _locationSubscription?.cancel();

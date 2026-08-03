@@ -110,6 +110,9 @@ class LocationDatabase {
 
   /// Database getter with auto-initialization guard
   Future<Database> get database async {
+    if (kIsWeb) {
+      throw UnsupportedError('SQLite location database is not supported on Web.');
+    }
     _database ??= await _initDatabase();
     return _database!;
   }
@@ -163,6 +166,7 @@ class LocationDatabase {
   /// Enqueue a location update into local SQLite database.
   /// Guarantees offline safety before any network attempt. Accepts null speed/battery.
   Future<int> enqueueLocation(PendingLocation location) async {
+    if (kIsWeb) return 0;
     final db = await database;
     final id = await db.insert(
       tableName,
@@ -179,6 +183,7 @@ class LocationDatabase {
     int limit = 50,
     int maxRetries = 5,
   }) async {
+    if (kIsWeb) return [];
     final db = await database;
     final List<Map<String, dynamic>> rows = await db.query(
       tableName,
@@ -193,7 +198,7 @@ class LocationDatabase {
 
   /// Atomically delete a list of successfully synced location IDs using a transaction.
   Future<void> deleteBatch(List<int> ids) async {
-    if (ids.isEmpty) return;
+    if (kIsWeb || ids.isEmpty) return;
     final db = await database;
 
     await db.transaction((txn) async {
@@ -210,7 +215,7 @@ class LocationDatabase {
   /// Atomically increment the retry count for failed locations.
   /// Prevents broken/invalid payloads from infinitely blocking the sync queue.
   Future<void> incrementRetryCount(List<int> ids) async {
-    if (ids.isEmpty) return;
+    if (kIsWeb || ids.isEmpty) return;
     final db = await database;
 
     await db.transaction((txn) async {
@@ -225,6 +230,7 @@ class LocationDatabase {
 
   /// Get current total count of items pending sync in queue (excluding poison pills)
   Future<int> getPendingCount({int maxRetries = 5}) async {
+    if (kIsWeb) return 0;
     final db = await database;
     final result = await db.rawQuery(
       'SELECT COUNT(*) as count FROM $tableName WHERE retry_count < ?',
@@ -235,6 +241,7 @@ class LocationDatabase {
 
   /// Purge all poison pill records (items that failed 5+ times) to reclaim storage.
   Future<int> purgePoisonPillRecords({int maxRetries = 5}) async {
+    if (kIsWeb) return 0;
     final db = await database;
     final count = await db.delete(
       tableName,
@@ -249,6 +256,7 @@ class LocationDatabase {
 
   /// Close database instance (useful during testing or reset)
   Future<void> close() async {
+    if (kIsWeb) return;
     if (_database != null) {
       await _database!.close();
       _database = null;

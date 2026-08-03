@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -109,10 +111,20 @@ class AppLockProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Check hardware biometric capabilities (Fingerprint / Face ID)
   Future<void> checkBiometricAvailability() async {
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS &&
+            defaultTargetPlatform != TargetPlatform.macOS)) {
+      _isBiometricAvailable = false;
+      notifyListeners();
+      return;
+    }
     try {
       final canCheck = await _localAuth.canCheckBiometrics;
       final isSupported = await _localAuth.isDeviceSupported();
       _isBiometricAvailable = canCheck && isSupported;
+    } on MissingPluginException {
+      _isBiometricAvailable = false;
     } catch (e) {
       debugPrint('[AppLockProvider] Error checking biometrics: $e');
       _isBiometricAvailable = false;
@@ -246,8 +258,12 @@ class AppLockProvider extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     }
 
-    if (!_isBiometricAvailable) {
-      _error = 'Biometric authentication is not supported on this device.';
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS &&
+            defaultTargetPlatform != TargetPlatform.macOS) ||
+        !_isBiometricAvailable) {
+      _error = 'Biometric authentication is not supported on this platform.';
       notifyListeners();
       return false;
     }
@@ -270,6 +286,8 @@ class AppLockProvider extends ChangeNotifier with WidgetsBindingObserver {
         notifyListeners();
         return true;
       }
+    } on MissingPluginException {
+      _error = 'Biometric authentication is not supported on this platform.';
     } catch (e) {
       debugPrint('[AppLockProvider] Biometric error: $e');
       _error = 'Biometric authentication failed.';

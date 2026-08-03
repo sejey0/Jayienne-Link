@@ -31,12 +31,15 @@ class BackgroundLocationService {
 
   /// Initialize Workmanager for background tasks
   Future<void> initialize() async {
+    if (kIsWeb) {
+      debugPrint('BackgroundLocationService: Workmanager skipped on web');
+      return;
+    }
     if (_isInitialized) {
       return;
     }
     await Workmanager().initialize(
       callbackDispatcher,
-      isInDebugMode: kDebugMode,
     );
     _isInitialized = true;
     debugPrint('BackgroundLocationService initialized');
@@ -55,6 +58,8 @@ class BackgroundLocationService {
     await prefs.setString(_coupleIdKey, coupleId);
     await prefs.setBool(_enabledKey, true);
     await prefs.setInt(_intervalKey, intervalMinutes);
+
+    if (kIsWeb) return;
 
     // Cancel any existing task first
     await Workmanager().cancelByUniqueName(periodicLocationTask);
@@ -84,7 +89,9 @@ class BackgroundLocationService {
   Future<void> stopPeriodicTracking() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_enabledKey, false);
-    await Workmanager().cancelByUniqueName(periodicLocationTask);
+    if (!kIsWeb) {
+      await Workmanager().cancelByUniqueName(periodicLocationTask);
+    }
     debugPrint('Stopped periodic location tracking');
   }
 
@@ -102,6 +109,8 @@ class BackgroundLocationService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_userIdKey, userId);
     await prefs.setString(_coupleIdKey, coupleId);
+
+    if (kIsWeb) return;
 
     await Workmanager().registerOneOffTask(
       'oneTimeLocation_${DateTime.now().millisecondsSinceEpoch}',

@@ -46,8 +46,10 @@ void main() async {
     await _debugSupabase();
   }
 
-  // Initialize background location service (includes Workmanager setup)
-  await BackgroundLocationService.instance.initialize();
+  // Initialize background location service (includes Workmanager setup for native platforms)
+  if (!kIsWeb) {
+    await BackgroundLocationService.instance.initialize();
+  }
 
   final authService = SupabaseAuthService();
   final userService = SupabaseUserService();

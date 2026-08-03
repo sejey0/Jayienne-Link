@@ -629,42 +629,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Divider(height: 1, color: isDark ? Colors.white10 : Colors.grey.shade200),
               const SizedBox(height: 12),
 
-              // Badges Row
+              // Badges Row & Quick Action Switch
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Status Badge
-                  _buildBadge(
-                    label: user.isActive ? 'Active' : 'Deactivated',
-                    color: user.isActive ? const Color(0xFF4CAF50) : AppColors.error,
-                    icon: user.isActive
-                        ? Icons.check_circle_rounded
-                        : Icons.block_rounded,
-                  ),
-                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          // Status Badge
+                          _buildBadge(
+                            label: user.isActive ? 'Active' : 'Deactivated',
+                            color: user.isActive ? const Color(0xFF4CAF50) : AppColors.error,
+                            icon: user.isActive
+                                ? Icons.check_circle_rounded
+                                : Icons.block_rounded,
+                          ),
+                          const SizedBox(width: 8),
 
-                  // Role Badge
-                  _buildBadge(
-                    label: user.isAdmin ? 'Admin' : 'User',
-                    color: user.isAdmin ? AppColors.lavender : AppColors.softRose,
-                    icon: user.isAdmin
-                        ? Icons.security_rounded
-                        : Icons.person_rounded,
-                  ),
-                  const SizedBox(width: 8),
+                          // Role Badge
+                          _buildBadge(
+                            label: user.isAdmin ? 'Admin' : 'User',
+                            color: user.isAdmin ? AppColors.lavender : AppColors.softRose,
+                            icon: user.isAdmin
+                                ? Icons.security_rounded
+                                : Icons.person_rounded,
+                          ),
+                          const SizedBox(width: 8),
 
-                  // Couple Status Badge
-                  _buildBadge(
-                    label: user.hasRealPartner ? 'Coupled' : 'Single',
-                    color: user.hasRealPartner ? AppColors.softRose : Colors.grey,
-                    icon: user.hasRealPartner
-                        ? Icons.favorite_rounded
-                        : Icons.person_outline_rounded,
+                          // Couple Status Badge
+                          _buildBadge(
+                            label: user.hasRealPartner ? 'Coupled' : 'Single',
+                            color: user.hasRealPartner ? AppColors.softRose : Colors.grey,
+                            icon: user.hasRealPartner
+                                ? Icons.favorite_rounded
+                                : Icons.person_outline_rounded,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-
-                  const Spacer(),
 
                   // Quick Action Activation Switch
-                  if (!isCurrentAdmin)
+                  if (!isCurrentAdmin) ...[
+                    const SizedBox(width: 8),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -689,6 +698,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                       ],
                     ),
+                  ],
                 ],
               ),
             ],

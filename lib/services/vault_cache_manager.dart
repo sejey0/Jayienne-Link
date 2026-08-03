@@ -26,6 +26,8 @@ class VaultCacheManager {
       // 1. Clear Cached Network Images (DefaultCacheManager)
       await DefaultCacheManager().emptyCache();
 
+      if (kIsWeb) return;
+
       // 2. Clear custom temporary vault directory
       final tempDir = await getTemporaryDirectory();
       final vaultTempDir = Directory(p.join(tempDir.path, 'vault_cache'));
@@ -50,6 +52,9 @@ class VaultCacheManager {
 
   /// Get or create isolated temporary vault directory for transient media operations
   Future<Directory> getVaultTempDirectory() async {
+    if (kIsWeb) {
+      throw UnsupportedError('Directory operations are not supported on Web');
+    }
     final tempDir = await getApplicationDocumentsDirectory();
     final vaultDir = Directory(p.join(tempDir.path, '.vault_secure_temp'));
     if (!await vaultDir.exists()) {

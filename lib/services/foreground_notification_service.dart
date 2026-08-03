@@ -25,6 +25,7 @@ class ForegroundNotificationService {
 
   /// Initialize the notification service
   Future<void> initialize() async {
+    if (kIsWeb) return;
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidSettings);
@@ -63,7 +64,7 @@ class ForegroundNotificationService {
     String title = 'Sharing location',
     String body = 'Your partner can see your location',
   }) async {
-    if (_isShowing) return;
+    if (kIsWeb || _isShowing) return;
 
     const androidDetails = AndroidNotificationDetails(
       _channelId,
@@ -98,6 +99,7 @@ class ForegroundNotificationService {
     required String title,
     required String body,
   }) async {
+    if (kIsWeb) return;
     if (!_isShowing) {
       await showTrackingNotification(title: title, body: body);
       return;
@@ -130,6 +132,7 @@ class ForegroundNotificationService {
 
   /// Hide the tracking notification
   Future<void> hideTrackingNotification() async {
+    if (kIsWeb) return;
     await _notifications.cancel(_notificationId);
     _isShowing = false;
     debugPrint('Tracking notification hidden');
@@ -143,6 +146,7 @@ class ForegroundNotificationService {
     required int syncedCount,
     bool isError = false,
   }) async {
+    if (kIsWeb) return;
     const androidDetails = AndroidNotificationDetails(
       'sync_status',
       'Sync Status',

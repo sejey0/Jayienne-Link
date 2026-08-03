@@ -137,6 +137,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
   }
 
   Future<bool> _ensureGalleryPermission() async {
+    if (kIsWeb) return true;
+
     if (Platform.isIOS) {
       final status = await Permission.photos.request();
       return status.isGranted || status.isLimited;

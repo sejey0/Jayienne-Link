@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -25,12 +26,16 @@ class OfflineStorageService {
 
   /// Get database instance, creating if needed
   Future<Database> get database async {
+    if (kIsWeb) {
+      throw UnsupportedError('SQLite offline storage is not supported on Web.');
+    }
     _database ??= await _initDatabase();
     return _database!;
   }
 
   /// Ensure database is initialized (for background tasks)
   Future<void> ensureInitialized() async {
+    if (kIsWeb) return;
     _database ??= await _initDatabase();
   }
 
@@ -144,6 +149,7 @@ class OfflineStorageService {
 
   /// Insert a new location (always saves locally first)
   Future<int> insertLocation(LocationModel location) async {
+    if (kIsWeb) return 0;
     final db = await database;
     return await db.insert(
       _locationsTable,
@@ -154,6 +160,7 @@ class OfflineStorageService {
 
   /// Insert multiple locations in a batch (for efficiency)
   Future<void> insertLocationsBatch(List<LocationModel> locations) async {
+    if (kIsWeb) return;
     final db = await database;
     final batch = db.batch();
     for (final location in locations) {
@@ -168,6 +175,7 @@ class OfflineStorageService {
 
   /// Get all unsynced locations for upload (includes background captures)
   Future<List<LocationModel>> getUnsyncedLocations(String ownerId) async {
+    if (kIsWeb) return [];
     final db = await database;
     final maps = await db.query(
       _locationsTable,
@@ -181,6 +189,7 @@ class OfflineStorageService {
 
   /// Get count of unsynced locations (includes background captures)
   Future<int> getUnsyncedCount(String ownerId) async {
+    if (kIsWeb) return 0;
     final db = await database;
     final result = await db.rawQuery(
       'SELECT COUNT(*) as count FROM $_locationsTable WHERE owner_id = ? AND is_synced = 0 AND source IN (0, 2)',
@@ -191,6 +200,7 @@ class OfflineStorageService {
 
   /// Get total location count for a user
   Future<int> getLocationCount(String ownerId) async {
+    if (kIsWeb) return 0;
     final db = await database;
     final result = await db.rawQuery(
       'SELECT COUNT(*) as count FROM $_locationsTable WHERE owner_id = ?',
@@ -201,6 +211,7 @@ class OfflineStorageService {
 
   /// Mark a location as synced
   Future<void> markAsSynced(int localId, String supabaseId) async {
+    if (kIsWeb) return;
     final db = await database;
     await db.update(
       _locationsTable,
@@ -212,6 +223,7 @@ class OfflineStorageService {
 
   /// Mark multiple locations as synced (batch operation)
   Future<void> markBatchAsSynced(Map<int, String> localToSupabaseIds) async {
+    if (kIsWeb) return;
     final db = await database;
     final batch = db.batch();
     for (final entry in localToSupabaseIds.entries) {
@@ -227,6 +239,7 @@ class OfflineStorageService {
 
   /// Get user's last known location
   Future<LocationModel?> getLastKnownLocation(String ownerId) async {
+    if (kIsWeb) return null;
     final db = await database;
     final maps = await db.query(
       _locationsTable,
@@ -241,6 +254,7 @@ class OfflineStorageService {
 
   /// Get partner's last known location
   Future<LocationModel?> getPartnerLastLocation(String partnerId) async {
+    if (kIsWeb) return null;
     final db = await database;
     final maps = await db.query(
       _locationsTable,
@@ -261,6 +275,7 @@ class OfflineStorageService {
     DateTime? startDate,
     DateTime? endDate,
   }) async {
+    if (kIsWeb) return [];
     final db = await database;
     String where = 'owner_id = ?';
     List<dynamic> whereArgs = [ownerId];
@@ -290,6 +305,7 @@ class OfflineStorageService {
     String ownerId,
     DateTime date,
   ) async {
+    if (kIsWeb) return [];
     final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
@@ -303,7 +319,7 @@ class OfflineStorageService {
 
   /// Store locations received from Supabase (avoids duplicates)
   Future<void> storeRemoteLocations(List<LocationModel> locations) async {
-    if (locations.isEmpty) return;
+    if (kIsWeb || locations.isEmpty) return;
 
     final db = await database;
     final batch = db.batch();
@@ -332,11 +348,13 @@ class OfflineStorageService {
 
   /// Store partner's locations received from Supabase
   Future<void> storePartnerLocations(List<LocationModel> locations) async {
+    if (kIsWeb) return;
     await storeRemoteLocations(locations);
   }
 
   /// Clean up old locations (retention policy: 7 days)
   Future<int> cleanupOldLocations({int retentionDays = 7}) async {
+    if (kIsWeb) return 0;
     final db = await database;
     final cutoff = DateTime.now()
         .subtract(Duration(days: retentionDays))
@@ -351,6 +369,7 @@ class OfflineStorageService {
 
   /// Delete all location data for a user (privacy feature)
   Future<int> deleteAllUserLocations(String ownerId) async {
+    if (kIsWeb) return 0;
     final db = await database;
     return await db.delete(
       _locationsTable,
@@ -361,6 +380,7 @@ class OfflineStorageService {
 
   /// Delete partner's cached locations
   Future<int> deletePartnerLocations(String partnerId) async {
+    if (kIsWeb) return 0;
     final db = await database;
     return await db.delete(
       _locationsTable,
@@ -375,6 +395,7 @@ class OfflineStorageService {
 
   /// Get user's location settings
   Future<LocationSharingSettings?> getSettings(String userId) async {
+    if (kIsWeb) return null;
     final db = await database;
     final maps = await db.query(
       _settingsTable,
@@ -389,6 +410,7 @@ class OfflineStorageService {
   /// Save user's location settings
   Future<void> saveSettings(
       String userId, LocationSharingSettings settings) async {
+    if (kIsWeb) return;
     final db = await database;
     await db.insert(
       _settingsTable,
@@ -402,6 +424,7 @@ class OfflineStorageService {
 
   /// Update sharing enabled status
   Future<void> setSharingEnabled(String userId, bool enabled) async {
+    if (kIsWeb) return;
     final settings = await getSettings(userId) ?? LocationSharingSettings();
     await saveSettings(
       userId,
@@ -414,6 +437,7 @@ class OfflineStorageService {
 
   /// Update background sharing status
   Future<void> setBackgroundSharingEnabled(String userId, bool enabled) async {
+    if (kIsWeb) return;
     final settings = await getSettings(userId) ?? LocationSharingSettings();
     await saveSettings(
       userId,
@@ -430,6 +454,13 @@ class OfflineStorageService {
 
   /// Get database statistics for debugging
   Future<Map<String, dynamic>> getStats(String ownerId) async {
+    if (kIsWeb) {
+      return {
+        'total_locations': 0,
+        'unsynced_locations': 0,
+        'partner_locations': 0,
+      };
+    }
     final db = await database;
 
     final totalResult = await db.rawQuery(
@@ -453,6 +484,7 @@ class OfflineStorageService {
 
   /// Close database connection
   Future<void> close() async {
+    if (kIsWeb) return;
     if (_database != null) {
       await _database!.close();
       _database = null;
@@ -461,6 +493,7 @@ class OfflineStorageService {
 
   /// Reset database (for testing/logout)
   Future<void> reset() async {
+    if (kIsWeb) return;
     final db = await database;
     await db.delete(_locationsTable);
     await db.delete(_settingsTable);

@@ -7,6 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
+import '../../../providers/user_provider.dart';
+import 'partner_avatar_marker.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/live_time_text.dart';
 
@@ -140,12 +142,19 @@ class PartnerLocationCard extends StatelessWidget {
     LocationModel location,
     bool isLive,
   ) {
+    final locationProvider = context.watch<LocationProvider>();
+    final userProvider = context.watch<UserProvider>();
+    final myPos = locationProvider.myLatLng;
+    final partnerPos = LatLng(location.latitude, location.longitude);
+    final currentUser = userProvider.user;
+    final partnerUser = locationProvider.partnerUser;
+
     return Stack(
       children: [
         FlutterMap(
           options: MapOptions(
-            initialCenter: LatLng(location.latitude, location.longitude),
-            initialZoom: 15,
+            initialCenter: partnerPos,
+            initialZoom: myPos != null ? 13.5 : 15.0,
             interactionOptions: const InteractionOptions(
               flags: InteractiveFlag.none,
             ),
@@ -155,13 +164,74 @@ class PartnerLocationCard extends StatelessWidget {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.jayiennelink.app',
             ),
+            // Connecting line between the two couple locations
+            if (myPos != null)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: [myPos, partnerPos],
+                    strokeWidth: 3.5,
+                    color: AppColors.softRose,
+                  ),
+                ],
+              ),
             MarkerLayer(
               markers: [
+                // Midpoint Connection Heart Badge
+                if (myPos != null)
+                  Marker(
+                    point: LatLng(
+                      (myPos.latitude + partnerPos.latitude) / 2,
+                      (myPos.longitude + partnerPos.longitude) / 2,
+                    ),
+                    width: 28,
+                    height: 28,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: AppColors.softRose, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.softRose.withValues(alpha: 0.4),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.favorite,
+                        color: AppColors.softRose,
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                // My Location Profile Marker
+                if (myPos != null)
+                  Marker(
+                    point: myPos,
+                    width: 50,
+                    height: 60,
+                    child: PartnerAvatarMarker(
+                      photoUrl: currentUser?.photoUrl,
+                      partnerName: currentUser?.displayName.isNotEmpty == true
+                          ? currentUser!.displayName
+                          : 'You',
+                      batteryLevel: locationProvider.batteryLevel,
+                      batteryState: locationProvider.batteryState,
+                      accentColor: AppColors.softRose,
+                    ),
+                  ),
+                // Partner Location Profile Marker
                 Marker(
-                  point: LatLng(location.latitude, location.longitude),
-                  width: 40,
-                  height: 40,
-                  child: _buildMarker(isLive),
+                  point: partnerPos,
+                  width: 50,
+                  height: 60,
+                  child: PartnerAvatarMarker(
+                    photoUrl: partnerUser?.photoUrl,
+                    partnerName: partnerUser?.displayName ?? 'Partner',
+                    batteryLevel: location.batteryLevel,
+                    accentColor: AppColors.lavender,
+                  ),
                 ),
               ],
             ),
@@ -180,7 +250,7 @@ class PartnerLocationCard extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.transparent,
-                  Colors.black.withOpacity(0.3),
+                  Colors.black.withValues(alpha: 0.3),
                 ],
               ),
             ),
@@ -188,48 +258,6 @@ class PartnerLocationCard extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  Widget _buildMarker(bool isLive) {
-    final marker = Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: isLive ? AppColors.softRose : AppColors.warning,
-        boxShadow: [
-          BoxShadow(
-            color: (isLive ? AppColors.softRose : AppColors.warning)
-                .withOpacity(0.4),
-            blurRadius: 8,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: const Icon(
-        Icons.favorite,
-        color: Colors.white,
-        size: 24,
-      ),
-    );
-
-    if (isLive) {
-      return marker
-          .animate(onPlay: (controller) => controller.repeat())
-          .scale(
-            begin: const Offset(0.9, 0.9),
-            end: const Offset(1.1, 1.1),
-            duration: const Duration(milliseconds: 1000),
-            curve: Curves.easeInOut,
-          )
-          .then()
-          .scale(
-            begin: const Offset(1.1, 1.1),
-            end: const Offset(0.9, 0.9),
-            duration: const Duration(milliseconds: 1000),
-            curve: Curves.easeInOut,
-          );
-    }
-
-    return marker;
   }
 
   Widget _buildStatusIndicator(

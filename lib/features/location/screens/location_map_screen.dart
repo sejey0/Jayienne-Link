@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
 import '../../../providers/location_provider.dart';
+import '../../../providers/user_provider.dart';
 import '../../../widgets/common/live_time_text.dart';
 import '../widgets/location_share_toggle.dart';
 import '../widgets/offline_status_indicator.dart';
@@ -27,25 +28,15 @@ class LocationMapScreen extends StatefulWidget {
   State<LocationMapScreen> createState() => _LocationMapScreenState();
 }
 
-class _LocationMapScreenState extends State<LocationMapScreen>
-    with SingleTickerProviderStateMixin {
+class _LocationMapScreenState extends State<LocationMapScreen> {
   final MapController _mapController = MapController();
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
 
   bool _isPartnerSelected = false;
+  bool _isMeSelected = false;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -64,7 +55,6 @@ class _LocationMapScreenState extends State<LocationMapScreen>
 
   @override
   void dispose() {
-    _pulseController.dispose();
     _mapController.dispose();
     super.dispose();
   }
@@ -111,6 +101,9 @@ class _LocationMapScreenState extends State<LocationMapScreen>
   Widget build(BuildContext context) {
     final locationProvider = context.watch<LocationProvider>();
 
+    final userProvider = context.watch<UserProvider>();
+    final currentUser = userProvider.user;
+
     final myPos = locationProvider.myLatLng;
     final partnerPos = locationProvider.interpolatedPartnerLatLng;
     final partnerUser = locationProvider.partnerUser;
@@ -149,40 +142,70 @@ class _LocationMapScreenState extends State<LocationMapScreen>
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.jayiennelink.app',
               ),
+              // Connecting line between the two couple locations
+              if (myPos != null && partnerPos != null)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: [myPos, partnerPos],
+                      strokeWidth: 3.5,
+                      color: AppColors.softRose,
+                    ),
+                  ],
+                ),
               MarkerLayer(
                 markers: [
-                  // My Location Marker (Pulsating Blue/Lavender Dot)
+                  // Midpoint Connection Heart Badge
+                  if (myPos != null && partnerPos != null)
+                    Marker(
+                      point: LatLng(
+                        (myPos.latitude + partnerPos.latitude) / 2,
+                        (myPos.longitude + partnerPos.longitude) / 2,
+                      ),
+                      width: 32,
+                      height: 32,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          border: Border.all(color: AppColors.softRose, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.softRose.withValues(alpha: 0.4),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.favorite,
+                          color: AppColors.softRose,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+
+                  // My Location Marker (Custom Profile Avatar Marker)
                   if (myPos != null)
                     Marker(
                       point: myPos,
-                      width: 50,
-                      height: 50,
-                      child: ScaleTransition(
-                        scale: _pulseAnimation,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.lavender.withValues(alpha: 0.3),
-                          ),
-                          child: Center(
-                            child: Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColors.deepCharcoal,
-                                border: Border.all(color: Colors.white, width: 3),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black26,
-                                    blurRadius: 6,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                      width: 70,
+                      height: 80,
+                      child: PartnerAvatarMarker(
+                        photoUrl: currentUser?.photoUrl,
+                        partnerName: currentUser?.displayName.isNotEmpty == true
+                            ? currentUser!.displayName
+                            : 'You',
+                        batteryLevel: locationProvider.batteryLevel,
+                        batteryState: locationProvider.batteryState,
+                        accentColor: AppColors.softRose,
+                        isSelected: _isMeSelected,
+                        onTap: () {
+                          setState(() {
+                            _isMeSelected = !_isMeSelected;
+                          });
+                          _mapController.move(myPos, 15.5);
+                        },
                       ),
                     ),
 

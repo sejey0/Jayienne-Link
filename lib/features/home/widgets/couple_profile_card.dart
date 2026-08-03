@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../providers/couple_provider.dart';
+import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
 
 /// Senior Redesigned Couple Profile Card with Beating Heart Animation & Haptic Touch Feedback
@@ -58,9 +59,16 @@ class _CoupleProfileCardState extends State<CoupleProfileCard>
       return const SizedBox.shrink();
     }
 
+    final locationProvider = context.watch<LocationProvider>();
+    final partnerLoc = locationProvider.partnerLocation;
+    final isAppOnline = locationProvider.isOnline;
+    final isPartnerOnline = partner != null &&
+        isAppOnline &&
+        partnerLoc != null &&
+        partnerLoc.isRecent(threshold: const Duration(minutes: 5));
+
     final myName = user.displayName.isNotEmpty ? user.displayName : 'You';
     final partnerName = couple.getPartnerName(user.uid, livePartnerName: partner?.displayName);
-    final isPartnerConnected = partner != null;
 
     return Container(
       margin: const EdgeInsets.symmetric(
@@ -140,25 +148,91 @@ class _CoupleProfileCardState extends State<CoupleProfileCard>
                 _buildAvatarWithStatus(
                   context,
                   photoUrl: partner?.photoUrl,
-                  isOnline: isPartnerConnected,
+                  isOnline: isPartnerOnline,
                   showStatus: true,
                 ),
               ],
             ),
             const SizedBox(height: 18),
 
-            // Modern Bold Names Display: Name 1 & Name 2 (e.g. CJay & Aienne)
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                '$myName & $partnerName',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.softRose,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                      letterSpacing: 0.5,
+            // Modern Bordered Names Display: Name 1 & Name 2 (e.g. CJay & Ayen)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: AppColors.softRose.withValues(alpha: 0.6),
+                  width: 2.0,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.softRose.withValues(alpha: 0.15),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Name 1 Border Pill (e.g. CJay)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.softRose.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.softRose,
+                        width: 1.5,
+                      ),
                     ),
+                    child: Text(
+                      myName,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Theme.of(context).textTheme.titleMedium?.color ??
+                                (Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : AppColors.deepCharcoal),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(
+                      Icons.favorite,
+                      color: AppColors.softRose,
+                      size: 18,
+                    ),
+                  ),
+                  // Name 2 Border Pill (e.g. Ayen)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.lavender.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.lavender,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Text(
+                      partnerName,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Theme.of(context).textTheme.titleMedium?.color ??
+                                (Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : AppColors.deepCharcoal),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                    ),
+                  ),
+                ],
               ),
             ),
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:battery_plus/battery_plus.dart';
 import '../models/location_model.dart';
 import 'offline_storage_service.dart';
 
@@ -135,6 +136,11 @@ class OfflineLocationService {
 
       _lastPosition = position;
 
+      int? batteryLevel;
+      try {
+        batteryLevel = await Battery().batteryLevel;
+      } catch (_) {}
+
       // Create location model
       final location = LocationModel(
         coupleId: '',
@@ -142,6 +148,7 @@ class OfflineLocationService {
         latitude: position.latitude,
         longitude: position.longitude,
         accuracy: position.accuracy,
+        batteryLevel: batteryLevel,
         timestamp: DateTime.now(),
         source: LocationSource.local,
       );

@@ -11,6 +11,7 @@ class PartnerAvatarMarker extends StatefulWidget {
   final int? batteryLevel;
   final BatteryState? batteryState;
   final bool isSelected;
+  final Color? accentColor;
   final VoidCallback? onTap;
 
   const PartnerAvatarMarker({
@@ -20,6 +21,7 @@ class PartnerAvatarMarker extends StatefulWidget {
     this.batteryLevel,
     this.batteryState,
     this.isSelected = false,
+    this.accentColor,
     this.onTap,
   });
 
@@ -72,8 +74,10 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
 
   @override
   Widget build(BuildContext context) {
-    final batteryLvl = widget.batteryLevel ?? 100;
+    final batteryLvlText = widget.batteryLevel != null ? '${widget.batteryLevel}%' : '--%';
     final batteryColor = _getBatteryColor(widget.batteryLevel, widget.batteryState);
+
+    final accent = widget.accentColor ?? (widget.isSelected ? AppColors.softRose : AppColors.lavender);
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -105,7 +109,7 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
                 ),
                 const SizedBox(width: 3),
                 Text(
-                  '$batteryLvl%',
+                  batteryLvlText,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,
@@ -125,14 +129,14 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
               height: 52,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.lavender.withValues(alpha: 0.25),
+                color: accent.withValues(alpha: 0.25),
                 border: Border.all(
-                  color: widget.isSelected ? AppColors.softRose : AppColors.lavender,
+                  color: accent,
                   width: 3,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.lavender.withValues(alpha: 0.5),
+                    color: accent.withValues(alpha: 0.5),
                     blurRadius: 10,
                     spreadRadius: 2,
                   ),
@@ -146,12 +150,12 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
                     width: 44,
                     height: 44,
                     placeholder: Container(
-                      color: AppColors.lavender.withValues(alpha: 0.3),
-                      child: const Icon(Icons.person, color: AppColors.lavender, size: 24),
+                      color: accent.withValues(alpha: 0.3),
+                      child: Icon(Icons.person, color: accent, size: 24),
                     ),
                     errorWidget: Container(
-                      color: AppColors.lavender.withValues(alpha: 0.3),
-                      child: const Icon(Icons.person, color: AppColors.lavender, size: 24),
+                      color: accent.withValues(alpha: 0.3),
+                      child: Icon(Icons.person, color: accent, size: 24),
                     ),
                   ),
                 ),
@@ -163,7 +167,7 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
           CustomPaint(
             size: const Size(12, 6),
             painter: _PinTrianglePainter(
-              color: widget.isSelected ? AppColors.softRose : AppColors.lavender,
+              color: accent,
             ),
           ),
         ],

@@ -103,136 +103,142 @@ class _CoupleProfileCardState extends State<CoupleProfileCard>
           mainAxisSize: MainAxisSize.min,
           children: [
             // Dual Avatars Row with Centered Beating Heart Animation
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // User Avatar (Left)
-                _buildAvatarWithStatus(
-                  context,
-                  photoUrl: user.photoUrl,
-                  isOnline: true,
-                ),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // User Avatar (Left)
+                  _buildAvatarWithStatus(
+                    context,
+                    photoUrl: user.photoUrl,
+                    isOnline: true,
+                  ),
 
-                const SizedBox(width: 20),
+                  const SizedBox(width: 12),
 
-                // Pulsing Beating Heart Animation with Haptic Feedback on Tap
-                GestureDetector(
-                  onTap: () => HapticFeedback.lightImpact(),
-                  child: ScaleTransition(
-                    scale: _pulseAnimation,
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.softRose.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.softRose.withValues(alpha: 0.5),
-                            blurRadius: 16,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.favorite_rounded,
-                        color: AppColors.softRose,
-                        size: 28,
+                  // Pulsing Beating Heart Animation with Haptic Feedback on Tap
+                  GestureDetector(
+                    onTap: () => HapticFeedback.lightImpact(),
+                    child: ScaleTransition(
+                      scale: _pulseAnimation,
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.softRose.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.softRose.withValues(alpha: 0.5),
+                              blurRadius: 16,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.favorite_rounded,
+                          color: AppColors.softRose,
+                          size: 28,
+                        ),
                       ),
                     ),
                   ),
-                ),
 
-                const SizedBox(width: 20),
+                  const SizedBox(width: 12),
 
-                // Partner Avatar (Right) with Online Status Badge
-                _buildAvatarWithStatus(
-                  context,
-                  photoUrl: partner?.photoUrl,
-                  isOnline: isPartnerOnline,
-                  showStatus: true,
-                ),
-              ],
+                  // Partner Avatar (Right) with Online Status Badge
+                  _buildAvatarWithStatus(
+                    context,
+                    photoUrl: partner?.photoUrl,
+                    isOnline: isPartnerOnline,
+                    showStatus: true,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 18),
 
             // Modern Bordered Names Display: Name 1 & Name 2 (e.g. CJay & Ayen)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: AppColors.softRose.withValues(alpha: 0.6),
-                  width: 2.0,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.softRose.withValues(alpha: 0.15),
-                    blurRadius: 10,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: AppColors.softRose.withValues(alpha: 0.6),
+                    width: 2.0,
                   ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Name 1 Border Pill (e.g. CJay)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
                       color: AppColors.softRose.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Name 1 Border Pill (e.g. CJay)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.softRose.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.softRose,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        myName,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Theme.of(context).textTheme.titleMedium?.color ??
+                                  (Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.white
+                                      : AppColors.deepCharcoal),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(
+                        Icons.favorite,
                         color: AppColors.softRose,
-                        width: 1.5,
+                        size: 18,
                       ),
                     ),
-                    child: Text(
-                      myName,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context).textTheme.titleMedium?.color ??
-                                (Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : AppColors.deepCharcoal),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(
-                      Icons.favorite,
-                      color: AppColors.softRose,
-                      size: 18,
-                    ),
-                  ),
-                  // Name 2 Border Pill (e.g. Ayen)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.lavender.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: AppColors.lavender,
-                        width: 1.5,
+                    // Name 2 Border Pill (e.g. Ayen)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.lavender.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.lavender,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        partnerName,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Theme.of(context).textTheme.titleMedium?.color ??
+                                  (Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.white
+                                      : AppColors.deepCharcoal),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
                       ),
                     ),
-                    child: Text(
-                      partnerName,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context).textTheme.titleMedium?.color ??
-                                (Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : AppColors.deepCharcoal),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 

@@ -66,8 +66,11 @@ class AppRouter {
         // Allow splash to show briefly
         if (location == RouteNames.splash) return null;
 
-        // Avoid redirecting during auth transitions (sign-in/sign-out)
-        if (auth.isLoading) return null;
+        // Avoid redirecting during auth transitions (sign-in/sign-out) or while user profile is loading
+        if (auth.isLoading || user.isLoading) return null;
+
+        // If authenticated but user profile is currently loading from DB/cache, wait for userProvider
+        if (isAuthenticated && user.user == null) return null;
 
         // Password Recovery Redirect Guard
         if (auth.isPasswordRecovery) {

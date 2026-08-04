@@ -30,7 +30,8 @@ class UserProvider extends ChangeNotifier {
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  bool get isProfileComplete => _user?.profileComplete ?? false;
+  bool get isProfileComplete =>
+      _user != null && (_user!.profileComplete || _user!.displayName.trim().isNotEmpty);
   String? get coupleId => _user?.coupleId;
 
   void loadUser(String uid) {

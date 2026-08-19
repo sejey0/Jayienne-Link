@@ -11,6 +11,7 @@ import '../../../providers/user_provider.dart';
 import '../../../services/supabase_movie_service.dart';
 import '../widgets/add_movie_sheet.dart';
 import '../widgets/mark_watched_sheet.dart';
+import '../widgets/movie_alert_dialog.dart';
 import '../widgets/movie_poster_widget.dart';
 import '../widgets/view_movie_details_sheet.dart';
 
@@ -345,20 +346,21 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       await _movieService.planRewatch(movie);
       _refreshMovies();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Added "${movie.title}" to Watchlist for $nextLabel!'),
-          backgroundColor: const Color(0xFFFF758C),
-          behavior: SnackBarBehavior.floating,
-        ),
+      showCenterAlertDialog(
+        context: context,
+        title: 'Rewatch Planned',
+        message: 'Added "${movie.title}" to your Watchlist for $nextLabel!',
+        icon: Icons.replay_rounded,
+        iconColor: const Color(0xFFFF758C),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to plan rewatch: $e'),
-          backgroundColor: AppColors.error,
-        ),
+      showCenterAlertDialog(
+        context: context,
+        title: 'Rewatch Error',
+        message: 'Failed to plan rewatch: $e',
+        icon: Icons.error_outline_rounded,
+        iconColor: AppColors.error,
       );
     }
   }
@@ -403,20 +405,21 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
         await _movieService.deleteMovie(movie.id!);
         _refreshMovies();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Removed "${movie.title}"'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFF2D4059),
-          ),
+        showCenterAlertDialog(
+          context: context,
+          title: 'Movie Removed',
+          message: 'Removed "${movie.title}" from your Cinema Diary.',
+          icon: Icons.delete_sweep_rounded,
+          iconColor: const Color(0xFFFF758C),
         );
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to delete movie: $e'),
-            backgroundColor: AppColors.error,
-          ),
+        showCenterAlertDialog(
+          context: context,
+          title: 'Delete Error',
+          message: 'Failed to delete movie: $e',
+          icon: Icons.error_outline_rounded,
+          iconColor: AppColors.error,
         );
       }
     }

@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../models/movie_model.dart';
 import '../../../services/supabase_movie_service.dart';
 import 'mark_watched_sheet.dart';
+import 'movie_alert_dialog.dart';
 import 'movie_poster_widget.dart';
 
 /// Modal bottom sheet displaying detailed dual reviews for a watched movie
@@ -133,34 +134,15 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
 
       widget.onMovieUpdated?.call();
       Navigator.pop(context, true);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.replay_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Added "${widget.movie.title}" to Watchlist for $nextLabel!',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFFFF758C),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isPlanningRewatch = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to plan rewatch: $e'),
-          backgroundColor: AppColors.error,
-        ),
+      showCenterAlertDialog(
+        context: context,
+        title: 'Rewatch Error',
+        message: 'Could not plan rewatch: $e',
+        icon: Icons.error_outline_rounded,
+        iconColor: AppColors.error,
       );
     }
   }

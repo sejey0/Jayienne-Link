@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/movie_model.dart';
 import '../../../services/supabase_movie_service.dart';
+import 'movie_alert_dialog.dart';
 import 'movie_poster_widget.dart';
 
 /// Modal bottom sheet for adding or editing movie/series details
@@ -122,11 +123,12 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
     } catch (e) {
       debugPrint('Error picking image: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not pick image: $e'),
-            backgroundColor: AppColors.error,
-          ),
+        showCenterAlertDialog(
+          context: context,
+          title: 'Image Selection Failed',
+          message: 'Could not select image: $e',
+          icon: Icons.image_not_supported_rounded,
+          iconColor: AppColors.error,
         );
       }
     }
@@ -165,6 +167,18 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
   }
 
   Future<void> _saveMovie() async {
+    if (_titleController.text.trim().isEmpty) {
+      HapticFeedback.selectionClick();
+      showCenterAlertDialog(
+        context: context,
+        title: 'Title Required',
+        message: 'Please enter the title of the movie or series before saving.',
+        icon: Icons.movie_creation_outlined,
+        iconColor: const Color(0xFFFF758C),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
@@ -217,31 +231,6 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
 
         widget.onMovieAdded?.call();
         Navigator.pop(context, true);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Updated "${updatedMovie.title}" details',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFFFF758C),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        );
       } else {
         // 1. Create new movie (ratings strictly stored in movie_ratings)
         final newMovie = MovieModel(
@@ -274,33 +263,6 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
 
         widget.onMovieAdded?.call();
         Navigator.pop(context, true);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _status == 'watched'
-                        ? 'Added "${newMovie.title}" to Watched Diary'
-                        : 'Added "${newMovie.title}" to Watchlist',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFFFF758C),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -308,12 +270,12 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
         _isSaving = false;
         _isUploadingPoster = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save: $e'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
+      showCenterAlertDialog(
+        context: context,
+        title: 'Failed to Save',
+        message: 'An error occurred while saving: $e',
+        icon: Icons.error_outline_rounded,
+        iconColor: AppColors.error,
       );
     }
   }

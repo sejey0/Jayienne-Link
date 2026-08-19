@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/movie_model.dart';
 import '../../../services/supabase_movie_service.dart';
+import 'movie_alert_dialog.dart';
 import 'movie_poster_widget.dart';
 
 /// Bottom sheet allowing a partner to submit or edit their individual rating & review,
@@ -115,12 +116,13 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
     if (widget.movie.id == null || widget.currentUserId.isEmpty) return;
 
     if (_selectedRating == null || _selectedRating! <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please tap to choose a rating between 1 and 5 hearts'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
+      HapticFeedback.selectionClick();
+      showCenterAlertDialog(
+        context: context,
+        title: 'Rating Required',
+        message: 'Please tap a heart (1 to 5) to rate this movie before saving.',
+        icon: Icons.favorite_border_rounded,
+        iconColor: const Color(0xFFFF758C),
       );
       return;
     }
@@ -144,44 +146,15 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
 
       widget.onMovieUpdated?.call();
       Navigator.pop(context, true);
-
-      final hasExistingRating =
-          widget.movie.getRatingForUser(widget.currentUserId) != null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  hasExistingRating
-                      ? 'Updated your rating for "${widget.movie.title}"'
-                      : 'Saved your rating for "${widget.movie.title}"',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFFFF758C),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update rating: $e'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
+      showCenterAlertDialog(
+        context: context,
+        title: 'Failed to Save',
+        message: 'Could not save your rating: $e',
+        icon: Icons.error_outline_rounded,
+        iconColor: AppColors.error,
       );
     }
   }

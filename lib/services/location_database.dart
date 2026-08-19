@@ -157,9 +157,28 @@ class LocationDatabase {
 
   /// Migration handler for upgrading database version safely
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      debugPrint('[LocationDatabase] Upgrading schema to v2...');
-      // Ensure columns exist and allow NULL
+    debugPrint('[LocationDatabase] Upgrading schema from v$oldVersion to v$newVersion...');
+    await _addColumnIfMissing(db, tableName, 'speed', 'REAL NULL');
+    await _addColumnIfMissing(db, tableName, 'accuracy', 'REAL NOT NULL DEFAULT 0.0');
+    await _addColumnIfMissing(db, tableName, 'battery_level', 'REAL NULL');
+    await _addColumnIfMissing(db, tableName, 'retry_count', 'INTEGER NOT NULL DEFAULT 0');
+  }
+
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String tableName,
+    String columnName,
+    String definition,
+  ) async {
+    try {
+      final result = await db.rawQuery('PRAGMA table_info($tableName)');
+      final hasColumn = result.any((row) => row['name'] == columnName);
+      if (!hasColumn) {
+        await db.execute('ALTER TABLE $tableName ADD COLUMN $columnName $definition');
+        debugPrint('[LocationDatabase] Added missing column "$columnName" to "$tableName".');
+      }
+    } catch (e) {
+      debugPrint('[LocationDatabase] Error checking/adding column "$columnName": $e');
     }
   }
 

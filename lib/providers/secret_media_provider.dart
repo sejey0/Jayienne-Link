@@ -15,8 +15,8 @@ class SecretMediaProvider extends ChangeNotifier {
     super.notifyListeners();
   }
 
-  final List<SecretMediaModel> _allMedia = [];
-  final List<SecretMediaModel> _hiddenMedia = [];
+  List<SecretMediaModel> _sharedMedia = [];
+  List<SecretMediaModel> _hiddenMedia = [];
   StreamSubscription<List<SecretMediaModel>>? _mediaSubscription;
 
   String? _userId;
@@ -28,25 +28,36 @@ class SecretMediaProvider extends ChangeNotifier {
   bool _showHiddenVault = false;
 
   // Getters
-  List<SecretMediaModel> get allMedia => List.unmodifiable(_allMedia);
+  List<SecretMediaModel> get sharedMedia => List.unmodifiable(_sharedMedia);
+  List<SecretMediaModel> get allMedia => List.unmodifiable(_sharedMedia);
   List<SecretMediaModel> get hiddenMedia => List.unmodifiable(_hiddenMedia);
   List<SecretMediaModel> get displayedMedia =>
-      _showHiddenVault ? hiddenMedia : allMedia;
+      _showHiddenVault ? hiddenMedia : sharedMedia;
 
   bool get isLoading => _isLoading;
   bool get isUploading => _isUploading;
   String? get error => _error;
   bool get showHiddenVault => _showHiddenVault;
 
-  int get totalMediaCount => _allMedia.length + _hiddenMedia.length;
-  int get sharedMediaCount => _allMedia.length;
+  int get totalMediaCount => _sharedMedia.length + _hiddenMedia.length;
+  int get sharedMediaCount => _sharedMedia.length;
   int get hiddenMediaCount => _hiddenMedia.length;
+
+  /// Safely resolves the display/stream URL for a given media item (fallback for plain storage URLs)
+  String resolveMediaUrl(SecretMediaModel media) {
+    final url = media.mediaUrl.trim();
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return media.displayUrl;
+  }
 
   Future<void> initialize({
     required String userId,
     required String coupleId,
   }) async {
-    final needsRefresh = _userId != userId || _coupleId != coupleId;
+    final needsRefresh =
+        _userId != userId || _coupleId != coupleId || _sharedMedia.isEmpty;
     _userId = userId;
     _coupleId = coupleId;
 
@@ -61,28 +72,33 @@ class SecretMediaProvider extends ChangeNotifier {
   }
 
   Future<void> _loadInitial() async {
-    if (_coupleId == null) return;
+    if (_coupleId == null) {
+      debugPrint(
+          'SecretMediaProvider: _loadInitial skipped because coupleId is null');
+      return;
+    }
 
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      debugPrint(
+          'SecretMediaProvider: Loading secret media for coupleId=$_coupleId');
       final allMedia = await _service.getSecretMedia(_coupleId!);
       final hiddenMedia = await _service.getHiddenSecretMedia(_coupleId!);
 
-      _allMedia
-        ..clear()
-        ..addAll(allMedia);
-      _hiddenMedia
-        ..clear()
-        ..addAll(hiddenMedia);
+      _sharedMedia = List<SecretMediaModel>.from(allMedia);
+      _hiddenMedia = List<SecretMediaModel>.from(hiddenMedia);
+
+      debugPrint(
+          'SecretMediaProvider: Loaded ${_sharedMedia.length} shared media, ${_hiddenMedia.length} hidden media');
     } catch (e) {
       _error = 'Failed to load secret media: $e';
       debugPrint(_error);
     } finally {
       _isLoading = false;
-      notifyListeners();
+      notifyListeners(); // MUST trigger re-render
     }
   }
 
@@ -119,7 +135,7 @@ class SecretMediaProvider extends ChangeNotifier {
       if (isHidden) {
         _hiddenMedia.add(media);
       } else {
-        _allMedia.add(media);
+        _sharedMedia.add(media);
       }
 
       return media;
@@ -140,9 +156,9 @@ class SecretMediaProvider extends ChangeNotifier {
           await _service.updateSecretMedia(mediaId: mediaId, caption: caption);
 
       // Update in the appropriate list
-      final index = _allMedia.indexWhere((m) => m.id == mediaId);
+      final index = _sharedMedia.indexWhere((m) => m.id == mediaId);
       if (index != -1) {
-        _allMedia[index] = updatedMedia;
+        _sharedMedia[index] = updatedMedia;
       }
 
       final hiddenIndex = _hiddenMedia.indexWhere((m) => m.id == mediaId);
@@ -163,7 +179,7 @@ class SecretMediaProvider extends ChangeNotifier {
   Future<bool> moveToHiddenVault(String mediaId) async {
     try {
       await _service.toggleHidden(mediaId, true);
-      _allMedia.removeWhere((m) => m.id == mediaId);
+      _sharedMedia.removeWhere((m) => m.id == mediaId);
       notifyListeners();
       return true;
     } catch (e) {
@@ -191,7 +207,7 @@ class SecretMediaProvider extends ChangeNotifier {
   Future<bool> deleteSecretMedia(String mediaId) async {
     try {
       await _service.deleteSecretMedia(mediaId);
-      _allMedia.removeWhere((m) => m.id == mediaId);
+      _sharedMedia.removeWhere((m) => m.id == mediaId);
       _hiddenMedia.removeWhere((m) => m.id == mediaId);
       notifyListeners();
       return true;
@@ -227,7 +243,7 @@ class SecretMediaProvider extends ChangeNotifier {
   }
 
   void clear() {
-    _allMedia.clear();
+    _sharedMedia.clear();
     _hiddenMedia.clear();
     _mediaSubscription?.cancel();
     _mediaSubscription = null;

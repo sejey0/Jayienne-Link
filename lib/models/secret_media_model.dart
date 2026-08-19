@@ -25,24 +25,38 @@ class SecretMediaModel {
     this.deletedAt,
   });
 
+  /// Returns whether this media URL starts with http:// or https://
+  bool get isDirectNetworkUrl =>
+      mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://');
+
+  /// Safely resolves the display URL (fallback for plain storage URLs)
+  String get displayUrl {
+    final trimmed = mediaUrl.trim();
+    return trimmed;
+  }
+
   factory SecretMediaModel.fromJson(Map<String, dynamic> json) {
     final uploadedAtValue = json['uploaded_at'] ?? json['created_at'];
     final deletedAtValue = json['deleted_at'];
+    final rawMediaUrl = (json['media_url'] as String? ?? '').trim();
+    final rawThumbnail = (json['thumbnail'] as String?)?.trim();
+
     return SecretMediaModel(
       id: json['id'] as String?,
       coupleId: json['couple_id'] as String? ?? '',
       uploadedById: json['uploaded_by_id'] as String? ?? '',
       mediaType: json['media_type'] as String? ?? 'image',
-      mediaUrl: json['media_url'] as String? ?? '',
-      thumbnail: json['thumbnail'] as String?,
+      mediaUrl: rawMediaUrl,
+      thumbnail:
+          rawThumbnail != null && rawThumbnail.isNotEmpty ? rawThumbnail : null,
       caption: json['caption'] as String?,
       uploadedAt: uploadedAtValue != null
-          ? DateTime.parse(uploadedAtValue as String)
+          ? DateTime.tryParse(uploadedAtValue as String) ?? DateTime.now()
           : DateTime.now(),
-      isEncrypted: json['is_encrypted'] as bool? ?? true,
+      isEncrypted: json['is_encrypted'] as bool? ?? false,
       isHidden: json['is_hidden'] as bool? ?? false,
       deletedAt: deletedAtValue != null
-          ? DateTime.parse(deletedAtValue as String)
+          ? DateTime.tryParse(deletedAtValue as String)
           : null,
     );
   }

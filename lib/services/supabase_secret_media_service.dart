@@ -22,27 +22,26 @@ class SupabaseSecretMediaService {
   Future<List<SecretMediaModel>> getSecretMedia(String coupleId,
       {bool includeHidden = false}) async {
     try {
-      List<dynamic> response;
+      debugPrint('🔍 FETCHING SECRET MEDIA FOR COUPLE_ID: $coupleId');
+
+      final response = await _supabase
+          .from(_tableName)
+          .select()
+          .eq('couple_id', coupleId);
+
+      debugPrint('📸 FOUND SECRET MEDIA COUNT: ${response.length}');
+      debugPrint('📦 RAW SECRET MEDIA DATA: $response');
+
+      final allItems = (response as List)
+          .map((item) => SecretMediaModel.fromJson(item as Map<String, dynamic>))
+          .toList();
 
       if (includeHidden) {
-        response = await _supabase
-            .from(_tableName)
-            .select()
-            .eq('couple_id', coupleId)
-            .order('uploaded_at', ascending: false);
-      } else {
-        response = await _supabase
-            .from(_tableName)
-            .select()
-            .eq('couple_id', coupleId)
-            .eq('is_hidden', false)
-            .order('uploaded_at', ascending: false);
+        return allItems.where((media) => media.deletedAt == null).toList();
       }
 
-      return response
-          .map(
-              (item) => SecretMediaModel.fromJson(item as Map<String, dynamic>))
-          .where((media) => media.deletedAt == null)
+      return allItems
+          .where((media) => media.deletedAt == null && !media.isHidden)
           .toList();
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
@@ -57,17 +56,21 @@ class SupabaseSecretMediaService {
   // Get hidden secret media only (personal vault)
   Future<List<SecretMediaModel>> getHiddenSecretMedia(String coupleId) async {
     try {
+      debugPrint('🔍 FETCHING HIDDEN VAULT MEDIA FOR COUPLE_ID: $coupleId');
+
       final response = await _supabase
           .from(_tableName)
           .select()
-          .eq('couple_id', coupleId)
-          .eq('is_hidden', true)
-          .order('uploaded_at', ascending: false);
+          .eq('couple_id', coupleId);
 
-      return (response as List)
-          .map(
-              (item) => SecretMediaModel.fromJson(item as Map<String, dynamic>))
-          .where((media) => media.deletedAt == null)
+      debugPrint('🔒 FOUND HIDDEN VAULT RAW COUNT: ${response.length}');
+
+      final allItems = (response as List)
+          .map((item) => SecretMediaModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+
+      return allItems
+          .where((media) => media.deletedAt == null && media.isHidden)
           .toList();
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
@@ -154,11 +157,13 @@ class SupabaseSecretMediaService {
     }
   }
 
-  // Soft delete secret media (moves to trash)
+  // Soft delete secret media (marks deleted_at and sets is_hidden = true)
   Future<void> deleteSecretMedia(String mediaId) async {
     try {
-      await _supabase.from(_tableName).update(
-          {'deleted_at': DateTime.now().toIso8601String()}).eq('id', mediaId);
+      await _supabase.from(_tableName).update({
+        'deleted_at': DateTime.now().toIso8601String(),
+        'is_hidden': true,
+      }).eq('id', mediaId);
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
         debugPrint('Error deleting secret media: $_missingTableHelp');

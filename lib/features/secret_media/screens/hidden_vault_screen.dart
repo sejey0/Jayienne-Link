@@ -327,6 +327,12 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
     final canDelete =
         currentUserId != null && currentUserId == media.uploadedById;
 
+    final displayImageUrl = media.mediaType == 'video'
+        ? (media.thumbnail?.isNotEmpty == true
+            ? media.thumbnail!
+            : media.displayUrl)
+        : media.displayUrl;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -353,9 +359,41 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
             // Media image or thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: media.mediaType == 'image'
-                  ? Container(
-                      color: Colors.black,
+              child: displayImageUrl.isNotEmpty
+                  ? Image.network(
+                      displayImageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey.shade900,
+                          child: const Center(
+                            child: Icon(
+                              Icons.broken_image_rounded,
+                              size: 32,
+                              color: Colors.white54,
+                            ),
+                          ),
+                        );
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: Colors.grey.shade900,
+                          child: const Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: Colors.black87,
                       child: const Center(
                         child: Icon(
                           Icons.image_not_supported_outlined,
@@ -363,44 +401,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
                           color: Colors.white70,
                         ),
                       ),
-                    )
-                  : media.mediaType == 'video' &&
-                          (media.thumbnail == null || media.thumbnail!.isEmpty)
-                      ? Container(
-                          color: Colors.black87,
-                          child: const Center(
-                            child: Icon(
-                              Icons.videocam,
-                              size: 40,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        )
-                      : Image.network(
-                          media.thumbnail ?? media.mediaUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Colors.grey.shade300,
-                              child: const Icon(
-                                Icons.broken_image,
-                                size: 32,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              color: Colors.grey.shade300,
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  color: Colors.red,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                    ),
             ),
             // Video badge
             if (media.mediaType == 'video')

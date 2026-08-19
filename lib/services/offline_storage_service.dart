@@ -9,8 +9,7 @@ import '../models/location_model.dart';
 /// Provides offline-first storage with sync status tracking.
 class OfflineStorageService {
   static const String _databaseName = 'jayienne_link_locations.db';
-  static const int _databaseVersion =
-      3; // Added locations schema parity columns
+  static const int _databaseVersion = 4; // Added speed & battery_level migrations
   static const String _locationsTable = 'locations';
   static const String _settingsTable = 'location_settings';
 
@@ -64,6 +63,8 @@ class OfflineStorageService {
         latitude REAL NOT NULL,
         longitude REAL NOT NULL,
         accuracy REAL NOT NULL,
+        speed REAL DEFAULT 0.0,
+        battery_level INTEGER,
         timestamp INTEGER NOT NULL,
         is_synced INTEGER NOT NULL DEFAULT 0,
         partner_id TEXT,
@@ -101,6 +102,9 @@ class OfflineStorageService {
 
   /// Handle database migrations
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    debugPrint(
+        '[OfflineStorageService] Upgrading database from v$oldVersion to v$newVersion...');
+
     // Migration: Add data_saver_enabled column
     if (oldVersion < 2) {
       await _addColumnIfMissing(
@@ -126,6 +130,22 @@ class OfflineStorageService {
         "TEXT NOT NULL DEFAULT ''",
       );
     }
+
+    // Migration: Add speed and battery_level columns
+    if (oldVersion < 4) {
+      await _addColumnIfMissing(
+        db,
+        _locationsTable,
+        'speed',
+        'REAL DEFAULT 0.0',
+      );
+      await _addColumnIfMissing(
+        db,
+        _locationsTable,
+        'battery_level',
+        'INTEGER',
+      );
+    }
   }
 
   Future<void> _addColumnIfMissing(
@@ -134,12 +154,19 @@ class OfflineStorageService {
     String columnName,
     String definition,
   ) async {
-    final result = await db.rawQuery('PRAGMA table_info($tableName)');
-    final hasColumn = result.any((row) => row['name'] == columnName);
-    if (!hasColumn) {
-      await db.execute(
-        'ALTER TABLE $tableName ADD COLUMN $columnName $definition',
-      );
+    try {
+      final result = await db.rawQuery('PRAGMA table_info($tableName)');
+      final hasColumn = result.any((row) => row['name'] == columnName);
+      if (!hasColumn) {
+        await db.execute(
+          'ALTER TABLE $tableName ADD COLUMN $columnName $definition',
+        );
+        debugPrint(
+            '[OfflineStorageService] Added missing column "$columnName" to "$tableName".');
+      }
+    } catch (e) {
+      debugPrint(
+          '[OfflineStorageService] Error checking/adding column "$columnName": $e');
     }
   }
 
@@ -150,27 +177,50 @@ class OfflineStorageService {
   /// Insert a new location (always saves locally first)
   Future<int> insertLocation(LocationModel location) async {
     if (kIsWeb) return 0;
-    final db = await database;
-    return await db.insert(
-      _locationsTable,
-      location.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    try {
+      final db = await database;
+      return await db.insert(
+        _locationsTable,
+        location.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      debugPrint('[OfflineStorageService] insertLocation fallback: $e');
+      try {
+        final db = await database;
+        await _addColumnIfMissing(
+            db, _locationsTable, 'speed', 'REAL DEFAULT 0.0');
+        await _addColumnIfMissing(
+            db, _locationsTable, 'battery_level', 'INTEGER');
+        return await db.insert(
+          _locationsTable,
+          location.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } catch (e2) {
+        debugPrint('[OfflineStorageService] insertLocation failed: $e2');
+        return 0;
+      }
+    }
   }
 
   /// Insert multiple locations in a batch (for efficiency)
   Future<void> insertLocationsBatch(List<LocationModel> locations) async {
     if (kIsWeb) return;
-    final db = await database;
-    final batch = db.batch();
-    for (final location in locations) {
-      batch.insert(
-        _locationsTable,
-        location.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+    try {
+      final db = await database;
+      final batch = db.batch();
+      for (final location in locations) {
+        batch.insert(
+          _locationsTable,
+          location.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    } catch (e) {
+      debugPrint('[OfflineStorageService] insertLocationsBatch error: $e');
     }
-    await batch.commit(noResult: true);
   }
 
   /// Get all unsynced locations for upload (includes background captures)

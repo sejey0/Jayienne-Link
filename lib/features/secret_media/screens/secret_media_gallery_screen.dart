@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -367,13 +368,13 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
         );
       },
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           color: Colors.grey.shade900,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Media image or thumbnail
+              // 1. Base Image/Video Thumbnail
               if (displayImageUrl.isNotEmpty)
                 Image.network(
                   displayImageUrl,
@@ -387,78 +388,65 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                       ),
                     );
                   },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(
-                          Icons.broken_image_rounded,
-                          color: Colors.pinkAccent,
-                          size: 28,
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Error',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                  errorBuilder: (c, e, s) => Container(
+                    color: Colors.grey.shade900,
+                    child: const Center(
+                      child: Icon(
+                        Icons.broken_image_rounded,
+                        color: Colors.pinkAccent,
+                        size: 28,
+                      ),
+                    ),
+                  ),
                 )
               else
-                const Center(
-                  child: Icon(
-                    Icons.image_not_supported_outlined,
-                    size: 28,
-                    color: Colors.white38,
+                Container(
+                  color: Colors.grey.shade900,
+                  child: const Center(
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 28,
+                      color: Colors.white38,
+                    ),
                   ),
                 ),
-              // Video badge
+
+              // 2. Privacy Mask / Blur Filter Overlay
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.25),
+                    child: const Center(
+                      child: Icon(
+                        Icons.lock_outline_rounded,
+                        color: Colors.white70,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // 3. Media Type Indicator (e.g. Play icon for Videos)
               if (media.mediaType == 'video')
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.videocam,
-                      color: Colors.white,
-                      size: 14,
-                    ),
+                const Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Icon(
+                    Icons.play_circle_fill_rounded,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
-              // Encryption badge
-              if (media.isEncrypted)
-                Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.8),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.lock,
-                      color: Colors.white,
-                      size: 12,
-                    ),
-                  ),
-                ),
-              // Menu button
+
+              // 4. Menu button (More options / Vault / Delete)
               Positioned(
-                top: 2,
-                left: 2,
+                top: 4,
+                left: 4,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withOpacity(0.4),
                     shape: BoxShape.circle,
                   ),
                   child: PopupMenuButton(
@@ -497,7 +485,8 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                               () {
                                 provider.deleteSecretMedia(media.id!);
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Media deleted')),
+                                  const SnackBar(
+                                      content: Text('Media deleted')),
                                 );
                               },
                             );

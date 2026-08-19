@@ -13,7 +13,7 @@ class MovieModel {
   final DateTime? watchedDate;
   final DateTime createdAt;
   final DateTime? updatedAt;
-  final List<MovieRatingModel> ratings; // Dual Partner Ratings
+  final List<MovieRatingModel> ratings; // Dual Partner Ratings from movie_ratings
 
   const MovieModel({
     this.id,
@@ -41,20 +41,21 @@ class MovieModel {
     return DateFormat('MMM d, yyyy').format(createdAt.toLocal());
   }
 
-  /// Calculates average rating across all partner ratings, falling back to legacy single rating
+  /// Calculates average rating strictly from partner ratings in movie_ratings
   double? get calculatedAverageRating {
     if (ratings.isNotEmpty) {
-      final total = ratings.fold<int>(0, (sum, r) => sum + r.rating);
-      return total / ratings.length;
-    }
-    if (rating != null && rating! > 0) {
-      return rating!.toDouble();
+      final validRatings = ratings.where((r) => r.rating > 0).toList();
+      if (validRatings.isNotEmpty) {
+        final total = validRatings.fold<int>(0, (sum, r) => sum + r.rating);
+        return total / validRatings.length;
+      }
     }
     return null;
   }
 
   /// Gets the rating submitted by the specified user
   MovieRatingModel? getRatingForUser(String userId) {
+    if (userId.isEmpty) return null;
     try {
       return ratings.firstWhere((r) => r.userId == userId);
     } catch (_) {
@@ -62,10 +63,11 @@ class MovieModel {
     }
   }
 
-  /// Gets the partner's rating (any rating not belonging to myUserId)
+  /// Gets the partner's rating (strictly where userId != myUserId and userId is not empty)
   MovieRatingModel? getPartnerRating(String myUserId) {
+    if (myUserId.isEmpty) return null;
     try {
-      return ratings.firstWhere((r) => r.userId != myUserId);
+      return ratings.firstWhere((r) => r.userId.isNotEmpty && r.userId != myUserId);
     } catch (_) {
       return null;
     }
@@ -114,8 +116,6 @@ class MovieModel {
       'title': title,
       'poster_url': posterUrl,
       'status': status,
-      'rating': rating,
-      'notes': notes,
       'watched_date': watchedDate?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),

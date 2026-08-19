@@ -50,16 +50,17 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
   final SupabaseMovieService _movieService = SupabaseMovieService();
   late final TextEditingController _notesController;
 
-  late int _selectedRating;
+  int? _selectedRating; // Null by default for clean start unless editing own rating
   DateTime? _selectedDate;
   bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
+    // Strictly read ONLY current user's rating, never fallback to partner or legacy shared fields
     final myRating = widget.movie.getRatingForUser(widget.currentUserId);
-    _selectedRating = myRating?.rating ?? widget.movie.rating ?? 5;
-    _notesController = TextEditingController(text: myRating?.notes ?? widget.movie.notes ?? '');
+    _selectedRating = myRating?.rating;
+    _notesController = TextEditingController(text: myRating?.notes ?? '');
     _selectedDate = widget.movie.watchedDate;
   }
 
@@ -104,6 +105,17 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
   Future<void> _submit() async {
     if (widget.movie.id == null || widget.currentUserId.isEmpty) return;
 
+    if (_selectedRating == null || _selectedRating! <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please tap to choose a rating between 1 and 5 hearts'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     HapticFeedback.mediumImpact();
 
@@ -111,7 +123,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
       await _movieService.markAsWatchedWithRating(
         movieId: widget.movie.id!,
         userId: widget.currentUserId,
-        rating: _selectedRating,
+        rating: _selectedRating!,
         watchedDate: _selectedDate,
         notes: _notesController.text.trim().isNotEmpty
             ? _notesController.text.trim()
@@ -316,7 +328,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                 ),
               ),
 
-              // Partner Rating Insight Banner (if partner already rated)
+              // Partner Rating Insight Banner (strictly partnerRating only)
               if (partnerRating != null) ...[
                 const SizedBox(height: 14),
                 Container(
@@ -396,13 +408,27 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
               const SizedBox(height: 20),
 
               // Heart Rating Picker
-              Text(
-                'Your Rating',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : const Color(0xFF2D4059),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Your Rating',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : const Color(0xFF2D4059),
+                    ),
+                  ),
+                  if (_selectedRating != null && _selectedRating! > 0)
+                    Text(
+                      '$_selectedRating of 5 Hearts',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFFF758C),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 8),
               Center(
@@ -421,7 +447,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                     mainAxisSize: MainAxisSize.min,
                     children: List.generate(5, (index) {
                       final starNum = index + 1;
-                      final isFilled = starNum <= _selectedRating;
+                      final isFilled = _selectedRating != null && starNum <= _selectedRating!;
                       return GestureDetector(
                         onTap: () {
                           HapticFeedback.selectionClick();
@@ -436,7 +462,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                               isFilled ? Icons.favorite : Icons.favorite_border,
                               color: isFilled
                                   ? const Color(0xFFFF4081)
-                                  : Colors.grey.shade400,
+                                  : (isDark ? Colors.white38 : Colors.grey.shade400),
                               size: 34,
                             ),
                           ),

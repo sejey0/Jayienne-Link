@@ -234,16 +234,12 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
           ),
         );
       } else {
-        // Create new movie
+        // Create new movie (ratings are stored strictly in movie_ratings)
         final newMovie = MovieModel(
           coupleId: widget.coupleId,
           title: _titleController.text.trim(),
           posterUrl: finalPosterUrl,
           status: _status,
-          rating: _status == 'watched' ? _rating : null,
-          notes: _notesController.text.trim().isNotEmpty
-              ? _notesController.text.trim()
-              : null,
           watchedDate: _status == 'watched' ? _watchedDate : null,
           createdAt: DateTime.now(),
         );

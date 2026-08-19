@@ -99,8 +99,6 @@ class SupabaseMovieService {
         if (movie.posterUrl != null && movie.posterUrl!.isNotEmpty)
           'poster_url': movie.posterUrl,
         'status': movie.status,
-        if (movie.rating != null) 'rating': movie.rating,
-        if (movie.notes != null && movie.notes!.isNotEmpty) 'notes': movie.notes,
         if (movie.watchedDate != null)
           'watched_date': movie.watchedDate!.toIso8601String(),
         'created_at': movie.createdAt.toIso8601String(),
@@ -123,7 +121,7 @@ class SupabaseMovieService {
     }
   }
 
-  /// Update an existing movie entry with updated_at safeguards
+  /// Update an existing movie entry (metadata only, ratings are isolated in movie_ratings)
   Future<void> updateMovie(MovieModel movie) async {
     if (movie.id == null || movie.id!.isEmpty) {
       throw Exception('Movie ID is required for update');
@@ -135,8 +133,6 @@ class SupabaseMovieService {
         'title': movie.title,
         'poster_url': movie.posterUrl,
         'status': movie.status,
-        'rating': movie.rating,
-        'notes': movie.notes,
         'watched_date': movie.watchedDate?.toIso8601String(),
       };
 
@@ -161,7 +157,7 @@ class SupabaseMovieService {
     }
   }
 
-  /// Upsert a specific partner's rating and review in `movie_ratings` with updated_at safeguards
+  /// Upsert a specific partner's rating and review strictly in `movie_ratings`
   Future<void> upsertRating({
     required String movieId,
     required String userId,
@@ -174,28 +170,19 @@ class SupabaseMovieService {
         'user_id': userId,
         'rating': rating,
         'notes': notes?.trim(),
+        'updated_at': DateTime.now().toIso8601String(),
       };
 
-      try {
-        await _supabase
-            .from(_ratingsTableName)
-            .upsert({
-              ...ratingData,
-              'updated_at': DateTime.now().toIso8601String(),
-            }, onConflict: 'movie_id,user_id');
-      } catch (colErr) {
-        debugPrint('Upserting rating with updated_at failed, retrying without: $colErr');
-        await _supabase
-            .from(_ratingsTableName)
-            .upsert(ratingData, onConflict: 'movie_id,user_id');
-      }
+      await _supabase
+          .from(_ratingsTableName)
+          .upsert(ratingData, onConflict: 'movie_id,user_id');
     } catch (e) {
       debugPrint('Error upserting movie rating: $e');
       rethrow;
     }
   }
 
-  /// Mark a movie as watched and save the user's personal rating & review with updated_at safeguards
+  /// Mark a movie as watched and save the user's personal rating & review strictly in `movie_ratings`
   Future<void> markAsWatchedWithRating({
     required String movieId,
     required String userId,
@@ -204,7 +191,7 @@ class SupabaseMovieService {
     String? notes,
   }) async {
     try {
-      // 1. Update movie status & watched date safely
+      // 1. Update movie status & watched date safely (no shared rating written to movies table)
       final updateData = <String, dynamic>{
         'status': 'watched',
         'watched_date': watchedDate?.toIso8601String(),
@@ -226,7 +213,7 @@ class SupabaseMovieService {
             .eq('id', movieId);
       }
 
-      // 2. Upsert the partner's rating
+      // 2. Upsert the partner's rating strictly in movie_ratings
       await upsertRating(
         movieId: movieId,
         userId: userId,

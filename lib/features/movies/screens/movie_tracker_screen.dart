@@ -1234,17 +1234,15 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     // ----------------------------------------------------
                     // DUAL RATING PREVIEW SECTION (CLEAN & EMOJI-FREE)
                     // ----------------------------------------------------
-                    // 1. Current User Rating Row (No pencil icon)
+                    // 1. Current User Rating Row (Strictly myRating only)
                     _buildUserRatingRow(
                       label: 'You',
                       ratingModel: myRating,
-                      fallbackRating: movie.rating,
-                      fallbackNotes: movie.notes,
                       isDark: isDark,
                     ),
                     const SizedBox(height: 6),
 
-                    // 2. Partner Rating Row
+                    // 2. Partner Rating Row (Strictly partnerRating only)
                     _buildPartnerRatingRow(
                       partnerName: partnerName,
                       ratingModel: partnerRating,
@@ -1284,18 +1282,13 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     );
   }
 
-  /// Current User Rating Row (Decluttered - without pencil icon)
+  /// Current User Rating Row (Strictly from movie_ratings)
   Widget _buildUserRatingRow({
     required String label,
     required MovieRatingModel? ratingModel,
-    required int? fallbackRating,
-    required String? fallbackNotes,
     required bool isDark,
   }) {
-    final effectiveRating = ratingModel?.rating ?? fallbackRating;
-    final effectiveNotes = ratingModel?.notes ?? (ratingModel == null ? fallbackNotes : null);
-
-    if (effectiveRating == null) {
+    if (ratingModel == null) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(

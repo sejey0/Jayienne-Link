@@ -59,6 +59,7 @@ class ViewMovieDetailsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Strict isolation: ONLY query ratings from movie_ratings
     final myRating = movie.getRatingForUser(currentUserId);
     final partnerRating = movie.getPartnerRating(currentUserId);
     final calculatedAvg = movie.calculatedAverageRating;
@@ -199,9 +200,9 @@ class ViewMovieDetailsSheet extends StatelessWidget {
                 accentColor: const Color(0xFFFF758C),
                 icon: Icons.person_rounded,
                 isDark: isDark,
-                hasRated: myRating != null || (movie.rating != null && partnerRating != null && partnerRating.userId != currentUserId),
-                rating: myRating?.rating ?? movie.rating,
-                notes: myRating?.notes ?? (myRating == null ? movie.notes : null),
+                hasRated: myRating != null,
+                rating: myRating?.rating,
+                notes: myRating?.notes,
                 actionButton: ElevatedButton.icon(
                   onPressed: () => _openRateSheet(context),
                   icon: Icon(

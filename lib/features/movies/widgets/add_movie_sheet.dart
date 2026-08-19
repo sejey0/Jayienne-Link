@@ -31,7 +31,7 @@ class AddMovieSheet extends StatefulWidget {
     this.onMovieAdded,
   });
 
-  static Future<bool?> show(
+  static Future<dynamic> show(
     BuildContext context, {
     required String coupleId,
     String currentUserId = '',
@@ -39,7 +39,7 @@ class AddMovieSheet extends StatefulWidget {
     MovieModel? movieToEdit,
     VoidCallback? onMovieAdded,
   }) {
-    return showModalBottomSheet<bool>(
+    return showModalBottomSheet<dynamic>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -230,7 +230,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
         if (!mounted) return;
 
         widget.onMovieAdded?.call();
-        Navigator.pop(context, true);
+        Navigator.pop(context, {'action': 'update_movie', 'title': updatedMovie.title});
       } else {
         // 1. Create new movie (ratings strictly stored in movie_ratings)
         final newMovie = MovieModel(
@@ -262,7 +262,10 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
         if (!mounted) return;
 
         widget.onMovieAdded?.call();
-        Navigator.pop(context, true);
+        Navigator.pop(context, {
+          'action': _status == 'watched' ? 'save_watched' : 'add_watchlist',
+          'title': newMovie.title,
+        });
       }
     } catch (e) {
       if (!mounted) return;

@@ -223,8 +223,37 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       onMovieAdded: () => _refreshMovies(),
     );
 
-    if (res == true || mounted) {
+    if (res != null && mounted) {
       _refreshMovies();
+      if (res is Map<String, dynamic>) {
+        final action = res['action'];
+        final title = res['title'] ?? 'Movie';
+        if (action == 'add_watchlist') {
+          await showCenterAlertDialog(
+            context: context,
+            title: 'Added to Watchlist!',
+            message: '"$title" has been added to your watchlist 💕',
+            icon: Icons.bookmark_added_rounded,
+            iconColor: const Color(0xFFFF758C),
+          );
+        } else if (action == 'save_watched') {
+          await showCenterAlertDialog(
+            context: context,
+            title: 'Saved to Watched Diary!',
+            message: '"$title" has been recorded in your cinema diary 💕',
+            icon: Icons.movie_filter_rounded,
+            iconColor: const Color(0xFFFF758C),
+          );
+        } else if (action == 'update_movie') {
+          await showCenterAlertDialog(
+            context: context,
+            title: 'Movie Updated!',
+            message: 'Details for "$title" have been updated successfully 💕',
+            icon: Icons.check_circle_rounded,
+            iconColor: const Color(0xFFFF758C),
+          );
+        }
+      }
     }
   }
 
@@ -240,8 +269,16 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       onMovieAdded: () => _refreshMovies(),
     );
 
-    if (res == true || mounted) {
+    if (res != null && mounted) {
       _refreshMovies();
+      final title = (res is Map<String, dynamic> ? res['title'] : null) ?? movie.title;
+      await showCenterAlertDialog(
+        context: context,
+        title: 'Movie Updated!',
+        message: 'Details for "$title" have been updated successfully 💕',
+        icon: Icons.check_circle_rounded,
+        iconColor: const Color(0xFFFF758C),
+      );
     }
   }
 
@@ -262,8 +299,16 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       onMovieUpdated: () => _refreshMovies(),
     );
 
-    if (res == true || mounted) {
+    if (res != null && mounted) {
       _refreshMovies();
+      final title = (res is Map<String, dynamic> ? res['title'] : null) ?? movie.title;
+      await showCenterAlertDialog(
+        context: context,
+        title: 'Rating Updated!',
+        message: 'Your review for "$title" has been updated successfully 💕',
+        icon: Icons.favorite_rounded,
+        iconColor: const Color(0xFFFF4081),
+      );
     }
   }
 
@@ -284,13 +329,24 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       onMovieUpdated: () => _refreshMovies(),
     );
 
-    if (res == true || mounted) {
+    if (res != null && mounted) {
       _refreshMovies();
+      if (res is Map<String, dynamic> && res['action'] == 'plan_rewatch') {
+        final title = res['title'] ?? movie.title;
+        await showCenterAlertDialog(
+          context: context,
+          title: 'Moved to Watchlist!',
+          message: '"$title" is ready for a rewatch 💕',
+          icon: Icons.replay_rounded,
+          iconColor: const Color(0xFFFF758C),
+        );
+      }
     }
   }
 
   Future<void> _handlePlanRewatch(MovieModel movie) async {
     HapticFeedback.mediumImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final nextWatchNum = (movie.watchCount < 1 ? 1 : movie.watchCount) + 1;
     final nextLabel = nextWatchNum == 2 ? 'Rewatch #1' : '${nextWatchNum}th Watch';
     final coupleProvider = context.read<CoupleProvider>();
@@ -302,41 +358,89 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // 1. Icon
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
+                shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.replay_rounded, color: Color(0xFFFF758C), size: 22),
+              child: const Icon(Icons.replay_rounded, color: Color(0xFFFF758C), size: 32),
             ),
-            const SizedBox(width: 10),
-            const Text('Plan Rewatch', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 14),
+
+            // 2. Title
+            Text(
+              'Plan Rewatch',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : const Color(0xFF2D4059),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // 3. Subtitle / Message
+            Text(
+              'Move "${movie.title}" back to your Watchlist for $nextLabel with $partnerName?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 4. Primary Button (Move to Watchlist)
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.pop(ctx, true),
+                icon: const Icon(Icons.bookmark_added_rounded, size: 18),
+                label: const Text(
+                  'Move to Watchlist',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF758C),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // 5. Centered Cancel Button
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(
+                  'Cancel',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
-        content: Text(
-          'Move "${movie.title}" back to your Watchlist for $nextLabel with $partnerName?',
-          style: const TextStyle(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(ctx, true),
-            icon: const Icon(Icons.bookmark_add_rounded, size: 16),
-            label: const Text('Move to Watchlist'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF758C),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ],
       ),
     );
 
@@ -346,10 +450,10 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       await _movieService.planRewatch(movie);
       _refreshMovies();
       if (!mounted) return;
-      showCenterAlertDialog(
+      await showCenterAlertDialog(
         context: context,
-        title: 'Rewatch Planned',
-        message: 'Added "${movie.title}" to your Watchlist for $nextLabel!',
+        title: 'Moved to Watchlist!',
+        message: '"${movie.title}" is ready for a rewatch 💕',
         icon: Icons.replay_rounded,
         iconColor: const Color(0xFFFF758C),
       );
@@ -367,36 +471,93 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
 
   Future<void> _confirmDeleteMovie(MovieModel movie) async {
     HapticFeedback.selectionClick();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(Icons.delete_outline_rounded, color: AppColors.error),
-            SizedBox(width: 8),
-            Text('Remove Movie', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            // 1. Icon
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 32),
+            ),
+            const SizedBox(height: 14),
+
+            // 2. Title
+            Text(
+              'Remove Movie',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : const Color(0xFF2D4059),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // 3. Subtitle / Message
+            Text(
+              'Are you sure you want to remove "${movie.title}" from your Cinema Diary?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 4. Primary Button (Remove Movie)
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.pop(ctx, true),
+                icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+                label: const Text(
+                  'Remove Movie',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // 5. Centered Cancel Button
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(
+                  'Cancel',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
-        content: Text(
-          'Are you sure you want to remove "${movie.title}" from your Cinema Diary?',
-          style: const TextStyle(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Remove'),
-          ),
-        ],
       ),
     );
 

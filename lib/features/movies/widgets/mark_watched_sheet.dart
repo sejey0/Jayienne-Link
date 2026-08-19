@@ -25,7 +25,7 @@ class MarkWatchedSheet extends StatefulWidget {
     this.onMovieUpdated,
   });
 
-  static Future<bool?> show(
+  static Future<dynamic> show(
     BuildContext context, {
     required MovieModel movie,
     required String currentUserId,
@@ -33,7 +33,7 @@ class MarkWatchedSheet extends StatefulWidget {
     int? targetWatchNumber,
     VoidCallback? onMovieUpdated,
   }) {
-    return showModalBottomSheet<bool>(
+    return showModalBottomSheet<dynamic>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -145,7 +145,10 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
       if (!mounted) return;
 
       widget.onMovieUpdated?.call();
-      Navigator.pop(context, true);
+      Navigator.pop(context, {
+        'action': 'update_rating',
+        'title': widget.movie.title,
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);

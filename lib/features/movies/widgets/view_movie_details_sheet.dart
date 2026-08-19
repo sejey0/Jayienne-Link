@@ -23,14 +23,14 @@ class ViewMovieDetailsSheet extends StatefulWidget {
     this.onMovieUpdated,
   });
 
-  static Future<bool?> show(
+  static Future<dynamic> show(
     BuildContext context, {
     required MovieModel movie,
     required String currentUserId,
     required String partnerName,
     VoidCallback? onMovieUpdated,
   }) {
-    return showModalBottomSheet<bool>(
+    return showModalBottomSheet<dynamic>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -74,54 +74,103 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
       targetWatchNumber: sessionNum,
       onMovieUpdated: widget.onMovieUpdated,
     );
-    if (res == true) {
+    if (res != null) {
       widget.onMovieUpdated?.call();
     }
   }
 
   Future<void> _handlePlanRewatch() async {
     HapticFeedback.mediumImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final nextWatchNum = (widget.movie.watchCount < 1 ? 1 : widget.movie.watchCount) + 1;
     final nextLabel = nextWatchNum == 2 ? 'Rewatch #1' : '${nextWatchNum}th Watch';
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // 1. Icon
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
+                shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.replay_rounded, color: Color(0xFFFF758C), size: 22),
+              child: const Icon(Icons.replay_rounded, color: Color(0xFFFF758C), size: 32),
             ),
-            const SizedBox(width: 10),
-            const Text('Plan Rewatch', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 14),
+
+            // 2. Title
+            Text(
+              'Plan Rewatch',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : const Color(0xFF2D4059),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // 3. Subtitle / Message
+            Text(
+              'Move "${widget.movie.title}" back to your Watchlist for $nextLabel with ${widget.partnerName}?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 4. Primary Button (Move to Watchlist)
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.pop(ctx, true),
+                icon: const Icon(Icons.bookmark_added_rounded, size: 18),
+                label: const Text(
+                  'Move to Watchlist',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF758C),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // 5. Centered Cancel Button
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(
+                  'Cancel',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
-        content: Text(
-          'Move "${widget.movie.title}" back to your Watchlist for $nextLabel with ${widget.partnerName}?',
-          style: const TextStyle(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(ctx, true),
-            icon: const Icon(Icons.bookmark_add_rounded, size: 16),
-            label: const Text('Move to Watchlist'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF758C),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ],
       ),
     );
 
@@ -133,7 +182,10 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
       if (!mounted) return;
 
       widget.onMovieUpdated?.call();
-      Navigator.pop(context, true);
+      Navigator.pop(context, {
+        'action': 'plan_rewatch',
+        'title': widget.movie.title,
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isPlanningRewatch = false);

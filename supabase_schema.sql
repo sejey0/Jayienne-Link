@@ -715,8 +715,87 @@ INSERT INTO public.decision_ideas (category, title) VALUES
 ON CONFLICT DO NOTHING;
 
 -- =====================================================
+-- MOVIES / CINEMA DIARY TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public.movies (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    couple_id UUID NOT NULL REFERENCES public.couples(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    poster_url TEXT,
+    status TEXT NOT NULL DEFAULT 'watchlist' CHECK (status IN ('watchlist', 'watched')),
+    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+    notes TEXT,
+    watched_date TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.movies ENABLE ROW LEVEL SECURITY;
+
+-- Indexes for fast query performance
+CREATE INDEX IF NOT EXISTS idx_movies_couple_id ON public.movies(couple_id);
+CREATE INDEX IF NOT EXISTS idx_movies_status ON public.movies(status);
+CREATE INDEX IF NOT EXISTS idx_movies_created_at ON public.movies(created_at DESC);
+
+-- RLS Policies for movies
+DROP POLICY IF EXISTS "Couple members can select their movies" ON public.movies;
+CREATE POLICY "Couple members can select their movies"
+    ON public.movies FOR SELECT
+    USING (
+        couple_id IN (
+            SELECT id FROM public.couples
+            WHERE auth.uid() = ANY(partner_ids)
+        )
+    );
+
+DROP POLICY IF EXISTS "Couple members can insert movies" ON public.movies;
+CREATE POLICY "Couple members can insert movies"
+    ON public.movies FOR INSERT
+    WITH CHECK (
+        couple_id IN (
+            SELECT id FROM public.couples
+            WHERE auth.uid() = ANY(partner_ids)
+        )
+    );
+
+DROP POLICY IF EXISTS "Couple members can update their movies" ON public.movies;
+CREATE POLICY "Couple members can update their movies"
+    ON public.movies FOR UPDATE
+    USING (
+        couple_id IN (
+            SELECT id FROM public.couples
+            WHERE auth.uid() = ANY(partner_ids)
+        )
+    );
+
+DROP POLICY IF EXISTS "Couple members can delete their movies" ON public.movies;
+CREATE POLICY "Couple members can delete their movies"
+    ON public.movies FOR DELETE
+    USING (
+        couple_id IN (
+            SELECT id FROM public.couples
+            WHERE auth.uid() = ANY(partner_ids)
+        )
+    );
+
+-- Enable real-time for movies (ignore if already added)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'movies'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.movies;
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END $$;
+
+-- =====================================================
 -- PERMISSIONS
 -- =====================================================
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/route_names.dart';
+import '../../movies/screens/movie_tracker_screen.dart';
 import '../../secret_media/screens/hidden_vault_screen.dart';
 import '../screens/decision_spinner_screen.dart';
 import '../screens/love_nudge_screen.dart';
@@ -13,6 +14,7 @@ enum _ActionType {
   customScreen,
   loveNudgeScreen,
   decisionSpinnerScreen,
+  movieDiaryScreen,
 }
 
 /// Senior Feature Selection Modal Bottom Sheet with Single Instance Back-Stack Persistence & Haptic Feedback
@@ -91,6 +93,13 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
         route: RouteNames.secretMediaHiddenVault,
         actionType: _ActionType.customScreen,
       ),
+      _FeatureModalItem(
+        title: 'Movie Diary',
+        subtitle: 'Watchlist & reviews',
+        icon: Icons.local_movies_rounded,
+        gradientColors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+        actionType: _ActionType.movieDiaryScreen,
+      ),
     ];
 
     return Container(
@@ -107,7 +116,7 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 14.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -236,6 +245,13 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const DecisionSpinnerScreen(),
+                          ),
+                        );
+                      } else if (item.actionType == _ActionType.movieDiaryScreen) {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MovieTrackerScreen(),
                           ),
                         );
                       } else {

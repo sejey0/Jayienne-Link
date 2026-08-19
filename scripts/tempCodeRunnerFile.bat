@@ -175,7 +175,7 @@ if "%DEVICE_ID%"=="" (
     echo   - For Wireless: Device paired and connected via adb
     echo.
     echo Available devices:
-    flutter devices
+    call flutter devices
     echo.
     pause
     goto connection_menu
@@ -204,31 +204,25 @@ echo.
 echo   DEBUG MODE (Hot Reload):
 echo   [3] Debug Run (r=hot reload, R=hot restart)
 echo.
-echo   RELEASE MODE:
-echo   [4] Release Build ^& Run
-echo   [5] Clean Release Build
-echo.
-echo   SHARE:
-echo   [6] Build APK ^& Open Folder (share manually)
+echo   RELEASE MODE ^& SHARE:
+echo   [4] Release Build ^& Run (Clean / Build APK / Run)
 echo.
 echo   OTHER:
-echo   [7] Uninstall App
-echo   [8] Switch Target Device / Reconnect
+echo   [5] Uninstall App
+echo   [6] Switch Target Device / Reconnect
 echo   [0] Exit
 echo ----------------------------------------
 echo.
-set /p "CHOICE=Enter choice (1-8, 0): "
+set /p "CHOICE=Enter choice (1-6, 0): "
 
 if "%CHOICE%"=="1" goto launch
 if "%CHOICE%"=="2" goto restart
 if "%CHOICE%"=="3" goto debugrun
-if "%CHOICE%"=="4" goto buildrun
-if "%CHOICE%"=="5" goto cleanrebuild
-if "%CHOICE%"=="6" goto buildapk
-if "%CHOICE%"=="7" goto uninstall
-if "%CHOICE%"=="8" goto disconnect
+if "%CHOICE%"=="4" goto releasemenu
+if "%CHOICE%"=="5" goto uninstall
+if "%CHOICE%"=="6" goto disconnect
 if "%CHOICE%"=="0" exit /b 0
-echo Invalid choice. Please enter 1-8 or 0.
+echo Invalid choice. Please enter 1-6 or 0.
 echo.
 goto menu
 
@@ -293,7 +287,57 @@ echo     q = Quit
 echo.
 echo ========================================
 echo.
-flutter run -d %DEVICE_ID%
+call flutter run -d %DEVICE_ID%
+echo.
+:releasemenu
+echo.
+echo ----------------------------------------
+echo   RELEASE MODE ^& SHARE OPTIONS:
+echo.
+echo   [1] Release Build ^& Run (Quick)
+echo   [2] Clean Release Build ^& Run
+echo   [3] Build APK ^& Open Folder (share manually)
+echo   [4] Full Release (Clean + Build APK + Open Folder + Run)
+echo   [0] Back to Main Menu
+echo ----------------------------------------
+echo.
+set /p "REL_CHOICE=Enter choice (1-4, 0): "
+
+if "%REL_CHOICE%"=="1" goto buildrun
+if "%REL_CHOICE%"=="2" goto cleanrebuild
+if "%REL_CHOICE%"=="3" goto buildapk
+if "%REL_CHOICE%"=="4" goto fullrelease
+if "%REL_CHOICE%"=="0" goto menu
+echo Invalid choice. Please enter 1-4 or 0.
+echo.
+goto releasemenu
+
+:fullrelease
+echo.
+echo ========================================
+echo   Full Release Build ^& Share
+echo ========================================
+echo.
+echo Step 1/3: Cleaning project...
+call flutter clean
+call flutter pub get
+echo.
+echo Step 2/3: Building Release APK...
+call flutter build apk --release
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Build failed!
+    echo.
+    goto menu
+)
+echo.
+echo Opening APK folder...
+if exist "build\app\outputs\flutter-apk" (
+    explorer "build\app\outputs\flutter-apk"
+)
+echo.
+echo Step 3/3: Running Release build on device...
+call flutter run --release -d %DEVICE_ID%
 echo.
 if "%IS_WEB%"=="1" (goto web_menu) else (goto menu)
 
@@ -301,7 +345,7 @@ if "%IS_WEB%"=="1" (goto web_menu) else (goto menu)
 echo.
 echo Building and running app (release)...
 echo.
-flutter run --release -d %DEVICE_ID%
+call flutter run --release -d %DEVICE_ID%
 echo.
 if "%IS_WEB%"=="1" (goto web_menu) else (goto menu)
 
@@ -309,9 +353,9 @@ if "%IS_WEB%"=="1" (goto web_menu) else (goto menu)
 echo.
 echo Cleaning and rebuilding app...
 echo.
-flutter clean
-flutter pub get
-flutter run --release -d %DEVICE_ID%
+call flutter clean
+call flutter pub get
+call flutter run --release -d %DEVICE_ID%
 echo.
 if "%IS_WEB%"=="1" (goto web_menu) else (goto menu)
 
@@ -330,7 +374,7 @@ echo   Build APK for Sharing
 echo ========================================
 echo.
 echo Building release APK...
-flutter build apk --release
+call flutter build apk --release
 if errorlevel 1 (
     echo.
     echo [ERROR] Build failed!
@@ -356,7 +400,7 @@ echo   Build Web Release
 echo ========================================
 echo.
 echo Building web release...
-flutter build web --release
+call flutter build web --release
 if errorlevel 1 (
     echo.
     echo [ERROR] Build failed!
@@ -394,7 +438,7 @@ goto connection_menu
 if not exist ".dart_tool\package_config.json" (
     echo.
     echo [INFO] Running flutter pub get...
-    flutter pub get
+    call flutter pub get
     if errorlevel 1 (
         echo.
         echo [ERROR] flutter pub get failed.

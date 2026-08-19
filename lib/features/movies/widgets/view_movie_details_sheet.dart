@@ -125,30 +125,66 @@ class ViewMovieDetailsSheet extends StatelessWidget {
                             color: isDark ? Colors.white : const Color(0xFF2D4059),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        if (movie.watchedDate != null) ...[
-                          Row(
-                            children: [
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: movie.isSeries
+                                    ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
+                                    : const Color(0xFFFF758C).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    movie.isSeries ? Icons.tv_rounded : Icons.movie_rounded,
+                                    size: 11,
+                                    color: movie.isSeries
+                                        ? const Color(0xFFA18CD1)
+                                        : const Color(0xFFFF758C),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    movie.isSeries ? 'Series' : 'Movie',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: movie.isSeries
+                                        ? const Color(0xFFA18CD1)
+                                        : const Color(0xFFFF758C),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (movie.watchedDate != null) ...[
+                              const SizedBox(width: 8),
                               const Icon(
                                 Icons.event_available_rounded,
-                                size: 14,
+                                size: 12,
                                 color: Color(0xFFA18CD1),
                               ),
                               const SizedBox(width: 4),
-                              Text(
-                                'Watched on ${movie.formattedWatchedDate}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark
-                                      ? const Color(0xFFA18CD1)
-                                      : const Color(0xFF7E57C2),
+                              Expanded(
+                                child: Text(
+                                  'Watched ${movie.formattedWatchedDate}',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark
+                                        ? const Color(0xFFA18CD1)
+                                        : const Color(0xFF7E57C2),
+                                  ),
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 6),
-                        ],
+                          ],
+                        ),
+                        const SizedBox(height: 6),
                         if (calculatedAvg != null) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(

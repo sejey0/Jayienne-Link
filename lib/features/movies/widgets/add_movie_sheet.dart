@@ -8,10 +8,12 @@ import '../../../models/movie_model.dart';
 import '../../../services/supabase_movie_service.dart';
 import 'movie_poster_widget.dart';
 
-/// Modal bottom sheet for adding or editing movie details
-/// Dynamically shows/hides fields based on status:
-/// - "Plan to Watch" (watchlist): Title & Poster only
-/// - "Already Watched" (watched): Title, Poster, 1-5 Heart Rating, Watched Date, and Review Notes
+/// Modal bottom sheet for adding or editing movie/series details
+/// Features:
+/// - Media Type Selector: Movie vs Series
+/// - Dynamic Visibility:
+///   - "Plan to Watch" (watchlist): Title, Media Type, Poster selection
+///   - "Already Watched" (watched): Title, Media Type, Poster, 1-5 Heart Rating, Watched Date, and Review Notes
 class AddMovieSheet extends StatefulWidget {
   final String coupleId;
   final String currentUserId;
@@ -64,6 +66,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
   late final TextEditingController _notesController;
 
   late String _status; // 'watchlist' or 'watched'
+  late String _mediaType; // 'movie' or 'series'
   int _rating = 5;
   DateTime? _watchedDate;
   File? _selectedImageFile;
@@ -83,6 +86,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
     _posterUrlController = TextEditingController(text: editMovie?.posterUrl ?? '');
     _notesController = TextEditingController(text: myRating?.notes ?? '');
     _status = editMovie?.status ?? widget.initialStatus;
+    _mediaType = editMovie?.mediaType ?? 'movie';
     _watchedDate = editMovie?.watchedDate;
     _rating = myRating?.rating ?? 5;
 
@@ -188,6 +192,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
           title: _titleController.text.trim(),
           posterUrl: finalPosterUrl ?? widget.movieToEdit!.posterUrl,
           status: _status,
+          mediaType: _mediaType,
           watchedDate: _status == 'watched' ? _watchedDate : null,
           updatedAt: DateTime.now(),
         );
@@ -244,6 +249,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
           title: _titleController.text.trim(),
           posterUrl: finalPosterUrl,
           status: _status,
+          mediaType: _mediaType,
           watchedDate: _status == 'watched' ? _watchedDate : null,
           createdAt: DateTime.now(),
         );
@@ -304,7 +310,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save movie: $e'),
+          content: Text('Failed to save: $e'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -384,9 +390,9 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                         children: [
                           Text(
                             _isEditMode
-                                ? 'Edit Movie Details'
+                                ? 'Edit Details'
                                 : (_status == 'watched'
-                                    ? 'Log Watched Movie'
+                                    ? 'Log Watched'
                                     : 'Add to Watchlist'),
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.bold,
@@ -396,10 +402,10 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                           ),
                           Text(
                             _isEditMode
-                                ? 'Update movie information'
+                                ? 'Update movie or series details'
                                 : (_status == 'watched'
-                                    ? 'Record a movie you already finished together'
-                                    : 'Save for your next movie date night'),
+                                    ? 'Record what you watched and review together'
+                                    : 'Save for your next movie or series night'),
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark ? Colors.white70 : Colors.grey.shade600,
@@ -513,11 +519,11 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
 
-                // Movie Title Input
+                // Title Input
                 Text(
-                  'Movie Title *',
+                  'Title *',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -534,14 +540,18 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                     color: isDark ? Colors.white : Colors.black87,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'e.g. La La Land, Spirited Away, Titanic...',
+                    hintText: _mediaType == 'series'
+                        ? 'e.g. Stranger Things, Queen of Tears, Friends...'
+                        : 'e.g. La La Land, Spirited Away, Titanic...',
                     hintStyle: TextStyle(
                       fontSize: 13,
                       color: isDark ? Colors.white38 : Colors.grey.shade400,
                     ),
-                    prefixIcon: const Icon(
-                      Icons.movie_creation_rounded,
-                      color: Color(0xFFFF758C),
+                    prefixIcon: Icon(
+                      _mediaType == 'series'
+                          ? Icons.tv_rounded
+                          : Icons.movie_creation_rounded,
+                      color: const Color(0xFFFF758C),
                       size: 20,
                     ),
                     filled: true,
@@ -574,10 +584,135 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Please enter the movie title';
+                      return 'Please enter the title';
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 18),
+
+                // ----------------------------------------------------
+                // MEDIA TYPE SELECTOR (MOVIE VS SERIES)
+                // ----------------------------------------------------
+                Text(
+                  'Media Type',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF2D4059),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _mediaType = 'movie');
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            decoration: BoxDecoration(
+                              color: _mediaType == 'movie'
+                                  ? const Color(0xFFFF758C)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: _mediaType == 'movie'
+                                  ? [
+                                      BoxShadow(
+                                        color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.movie_rounded,
+                                  size: 16,
+                                  color: _mediaType == 'movie'
+                                      ? Colors.white
+                                      : (isDark ? Colors.white70 : Colors.black87),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Movie',
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: _mediaType == 'movie'
+                                        ? Colors.white
+                                        : (isDark ? Colors.white70 : Colors.black87),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _mediaType = 'series');
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            decoration: BoxDecoration(
+                              color: _mediaType == 'series'
+                                  ? const Color(0xFFA18CD1)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: _mediaType == 'series'
+                                  ? [
+                                      BoxShadow(
+                                        color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.tv_rounded,
+                                  size: 16,
+                                  color: _mediaType == 'series'
+                                      ? Colors.white
+                                      : (isDark ? Colors.white70 : Colors.black87),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Series',
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: _mediaType == 'series'
+                                        ? Colors.white
+                                        : (isDark ? Colors.white70 : Colors.black87),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
 
@@ -586,7 +721,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Movie Poster (Optional)',
+                      'Poster / Cover Image (Optional)',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,

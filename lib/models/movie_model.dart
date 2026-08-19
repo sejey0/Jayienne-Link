@@ -8,6 +8,7 @@ class MovieModel {
   final String title;
   final String? posterUrl;
   final String status; // 'watchlist' or 'watched'
+  final String mediaType; // 'movie' or 'series'
   final int? rating; // Legacy fallback single rating
   final String? notes; // Legacy fallback notes
   final DateTime? watchedDate;
@@ -21,6 +22,7 @@ class MovieModel {
     required this.title,
     this.posterUrl,
     this.status = 'watchlist',
+    this.mediaType = 'movie',
     this.rating,
     this.notes,
     this.watchedDate,
@@ -31,6 +33,8 @@ class MovieModel {
 
   bool get isWatched => status == 'watched';
   bool get isWatchlist => status == 'watchlist';
+  bool get isSeries => mediaType == 'series';
+  bool get isMovie => mediaType != 'series';
 
   String get formattedWatchedDate {
     if (watchedDate == null) return '';
@@ -100,6 +104,7 @@ class MovieModel {
       title: json['title']?.toString() ?? 'Untitled Movie',
       posterUrl: json['poster_url']?.toString(),
       status: json['status']?.toString() ?? 'watchlist',
+      mediaType: json['media_type']?.toString() ?? 'movie',
       rating: json['rating'] != null ? int.tryParse(json['rating'].toString()) : null,
       notes: json['notes']?.toString(),
       watchedDate: parseNullableDateTime(json['watched_date']),
@@ -116,6 +121,7 @@ class MovieModel {
       'title': title,
       'poster_url': posterUrl,
       'status': status,
+      'media_type': mediaType,
       'watched_date': watchedDate?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
@@ -128,6 +134,7 @@ class MovieModel {
     String? title,
     String? posterUrl,
     String? status,
+    String? mediaType,
     int? rating,
     String? notes,
     DateTime? watchedDate,
@@ -141,6 +148,7 @@ class MovieModel {
       title: title ?? this.title,
       posterUrl: posterUrl ?? this.posterUrl,
       status: status ?? this.status,
+      mediaType: mediaType ?? this.mediaType,
       rating: rating ?? this.rating,
       notes: notes ?? this.notes,
       watchedDate: watchedDate ?? this.watchedDate,

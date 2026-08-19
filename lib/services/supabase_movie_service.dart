@@ -99,6 +99,7 @@ class SupabaseMovieService {
         if (movie.posterUrl != null && movie.posterUrl!.isNotEmpty)
           'poster_url': movie.posterUrl,
         'status': movie.status,
+        'media_type': movie.mediaType,
         if (movie.watchedDate != null)
           'watched_date': movie.watchedDate!.toIso8601String(),
         'created_at': movie.createdAt.toIso8601String(),
@@ -133,6 +134,7 @@ class SupabaseMovieService {
         'title': movie.title,
         'poster_url': movie.posterUrl,
         'status': movie.status,
+        'media_type': movie.mediaType,
         'watched_date': movie.watchedDate?.toIso8601String(),
       };
 

@@ -955,9 +955,42 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ],
                   ),
 
-                  // Added Date
+                  // Media Type Tag & Added Date
                   Row(
                     children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: movie.isSeries
+                              ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
+                              : const Color(0xFFFF758C).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              movie.isSeries ? Icons.tv_rounded : Icons.movie_rounded,
+                              size: 11,
+                              color: movie.isSeries
+                                  ? const Color(0xFFA18CD1)
+                                  : const Color(0xFFFF758C),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              movie.isSeries ? 'Series' : 'Movie',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: movie.isSeries
+                                    ? const Color(0xFFA18CD1)
+                                    : const Color(0xFFFF758C),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Icon(
                         Icons.access_time_rounded,
                         size: 12,
@@ -1192,30 +1225,64 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                       ],
                     ),
 
-                    // Watched Date (Only shown if watchedDate is NOT null)
-                    if (movie.watchedDate != null) ...[
-                      Row(
-                        children: [
+                    // Media Type Tag & Watched Date
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: movie.isSeries
+                                ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
+                                : const Color(0xFFFF758C).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                movie.isSeries ? Icons.tv_rounded : Icons.movie_rounded,
+                                size: 11,
+                                color: movie.isSeries
+                                    ? const Color(0xFFA18CD1)
+                                    : const Color(0xFFFF758C),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                movie.isSeries ? 'Series' : 'Movie',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: movie.isSeries
+                                      ? const Color(0xFFA18CD1)
+                                      : const Color(0xFFFF758C),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (movie.watchedDate != null) ...[
+                          const SizedBox(width: 8),
                           const Icon(
                             Icons.event_available_rounded,
                             size: 12,
                             color: Color(0xFFA18CD1),
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            'Watched on ${movie.formattedWatchedDate}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? const Color(0xFFA18CD1) : const Color(0xFF7E57C2),
+                          Expanded(
+                            child: Text(
+                              'Watched on ${movie.formattedWatchedDate}',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? const Color(0xFFA18CD1) : const Color(0xFF7E57C2),
+                              ),
                             ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 8),
-                    ] else ...[
-                      const SizedBox(height: 4),
-                    ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
 
                     // ----------------------------------------------------
                     // DUAL RATING PREVIEW SECTION (CLEAN & EMOJI-FREE)

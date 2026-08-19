@@ -288,6 +288,81 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     }
   }
 
+  Future<void> _handlePlanRewatch(MovieModel movie) async {
+    HapticFeedback.mediumImpact();
+    final nextWatchNum = (movie.watchCount < 1 ? 1 : movie.watchCount) + 1;
+    final nextLabel = nextWatchNum == 2 ? 'Rewatch #1' : '${nextWatchNum}th Watch';
+    final coupleProvider = context.read<CoupleProvider>();
+    final partner = coupleProvider.partner;
+    final partnerName = partner?.displayName.isNotEmpty == true
+        ? partner!.displayName
+        : 'your partner';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.replay_rounded, color: Color(0xFFFF758C), size: 22),
+            ),
+            const SizedBox(width: 10),
+            const Text('Plan Rewatch', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Move "${movie.title}" back to your Watchlist for $nextLabel with $partnerName?',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.bookmark_add_rounded, size: 16),
+            label: const Text('Move to Watchlist'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF758C),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _movieService.planRewatch(movie);
+      _refreshMovies();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added "${movie.title}" to Watchlist for $nextLabel!'),
+          backgroundColor: const Color(0xFFFF758C),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to plan rewatch: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   Future<void> _confirmDeleteMovie(MovieModel movie) async {
     HapticFeedback.selectionClick();
     final confirm = await showDialog<bool>(
@@ -955,8 +1030,11 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ],
                   ),
 
-                  // Media Type Tag & Added Date
-                  Row(
+                  // Media Type Tag, Rewatch Badge, & Added Date
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    runSpacing: 4,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -990,19 +1068,53 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 12,
-                        color: isDark ? Colors.white54 : Colors.grey.shade500,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Added ${movie.formattedCreatedDate}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? Colors.white54 : Colors.grey.shade500,
+                      if (movie.isRewatch) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF9A8B), Color(0xFFFF6A88)],
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.replay_rounded,
+                                size: 11,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                movie.rewatchBadgeLabel,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                      ],
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.access_time_rounded,
+                            size: 11,
+                            color: isDark ? Colors.white54 : Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Added ${movie.formattedCreatedDate}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? Colors.white54 : Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1013,10 +1125,13 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     height: 36,
                     child: ElevatedButton.icon(
                       onPressed: () => _openRateMovieModal(movie),
-                      icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
-                      label: const Text(
-                        'Mark as Watched',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      icon: Icon(
+                        movie.isRewatch ? Icons.replay_rounded : Icons.check_circle_outline_rounded,
+                        size: 16,
+                      ),
+                      label: Text(
+                        movie.isRewatch ? 'Log ${movie.currentWatchLabel}' : 'Mark as Watched',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
                         foregroundColor: Colors.white,
@@ -1165,7 +1280,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title & 3-Dots Menu Row (2 options: Edit Movie Details, Remove Movie)
+                    // Title & 3-Dots Menu Row (Edit Movie Details, Plan Rewatch, Remove Movie)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1191,6 +1306,8 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                           onSelected: (val) {
                             if (val == 'edit') {
                               _openEditMovieDetails(movie);
+                            } else if (val == 'rewatch') {
+                              _handlePlanRewatch(movie);
                             } else if (val == 'delete') {
                               _confirmDeleteMovie(movie);
                             }
@@ -1210,6 +1327,26 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 ],
                               ),
                             ),
+                            PopupMenuItem(
+                              value: 'rewatch',
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.replay_rounded,
+                                    color: Color(0xFFFF758C),
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Plan Rewatch (${(movie.watchCount < 1 ? 1 : movie.watchCount) + 1}th)',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFF758C),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             const PopupMenuItem(
                               value: 'delete',
                               child: Row(
@@ -1225,8 +1362,11 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                       ],
                     ),
 
-                    // Media Type Tag & Watched Date
-                    Row(
+                    // Media Type Tag, Total Watches, & Watched Date
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 4,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1260,24 +1400,53 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             ],
                           ),
                         ),
-                        if (movie.watchedDate != null) ...[
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.event_available_rounded,
-                            size: 12,
-                            color: Color(0xFFA18CD1),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Watched on ${movie.formattedWatchedDate}',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? const Color(0xFFA18CD1) : const Color(0xFF7E57C2),
-                              ),
+                        if (movie.watchCount > 1) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF9A8B).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
                             ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.replay_rounded,
+                                  size: 11,
+                                  color: Color(0xFFFF758C),
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '${movie.watchCount} Watches',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFFF758C),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (movie.watchedDate != null) ...[
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.event_available_rounded,
+                                size: 11,
+                                color: Color(0xFFA18CD1),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Watched on ${movie.formattedWatchedDate}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? const Color(0xFFA18CD1) : const Color(0xFF7E57C2),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ],

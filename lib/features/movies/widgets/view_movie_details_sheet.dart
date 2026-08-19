@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/movie_model.dart';
+import '../../../services/supabase_movie_service.dart';
 import 'mark_watched_sheet.dart';
 import 'movie_poster_widget.dart';
 
 /// Modal bottom sheet displaying detailed dual reviews for a watched movie
-/// Shows Box 1 (My Rating with Edit/Add button) and Box 2 (Partner's Rating read-only)
-class ViewMovieDetailsSheet extends StatelessWidget {
+/// Supports multi-session Watch History (1st Watch, Rewatch #1, etc.) and "Plan Rewatch" action
+class ViewMovieDetailsSheet extends StatefulWidget {
   final MovieModel movie;
   final String currentUserId;
   final String partnerName;
@@ -41,32 +42,143 @@ class ViewMovieDetailsSheet extends StatelessWidget {
     );
   }
 
-  Future<void> _openRateSheet(BuildContext context) async {
+  @override
+  State<ViewMovieDetailsSheet> createState() => _ViewMovieDetailsSheetState();
+}
+
+class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
+  final SupabaseMovieService _movieService = SupabaseMovieService();
+  late int _selectedSession;
+  bool _isPlanningRewatch = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to the latest watch session
+    _selectedSession = widget.movie.watchCount > 0 ? widget.movie.watchCount : 1;
+    final availableSessions = widget.movie.sessionNumbers;
+    if (!availableSessions.contains(_selectedSession) && availableSessions.isNotEmpty) {
+      _selectedSession = availableSessions.last;
+    }
+  }
+
+  Future<void> _openRateSheet(BuildContext context, int sessionNum) async {
     HapticFeedback.lightImpact();
     Navigator.pop(context, true); // Close details sheet and signal refresh
     final res = await MarkWatchedSheet.show(
       context,
-      movie: movie,
-      currentUserId: currentUserId,
-      partnerName: partnerName,
-      onMovieUpdated: onMovieUpdated,
+      movie: widget.movie,
+      currentUserId: widget.currentUserId,
+      partnerName: widget.partnerName,
+      targetWatchNumber: sessionNum,
+      onMovieUpdated: widget.onMovieUpdated,
     );
     if (res == true) {
-      onMovieUpdated?.call();
+      widget.onMovieUpdated?.call();
+    }
+  }
+
+  Future<void> _handlePlanRewatch() async {
+    HapticFeedback.mediumImpact();
+    final nextWatchNum = (widget.movie.watchCount < 1 ? 1 : widget.movie.watchCount) + 1;
+    final nextLabel = nextWatchNum == 2 ? 'Rewatch #1' : '${nextWatchNum}th Watch';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.replay_rounded, color: Color(0xFFFF758C), size: 22),
+            ),
+            const SizedBox(width: 10),
+            const Text('Plan Rewatch', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Move "${widget.movie.title}" back to your Watchlist for $nextLabel with ${widget.partnerName}?',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.bookmark_add_rounded, size: 16),
+            label: const Text('Move to Watchlist'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF758C),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isPlanningRewatch = true);
+    try {
+      await _movieService.planRewatch(widget.movie);
+      if (!mounted) return;
+
+      widget.onMovieUpdated?.call();
+      Navigator.pop(context, true);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.replay_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Added "${widget.movie.title}" to Watchlist for $nextLabel!',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFFFF758C),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isPlanningRewatch = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to plan rewatch: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Strict isolation: ONLY query ratings from movie_ratings
-    final myRating = movie.getRatingForUser(currentUserId);
-    final partnerRating = movie.getPartnerRating(currentUserId);
-    final calculatedAvg = movie.calculatedAverageRating;
+    final movie = widget.movie;
+    final sessions = movie.sessionNumbers;
+
+    // Get ratings for the currently selected session
+    final myRating = movie.getRatingForUser(widget.currentUserId, watchNumber: _selectedSession);
+    final partnerRating = movie.getPartnerRating(widget.currentUserId, watchNumber: _selectedSession);
+    final sessionAvg = movie.getAverageRatingForSession(_selectedSession);
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.88,
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
       ),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1C1427) : const Color(0xFFFFF9FA),
@@ -106,8 +218,8 @@ class ViewMovieDetailsSheet extends StatelessWidget {
                 children: [
                   MoviePosterWidget(
                     posterUrl: movie.posterUrl,
-                    width: 70,
-                    height: 102,
+                    width: 72,
+                    height: 104,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   const SizedBox(width: 14),
@@ -126,8 +238,13 @@ class ViewMovieDetailsSheet extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Row(
+
+                        // Badges Row (Media Type + Watch Count Badge)
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
                           children: [
+                            // Media Type Badge
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
@@ -153,15 +270,51 @@ class ViewMovieDetailsSheet extends StatelessWidget {
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                       color: movie.isSeries
-                                        ? const Color(0xFFA18CD1)
-                                        : const Color(0xFFFF758C),
+                                          ? const Color(0xFFA18CD1)
+                                          : const Color(0xFFFF758C),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            if (movie.watchedDate != null) ...[
-                              const SizedBox(width: 8),
+
+                            // Total Watch Count Badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: movie.watchCount > 1
+                                    ? const Color(0xFFFF9A8B).withValues(alpha: 0.2)
+                                    : Colors.grey.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    movie.watchCount > 1 ? Icons.replay_rounded : Icons.check_circle_outline_rounded,
+                                    size: 11,
+                                    color: movie.watchCount > 1 ? const Color(0xFFFF758C) : Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    movie.watchCount > 1 ? 'Watched ${movie.watchCount}x' : 'Watched 1x',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: movie.watchCount > 1 ? const Color(0xFFFF758C) : (isDark ? Colors.white70 : Colors.black87),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Watched Date
+                        if (movie.watchedDate != null) ...[
+                          Row(
+                            children: [
                               const Icon(
                                 Icons.event_available_rounded,
                                 size: 12,
@@ -170,7 +323,7 @@ class ViewMovieDetailsSheet extends StatelessWidget {
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
-                                  'Watched ${movie.formattedWatchedDate}',
+                                  'Watched on ${movie.formattedWatchedDate}',
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 11.5,
@@ -182,18 +335,20 @@ class ViewMovieDetailsSheet extends StatelessWidget {
                                 ),
                               ),
                             ],
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        if (calculatedAvg != null) ...[
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+
+                        // Session Average Score Badge
+                        if (sessionAvg != null) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
+                              horizontal: 8,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -201,13 +356,13 @@ class ViewMovieDetailsSheet extends StatelessWidget {
                                 const Icon(
                                   Icons.favorite,
                                   color: Color(0xFFFF4081),
-                                  size: 14,
+                                  size: 13,
                                 ),
-                                const SizedBox(width: 5),
+                                const SizedBox(width: 4),
                                 Text(
-                                  'Overall Score: ${calculatedAvg.toStringAsFixed(1)} / 5',
+                                  'Score: ${sessionAvg.toStringAsFixed(1)} / 5',
                                   style: const TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 11.5,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFFFF4081),
                                   ),
@@ -226,13 +381,74 @@ class ViewMovieDetailsSheet extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
 
               // ----------------------------------------------------
-              // BOX 1: MY RATING & REVIEW (WITH EDIT / ADD ACTION)
+              // WATCH HISTORY SESSION SELECTOR (IF MULTIPLE WATCHES)
+              // ----------------------------------------------------
+              if (sessions.length > 1) ...[
+                Row(
+                  children: [
+                    const Icon(Icons.history_rounded, size: 16, color: Color(0xFFFF758C)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Watch History Sessions',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: sessions.map((sNum) {
+                      final isSelected = sNum == _selectedSession;
+                      final label = MovieModel.getSessionLabel(sNum);
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          avatar: Icon(
+                            sNum == 1 ? Icons.local_movies_rounded : Icons.replay_rounded,
+                            size: 14,
+                            color: isSelected ? Colors.white : const Color(0xFFFF758C),
+                          ),
+                          label: Text(label),
+                          selected: isSelected,
+                          onSelected: (val) {
+                            if (val) {
+                              HapticFeedback.selectionClick();
+                              setState(() => _selectedSession = sNum);
+                            }
+                          },
+                          selectedColor: const Color(0xFFFF758C),
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // ----------------------------------------------------
+              // BOX 1: MY RATING & REVIEW FOR SELECTED SESSION
               // ----------------------------------------------------
               _buildReviewBox(
-                title: 'Your Rating & Review',
+                title: sessions.length > 1
+                    ? 'Your Review (${MovieModel.getSessionLabel(_selectedSession)})'
+                    : 'Your Rating & Review',
                 accentColor: const Color(0xFFFF758C),
                 icon: Icons.person_rounded,
                 isDark: isDark,
@@ -240,13 +456,13 @@ class ViewMovieDetailsSheet extends StatelessWidget {
                 rating: myRating?.rating,
                 notes: myRating?.notes,
                 actionButton: ElevatedButton.icon(
-                  onPressed: () => _openRateSheet(context),
+                  onPressed: () => _openRateSheet(context, _selectedSession),
                   icon: Icon(
                     myRating != null ? Icons.edit_note_rounded : Icons.favorite,
                     size: 16,
                   ),
                   label: Text(
-                    myRating != null ? 'Edit My Rating' : 'Add My Rating',
+                    myRating != null ? 'Edit My Review' : 'Add My Review',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -259,22 +475,63 @@ class ViewMovieDetailsSheet extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // ----------------------------------------------------
-              // BOX 2: PARTNER'S RATING & REVIEW (READ-ONLY)
+              // BOX 2: PARTNER'S RATING & REVIEW FOR SELECTED SESSION
               // ----------------------------------------------------
               _buildReviewBox(
-                title: "$partnerName's Rating & Review",
+                title: sessions.length > 1
+                    ? "${widget.partnerName}'s Review (${MovieModel.getSessionLabel(_selectedSession)})"
+                    : "${widget.partnerName}'s Rating & Review",
                 accentColor: const Color(0xFFA18CD1),
                 icon: Icons.favorite_rounded,
                 isDark: isDark,
                 hasRated: partnerRating != null,
                 rating: partnerRating?.rating,
                 notes: partnerRating?.notes,
-                emptyMessage: "Partner hasn't rated this movie yet",
+                emptyMessage: "Partner hasn't reviewed this watch yet",
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
+
+              // ----------------------------------------------------
+              // BOTTOM ACTION: "PLAN REWATCH" BUTTON
+              // ----------------------------------------------------
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: _isPlanningRewatch ? null : _handlePlanRewatch,
+                  icon: _isPlanningRewatch
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFFFF758C),
+                          ),
+                        )
+                      : const Icon(Icons.replay_rounded, size: 18, color: Color(0xFFFF758C)),
+                  label: Text(
+                    _isPlanningRewatch
+                        ? 'Planning Rewatch...'
+                        : 'Plan Rewatch (${(movie.watchCount < 1 ? 1 : movie.watchCount) + 1}th Watch)',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFFF758C),
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFFF758C), width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    backgroundColor: const Color(0xFFFF758C).withValues(alpha: 0.05),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
             ],
           ),
         ),

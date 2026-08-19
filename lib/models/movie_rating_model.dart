@@ -1,10 +1,11 @@
-/// Model representing an individual partner's rating and review for a movie
+/// Model representing an individual partner's rating and review for a movie session
 class MovieRatingModel {
   final String? id;
   final String movieId;
   final String userId;
   final int rating; // 1 to 5
   final String? notes;
+  final int watchNumber; // 1 for 1st watch, 2 for 1st rewatch, etc.
   final DateTime updatedAt;
 
   const MovieRatingModel({
@@ -13,6 +14,7 @@ class MovieRatingModel {
     required this.userId,
     required this.rating,
     this.notes,
+    this.watchNumber = 1,
     required this.updatedAt,
   });
 
@@ -35,6 +37,9 @@ class MovieRatingModel {
           ? int.tryParse(json['rating'].toString()) ?? 5
           : 5,
       notes: json['notes']?.toString(),
+      watchNumber: json['watch_number'] != null
+          ? int.tryParse(json['watch_number'].toString()) ?? 1
+          : 1,
       updatedAt: parseDateTime(
         json['updated_at'] ?? json['created_at'],
         DateTime.now(),
@@ -49,6 +54,7 @@ class MovieRatingModel {
       'user_id': userId,
       'rating': rating,
       'notes': notes,
+      'watch_number': watchNumber,
       'updated_at': updatedAt.toIso8601String(),
     };
   }
@@ -59,6 +65,7 @@ class MovieRatingModel {
     String? userId,
     int? rating,
     String? notes,
+    int? watchNumber,
     DateTime? updatedAt,
   }) {
     return MovieRatingModel(
@@ -67,6 +74,7 @@ class MovieRatingModel {
       userId: userId ?? this.userId,
       rating: rating ?? this.rating,
       notes: notes ?? this.notes,
+      watchNumber: watchNumber ?? this.watchNumber,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }

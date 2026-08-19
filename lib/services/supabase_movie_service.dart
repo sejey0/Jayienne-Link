@@ -8,7 +8,7 @@ import '../models/movie_model.dart';
 import '../models/movie_rating_model.dart';
 import 'supabase_data_service.dart';
 
-/// Service for managing couple's movies and cinema diary in Supabase
+/// Service for managing couple's movies, cinema diary, dual ratings, and rewatch history in Supabase
 class SupabaseMovieService {
   static const String _tableName = 'movies';
   static const String _ratingsTableName = 'movie_ratings';
@@ -45,7 +45,9 @@ class SupabaseMovieService {
           .from(_ratingsTableName)
           .stream(primaryKey: ['id'])
           .map((data) {
-            return data.map((json) => MovieRatingModel.fromJson(json)).toList();
+            final list = data.map((json) => MovieRatingModel.fromJson(json)).toList();
+            list.sort((a, b) => a.watchNumber.compareTo(b.watchNumber));
+            return list;
           });
     } catch (e) {
       debugPrint('Error initiating real-time movie ratings stream: $e');
@@ -80,7 +82,8 @@ class SupabaseMovieService {
       final response = await _supabase
           .from(_ratingsTableName)
           .select()
-          .inFilter('movie_id', movieIds);
+          .inFilter('movie_id', movieIds)
+          .order('watch_number', ascending: true);
 
       final records = List<Map<String, dynamic>>.from(response);
       return records.map((json) => MovieRatingModel.fromJson(json)).toList();
@@ -100,6 +103,7 @@ class SupabaseMovieService {
           'poster_url': movie.posterUrl,
         'status': movie.status,
         'media_type': movie.mediaType,
+        'watch_count': movie.watchCount,
         if (movie.watchedDate != null)
           'watched_date': movie.watchedDate!.toIso8601String(),
         'created_at': movie.createdAt.toIso8601String(),
@@ -135,6 +139,7 @@ class SupabaseMovieService {
         'poster_url': movie.posterUrl,
         'status': movie.status,
         'media_type': movie.mediaType,
+        'watch_count': movie.watchCount,
         'watched_date': movie.watchedDate?.toIso8601String(),
       };
 
@@ -159,12 +164,49 @@ class SupabaseMovieService {
     }
   }
 
+  /// Plan a rewatch: Moves movie to Watchlist and increments watch_count
+  Future<void> planRewatch(MovieModel movie) async {
+    if (movie.id == null || movie.id!.isEmpty) {
+      throw Exception('Movie ID is required to plan rewatch');
+    }
+
+    final newWatchCount = (movie.watchCount < 1 ? 1 : movie.watchCount) + 1;
+
+    try {
+      final updateData = <String, dynamic>{
+        'status': 'watchlist',
+        'watch_count': newWatchCount,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      try {
+        await _supabase
+            .from(_tableName)
+            .update(updateData)
+            .eq('id', movie.id!);
+      } catch (colErr) {
+        debugPrint('Updating with updated_at failed in planRewatch, retrying: $colErr');
+        await _supabase
+            .from(_tableName)
+            .update({
+              'status': 'watchlist',
+              'watch_count': newWatchCount,
+            })
+            .eq('id', movie.id!);
+      }
+    } catch (e) {
+      debugPrint('Error planning rewatch: $e');
+      rethrow;
+    }
+  }
+
   /// Upsert a specific partner's rating and review strictly in `movie_ratings`
   Future<void> upsertRating({
     required String movieId,
     required String userId,
     required int rating,
     String? notes,
+    int watchNumber = 1,
   }) async {
     try {
       final ratingData = <String, dynamic>{
@@ -172,12 +214,20 @@ class SupabaseMovieService {
         'user_id': userId,
         'rating': rating,
         'notes': notes?.trim(),
+        'watch_number': watchNumber,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      await _supabase
-          .from(_ratingsTableName)
-          .upsert(ratingData, onConflict: 'movie_id,user_id');
+      try {
+        await _supabase
+            .from(_ratingsTableName)
+            .upsert(ratingData, onConflict: 'movie_id,user_id,watch_number');
+      } catch (conflictErr) {
+        debugPrint('Upsert with watch_number conflict failed, trying movie_id,user_id fallback: $conflictErr');
+        await _supabase
+            .from(_ratingsTableName)
+            .upsert(ratingData, onConflict: 'movie_id,user_id');
+      }
     } catch (e) {
       debugPrint('Error upserting movie rating: $e');
       rethrow;
@@ -191,12 +241,13 @@ class SupabaseMovieService {
     required int rating,
     DateTime? watchedDate,
     String? notes,
+    int watchNumber = 1,
   }) async {
     try {
-      // 1. Update movie status & watched date safely (no shared rating written to movies table)
+      // 1. Update movie status & watched date safely
       final updateData = <String, dynamic>{
         'status': 'watched',
-        'watched_date': watchedDate?.toIso8601String(),
+        'watched_date': watchedDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
       };
 
       try {
@@ -221,6 +272,7 @@ class SupabaseMovieService {
         userId: userId,
         rating: rating,
         notes: notes,
+        watchNumber: watchNumber,
       );
     } catch (e) {
       debugPrint('Error marking movie as watched with rating: $e');

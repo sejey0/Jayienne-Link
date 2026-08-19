@@ -12,6 +12,7 @@ class MarkWatchedSheet extends StatefulWidget {
   final MovieModel movie;
   final String currentUserId;
   final String partnerName;
+  final int? targetWatchNumber;
   final VoidCallback? onMovieUpdated;
 
   const MarkWatchedSheet({
@@ -19,6 +20,7 @@ class MarkWatchedSheet extends StatefulWidget {
     required this.movie,
     required this.currentUserId,
     required this.partnerName,
+    this.targetWatchNumber,
     this.onMovieUpdated,
   });
 
@@ -27,6 +29,7 @@ class MarkWatchedSheet extends StatefulWidget {
     required MovieModel movie,
     required String currentUserId,
     required String partnerName,
+    int? targetWatchNumber,
     VoidCallback? onMovieUpdated,
   }) {
     return showModalBottomSheet<bool>(
@@ -37,6 +40,7 @@ class MarkWatchedSheet extends StatefulWidget {
         movie: movie,
         currentUserId: currentUserId,
         partnerName: partnerName,
+        targetWatchNumber: targetWatchNumber,
         onMovieUpdated: onMovieUpdated,
       ),
     );
@@ -54,11 +58,16 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
   DateTime? _selectedDate;
   bool _isSubmitting = false;
 
+  int get _effectiveWatchNumber => widget.targetWatchNumber ?? widget.movie.watchCount;
+
   @override
   void initState() {
     super.initState();
-    // Strictly read ONLY current user's rating, never fallback to partner or legacy shared fields
-    final myRating = widget.movie.getRatingForUser(widget.currentUserId);
+    // Strictly read ONLY current user's rating for the specified watch session
+    final myRating = widget.movie.getRatingForUser(
+      widget.currentUserId,
+      watchNumber: _effectiveWatchNumber,
+    );
     _selectedRating = myRating?.rating;
     _notesController = TextEditingController(text: myRating?.notes ?? '');
     _selectedDate = widget.movie.watchedDate;
@@ -128,6 +137,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
         notes: _notesController.text.trim().isNotEmpty
             ? _notesController.text.trim()
             : null,
+        watchNumber: _effectiveWatchNumber,
       );
 
       if (!mounted) return;

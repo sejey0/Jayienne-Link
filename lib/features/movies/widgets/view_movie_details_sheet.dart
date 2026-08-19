@@ -21,14 +21,14 @@ class ViewMovieDetailsSheet extends StatelessWidget {
     this.onMovieUpdated,
   });
 
-  static Future<void> show(
+  static Future<bool?> show(
     BuildContext context, {
     required MovieModel movie,
     required String currentUserId,
     required String partnerName,
     VoidCallback? onMovieUpdated,
   }) {
-    return showModalBottomSheet<void>(
+    return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -41,16 +41,19 @@ class ViewMovieDetailsSheet extends StatelessWidget {
     );
   }
 
-  void _openRateSheet(BuildContext context) {
+  Future<void> _openRateSheet(BuildContext context) async {
     HapticFeedback.lightImpact();
-    Navigator.pop(context); // Close details sheet first
-    MarkWatchedSheet.show(
+    Navigator.pop(context, true); // Close details sheet and signal refresh
+    final res = await MarkWatchedSheet.show(
       context,
       movie: movie,
       currentUserId: currentUserId,
       partnerName: partnerName,
       onMovieUpdated: onMovieUpdated,
     );
+    if (res == true) {
+      onMovieUpdated?.call();
+    }
   }
 
   @override

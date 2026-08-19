@@ -25,7 +25,7 @@ class AddMovieSheet extends StatefulWidget {
     this.onMovieAdded,
   });
 
-  static Future<void> show(
+  static Future<bool?> show(
     BuildContext context, {
     required String coupleId,
     String currentUserId = '',
@@ -33,7 +33,7 @@ class AddMovieSheet extends StatefulWidget {
     MovieModel? movieToEdit,
     VoidCallback? onMovieAdded,
   }) {
-    return showModalBottomSheet<void>(
+    return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -207,7 +207,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
         if (!mounted) return;
 
         widget.onMovieAdded?.call();
-        Navigator.pop(context);
+        Navigator.pop(context, true);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -267,7 +267,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
         if (!mounted) return;
 
         widget.onMovieAdded?.call();
-        Navigator.pop(context);
+        Navigator.pop(context, true);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -17,7 +17,7 @@ import '../widgets/view_movie_details_sheet.dart';
 /// Senior Couples Movie Tracker & Watchlist Screen ("Cinema Diary")
 /// Features a decluttered card layout, single "View Details & Ratings" action,
 /// simplified 2-option 3-dots menu ("Edit Movie Details" and "Remove Movie"),
-/// and Dual Rating & Review System with Real-Time Auto-Sync.
+/// Manual Header Refresh button, Pull-to-Refresh on tabs, and Instant UI Auto-Sync.
 class MovieTrackerScreen extends StatefulWidget {
   const MovieTrackerScreen({super.key});
 
@@ -109,10 +109,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       onError: (error) {
         debugPrint('Error streaming movies: $error');
         if (!mounted) return;
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Unable to load cinema diary. Retrying...';
-        });
+        _refreshMovies();
       },
     );
 
@@ -128,6 +125,37 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
         debugPrint('Error streaming movie ratings: $error');
       },
     );
+  }
+
+  /// Instant data pull from Supabase for zero-delay UI update
+  Future<void> _refreshMovies({bool showIndicator = false}) async {
+    if (showIndicator && mounted) {
+      setState(() => _isLoading = true);
+    }
+    final coupleId = _getCoupleId(context);
+    if (coupleId.isEmpty) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final movies = await _movieService.fetchMovies(coupleId);
+      final movieIds = movies.map((m) => m.id).whereType<String>().toList();
+      final ratings = await _movieService.fetchMovieRatings(movieIds);
+
+      if (!mounted) return;
+      setState(() {
+        _allMovies = movies;
+        _allRatings = ratings;
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      debugPrint('Error refreshing cinema diary: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   /// Returns all movies with their corresponding ratings joined
@@ -182,31 +210,41 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     return total / count;
   }
 
-  void _openAddMovieModal() {
+  Future<void> _openAddMovieModal() async {
     HapticFeedback.lightImpact();
     final coupleId = _getCoupleId(context);
     final currentUserId = _getCurrentUserId(context);
-    AddMovieSheet.show(
+    final res = await AddMovieSheet.show(
       context,
       coupleId: coupleId,
       currentUserId: currentUserId,
       initialStatus: _selectedTabIndex == 0 ? 'watchlist' : 'watched',
+      onMovieAdded: () => _refreshMovies(),
     );
+
+    if (res == true || mounted) {
+      _refreshMovies();
+    }
   }
 
-  void _openEditMovieDetails(MovieModel movie) {
+  Future<void> _openEditMovieDetails(MovieModel movie) async {
     HapticFeedback.lightImpact();
     final coupleId = _getCoupleId(context);
     final currentUserId = _getCurrentUserId(context);
-    AddMovieSheet.show(
+    final res = await AddMovieSheet.show(
       context,
       coupleId: coupleId,
       currentUserId: currentUserId,
       movieToEdit: movie,
+      onMovieAdded: () => _refreshMovies(),
     );
+
+    if (res == true || mounted) {
+      _refreshMovies();
+    }
   }
 
-  void _openRateMovieModal(MovieModel movie) {
+  Future<void> _openRateMovieModal(MovieModel movie) async {
     HapticFeedback.lightImpact();
     final currentUserId = _getCurrentUserId(context);
     final coupleProvider = context.read<CoupleProvider>();
@@ -215,15 +253,20 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
         ? partner!.displayName
         : 'Partner';
 
-    MarkWatchedSheet.show(
+    final res = await MarkWatchedSheet.show(
       context,
       movie: movie,
       currentUserId: currentUserId,
       partnerName: partnerName,
+      onMovieUpdated: () => _refreshMovies(),
     );
+
+    if (res == true || mounted) {
+      _refreshMovies();
+    }
   }
 
-  void _openMovieDetailsModal(MovieModel movie) {
+  Future<void> _openMovieDetailsModal(MovieModel movie) async {
     HapticFeedback.lightImpact();
     final currentUserId = _getCurrentUserId(context);
     final coupleProvider = context.read<CoupleProvider>();
@@ -232,12 +275,17 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
         ? partner!.displayName
         : 'Partner';
 
-    ViewMovieDetailsSheet.show(
+    final res = await ViewMovieDetailsSheet.show(
       context,
       movie: movie,
       currentUserId: currentUserId,
       partnerName: partnerName,
+      onMovieUpdated: () => _refreshMovies(),
     );
+
+    if (res == true || mounted) {
+      _refreshMovies();
+    }
   }
 
   Future<void> _confirmDeleteMovie(MovieModel movie) async {
@@ -278,6 +326,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     if (confirm == true && movie.id != null) {
       try {
         await _movieService.deleteMovie(movie.id!);
+        _refreshMovies();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -346,7 +395,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // App Bar Row (Back Button + Title)
+                    // App Bar Row (Back Button + Title + Manual Refresh Button)
                     Row(
                       children: [
                         // Back Button
@@ -413,6 +462,30 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 ],
                               ),
                             ],
+                          ),
+                        ),
+
+                        // Glassmorphic Manual Refresh Button
+                        InkWell(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            _refreshMovies(showIndicator: true);
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.refresh_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
                           ),
                         ),
                       ],
@@ -737,34 +810,48 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   }
 
   // ----------------------------------------------------
-  // TAB 1: WATCHLIST TAB
+  // TAB 1: WATCHLIST TAB (WITH PULL-TO-REFRESH)
   // ----------------------------------------------------
   Widget _buildWatchlistTab(bool isDark, String partnerName) {
     final list = _watchlistMovies;
 
     if (list.isEmpty) {
-      return _buildEmptyState(
-        isDark: isDark,
-        icon: Icons.movie_filter_outlined,
-        title: _searchQuery.isNotEmpty
-            ? 'No movies found'
-            : 'Your Watchlist is Empty',
-        subtitle: _searchQuery.isNotEmpty
-            ? 'Try searching for another movie title'
-            : 'Plan your next cinema date night with $partnerName. Tap "+ Add Movie" below.',
-        buttonText: 'Add to Watchlist',
-        onButtonTap: _openAddMovieModal,
+      return RefreshIndicator(
+        color: const Color(0xFFFF758C),
+        onRefresh: () => _refreshMovies(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.45,
+            child: _buildEmptyState(
+              isDark: isDark,
+              icon: Icons.movie_filter_outlined,
+              title: _searchQuery.isNotEmpty
+                  ? 'No movies found'
+                  : 'Your Watchlist is Empty',
+              subtitle: _searchQuery.isNotEmpty
+                  ? 'Try searching for another movie title'
+                  : 'Plan your next cinema date night with $partnerName. Tap "+ Add Movie" below.',
+              buttonText: 'Add to Watchlist',
+              onButtonTap: _openAddMovieModal,
+            ),
+          ),
+        ),
       );
     }
 
-    return ListView.builder(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        final movie = list[index];
-        return _buildWatchlistCard(movie, isDark);
-      },
+    return RefreshIndicator(
+      color: const Color(0xFFFF758C),
+      onRefresh: () => _refreshMovies(),
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
+        itemCount: list.length,
+        itemBuilder: (context, index) {
+          final movie = list[index];
+          return _buildWatchlistCard(movie, isDark);
+        },
+      ),
     );
   }
 
@@ -933,34 +1020,48 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   }
 
   // ----------------------------------------------------
-  // TAB 2: WATCHED TAB WITH DUAL RATINGS & DETAILS
+  // TAB 2: WATCHED TAB WITH DUAL RATINGS & DETAILS (WITH PULL-TO-REFRESH)
   // ----------------------------------------------------
   Widget _buildWatchedTab(bool isDark, String partnerName, String currentUserId) {
     final list = _watchedMovies;
 
     if (list.isEmpty) {
-      return _buildEmptyState(
-        isDark: isDark,
-        icon: Icons.local_movies_outlined,
-        title: _searchQuery.isNotEmpty
-            ? 'No watched movies match your search'
-            : 'No Watched Movies Yet',
-        subtitle: _searchQuery.isNotEmpty
-            ? 'Try another movie title or keyword'
-            : 'Record your first movie date with $partnerName and rate your favorites together.',
-        buttonText: 'Log Watched Movie',
-        onButtonTap: _openAddMovieModal,
+      return RefreshIndicator(
+        color: const Color(0xFFFF758C),
+        onRefresh: () => _refreshMovies(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.45,
+            child: _buildEmptyState(
+              isDark: isDark,
+              icon: Icons.local_movies_outlined,
+              title: _searchQuery.isNotEmpty
+                  ? 'No watched movies match your search'
+                  : 'No Watched Movies Yet',
+              subtitle: _searchQuery.isNotEmpty
+                  ? 'Try another movie title or keyword'
+                  : 'Record your first movie date with $partnerName and rate your favorites together.',
+              buttonText: 'Log Watched Movie',
+              onButtonTap: _openAddMovieModal,
+            ),
+          ),
+        ),
       );
     }
 
-    return ListView.builder(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        final movie = list[index];
-        return _buildWatchedCard(movie, isDark, partnerName, currentUserId);
-      },
+    return RefreshIndicator(
+      color: const Color(0xFFFF758C),
+      onRefresh: () => _refreshMovies(),
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
+        itemCount: list.length,
+        itemBuilder: (context, index) {
+          final movie = list[index];
+          return _buildWatchedCard(movie, isDark, partnerName, currentUserId);
+        },
+      ),
     );
   }
 
@@ -990,8 +1091,8 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
           boxShadow: [
             BoxShadow(
               color: isDark
-                ? Colors.black.withValues(alpha: 0.25)
-                : const Color(0xFFA18CD1).withValues(alpha: 0.08),
+                  ? Colors.black.withValues(alpha: 0.25)
+                  : const Color(0xFFA18CD1).withValues(alpha: 0.08),
               blurRadius: 14,
               offset: const Offset(0, 4),
             ),

@@ -2,18 +2,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/movie_model.dart';
+import '../../../models/movie_rating_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_movie_service.dart';
 import '../widgets/add_movie_sheet.dart';
 import '../widgets/mark_watched_sheet.dart';
 import '../widgets/movie_poster_widget.dart';
+import '../widgets/view_movie_details_sheet.dart';
 
 /// Senior Couples Movie Tracker & Watchlist Screen ("Cinema Diary")
-/// Refactored with clean minimalist typography, emoji-free UI,
-/// top fixed gradient header + Expanded TabBarView, and full editing support.
+/// Features a Dual Rating & Review System with Real-Time Auto-Sync,
+/// Partner Rating Flow, and Detailed Dual Review Modals.
 class MovieTrackerScreen extends StatefulWidget {
   const MovieTrackerScreen({super.key});
 
@@ -31,7 +34,10 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   String _searchQuery = '';
 
   StreamSubscription<List<MovieModel>>? _moviesSubscription;
+  StreamSubscription<List<MovieRatingModel>>? _ratingsSubscription;
+
   List<MovieModel> _allMovies = [];
+  List<MovieRatingModel> _allRatings = [];
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -49,13 +55,14 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initMoviesStream();
+      _initStreams();
     });
   }
 
   @override
   void dispose() {
     _moviesSubscription?.cancel();
+    _ratingsSubscription?.cancel();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -67,7 +74,14 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     return userProvider.coupleId ?? coupleProvider.couple?.id ?? '';
   }
 
-  void _initMoviesStream() {
+  String _getCurrentUserId(BuildContext context) {
+    final authId = Supabase.instance.client.auth.currentUser?.id;
+    if (authId != null && authId.isNotEmpty) return authId;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    return userProvider.user?.id ?? '';
+  }
+
+  void _initStreams() {
     final coupleId = _getCoupleId(context);
     if (coupleId.isEmpty) {
       setState(() {
@@ -78,8 +92,10 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     }
 
     _moviesSubscription?.cancel();
+    _ratingsSubscription?.cancel();
     setState(() => _isLoading = true);
 
+    // 1. Real-time Stream of Couple's Movies
     _moviesSubscription = _movieService.streamMovies(coupleId).listen(
       (movies) {
         if (!mounted) return;
@@ -96,31 +112,38 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
           _isLoading = false;
           _errorMessage = 'Unable to load cinema diary. Retrying...';
         });
-        _fetchMoviesFallback(coupleId);
+      },
+    );
+
+    // 2. Real-time Stream of Dual Ratings
+    _ratingsSubscription = _movieService.streamMovieRatings().listen(
+      (ratings) {
+        if (!mounted) return;
+        setState(() {
+          _allRatings = ratings;
+        });
+      },
+      onError: (error) {
+        debugPrint('Error streaming movie ratings: $error');
       },
     );
   }
 
-  Future<void> _fetchMoviesFallback(String coupleId) async {
-    try {
-      final movies = await _movieService.fetchMovies(coupleId);
-      if (!mounted) return;
-      setState(() {
-        _allMovies = movies;
-        _isLoading = false;
-        _errorMessage = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Failed to load movies. Please check your connection.';
-      });
+  /// Returns all movies with their corresponding ratings joined
+  List<MovieModel> get _moviesWithRatings {
+    final ratingsByMovie = <String, List<MovieRatingModel>>{};
+    for (final r in _allRatings) {
+      ratingsByMovie.putIfAbsent(r.movieId, () => []).add(r);
     }
+
+    return _allMovies.map((m) {
+      final movieRatings = ratingsByMovie[m.id] ?? [];
+      return m.copyWith(ratings: movieRatings);
+    }).toList();
   }
 
   List<MovieModel> get _watchlistMovies {
-    return _allMovies.where((m) {
+    return _moviesWithRatings.where((m) {
       final matchesStatus = m.status == 'watchlist';
       if (_searchQuery.isEmpty) return matchesStatus;
       final matchesSearch = m.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -130,7 +153,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   }
 
   List<MovieModel> get _watchedMovies {
-    return _allMovies.where((m) {
+    return _moviesWithRatings.where((m) {
       final matchesStatus = m.status == 'watched';
       if (_searchQuery.isEmpty) return matchesStatus;
       final matchesSearch = m.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -140,29 +163,67 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   }
 
   double get _averageRating {
-    final watchedWithRating = _allMovies
-        .where((m) => m.status == 'watched' && m.rating != null && m.rating! > 0)
-        .toList();
-    if (watchedWithRating.isEmpty) return 0.0;
-    final total = watchedWithRating.fold<int>(0, (sum, m) => sum + (m.rating ?? 0));
-    return total / watchedWithRating.length;
+    final watchedMovies = _moviesWithRatings.where((m) => m.status == 'watched').toList();
+    if (watchedMovies.isEmpty) return 0.0;
+
+    double total = 0.0;
+    int count = 0;
+
+    for (final m in watchedMovies) {
+      final avg = m.calculatedAverageRating;
+      if (avg != null && avg > 0) {
+        total += avg;
+        count++;
+      }
+    }
+
+    if (count == 0) return 0.0;
+    return total / count;
   }
 
   void _openAddMovieModal() {
     HapticFeedback.lightImpact();
     final coupleId = _getCoupleId(context);
+    final currentUserId = _getCurrentUserId(context);
     AddMovieSheet.show(
       context,
       coupleId: coupleId,
+      currentUserId: currentUserId,
       initialStatus: _selectedTabIndex == 0 ? 'watchlist' : 'watched',
     );
   }
 
-  void _openMarkWatchedModal(MovieModel movie) {
+  void _openRateMovieModal(MovieModel movie) {
     HapticFeedback.lightImpact();
+    final currentUserId = _getCurrentUserId(context);
+    final coupleProvider = context.read<CoupleProvider>();
+    final partner = coupleProvider.partner;
+    final partnerName = partner?.displayName.isNotEmpty == true
+        ? partner!.displayName
+        : 'Partner';
+
     MarkWatchedSheet.show(
       context,
       movie: movie,
+      currentUserId: currentUserId,
+      partnerName: partnerName,
+    );
+  }
+
+  void _openMovieDetailsModal(MovieModel movie) {
+    HapticFeedback.lightImpact();
+    final currentUserId = _getCurrentUserId(context);
+    final coupleProvider = context.read<CoupleProvider>();
+    final partner = coupleProvider.partner;
+    final partnerName = partner?.displayName.isNotEmpty == true
+        ? partner!.displayName
+        : 'Partner';
+
+    ViewMovieDetailsSheet.show(
+      context,
+      movie: movie,
+      currentUserId: currentUserId,
+      partnerName: partnerName,
     );
   }
 
@@ -232,6 +293,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final partnerName = partner?.displayName.isNotEmpty == true
         ? partner!.displayName
         : 'Your Partner';
+    final currentUserId = _getCurrentUserId(context);
 
     final watchlistCount = _allMovies.where((m) => m.status == 'watchlist').length;
     final watchedCount = _allMovies.where((m) => m.status == 'watched').length;
@@ -274,7 +336,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     // App Bar Row (Back Button + Title)
                     Row(
                       children: [
-                        // Romantic Blur Back Button
+                        // Back Button
                         InkWell(
                           onTap: () {
                             HapticFeedback.lightImpact();
@@ -579,14 +641,14 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         controller: _tabController,
                         children: [
                           _buildWatchlistTab(isDark, partnerName),
-                          _buildWatchedTab(isDark, partnerName),
+                          _buildWatchedTab(isDark, partnerName, currentUserId),
                         ],
                       ),
           ),
         ],
       ),
 
-      // Romantic Floating Action Button (+ Add Movie)
+      // Floating Action Button (+ Add Movie)
       floatingActionButton: Container(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -815,7 +877,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                   SizedBox(
                     height: 36,
                     child: ElevatedButton.icon(
-                      onPressed: () => _openMarkWatchedModal(movie),
+                      onPressed: () => _openRateMovieModal(movie),
                       icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
                       label: const Text(
                         'Mark as Watched',
@@ -842,9 +904,9 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   }
 
   // ----------------------------------------------------
-  // TAB 2: WATCHED TAB
+  // TAB 2: WATCHED TAB WITH DUAL RATINGS & DETAILS
   // ----------------------------------------------------
-  Widget _buildWatchedTab(bool isDark, String partnerName) {
+  Widget _buildWatchedTab(bool isDark, String partnerName, String currentUserId) {
     final list = _watchedMovies;
 
     if (list.isEmpty) {
@@ -856,7 +918,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
             : 'No Watched Movies Yet',
         subtitle: _searchQuery.isNotEmpty
             ? 'Try another movie title or keyword'
-            : 'Record your first movie date with $partnerName and rate your favorites.',
+            : 'Record your first movie date with $partnerName and rate your favorites together.',
         buttonText: 'Log Watched Movie',
         onButtonTap: _openAddMovieModal,
       );
@@ -868,182 +930,447 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       itemCount: list.length,
       itemBuilder: (context, index) {
         final movie = list[index];
-        return _buildWatchedCard(movie, isDark);
+        return _buildWatchedCard(movie, isDark, partnerName, currentUserId);
       },
     );
   }
 
-  Widget _buildWatchedCard(MovieModel movie, bool isDark) {
-    final rating = movie.rating ?? 5;
+  Widget _buildWatchedCard(
+    MovieModel movie,
+    bool isDark,
+    String partnerName,
+    String currentUserId,
+  ) {
+    final myRating = movie.getRatingForUser(currentUserId);
+    final partnerRating = movie.getPartnerRating(currentUserId);
+    final calculatedAvg = movie.calculatedAverageRating;
+    final hasUserRated = myRating != null;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E162B) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : const Color(0xFFA18CD1).withValues(alpha: 0.2),
-        ),
-        boxShadow: [
-          BoxShadow(
+    return InkWell(
+      onTap: () => _openMovieDetailsModal(movie),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E162B) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
             color: isDark
-                ? Colors.black.withValues(alpha: 0.25)
-                : const Color(0xFFA18CD1).withValues(alpha: 0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFA18CD1).withValues(alpha: 0.2),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Movie Poster
-            MoviePosterWidget(
-              posterUrl: movie.posterUrl,
-              width: 76,
-              height: 108,
-              borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.25)
+                  : const Color(0xFFA18CD1).withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
             ),
-            const SizedBox(width: 14),
-
-            // Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Movie Poster with Average Score Badge
+              Column(
                 children: [
-                  // Title & Menu
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          movie.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : const Color(0xFF2D4059),
-                          ),
-                        ),
+                  MoviePosterWidget(
+                    posterUrl: movie.posterUrl,
+                    width: 76,
+                    height: 108,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  if (calculatedAvg != null) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      PopupMenuButton<String>(
-                        padding: EdgeInsets.zero,
-                        icon: Icon(
-                          Icons.more_vert_rounded,
-                          size: 18,
-                          color: isDark ? Colors.white54 : Colors.grey.shade500,
-                        ),
-                        onSelected: (val) {
-                          if (val == 'edit') {
-                            _openMarkWatchedModal(movie);
-                          } else if (val == 'delete') {
-                            _confirmDeleteMovie(movie);
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit_note_rounded, color: Color(0xFFFF758C), size: 18),
-                                SizedBox(width: 8),
-                                Text('Edit Review'),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete_outline, color: AppColors.error, size: 18),
-                                SizedBox(width: 8),
-                                Text('Remove', style: TextStyle(color: AppColors.error)),
-                              ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.favorite, color: Color(0xFFFF4081), size: 12),
+                          const SizedBox(width: 3),
+                          Text(
+                            calculatedAvg.toStringAsFixed(1),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFFF4081),
                             ),
                           ),
                         ],
-                      ),
-                    ],
-                  ),
-
-                  // Pink Hearts Rating
-                  Row(
-                    children: List.generate(5, (index) {
-                      final isFilled = index < rating;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 3),
-                        child: Icon(
-                          isFilled ? Icons.favorite : Icons.favorite_border,
-                          color: isFilled
-                              ? const Color(0xFFFF4081)
-                              : Colors.grey.shade400,
-                          size: 16,
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Watched Date (Only shown if watchedDate is NOT null)
-                  if (movie.watchedDate != null) ...[
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.event_available_rounded,
-                          size: 13,
-                          color: Color(0xFFA18CD1),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Watched on ${movie.formattedWatchedDate}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? const Color(0xFFA18CD1) : const Color(0xFF7E57C2),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-
-                  // Notes / Review Bubble (Emoji-free)
-                  if (movie.notes != null && movie.notes!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.05)
-                            : const Color(0xFFFF758C).withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : const Color(0xFFFF758C).withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Text(
-                        '"${movie.notes!}"',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontStyle: FontStyle.italic,
-                          color: isDark ? Colors.white70 : const Color(0xFF4A4A4A),
-                        ),
                       ),
                     ),
                   ],
                 ],
               ),
+              const SizedBox(width: 14),
+
+              // Details & Dual Partner Ratings
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title & Menu Row
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            movie.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF2D4059),
+                            ),
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          icon: Icon(
+                            Icons.more_vert_rounded,
+                            size: 18,
+                            color: isDark ? Colors.white54 : Colors.grey.shade500,
+                          ),
+                          onSelected: (val) {
+                            if (val == 'rate') {
+                              _openRateMovieModal(movie);
+                            } else if (val == 'view') {
+                              _openMovieDetailsModal(movie);
+                            } else if (val == 'delete') {
+                              _confirmDeleteMovie(movie);
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              value: 'view',
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.visibility_rounded, color: Color(0xFFA18CD1), size: 18),
+                                  SizedBox(width: 8),
+                                  Text('View Details'),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'rate',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.edit_note_rounded, color: Color(0xFFFF758C), size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(hasUserRated ? 'Edit My Rating' : 'Add My Rating'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline, color: AppColors.error, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Remove', style: TextStyle(color: AppColors.error)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    // Watched Date (Only shown if watchedDate is NOT null)
+                    if (movie.watchedDate != null) ...[
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.event_available_rounded,
+                            size: 12,
+                            color: Color(0xFFA18CD1),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Watched on ${movie.formattedWatchedDate}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? const Color(0xFFA18CD1) : const Color(0xFF7E57C2),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ] else ...[
+                      const SizedBox(height: 4),
+                    ],
+
+                    // ----------------------------------------------------
+                    // DUAL RATING SECTION
+                    // ----------------------------------------------------
+                    // 1. Current User Rating
+                    _buildUserRatingRow(
+                      label: 'You',
+                      ratingModel: myRating,
+                      fallbackRating: movie.rating,
+                      fallbackNotes: movie.notes,
+                      isDark: isDark,
+                      onTapRate: () => _openRateMovieModal(movie),
+                    ),
+                    const SizedBox(height: 6),
+
+                    // 2. Partner Rating
+                    _buildPartnerRatingRow(
+                      partnerName: partnerName,
+                      ratingModel: partnerRating,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 3. User Specific Rating Button (Add My Rating vs View / Edit My Rating)
+                    SizedBox(
+                      height: 34,
+                      child: hasUserRated
+                          ? OutlinedButton.icon(
+                              onPressed: () => _openMovieDetailsModal(movie),
+                              icon: const Icon(Icons.edit_note_rounded, size: 16),
+                              label: const Text(
+                                'View / Edit My Rating',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFFF758C),
+                                side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            )
+                          : ElevatedButton.icon(
+                              onPressed: () => _openRateMovieModal(movie),
+                              icon: const Icon(Icons.favorite_rounded, size: 15),
+                              label: const Text(
+                                'Add My Rating',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFF758C),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Current User Rating Row
+  Widget _buildUserRatingRow({
+    required String label,
+    required MovieRatingModel? ratingModel,
+    required int? fallbackRating,
+    required String? fallbackNotes,
+    required bool isDark,
+    required VoidCallback onTapRate,
+  }) {
+    final effectiveRating = ratingModel?.rating ?? fallbackRating;
+    final effectiveNotes = ratingModel?.notes ?? (ratingModel == null ? fallbackNotes : null);
+
+    if (effectiveRating == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.02)
+              : const Color(0xFFFF758C).withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.star_outline_rounded,
+              size: 13,
+              color: isDark ? Colors.white38 : Colors.grey.shade500,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              "You haven't rated this movie yet",
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? Colors.white38 : Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ],
         ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : const Color(0xFFFF758C).withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFFFF758C).withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '$label: ',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFFF758C),
+                ),
+              ),
+              Row(
+                children: List.generate(5, (i) {
+                  final isFilled = i < effectiveRating;
+                  return Icon(
+                    isFilled ? Icons.favorite : Icons.favorite_border,
+                    size: 13,
+                    color: isFilled ? const Color(0xFFFF4081) : Colors.grey.shade400,
+                  );
+                }),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: onTapRate,
+                child: const Icon(
+                  Icons.edit_outlined,
+                  size: 14,
+                  color: Color(0xFFFF758C),
+                ),
+              ),
+            ],
+          ),
+          if (effectiveNotes != null && effectiveNotes.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              '"$effectiveNotes"',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Partner Rating Row
+  Widget _buildPartnerRatingRow({
+    required String partnerName,
+    required MovieRatingModel? ratingModel,
+    required bool isDark,
+  }) {
+    if (ratingModel == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.02)
+              : const Color(0xFFA18CD1).withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.hourglass_empty_rounded,
+              size: 13,
+              color: isDark ? Colors.white38 : Colors.grey.shade500,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Waiting for $partnerName to rate',
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? Colors.white38 : Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : const Color(0xFFA18CD1).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFFA18CD1).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '$partnerName: ',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFA18CD1),
+                ),
+              ),
+              Row(
+                children: List.generate(5, (i) {
+                  final isFilled = i < ratingModel.rating;
+                  return Icon(
+                    isFilled ? Icons.favorite : Icons.favorite_border,
+                    size: 13,
+                    color: isFilled ? const Color(0xFFFF4081) : Colors.grey.shade400,
+                  );
+                }),
+              ),
+            ],
+          ),
+          if (ratingModel.notes != null && ratingModel.notes!.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              '"${ratingModel.notes!}"',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1146,7 +1473,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _initMoviesStream,
+              onPressed: _initStreams,
               child: const Text('Try Again'),
             ),
           ],

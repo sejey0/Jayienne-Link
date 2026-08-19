@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'movie_rating_model.dart';
 
 /// PostgreSQL-compatible MovieModel for Supabase `movies` table in Jayienne Link
 class MovieModel {
@@ -7,11 +8,12 @@ class MovieModel {
   final String title;
   final String? posterUrl;
   final String status; // 'watchlist' or 'watched'
-  final int? rating; // 1 to 5 (Heart rating)
-  final String? notes;
+  final int? rating; // Legacy fallback single rating
+  final String? notes; // Legacy fallback notes
   final DateTime? watchedDate;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final List<MovieRatingModel> ratings; // Dual Partner Ratings
 
   const MovieModel({
     this.id,
@@ -24,6 +26,7 @@ class MovieModel {
     this.watchedDate,
     required this.createdAt,
     this.updatedAt,
+    this.ratings = const [],
   });
 
   bool get isWatched => status == 'watched';
@@ -38,7 +41,37 @@ class MovieModel {
     return DateFormat('MMM d, yyyy').format(createdAt.toLocal());
   }
 
-  factory MovieModel.fromJson(Map<String, dynamic> json) {
+  /// Calculates average rating across all partner ratings, falling back to legacy single rating
+  double? get calculatedAverageRating {
+    if (ratings.isNotEmpty) {
+      final total = ratings.fold<int>(0, (sum, r) => sum + r.rating);
+      return total / ratings.length;
+    }
+    if (rating != null && rating! > 0) {
+      return rating!.toDouble();
+    }
+    return null;
+  }
+
+  /// Gets the rating submitted by the specified user
+  MovieRatingModel? getRatingForUser(String userId) {
+    try {
+      return ratings.firstWhere((r) => r.userId == userId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Gets the partner's rating (any rating not belonging to myUserId)
+  MovieRatingModel? getPartnerRating(String myUserId) {
+    try {
+      return ratings.firstWhere((r) => r.userId != myUserId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  factory MovieModel.fromJson(Map<String, dynamic> json, {List<MovieRatingModel> ratings = const []}) {
     DateTime parseDateTime(dynamic value, DateTime fallback) {
       if (value == null) return fallback;
       if (value is DateTime) return value;
@@ -70,6 +103,7 @@ class MovieModel {
       watchedDate: parseNullableDateTime(json['watched_date']),
       createdAt: parseDateTime(json['created_at'], DateTime.now()),
       updatedAt: parseNullableDateTime(json['updated_at']),
+      ratings: ratings,
     );
   }
 
@@ -99,6 +133,7 @@ class MovieModel {
     DateTime? watchedDate,
     DateTime? createdAt,
     DateTime? updatedAt,
+    List<MovieRatingModel>? ratings,
   }) {
     return MovieModel(
       id: id ?? this.id,
@@ -111,6 +146,7 @@ class MovieModel {
       watchedDate: watchedDate ?? this.watchedDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      ratings: ratings ?? this.ratings,
     );
   }
 }

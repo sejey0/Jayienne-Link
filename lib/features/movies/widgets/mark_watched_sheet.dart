@@ -6,21 +6,27 @@ import '../../../models/movie_model.dart';
 import '../../../services/supabase_movie_service.dart';
 import 'movie_poster_widget.dart';
 
-/// Bottom sheet allowing couples to review, rate with pink hearts,
-/// set optional watched dates, and mark as watched or edit existing reviews.
+/// Bottom sheet allowing a partner to submit or edit their individual rating & review,
+/// set optional watched dates, and mark the movie as watched in real-time.
 class MarkWatchedSheet extends StatefulWidget {
   final MovieModel movie;
+  final String currentUserId;
+  final String partnerName;
   final VoidCallback? onMovieUpdated;
 
   const MarkWatchedSheet({
     super.key,
     required this.movie,
+    required this.currentUserId,
+    required this.partnerName,
     this.onMovieUpdated,
   });
 
   static Future<void> show(
     BuildContext context, {
     required MovieModel movie,
+    required String currentUserId,
+    required String partnerName,
     VoidCallback? onMovieUpdated,
   }) {
     return showModalBottomSheet<void>(
@@ -29,6 +35,8 @@ class MarkWatchedSheet extends StatefulWidget {
       backgroundColor: Colors.transparent,
       builder: (context) => MarkWatchedSheet(
         movie: movie,
+        currentUserId: currentUserId,
+        partnerName: partnerName,
         onMovieUpdated: onMovieUpdated,
       ),
     );
@@ -49,8 +57,9 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
   @override
   void initState() {
     super.initState();
-    _notesController = TextEditingController(text: widget.movie.notes ?? '');
-    _selectedRating = widget.movie.rating ?? 5;
+    final myRating = widget.movie.getRatingForUser(widget.currentUserId);
+    _selectedRating = myRating?.rating ?? widget.movie.rating ?? 5;
+    _notesController = TextEditingController(text: myRating?.notes ?? widget.movie.notes ?? '');
     _selectedDate = widget.movie.watchedDate;
   }
 
@@ -93,30 +102,29 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
   }
 
   Future<void> _submit() async {
-    if (widget.movie.id == null) return;
+    if (widget.movie.id == null || widget.currentUserId.isEmpty) return;
 
     setState(() => _isSubmitting = true);
     HapticFeedback.mediumImpact();
 
     try {
-      final updatedMovie = widget.movie.copyWith(
-        status: 'watched',
+      await _movieService.markAsWatchedWithRating(
+        movieId: widget.movie.id!,
+        userId: widget.currentUserId,
         rating: _selectedRating,
         watchedDate: _selectedDate,
         notes: _notesController.text.trim().isNotEmpty
             ? _notesController.text.trim()
             : null,
-        updatedAt: DateTime.now(),
       );
-
-      await _movieService.updateMovie(updatedMovie);
 
       if (!mounted) return;
 
       widget.onMovieUpdated?.call();
       Navigator.pop(context);
 
-      final isEdit = widget.movie.isWatched;
+      final hasExistingRating =
+          widget.movie.getRatingForUser(widget.currentUserId) != null;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -125,9 +133,9 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  isEdit
-                      ? 'Updated review for "${widget.movie.title}"'
-                      : 'Marked "${widget.movie.title}" as watched',
+                  hasExistingRating
+                      ? 'Updated your rating for "${widget.movie.title}"'
+                      : 'Saved your rating for "${widget.movie.title}"',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -148,7 +156,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to update movie: $e'),
+          content: Text('Failed to update rating: $e'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -160,7 +168,9 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final isEdit = widget.movie.isWatched;
+    final partnerRating = widget.movie.getPartnerRating(widget.currentUserId);
+    final hasMyExistingRating =
+        widget.movie.getRatingForUser(widget.currentUserId) != null;
 
     return Container(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -208,7 +218,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(
-                      isEdit ? Icons.edit_note_rounded : Icons.movie_filter_rounded,
+                      hasMyExistingRating ? Icons.edit_note_rounded : Icons.star_rounded,
                       color: Colors.white,
                       size: 22,
                     ),
@@ -219,7 +229,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isEdit ? 'Edit Movie Review' : 'Movie Review',
+                          hasMyExistingRating ? 'Edit Your Rating' : 'Rate & Review',
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 20,
@@ -227,9 +237,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                               ),
                         ),
                         Text(
-                          isEdit
-                              ? 'Update your rating and thoughts'
-                              : 'Log your thoughts and rating',
+                          'Your personal thoughts and score',
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.white70 : Colors.grey.shade600,
@@ -286,13 +294,13 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                           Row(
                             children: [
                               const Icon(
-                                Icons.bookmark_added_rounded,
+                                Icons.movie_rounded,
                                 size: 14,
                                 color: Color(0xFFFF758C),
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                isEdit ? 'Editing Watched Movie' : 'Adding to Watched Diary',
+                                widget.movie.isWatched ? 'Watched Movie' : 'Watchlist Entry',
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFFFF758C),
@@ -307,11 +315,89 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                   ],
                 ),
               ),
+
+              // Partner Rating Insight Banner (if partner already rated)
+              if (partnerRating != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
+                        : const Color(0xFFA18CD1).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFA18CD1).withValues(alpha: 0.25),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.favorite,
+                          size: 16,
+                          color: Color(0xFFA18CD1),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  "${widget.partnerName}'s Rating:",
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : const Color(0xFF2D4059),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Row(
+                                  children: List.generate(5, (index) {
+                                    final isFilled = index < partnerRating.rating;
+                                    return Icon(
+                                      isFilled ? Icons.favorite : Icons.favorite_border,
+                                      size: 13,
+                                      color: isFilled
+                                          ? const Color(0xFFFF4081)
+                                          : Colors.grey.shade400,
+                                    );
+                                  }),
+                                ),
+                              ],
+                            ),
+                            if (partnerRating.notes != null && partnerRating.notes!.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                '"${partnerRating.notes!}"',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontStyle: FontStyle.italic,
+                                  color: isDark ? Colors.white70 : Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
 
               // Heart Rating Picker
               Text(
-                'Heart Rating',
+                'Your Rating',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -440,7 +526,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
 
               // Notes / Review Text Area
               Text(
-                'Notes & Reviews (Optional)',
+                'Your Review & Notes (Optional)',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -529,7 +615,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                               const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
                               const SizedBox(width: 8),
                               Text(
-                                isEdit ? 'Save Changes' : 'Save to Watched Diary',
+                                hasMyExistingRating ? 'Update Your Rating' : 'Save Your Rating',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,

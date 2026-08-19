@@ -11,12 +11,14 @@ import 'movie_poster_widget.dart';
 /// Modal bottom sheet for adding a new movie to either Watchlist or Watched history
 class AddMovieSheet extends StatefulWidget {
   final String coupleId;
+  final String currentUserId;
   final String initialStatus; // 'watchlist' or 'watched'
   final VoidCallback? onMovieAdded;
 
   const AddMovieSheet({
     super.key,
     required this.coupleId,
+    this.currentUserId = '',
     this.initialStatus = 'watchlist',
     this.onMovieAdded,
   });
@@ -24,6 +26,7 @@ class AddMovieSheet extends StatefulWidget {
   static Future<void> show(
     BuildContext context, {
     required String coupleId,
+    String currentUserId = '',
     String initialStatus = 'watchlist',
     VoidCallback? onMovieAdded,
   }) {
@@ -33,6 +36,7 @@ class AddMovieSheet extends StatefulWidget {
       backgroundColor: Colors.transparent,
       builder: (context) => AddMovieSheet(
         coupleId: coupleId,
+        currentUserId: currentUserId,
         initialStatus: initialStatus,
         onMovieAdded: onMovieAdded,
       ),
@@ -183,7 +187,21 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
         createdAt: DateTime.now(),
       );
 
-      await _movieService.addMovie(newMovie);
+      final createdMovie = await _movieService.addMovie(newMovie);
+
+      // If added as watched and user ID is available, create the partner's rating entry
+      if (_status == 'watched' &&
+          createdMovie?.id != null &&
+          widget.currentUserId.isNotEmpty) {
+        await _movieService.upsertRating(
+          movieId: createdMovie!.id!,
+          userId: widget.currentUserId,
+          rating: _rating,
+          notes: _notesController.text.trim().isNotEmpty
+              ? _notesController.text.trim()
+              : null,
+        );
+      }
 
       if (!mounted) return;
 
@@ -673,7 +691,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                 // If Watched: Show Rating & Watched Date (Optional)
                 if (_status == 'watched') ...[
                   Text(
-                    'Heart Rating',
+                    'Your Rating',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -803,7 +821,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                 // Review Notes
                 Text(
                   _status == 'watched'
-                      ? 'Review & Notes (Optional)'
+                      ? 'Your Review & Notes (Optional)'
                       : 'Notes (Optional)',
                   style: TextStyle(
                     fontSize: 14,

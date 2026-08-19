@@ -793,9 +793,49 @@ EXCEPTION
 END $$;
 
 -- =====================================================
+-- MOVIE RATINGS (DUAL PARTNER RATING SYSTEM)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS public.movie_ratings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    movie_id UUID NOT NULL REFERENCES public.movies(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+    notes TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(movie_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_movie_ratings_movie_id ON public.movie_ratings(movie_id);
+CREATE INDEX IF NOT EXISTS idx_movie_ratings_user_id ON public.movie_ratings(user_id);
+
+ALTER TABLE public.movie_ratings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow couples to read ratings" ON public.movie_ratings;
+CREATE POLICY "Allow couples to read ratings" ON public.movie_ratings
+    FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Users can only insert/update their own rating" ON public.movie_ratings;
+CREATE POLICY "Users can only insert/update their own rating" ON public.movie_ratings
+    FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'movie_ratings'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.movie_ratings;
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END $$;
+
+-- =====================================================
 -- PERMISSIONS
 -- =====================================================
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+
 

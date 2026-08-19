@@ -5,11 +5,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as path;
 import 'package:image/image.dart' as img;
 import '../models/movie_model.dart';
+import '../models/movie_rating_model.dart';
 import 'supabase_data_service.dart';
 
 /// Service for managing couple's movies and cinema diary in Supabase
 class SupabaseMovieService {
   static const String _tableName = 'movies';
+  static const String _ratingsTableName = 'movie_ratings';
   static const String _storageBucket = 'movie-posters';
   static const String _fallbackStorageBucket = 'chat-photos';
 
@@ -36,6 +38,21 @@ class SupabaseMovieService {
     }
   }
 
+  /// Stream all partner ratings with real-time auto-sync
+  Stream<List<MovieRatingModel>> streamMovieRatings() {
+    try {
+      return _supabase
+          .from(_ratingsTableName)
+          .stream(primaryKey: ['id'])
+          .map((data) {
+            return data.map((json) => MovieRatingModel.fromJson(json)).toList();
+          });
+    } catch (e) {
+      debugPrint('Error initiating real-time movie ratings stream: $e');
+      return Stream.value([]);
+    }
+  }
+
   /// Single fetch of all movies for a given couple
   Future<List<MovieModel>> fetchMovies(String coupleId) async {
     if (coupleId.isEmpty) return [];
@@ -55,13 +72,42 @@ class SupabaseMovieService {
     }
   }
 
+  /// Single fetch of ratings for a list of movie IDs
+  Future<List<MovieRatingModel>> fetchMovieRatings(List<String> movieIds) async {
+    if (movieIds.isEmpty) return [];
+
+    try {
+      final response = await _supabase
+          .from(_ratingsTableName)
+          .select()
+          .inFilter('movie_id', movieIds);
+
+      final records = List<Map<String, dynamic>>.from(response);
+      return records.map((json) => MovieRatingModel.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('Error fetching movie ratings: $e');
+      return [];
+    }
+  }
+
   /// Add a new movie to Watchlist or Watched history
   Future<MovieModel?> addMovie(MovieModel movie) async {
     try {
-      final data = movie.toJson();
-      // Remove id if it's null so Postgres generates uuid
-      if (movie.id == null || movie.id!.isEmpty) {
-        data.remove('id');
+      final data = <String, dynamic>{
+        'couple_id': movie.coupleId,
+        'title': movie.title,
+        if (movie.posterUrl != null && movie.posterUrl!.isNotEmpty)
+          'poster_url': movie.posterUrl,
+        'status': movie.status,
+        if (movie.rating != null) 'rating': movie.rating,
+        if (movie.notes != null && movie.notes!.isNotEmpty) 'notes': movie.notes,
+        if (movie.watchedDate != null)
+          'watched_date': movie.watchedDate!.toIso8601String(),
+        'created_at': movie.createdAt.toIso8601String(),
+      };
+
+      if (movie.id != null && movie.id!.isNotEmpty) {
+        data['id'] = movie.id;
       }
 
       final response = await _supabase
@@ -77,56 +123,123 @@ class SupabaseMovieService {
     }
   }
 
-  /// Update an existing movie entry
+  /// Update an existing movie entry with updated_at safeguards
   Future<void> updateMovie(MovieModel movie) async {
     if (movie.id == null || movie.id!.isEmpty) {
       throw Exception('Movie ID is required for update');
     }
 
     try {
-      final data = movie.toJson();
-      data['updated_at'] = DateTime.now().toIso8601String();
+      final data = <String, dynamic>{
+        'couple_id': movie.coupleId,
+        'title': movie.title,
+        'poster_url': movie.posterUrl,
+        'status': movie.status,
+        'rating': movie.rating,
+        'notes': movie.notes,
+        'watched_date': movie.watchedDate?.toIso8601String(),
+      };
 
-      await _supabase
-          .from(_tableName)
-          .update(data)
-          .eq('id', movie.id!);
+      try {
+        await _supabase
+            .from(_tableName)
+            .update({
+              ...data,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', movie.id!);
+      } catch (colErr) {
+        debugPrint('Updating movie with updated_at failed, retrying without updated_at: $colErr');
+        await _supabase
+            .from(_tableName)
+            .update(data)
+            .eq('id', movie.id!);
+      }
     } catch (e) {
       debugPrint('Error updating movie: $e');
       rethrow;
     }
   }
 
-  /// Mark a movie as watched with ratings, date, and review notes
-  Future<void> markAsWatched({
+  /// Upsert a specific partner's rating and review in `movie_ratings` with updated_at safeguards
+  Future<void> upsertRating({
     required String movieId,
+    required String userId,
     required int rating,
-    required DateTime watchedDate,
     String? notes,
   }) async {
     try {
-      final updateData = <String, dynamic>{
-        'status': 'watched',
+      final ratingData = <String, dynamic>{
+        'movie_id': movieId,
+        'user_id': userId,
         'rating': rating,
-        'watched_date': watchedDate.toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
+        'notes': notes?.trim(),
       };
 
-      if (notes != null && notes.trim().isNotEmpty) {
-        updateData['notes'] = notes.trim();
+      try {
+        await _supabase
+            .from(_ratingsTableName)
+            .upsert({
+              ...ratingData,
+              'updated_at': DateTime.now().toIso8601String(),
+            }, onConflict: 'movie_id,user_id');
+      } catch (colErr) {
+        debugPrint('Upserting rating with updated_at failed, retrying without: $colErr');
+        await _supabase
+            .from(_ratingsTableName)
+            .upsert(ratingData, onConflict: 'movie_id,user_id');
       }
-
-      await _supabase
-          .from(_tableName)
-          .update(updateData)
-          .eq('id', movieId);
     } catch (e) {
-      debugPrint('Error marking movie as watched: $e');
+      debugPrint('Error upserting movie rating: $e');
       rethrow;
     }
   }
 
-  /// Delete a movie from the cinema diary
+  /// Mark a movie as watched and save the user's personal rating & review with updated_at safeguards
+  Future<void> markAsWatchedWithRating({
+    required String movieId,
+    required String userId,
+    required int rating,
+    DateTime? watchedDate,
+    String? notes,
+  }) async {
+    try {
+      // 1. Update movie status & watched date safely
+      final updateData = <String, dynamic>{
+        'status': 'watched',
+        'watched_date': watchedDate?.toIso8601String(),
+      };
+
+      try {
+        await _supabase
+            .from(_tableName)
+            .update({
+              ...updateData,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', movieId);
+      } catch (colErr) {
+        debugPrint('Failed to set updated_at on movie, retrying without: $colErr');
+        await _supabase
+            .from(_tableName)
+            .update(updateData)
+            .eq('id', movieId);
+      }
+
+      // 2. Upsert the partner's rating
+      await upsertRating(
+        movieId: movieId,
+        userId: userId,
+        rating: rating,
+        notes: notes,
+      );
+    } catch (e) {
+      debugPrint('Error marking movie as watched with rating: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete a movie and its cascade ratings from the cinema diary
   Future<void> deleteMovie(String movieId) async {
     try {
       await _supabase
@@ -154,7 +267,6 @@ class SupabaseMovieService {
       final fileName = 'movie_${coupleId}_$timestamp${fileExtension.isEmpty ? '.jpg' : fileExtension}';
 
       try {
-        // Try uploading to movie-posters or fallback bucket
         await _supabase.storage
             .from(_storageBucket)
             .uploadBinary(
@@ -183,7 +295,6 @@ class SupabaseMovieService {
 
           return _supabase.storage.from(_fallbackStorageBucket).getPublicUrl(fileName);
         } catch (_) {
-          // If storage bucket is not configured or blocked by RLS, use Base64 data URI
           debugPrint('Using Base64 encoding fallback for movie poster');
           final base64String = base64Encode(optimizedBytes);
           return 'data:image/jpeg;base64,$base64String';
@@ -191,7 +302,6 @@ class SupabaseMovieService {
       }
     } catch (e) {
       debugPrint('Error uploading poster: $e');
-      // Read bytes and encode as Base64 fallback
       try {
         final bytes = await imageFile.readAsBytes();
         final optimized = await _optimizePosterImage(bytes);
@@ -208,7 +318,6 @@ class SupabaseMovieService {
       final image = img.decodeImage(imageBytes);
       if (image == null) return imageBytes;
 
-      // Posters look best around 600x900 or max width 600
       img.Image resized = image;
       if (image.width > 600 || image.height > 900) {
         resized = img.copyResize(

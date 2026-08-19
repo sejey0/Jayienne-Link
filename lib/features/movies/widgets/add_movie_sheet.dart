@@ -8,11 +8,12 @@ import '../../../models/movie_model.dart';
 import '../../../services/supabase_movie_service.dart';
 import 'movie_poster_widget.dart';
 
-/// Modal bottom sheet for adding a new movie to either Watchlist or Watched history
+/// Modal bottom sheet for adding or editing movie details (Title, Poster, Status, Watched Date)
 class AddMovieSheet extends StatefulWidget {
   final String coupleId;
   final String currentUserId;
   final String initialStatus; // 'watchlist' or 'watched'
+  final MovieModel? movieToEdit;
   final VoidCallback? onMovieAdded;
 
   const AddMovieSheet({
@@ -20,6 +21,7 @@ class AddMovieSheet extends StatefulWidget {
     required this.coupleId,
     this.currentUserId = '',
     this.initialStatus = 'watchlist',
+    this.movieToEdit,
     this.onMovieAdded,
   });
 
@@ -28,6 +30,7 @@ class AddMovieSheet extends StatefulWidget {
     required String coupleId,
     String currentUserId = '',
     String initialStatus = 'watchlist',
+    MovieModel? movieToEdit,
     VoidCallback? onMovieAdded,
   }) {
     return showModalBottomSheet<void>(
@@ -38,6 +41,7 @@ class AddMovieSheet extends StatefulWidget {
         coupleId: coupleId,
         currentUserId: currentUserId,
         initialStatus: initialStatus,
+        movieToEdit: movieToEdit,
         onMovieAdded: onMovieAdded,
       ),
     );
@@ -64,13 +68,22 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
   bool _isSaving = false;
   int _posterInputMode = 0; // 0: Gallery pick, 1: Poster URL
 
+  bool get _isEditMode => widget.movieToEdit != null;
+
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController();
-    _posterUrlController = TextEditingController();
-    _notesController = TextEditingController();
-    _status = widget.initialStatus;
+    final editMovie = widget.movieToEdit;
+    _titleController = TextEditingController(text: editMovie?.title ?? '');
+    _posterUrlController = TextEditingController(text: editMovie?.posterUrl ?? '');
+    _notesController = TextEditingController(text: editMovie?.notes ?? '');
+    _status = editMovie?.status ?? widget.initialStatus;
+    _watchedDate = editMovie?.watchedDate;
+    _rating = editMovie?.rating ?? 5;
+
+    if (editMovie?.posterUrl != null && editMovie!.posterUrl!.startsWith('http')) {
+      _posterInputMode = 1;
+    }
   }
 
   @override
@@ -147,7 +160,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
       return;
     }
 
-    if (widget.coupleId.isEmpty) {
+    if (widget.coupleId.isEmpty && !_isEditMode) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Couple profile not found. Please ensure you are linked.'),
@@ -166,7 +179,9 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
       if (_selectedImageFile != null) {
         setState(() => _isUploadingPoster = true);
         finalPosterUrl = await _movieService.uploadMoviePoster(
-          widget.coupleId,
+          widget.coupleId.isNotEmpty
+              ? widget.coupleId
+              : (widget.movieToEdit?.coupleId ?? 'shared'),
           _selectedImageFile!,
         );
         setState(() => _isUploadingPoster = false);
@@ -174,66 +189,113 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
         finalPosterUrl = _posterUrlController.text.trim();
       }
 
-      final newMovie = MovieModel(
-        coupleId: widget.coupleId,
-        title: _titleController.text.trim(),
-        posterUrl: finalPosterUrl,
-        status: _status,
-        rating: _status == 'watched' ? _rating : null,
-        notes: _notesController.text.trim().isNotEmpty
-            ? _notesController.text.trim()
-            : null,
-        watchedDate: _status == 'watched' ? _watchedDate : null,
-        createdAt: DateTime.now(),
-      );
-
-      final createdMovie = await _movieService.addMovie(newMovie);
-
-      // If added as watched and user ID is available, create the partner's rating entry
-      if (_status == 'watched' &&
-          createdMovie?.id != null &&
-          widget.currentUserId.isNotEmpty) {
-        await _movieService.upsertRating(
-          movieId: createdMovie!.id!,
-          userId: widget.currentUserId,
-          rating: _rating,
+      if (_isEditMode) {
+        // Update existing movie
+        final updatedMovie = widget.movieToEdit!.copyWith(
+          title: _titleController.text.trim(),
+          posterUrl: finalPosterUrl ?? widget.movieToEdit!.posterUrl,
+          status: _status,
+          watchedDate: _watchedDate,
           notes: _notesController.text.trim().isNotEmpty
               ? _notesController.text.trim()
               : null,
+          updatedAt: DateTime.now(),
         );
-      }
 
-      if (!mounted) return;
+        await _movieService.updateMovie(updatedMovie);
 
-      widget.onMovieAdded?.call();
-      Navigator.pop(context);
+        if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  _status == 'watched'
-                      ? 'Added "${newMovie.title}" to Watched Diary'
-                      : 'Added "${newMovie.title}" to Watchlist',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+        widget.onMovieAdded?.call();
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Updated "${updatedMovie.title}" details',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
+            backgroundColor: const Color(0xFFFF758C),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
-          backgroundColor: const Color(0xFFFF758C),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        );
+      } else {
+        // Create new movie
+        final newMovie = MovieModel(
+          coupleId: widget.coupleId,
+          title: _titleController.text.trim(),
+          posterUrl: finalPosterUrl,
+          status: _status,
+          rating: _status == 'watched' ? _rating : null,
+          notes: _notesController.text.trim().isNotEmpty
+              ? _notesController.text.trim()
+              : null,
+          watchedDate: _status == 'watched' ? _watchedDate : null,
+          createdAt: DateTime.now(),
+        );
+
+        final createdMovie = await _movieService.addMovie(newMovie);
+
+        // If added as watched and user ID is available, create the user's rating entry
+        if (_status == 'watched' &&
+            createdMovie?.id != null &&
+            widget.currentUserId.isNotEmpty) {
+          await _movieService.upsertRating(
+            movieId: createdMovie!.id!,
+            userId: widget.currentUserId,
+            rating: _rating,
+            notes: _notesController.text.trim().isNotEmpty
+                ? _notesController.text.trim()
+                : null,
+          );
+        }
+
+        if (!mounted) return;
+
+        widget.onMovieAdded?.call();
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _status == 'watched'
+                        ? 'Added "${newMovie.title}" to Watched Diary'
+                        : 'Added "${newMovie.title}" to Watchlist',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFFFF758C),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
-        ),
-      );
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -306,8 +368,10 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                         ),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(
-                        Icons.add_to_photos_rounded,
+                      child: Icon(
+                        _isEditMode
+                            ? Icons.edit_note_rounded
+                            : Icons.add_to_photos_rounded,
                         color: Colors.white,
                         size: 22,
                       ),
@@ -318,7 +382,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Add New Movie',
+                            _isEditMode ? 'Edit Movie Details' : 'Add New Movie',
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 20,
@@ -326,7 +390,9 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                                 ),
                           ),
                           Text(
-                            'Plan a date night or log your movie review',
+                            _isEditMode
+                                ? 'Update title, poster, or watched date'
+                                : 'Plan a date night or log your movie review',
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark ? Colors.white70 : Colors.grey.shade600,
@@ -649,7 +715,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                   ),
                 ],
 
-                // Poster Preview if chosen
+                // Poster Preview if chosen or existing
                 if (_selectedImageFile != null || _posterUrlController.text.trim().isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Row(
@@ -690,57 +756,59 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
 
                 // If Watched: Show Rating & Watched Date (Optional)
                 if (_status == 'watched') ...[
-                  Text(
-                    'Your Rating',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : const Color(0xFF2D4059),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : const Color(0xFFFF758C).withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.2),
-                        ),
+                  if (!_isEditMode) ...[
+                    Text(
+                      'Your Rating',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : const Color(0xFF2D4059),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: List.generate(5, (index) {
-                          final starNum = index + 1;
-                          final isFilled = starNum <= _rating;
-                          return GestureDetector(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() => _rating = starNum);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              child: AnimatedScale(
-                                scale: isFilled ? 1.15 : 0.95,
-                                duration: const Duration(milliseconds: 150),
-                                child: Icon(
-                                  isFilled ? Icons.favorite : Icons.favorite_border,
-                                  color: isFilled
-                                      ? const Color(0xFFFF4081)
-                                      : Colors.grey.shade400,
-                                  size: 32,
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.04)
+                              : const Color(0xFFFF758C).withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(5, (index) {
+                            final starNum = index + 1;
+                            final isFilled = starNum <= _rating;
+                            return GestureDetector(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => _rating = starNum);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                child: AnimatedScale(
+                                  scale: isFilled ? 1.15 : 0.95,
+                                  duration: const Duration(milliseconds: 150),
+                                  child: Icon(
+                                    isFilled ? Icons.favorite : Icons.favorite_border,
+                                    color: isFilled
+                                        ? const Color(0xFFFF4081)
+                                        : Colors.grey.shade400,
+                                    size: 32,
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        }),
+                            );
+                          }),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
+                    const SizedBox(height: 18),
+                  ],
 
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -818,10 +886,10 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                   const SizedBox(height: 18),
                 ],
 
-                // Review Notes
+                // Notes
                 Text(
                   _status == 'watched'
-                      ? 'Your Review & Notes (Optional)'
+                      ? 'Review & Notes (Optional)'
                       : 'Notes (Optional)',
                   style: TextStyle(
                     fontSize: 14,
@@ -914,7 +982,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                                 Text(
                                   _isUploadingPoster
                                       ? 'Uploading poster...'
-                                      : 'Adding movie...',
+                                      : 'Saving...',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,
@@ -926,12 +994,20 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.favorite, color: Colors.white, size: 20),
+                                Icon(
+                                  _isEditMode
+                                      ? Icons.check_circle_rounded
+                                      : Icons.favorite,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  _status == 'watched'
-                                      ? 'Save to Watched Diary'
-                                      : 'Add to Watchlist',
+                                  _isEditMode
+                                      ? 'Save Changes'
+                                      : (_status == 'watched'
+                                          ? 'Save to Watched Diary'
+                                          : 'Add to Watchlist'),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 16,

@@ -15,8 +15,9 @@ import '../widgets/movie_poster_widget.dart';
 import '../widgets/view_movie_details_sheet.dart';
 
 /// Senior Couples Movie Tracker & Watchlist Screen ("Cinema Diary")
-/// Features a Dual Rating & Review System with Real-Time Auto-Sync,
-/// Partner Rating Flow, and Detailed Dual Review Modals.
+/// Features a decluttered card layout, single "View Details & Ratings" action,
+/// simplified 2-option 3-dots menu ("Edit Movie Details" and "Remove Movie"),
+/// and Dual Rating & Review System with Real-Time Auto-Sync.
 class MovieTrackerScreen extends StatefulWidget {
   const MovieTrackerScreen({super.key});
 
@@ -193,6 +194,18 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     );
   }
 
+  void _openEditMovieDetails(MovieModel movie) {
+    HapticFeedback.lightImpact();
+    final coupleId = _getCoupleId(context);
+    final currentUserId = _getCurrentUserId(context);
+    AddMovieSheet.show(
+      context,
+      coupleId: coupleId,
+      currentUserId: currentUserId,
+      movieToEdit: movie,
+    );
+  }
+
   void _openRateMovieModal(MovieModel movie) {
     HapticFeedback.lightImpact();
     final currentUserId = _getCurrentUserId(context);
@@ -237,7 +250,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
           children: [
             Icon(Icons.delete_outline_rounded, color: AppColors.error),
             SizedBox(width: 8),
-            Text('Delete Movie', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Remove Movie', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Text(
@@ -256,7 +269,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Delete'),
+            child: const Text('Remove'),
           ),
         ],
       ),
@@ -795,7 +808,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title & Delete Menu Row
+                  // Title & 3-Dots Menu Row (2 options: Edit Movie Details, Remove Movie)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -819,18 +832,34 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                           color: isDark ? Colors.white54 : Colors.grey.shade500,
                         ),
                         onSelected: (val) {
-                          if (val == 'delete') {
+                          if (val == 'edit') {
+                            _openEditMovieDetails(movie);
+                          } else if (val == 'delete') {
                             _confirmDeleteMovie(movie);
                           }
                         },
                         itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.edit_rounded,
+                                  color: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text('Edit Movie Details'),
+                              ],
+                            ),
+                          ),
                           const PopupMenuItem(
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(Icons.delete_outline, color: AppColors.error, size: 18),
+                                Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
                                 SizedBox(width: 8),
-                                Text('Remove', style: TextStyle(color: AppColors.error)),
+                                Text('Remove Movie', style: TextStyle(color: AppColors.error)),
                               ],
                             ),
                           ),
@@ -944,7 +973,6 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final myRating = movie.getRatingForUser(currentUserId);
     final partnerRating = movie.getPartnerRating(currentUserId);
     final calculatedAvg = movie.calculatedAverageRating;
-    final hasUserRated = myRating != null;
 
     return InkWell(
       onTap: () => _openMovieDetailsModal(movie),
@@ -962,8 +990,8 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
           boxShadow: [
             BoxShadow(
               color: isDark
-                  ? Colors.black.withValues(alpha: 0.25)
-                  : const Color(0xFFA18CD1).withValues(alpha: 0.08),
+                ? Colors.black.withValues(alpha: 0.25)
+                : const Color(0xFFA18CD1).withValues(alpha: 0.08),
               blurRadius: 14,
               offset: const Offset(0, 4),
             ),
@@ -1017,7 +1045,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title & Menu Row
+                    // Title & 3-Dots Menu Row (2 options: Edit Movie Details, Remove Movie)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1041,32 +1069,24 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             color: isDark ? Colors.white54 : Colors.grey.shade500,
                           ),
                           onSelected: (val) {
-                            if (val == 'rate') {
-                              _openRateMovieModal(movie);
-                            } else if (val == 'view') {
-                              _openMovieDetailsModal(movie);
+                            if (val == 'edit') {
+                              _openEditMovieDetails(movie);
                             } else if (val == 'delete') {
                               _confirmDeleteMovie(movie);
                             }
                           },
                           itemBuilder: (context) => [
                             PopupMenuItem(
-                              value: 'view',
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.visibility_rounded, color: Color(0xFFA18CD1), size: 18),
-                                  SizedBox(width: 8),
-                                  Text('View Details'),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'rate',
+                              value: 'edit',
                               child: Row(
                                 children: [
-                                  const Icon(Icons.edit_note_rounded, color: Color(0xFFFF758C), size: 18),
+                                  Icon(
+                                    Icons.edit_rounded,
+                                    color: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                                    size: 18,
+                                  ),
                                   const SizedBox(width: 8),
-                                  Text(hasUserRated ? 'Edit My Rating' : 'Add My Rating'),
+                                  const Text('Edit Movie Details'),
                                 ],
                               ),
                             ),
@@ -1074,9 +1094,9 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                               value: 'delete',
                               child: Row(
                                 children: [
-                                  Icon(Icons.delete_outline, color: AppColors.error, size: 18),
+                                  Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
                                   SizedBox(width: 8),
-                                  Text('Remove', style: TextStyle(color: AppColors.error)),
+                                  Text('Remove Movie', style: TextStyle(color: AppColors.error)),
                                 ],
                               ),
                             ),
@@ -1111,20 +1131,19 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ],
 
                     // ----------------------------------------------------
-                    // DUAL RATING SECTION
+                    // DUAL RATING PREVIEW SECTION (CLEAN & EMOJI-FREE)
                     // ----------------------------------------------------
-                    // 1. Current User Rating
+                    // 1. Current User Rating Row (No pencil icon)
                     _buildUserRatingRow(
                       label: 'You',
                       ratingModel: myRating,
                       fallbackRating: movie.rating,
                       fallbackNotes: movie.notes,
                       isDark: isDark,
-                      onTapRate: () => _openRateMovieModal(movie),
                     ),
                     const SizedBox(height: 6),
 
-                    // 2. Partner Rating
+                    // 2. Partner Rating Row
                     _buildPartnerRatingRow(
                       partnerName: partnerName,
                       ratingModel: partnerRating,
@@ -1132,43 +1151,27 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ),
                     const SizedBox(height: 10),
 
-                    // 3. User Specific Rating Button (Add My Rating vs View / Edit My Rating)
+                    // 3. Single Decluttered Main Action Button: "View Details & Ratings"
                     SizedBox(
                       height: 34,
-                      child: hasUserRated
-                          ? OutlinedButton.icon(
-                              onPressed: () => _openMovieDetailsModal(movie),
-                              icon: const Icon(Icons.edit_note_rounded, size: 16),
-                              label: const Text(
-                                'View / Edit My Rating',
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFFF758C),
-                                side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            )
-                          : ElevatedButton.icon(
-                              onPressed: () => _openRateMovieModal(movie),
-                              icon: const Icon(Icons.favorite_rounded, size: 15),
-                              label: const Text(
-                                'Add My Rating',
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFFF758C),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            ),
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _openMovieDetailsModal(movie),
+                        icon: const Icon(Icons.rate_review_rounded, size: 15),
+                        label: const Text(
+                          'View Details & Ratings',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF758C),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1180,14 +1183,13 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     );
   }
 
-  /// Current User Rating Row
+  /// Current User Rating Row (Decluttered - without pencil icon)
   Widget _buildUserRatingRow({
     required String label,
     required MovieRatingModel? ratingModel,
     required int? fallbackRating,
     required String? fallbackNotes,
     required bool isDark,
-    required VoidCallback onTapRate,
   }) {
     final effectiveRating = ratingModel?.rating ?? fallbackRating;
     final effectiveNotes = ratingModel?.notes ?? (ratingModel == null ? fallbackNotes : null);
@@ -1255,15 +1257,6 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     color: isFilled ? const Color(0xFFFF4081) : Colors.grey.shade400,
                   );
                 }),
-              ),
-              const Spacer(),
-              InkWell(
-                onTap: onTapRate,
-                child: const Icon(
-                  Icons.edit_outlined,
-                  size: 14,
-                  color: Color(0xFFFF758C),
-                ),
               ),
             ],
           ),

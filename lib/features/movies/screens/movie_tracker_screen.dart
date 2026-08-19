@@ -973,21 +973,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                       ),
                     ],
                   ),
-
-                  if (movie.notes != null && movie.notes!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      '"${movie.notes!}"',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                        color: isDark ? Colors.white70 : Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
                   // "Mark as Watched" Action Button
                   SizedBox(
@@ -1344,7 +1330,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
               ),
               Row(
                 children: List.generate(5, (i) {
-                  final isFilled = i < effectiveRating;
+                  final isFilled = i < ratingModel.rating;
                   return Icon(
                     isFilled ? Icons.favorite : Icons.favorite_border,
                     size: 13,
@@ -1354,10 +1340,10 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
               ),
             ],
           ),
-          if (effectiveNotes != null && effectiveNotes.isNotEmpty) ...[
+          if (ratingModel.notes != null && ratingModel.notes!.isNotEmpty) ...[
             const SizedBox(height: 3),
             Text(
-              '"$effectiveNotes"',
+              '"${ratingModel.notes!}"',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

@@ -58,7 +58,6 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
 
   late final TextEditingController _titleController;
   late final TextEditingController _posterUrlController;
-  late final TextEditingController _notesController;
 
   late String _status; // 'watchlist' or 'watched'
   int _rating = 5;
@@ -76,7 +75,6 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
     final editMovie = widget.movieToEdit;
     _titleController = TextEditingController(text: editMovie?.title ?? '');
     _posterUrlController = TextEditingController(text: editMovie?.posterUrl ?? '');
-    _notesController = TextEditingController(text: editMovie?.notes ?? '');
     _status = editMovie?.status ?? widget.initialStatus;
     _watchedDate = editMovie?.watchedDate;
     _rating = editMovie?.rating ?? 5;
@@ -90,7 +88,6 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
   void dispose() {
     _titleController.dispose();
     _posterUrlController.dispose();
-    _notesController.dispose();
     super.dispose();
   }
 
@@ -156,19 +153,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
   }
 
   Future<void> _saveMovie() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    if (widget.coupleId.isEmpty && !_isEditMode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Couple profile not found. Please ensure you are linked.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
     HapticFeedback.mediumImpact();
@@ -196,9 +181,6 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
           posterUrl: finalPosterUrl ?? widget.movieToEdit!.posterUrl,
           status: _status,
           watchedDate: _watchedDate,
-          notes: _notesController.text.trim().isNotEmpty
-              ? _notesController.text.trim()
-              : null,
           updatedAt: DateTime.now(),
         );
 
@@ -254,9 +236,6 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
             movieId: createdMovie!.id!,
             userId: widget.currentUserId,
             rating: _rating,
-            notes: _notesController.text.trim().isNotEmpty
-                ? _notesController.text.trim()
-                : null,
           );
         }
 
@@ -298,7 +277,6 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
         _isSaving = false;
         _isUploadingPoster = false;
       });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to save movie: $e'),
@@ -367,7 +345,9 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                       child: Icon(
                         _isEditMode
                             ? Icons.edit_note_rounded
-                            : Icons.add_to_photos_rounded,
+                            : (_status == 'watched'
+                                ? Icons.movie_filter_rounded
+                                : Icons.bookmark_add_rounded),
                         color: Colors.white,
                         size: 22,
                       ),
@@ -378,7 +358,11 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _isEditMode ? 'Edit Movie Details' : 'Add New Movie',
+                            _isEditMode
+                                ? 'Edit Movie Details'
+                                : (_status == 'watched'
+                                    ? 'Log Watched Movie'
+                                    : 'Add to Watchlist'),
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 20,
@@ -387,8 +371,10 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                           ),
                           Text(
                             _isEditMode
-                                ? 'Update title, poster, or watched date'
-                                : 'Plan a date night or log your movie review',
+                                ? 'Update movie information'
+                                : (_status == 'watched'
+                                    ? 'Record a movie you already finished together'
+                                    : 'Save for your next movie date night'),
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark ? Colors.white70 : Colors.grey.shade600,
@@ -406,13 +392,13 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                 ),
                 const SizedBox(height: 20),
 
-                // Status Segmented Selector (Watchlist vs Watched)
+                // Status Segmented Switcher (Watchlist vs Watched)
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.grey.shade200,
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
@@ -423,24 +409,17 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                             HapticFeedback.selectionClick();
                             setState(() => _status = 'watchlist');
                           },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
+                          child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              gradient: _status == 'watchlist'
-                                  ? const LinearGradient(
-                                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                                    )
-                                  : null,
                               color: _status == 'watchlist'
-                                  ? null
+                                  ? const Color(0xFFFF758C)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: _status == 'watchlist'
                                   ? [
                                       BoxShadow(
-                                        color: const Color(0xFFFF758C)
-                                            .withValues(alpha: 0.35),
+                                        color: const Color(0xFFFF758C).withValues(alpha: 0.3),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -451,7 +430,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  'Watchlist',
+                                  'Plan to Watch',
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
@@ -471,24 +450,17 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                             HapticFeedback.selectionClick();
                             setState(() => _status = 'watched');
                           },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
+                          child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              gradient: _status == 'watched'
-                                  ? const LinearGradient(
-                                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                                    )
-                                  : null,
                               color: _status == 'watched'
-                                  ? null
+                                  ? const Color(0xFFA18CD1)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: _status == 'watched'
                                   ? [
                                       BoxShadow(
-                                        color: const Color(0xFFFF758C)
-                                            .withValues(alpha: 0.35),
+                                        color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -599,17 +571,39 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                     Row(
                       children: [
                         ChoiceChip(
-                          label: const Text('Pick Photo', style: TextStyle(fontSize: 11)),
+                          label: const Text('Upload', style: TextStyle(fontSize: 11)),
                           selected: _posterInputMode == 0,
-                          onSelected: (_) => setState(() => _posterInputMode = 0),
+                          onSelected: (val) {
+                            if (val) setState(() => _posterInputMode = 0);
+                          },
                           selectedColor: const Color(0xFFFF758C).withValues(alpha: 0.2),
+                          labelStyle: TextStyle(
+                            color: _posterInputMode == 0
+                                ? const Color(0xFFFF758C)
+                                : (isDark ? Colors.white70 : Colors.grey.shade700),
+                            fontWeight: _posterInputMode == 0 ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         const SizedBox(width: 6),
                         ChoiceChip(
                           label: const Text('Image URL', style: TextStyle(fontSize: 11)),
                           selected: _posterInputMode == 1,
-                          onSelected: (_) => setState(() => _posterInputMode = 1),
-                          selectedColor: const Color(0xFFA18CD1).withValues(alpha: 0.2),
+                          onSelected: (val) {
+                            if (val) setState(() => _posterInputMode = 1);
+                          },
+                          selectedColor: const Color(0xFFFF758C).withValues(alpha: 0.2),
+                          labelStyle: TextStyle(
+                            color: _posterInputMode == 1
+                                ? const Color(0xFFFF758C)
+                                : (isDark ? Colors.white70 : Colors.grey.shade700),
+                            fontWeight: _posterInputMode == 1 ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ],
                     ),
@@ -617,80 +611,150 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                 ),
                 const SizedBox(height: 10),
 
-                // Poster Image Input / Preview
+                // Poster Picker Mode 0: Upload Image
                 if (_posterInputMode == 0) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickImage(ImageSource.gallery),
-                          icon: const Icon(Icons.photo_library_rounded, size: 18),
-                          label: const Text('From Gallery'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFFF758C),
-                            side: const BorderSide(color: Color(0xFFFF758C)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                  if (_selectedImageFile != null)
+                    Center(
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.file(
+                              _selectedImageFile!,
+                              width: 120,
+                              height: 170,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: InkWell(
+                              onTap: () => setState(() => _selectedImageFile = null),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.black54,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _pickImage(ImageSource.gallery),
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.04)
+                                    : const Color(0xFFFF758C).withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                  style: BorderStyle.solid,
+                                ),
+                              ),
+                              child: const Column(
+                                children: [
+                                  Icon(
+                                    Icons.photo_library_rounded,
+                                    color: Color(0xFFFF758C),
+                                    size: 28,
+                                  ),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    'Choose from Gallery',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFFFF758C),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickImage(ImageSource.camera),
-                          icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                          label: const Text('Take Photo'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFA18CD1),
-                            side: const BorderSide(color: Color(0xFFA18CD1)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _pickImage(ImageSource.camera),
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.04)
+                                    : const Color(0xFFA18CD1).withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
+                                  style: BorderStyle.solid,
+                                ),
+                              ),
+                              child: const Column(
+                                children: [
+                                  Icon(
+                                    Icons.camera_alt_rounded,
+                                    color: Color(0xFFA18CD1),
+                                    size: 28,
+                                  ),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    'Take a Photo',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFFA18CD1),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                 ] else ...[
+                  // Mode 1: URL Input
                   TextFormField(
                     controller: _posterUrlController,
                     keyboardType: TextInputType.url,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       color: isDark ? Colors.white : Colors.black87,
                     ),
-                    onChanged: (_) => setState(() {
-                      _selectedImageFile = null;
-                    }),
                     decoration: InputDecoration(
-                      hintText: 'https://image.tmdb.org/t/p/w500/...',
+                      hintText: 'https://image.tmdb.org/t/p/... or web link',
                       hintStyle: TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         color: isDark ? Colors.white38 : Colors.grey.shade400,
                       ),
                       prefixIcon: const Icon(
                         Icons.link_rounded,
-                        color: Color(0xFFA18CD1),
+                        color: Color(0xFFFF758C),
                         size: 20,
                       ),
-                      suffixIcon: _posterUrlController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 16),
-                              onPressed: () => setState(() {
-                                _posterUrlController.clear();
-                              }),
-                            )
-                          : null,
                       filled: true,
                       fillColor: isDark
                           ? Colors.white.withValues(alpha: 0.05)
                           : Colors.grey.shade50,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
-                        vertical: 12,
+                        vertical: 14,
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -703,38 +767,36 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: const BorderSide(
-                          color: Color(0xFFA18CD1),
+                          color: Color(0xFFFF758C),
                           width: 1.5,
                         ),
                       ),
                     ),
+                    onChanged: (val) => setState(() {}),
                   ),
                 ],
 
-                // Poster Preview if chosen or existing
-                if (_selectedImageFile != null || _posterUrlController.text.trim().isNotEmpty) ...[
+                // Existing/Preview Poster if editing
+                if (_isEditMode &&
+                    _selectedImageFile == null &&
+                    widget.movieToEdit?.posterUrl != null &&
+                    widget.movieToEdit!.posterUrl!.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       MoviePosterWidget(
-                        localFile: _selectedImageFile,
-                        posterUrl: _selectedImageFile == null
-                            ? _posterUrlController.text.trim()
-                            : null,
-                        width: 50,
-                        height: 72,
+                        posterUrl: widget.movieToEdit!.posterUrl,
+                        width: 44,
+                        height: 64,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          _selectedImageFile != null
-                              ? 'Custom image selected'
-                              : 'Poster URL previewing',
+                          'Current saved poster',
                           style: TextStyle(
-                            fontSize: 13,
-                            color: isDark ? Colors.white70 : Colors.grey.shade700,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            color: isDark ? Colors.white60 : Colors.grey.shade600,
                           ),
                         ),
                       ),
@@ -881,57 +943,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                   ),
                   const SizedBox(height: 18),
                 ],
-
-                // Notes
-                Text(
-                  _status == 'watched'
-                      ? 'Review & Notes (Optional)'
-                      : 'Notes (Optional)',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF2D4059),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _notesController,
-                  maxLines: 3,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: _status == 'watched'
-                        ? 'Thoughts on the movie, favorite scenes, or memories...'
-                        : 'Suggested by partner, date night idea, or thoughts...',
-                    hintStyle: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? Colors.white38 : Colors.grey.shade400,
-                    ),
-                    filled: true,
-                    fillColor: isDark
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : Colors.grey.shade50,
-                    contentPadding: const EdgeInsets.all(16),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.12)
-                            : Colors.grey.shade300,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFFF758C),
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 10),
 
                 // Submit Button
                 SizedBox(

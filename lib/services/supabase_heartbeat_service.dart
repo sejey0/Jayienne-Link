@@ -58,13 +58,14 @@ class SupabaseHeartbeatService {
   RealtimeChannel? _touchChannel;
   String? _activeChannelCoupleId;
   StreamController<TouchPayload>? _touchStreamController;
+  StreamController<Map<String, dynamic>>? _typingStreamController;
 
   // Throttling state for 30 FPS touch streaming
   Timer? _touchThrottleTimer;
   Map<String, dynamic>? _pendingTouchPayload;
 
   // ===================================================
-  // REALTIME TOUCH BROADCAST ENGINE (Ephemeral 30 FPS)
+  // REALTIME TOUCH & TYPING BROADCAST ENGINE (Ephemeral)
   // ===================================================
 
   /// Subscribe to ephemeral touch broadcast channel for a couple
@@ -77,6 +78,7 @@ class SupabaseHeartbeatService {
 
     _activeChannelCoupleId = coupleId;
     _touchStreamController = StreamController<TouchPayload>.broadcast();
+    _typingStreamController = StreamController<Map<String, dynamic>>.broadcast();
     final client = SupabaseDataService.client;
 
     _touchChannel = client.channel('heartbeat:$coupleId');
@@ -92,6 +94,17 @@ class SupabaseHeartbeatService {
       },
     );
 
+    _touchChannel!.onBroadcast(
+      event: 'typing',
+      callback: (payload) {
+        try {
+          _typingStreamController?.add(payload);
+        } catch (e) {
+          debugPrint('[SupabaseHeartbeatService] Error parsing typing payload: $e');
+        }
+      },
+    );
+
     try {
       _touchChannel!.subscribe();
     } catch (e) {
@@ -99,6 +112,41 @@ class SupabaseHeartbeatService {
     }
 
     return _touchStreamController!.stream;
+  }
+
+  /// Subscribe to ephemeral partner typing events for a couple
+  Stream<Map<String, dynamic>> subscribeToTypingBroadcast(String coupleId) {
+    if (_touchChannel == null || _activeChannelCoupleId != coupleId) {
+      subscribeToTouchBroadcast(coupleId);
+    }
+    _typingStreamController ??= StreamController<Map<String, dynamic>>.broadcast();
+    return _typingStreamController!.stream;
+  }
+
+  /// Broadcast typing status update to partner
+  Future<void> broadcastTypingStatus({
+    required String coupleId,
+    required String userId,
+    required bool isTyping,
+  }) async {
+    final payload = {
+      'user_id': userId,
+      'is_typing': isTyping,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    };
+
+    if (_touchChannel == null || _activeChannelCoupleId != coupleId) {
+      subscribeToTouchBroadcast(coupleId);
+    }
+
+    try {
+      await _touchChannel?.sendBroadcastMessage(
+        event: 'typing',
+        payload: payload,
+      );
+    } catch (e) {
+      debugPrint('[SupabaseHeartbeatService] Typing broadcast failed: $e');
+    }
   }
 
   /// Broadcast touch event throttled at ~30 FPS (~33ms intervals)
@@ -166,6 +214,8 @@ class SupabaseHeartbeatService {
     _activeChannelCoupleId = null;
     _touchStreamController?.close();
     _touchStreamController = null;
+    _typingStreamController?.close();
+    _typingStreamController = null;
   }
 
   // ===================================================

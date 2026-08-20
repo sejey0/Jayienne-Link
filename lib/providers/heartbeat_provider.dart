@@ -197,7 +197,7 @@ class HeartbeatProvider extends ChangeNotifier {
     }
   }
 
-  /// Start Realtime Touch Subscription Session
+  /// Start Realtime Touch & Typing Subscription Session
   void startTouchSession() {
     if (_coupleId == null) return;
     _touchSubscription?.cancel();
@@ -206,21 +206,89 @@ class HeartbeatProvider extends ChangeNotifier {
         _onPartnerTouchReceived(payload);
       }
     });
+
+    _typingSubscription?.cancel();
+    _typingSubscription = _service.subscribeToTypingBroadcast(_coupleId!).listen((payload) {
+      final senderId = payload['user_id'] as String?;
+      if (senderId != null && senderId != _userId) {
+        _onPartnerTypingReceived(payload);
+      }
+    });
   }
 
-  /// Stop Realtime Touch Subscription Session
+  /// Stop Realtime Touch & Typing Subscription Session
   void stopTouchSession() {
     _touchSubscription?.cancel();
     _touchSubscription = null;
+    _typingSubscription?.cancel();
+    _typingSubscription = null;
+    _typingExpiryTimer?.cancel();
+    _typingExpiryTimer = null;
     _service.unsubscribeTouchBroadcast();
     _localCurrentTouch = null;
     _partnerCurrentTouch = null;
     _partnerTargetTouch = null;
     _isLocalTouching = false;
     _isPartnerTouching = false;
+    _isPartnerTyping = false;
+    _isTyping = false;
     _localTouchTrail.clear();
     _partnerTouchTrail.clear();
     _collisionParticles.clear();
+  }
+
+  /// Broadcast typing status update to partner
+  void sendTypingStatus(bool isTyping) {
+    if (_coupleId == null || _userId == null) return;
+    if (_isTyping == isTyping) return;
+    _isTyping = isTyping;
+
+    _service.broadcastTypingStatus(
+      coupleId: _coupleId!,
+      userId: _userId!,
+      isTyping: isTyping,
+    );
+  }
+
+  /// Stop user typing
+  void stopTyping() {
+    _typingStopTimer?.cancel();
+    if (_isTyping) {
+      sendTypingStatus(false);
+    }
+  }
+
+  /// Handle typing input changes with 2.5-second debounce
+  void handleTypingChanged(String text) {
+    final hasText = text.trim().isNotEmpty;
+    if (hasText) {
+      sendTypingStatus(true);
+      _typingStopTimer?.cancel();
+      _typingStopTimer = Timer(const Duration(milliseconds: 2500), () {
+        sendTypingStatus(false);
+      });
+    } else {
+      _typingStopTimer?.cancel();
+      sendTypingStatus(false);
+    }
+  }
+
+  /// Partner typing event handler with 4-second safety timeout
+  void _onPartnerTypingReceived(Map<String, dynamic> payload) {
+    final isTyping = payload['is_typing'] as bool? ?? false;
+    _isPartnerTyping = isTyping;
+
+    _typingExpiryTimer?.cancel();
+    if (isTyping) {
+      _typingExpiryTimer = Timer(const Duration(seconds: 4), () {
+        if (_isPartnerTyping) {
+          _isPartnerTyping = false;
+          notifyListeners();
+        }
+      });
+    }
+
+    notifyListeners();
   }
 
   /// Send Local User Touch Update with normalized coordinates

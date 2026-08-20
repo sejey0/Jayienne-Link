@@ -27,6 +27,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
   late AnimationController _canvasTickerController;
 
   HeartbeatProvider? _heartbeatProvider;
+  Timer? _localTypingDebounceTimer;
   Size _canvasSize = Size.zero;
 
   @override
@@ -34,6 +35,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _messageFocusNode.addListener(_handleFocusChange);
+    _messageController.addListener(_handleTextChange);
 
     // 60 FPS Ticker for lerp interpolation & trail fading
     _canvasTickerController = AnimationController(
@@ -68,6 +70,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
 
   @override
   void deactivate() {
+    _localTypingDebounceTimer?.cancel();
     _heartbeatProvider?.stopTouchSession();
     super.deactivate();
   }
@@ -75,16 +78,36 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _localTypingDebounceTimer?.cancel();
     _canvasTickerController.stop();
     _canvasTickerController.dispose();
     _messageFocusNode.removeListener(_handleFocusChange);
+    _messageController.removeListener(_handleTextChange);
     _messageController.dispose();
     _messageFocusNode.dispose();
     super.dispose();
   }
 
+  void _handleTextChange() {
+    if (!mounted) return;
+    final text = _messageController.text.trim();
+    if (text.isNotEmpty) {
+      _heartbeatProvider?.sendTypingStatus(true);
+      _localTypingDebounceTimer?.cancel();
+      _localTypingDebounceTimer = Timer(const Duration(milliseconds: 2500), () {
+        if (mounted) {
+          _heartbeatProvider?.sendTypingStatus(false);
+        }
+      });
+    } else {
+      _localTypingDebounceTimer?.cancel();
+      _heartbeatProvider?.sendTypingStatus(false);
+    }
+  }
+
   void _handleFocusChange() {
     if (!_messageFocusNode.hasFocus && mounted) {
+      _localTypingDebounceTimer?.cancel();
       _heartbeatProvider?.stopTyping();
     }
   }
@@ -94,6 +117,9 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
 
     final message = _messageController.text.trim();
     if (message.isEmpty) return;
+
+    _localTypingDebounceTimer?.cancel();
+    heartbeatProvider.sendTypingStatus(false);
 
     final didSend = await heartbeatProvider.sendHeartbeat(
       message: message,

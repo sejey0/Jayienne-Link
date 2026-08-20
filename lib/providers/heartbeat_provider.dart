@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/constants/app_colors.dart';
@@ -91,12 +90,9 @@ class HeartbeatProvider extends ChangeNotifier {
   bool _isRefreshing = false;
   bool _isTyping = false;
   bool _isPartnerTyping = false;
-  DateTime? _lastTypingSentAt;
 
   final Map<String, Set<String>> _reactionsByHeartbeat = {};
   final Map<String, Set<String>> _readsByHeartbeat = {};
-
-  static const Duration _typingPingInterval = Duration(seconds: 2);
 
   String? _userId;
   String? _coupleId;
@@ -672,24 +668,6 @@ class HeartbeatProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _setTyping(bool isTyping, {bool force = false}) async {
-    if (_coupleId == null || _userId == null) return;
-    if (!force && _isTyping == isTyping) return;
-
-    _isTyping = isTyping;
-    _lastTypingSentAt = DateTime.now();
-
-    try {
-      await _service.upsertTypingStatus(
-        coupleId: _coupleId!,
-        userId: _userId!,
-        isTyping: isTyping,
-      );
-    } catch (e) {
-      debugPrint('Failed to update typing status: $e');
-    }
-  }
-
   Future<bool> sendHeartbeat({String? message}) async {
     if (!canSend) {
       _error = 'Link your partner to send a heartbeat.';
@@ -751,7 +729,6 @@ class HeartbeatProvider extends ChangeNotifier {
     _isSending = false;
     _isTyping = false;
     _isPartnerTyping = false;
-    _lastTypingSentAt = null;
     notifyListeners();
   }
 

@@ -208,6 +208,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
           status: _status,
           mediaType: _mediaType,
           watchedDate: _status == 'watched' ? _watchedDate : null,
+          clearWatchedDate: _status != 'watched' || _watchedDate == null,
           updatedAt: DateTime.now(),
         );
 

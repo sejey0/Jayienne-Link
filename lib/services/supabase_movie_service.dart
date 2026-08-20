@@ -247,7 +247,8 @@ class SupabaseMovieService {
       // 1. Update movie status & watched date safely
       final updateData = <String, dynamic>{
         'status': 'watched',
-        'watched_date': watchedDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
+        'watch_count': watchNumber < 1 ? 1 : watchNumber,
+        'watched_date': watchedDate?.toIso8601String(),
       };
 
       try {

@@ -1470,8 +1470,6 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                           onSelected: (val) {
                             if (val == 'edit') {
                               _openEditMovieDetails(movie);
-                            } else if (val == 'rewatch') {
-                              _handlePlanRewatch(movie);
                             } else if (val == 'delete') {
                               _confirmDeleteMovie(movie);
                             }
@@ -1488,26 +1486,6 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                   ),
                                   const SizedBox(width: 8),
                                   const Text('Edit Movie Details'),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'rewatch',
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.replay_rounded,
-                                    color: Color(0xFFFF758C),
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Plan Rewatch (${(movie.watchCount < 1 ? 1 : movie.watchCount) + 1}th)',
-                                    style: const TextStyle(
-                                      color: Color(0xFFFF758C),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/movie_model.dart';
+import '../../../providers/couple_provider.dart';
+import '../../../providers/user_provider.dart';
 import '../../../services/supabase_movie_service.dart';
+import '../../../widgets/smart_profile_image.dart';
 import 'mark_watched_sheet.dart';
 import 'movie_alert_dialog.dart';
 import 'movie_poster_widget.dart';
@@ -202,6 +206,10 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final userProvider = context.watch<UserProvider>();
+    final coupleProvider = context.watch<CoupleProvider>();
+    final myPhotoUrl = userProvider.user?.photoUrl;
+    final partnerPhotoUrl = coupleProvider.partner?.photoUrl;
     final movie = widget.movie;
     final sessions = movie.sessionNumbers;
 
@@ -485,6 +493,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                     : 'Your Rating & Review',
                 accentColor: const Color(0xFFFF758C),
                 icon: Icons.person_rounded,
+                avatarUrl: myPhotoUrl,
                 isDark: isDark,
                 hasRated: myRating != null,
                 rating: myRating?.rating,
@@ -520,6 +529,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                     : "${widget.partnerName}'s Rating & Review",
                 accentColor: const Color(0xFFA18CD1),
                 icon: Icons.favorite_rounded,
+                avatarUrl: partnerPhotoUrl,
                 isDark: isDark,
                 hasRated: partnerRating != null,
                 rating: partnerRating?.rating,
@@ -573,12 +583,52 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
     );
   }
 
+  Widget _buildAvatar({
+    required String? photoUrl,
+    required Color accentColor,
+    required IconData fallbackIcon,
+    double size = 28,
+  }) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+      ),
+      child: ClipOval(
+        child: SmartProfileImage(
+          imageUrl: photoUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          placeholder: Container(
+            width: size,
+            height: size,
+            color: accentColor.withValues(alpha: 0.15),
+            child: Icon(fallbackIcon, size: size * 0.55, color: accentColor),
+          ),
+          errorWidget: Container(
+            width: size,
+            height: size,
+            color: accentColor.withValues(alpha: 0.15),
+            child: Icon(fallbackIcon, size: size * 0.55, color: accentColor),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildReviewBox({
     required String title,
     required Color accentColor,
     required IconData icon,
     required bool isDark,
     required bool hasRated,
+    String? avatarUrl,
     int? rating,
     String? notes,
     Widget? actionButton,
@@ -609,15 +659,13 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
           // Box Header Row
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: accentColor, size: 16),
+              _buildAvatar(
+                photoUrl: avatarUrl,
+                accentColor: accentColor,
+                fallbackIcon: icon,
+                size: 28,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,

@@ -14,6 +14,7 @@ import '../widgets/mark_watched_sheet.dart';
 import '../widgets/movie_alert_dialog.dart';
 import '../widgets/movie_poster_widget.dart';
 import '../widgets/view_movie_details_sheet.dart';
+import '../../../widgets/smart_profile_image.dart';
 
 /// Senior Couples Movie Tracker & Watchlist Screen ("Cinema Diary")
 /// Features a decluttered card layout, single "View Details & Ratings" action,
@@ -1362,13 +1363,16 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       ),
     );
   }
-
   Widget _buildWatchedCard(
     MovieModel movie,
     bool isDark,
     String partnerName,
     String currentUserId,
   ) {
+    final userProvider = context.watch<UserProvider>();
+    final coupleProvider = context.watch<CoupleProvider>();
+    final myPhotoUrl = userProvider.user?.photoUrl;
+    final partnerPhotoUrl = coupleProvider.partner?.photoUrl;
     final myRating = movie.getRatingForUser(currentUserId);
     final partnerRating = movie.getPartnerRating(currentUserId);
     final calculatedAvg = movie.calculatedAverageRating;
@@ -1421,8 +1425,8 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.favorite, color: Color(0xFFFF4081), size: 12),
-                          const SizedBox(width: 3),
+                          const Icon(Icons.favorite_rounded, size: 12, color: Color(0xFFFF4081)),
+                          const SizedBox(width: 4),
                           Text(
                             calculatedAvg.toStringAsFixed(1),
                             style: const TextStyle(
@@ -1444,7 +1448,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title & 3-Dots Menu Row (Edit Movie Details, Plan Rewatch, Remove Movie)
+                    // Title & 3-Dots Menu Row (Edit Movie Details, Remove Movie)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1518,35 +1522,22 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 : const Color(0xFFFF758C).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                movie.isSeries ? Icons.tv_rounded : Icons.movie_rounded,
-                                size: 11,
-                                color: movie.isSeries
-                                    ? const Color(0xFFA18CD1)
-                                    : const Color(0xFFFF758C),
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                movie.isSeries ? 'Series' : 'Movie',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: movie.isSeries
-                                      ? const Color(0xFFA18CD1)
-                                      : const Color(0xFFFF758C),
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            movie.isSeries ? 'Series' : 'Movie',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: movie.isSeries
+                                  ? const Color(0xFFA18CD1)
+                                  : const Color(0xFFFF758C),
+                            ),
                           ),
                         ),
                         if (movie.watchCount > 1) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFF9A8B).withValues(alpha: 0.2),
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
@@ -1554,7 +1545,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                               children: [
                                 const Icon(
                                   Icons.replay_rounded,
-                                  size: 11,
+                                  size: 10,
                                   color: Color(0xFFFF758C),
                                 ),
                                 const SizedBox(width: 3),
@@ -1601,6 +1592,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     // 1. Current User Rating Row (Strictly myRating only)
                     _buildUserRatingRow(
                       label: 'You',
+                      photoUrl: myPhotoUrl,
                       ratingModel: myRating,
                       isDark: isDark,
                     ),
@@ -1609,6 +1601,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     // 2. Partner Rating Row (Strictly partnerRating only)
                     _buildPartnerRatingRow(
                       partnerName: partnerName,
+                      photoUrl: partnerPhotoUrl,
                       ratingModel: partnerRating,
                       isDark: isDark,
                     ),
@@ -1646,9 +1639,50 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     );
   }
 
+  /// Mini Avatar Helper for Movie Card Rating Rows
+  Widget _buildMiniAvatar({
+    required String? photoUrl,
+    required Color accentColor,
+    required IconData fallbackIcon,
+    double size = 18,
+  }) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.45),
+          width: 1.2,
+        ),
+      ),
+      child: ClipOval(
+        child: SmartProfileImage(
+          imageUrl: photoUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          placeholder: Container(
+            width: size,
+            height: size,
+            color: accentColor.withValues(alpha: 0.15),
+            child: Icon(fallbackIcon, size: size * 0.6, color: accentColor),
+          ),
+          errorWidget: Container(
+            width: size,
+            height: size,
+            color: accentColor.withValues(alpha: 0.15),
+            child: Icon(fallbackIcon, size: size * 0.6, color: accentColor),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Current User Rating Row (Strictly from movie_ratings)
   Widget _buildUserRatingRow({
     required String label,
+    required String? photoUrl,
     required MovieRatingModel? ratingModel,
     required bool isDark,
   }) {
@@ -1663,18 +1697,20 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.star_outline_rounded,
-              size: 13,
-              color: isDark ? Colors.white38 : Colors.grey.shade500,
+            _buildMiniAvatar(
+              photoUrl: photoUrl,
+              accentColor: const Color(0xFFFF758C),
+              fallbackIcon: Icons.person_rounded,
             ),
-            const SizedBox(width: 4),
-            Text(
-              "You haven't rated this movie yet",
-              style: TextStyle(
-                fontSize: 11,
-                color: isDark ? Colors.white38 : Colors.grey.shade600,
-                fontStyle: FontStyle.italic,
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                "You haven't rated this movie yet",
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? Colors.white38 : Colors.grey.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
           ],
@@ -1698,6 +1734,12 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
         children: [
           Row(
             children: [
+              _buildMiniAvatar(
+                photoUrl: photoUrl,
+                accentColor: const Color(0xFFFF758C),
+                fallbackIcon: Icons.person_rounded,
+              ),
+              const SizedBox(width: 6),
               Text(
                 '$label: ',
                 style: const TextStyle(
@@ -1739,6 +1781,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   /// Partner Rating Row
   Widget _buildPartnerRatingRow({
     required String partnerName,
+    required String? photoUrl,
     required MovieRatingModel? ratingModel,
     required bool isDark,
   }) {
@@ -1753,18 +1796,20 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.hourglass_empty_rounded,
-              size: 13,
-              color: isDark ? Colors.white38 : Colors.grey.shade500,
+            _buildMiniAvatar(
+              photoUrl: photoUrl,
+              accentColor: const Color(0xFFA18CD1),
+              fallbackIcon: Icons.favorite_rounded,
             ),
-            const SizedBox(width: 4),
-            Text(
-              'Waiting for $partnerName to rate',
-              style: TextStyle(
-                fontSize: 11,
-                color: isDark ? Colors.white38 : Colors.grey.shade600,
-                fontStyle: FontStyle.italic,
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Waiting for $partnerName to rate',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? Colors.white38 : Colors.grey.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
           ],
@@ -1788,6 +1833,12 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
         children: [
           Row(
             children: [
+              _buildMiniAvatar(
+                photoUrl: photoUrl,
+                accentColor: const Color(0xFFA18CD1),
+                fallbackIcon: Icons.favorite_rounded,
+              ),
+              const SizedBox(width: 6),
               Text(
                 '$partnerName: ',
                 style: const TextStyle(

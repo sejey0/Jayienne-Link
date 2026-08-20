@@ -189,8 +189,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   if (myPos != null)
                     Marker(
                       point: myPos,
-                      width: 70,
-                      height: 80,
+                      width: 76,
+                      height: 86,
                       child: PartnerAvatarMarker(
                         photoUrl: currentUser?.photoUrl,
                         partnerName: currentUser?.displayName.isNotEmpty == true
@@ -213,8 +213,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   if (partnerPos != null)
                     Marker(
                       point: partnerPos,
-                      width: 70,
-                      height: 80,
+                      width: 76,
+                      height: 86,
                       child: PartnerAvatarMarker(
                         photoUrl: partnerUser?.photoUrl,
                         partnerName: partnerUser?.displayName ?? 'Your Person',

@@ -6,6 +6,7 @@ import 'package:workmanager/workmanager.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/location_model.dart';
 import 'offline_storage_service.dart';
+import 'package:battery_plus/battery_plus.dart';
 
 /// Background task names
 const String backgroundLocationTask = 'bgLocationTask';
@@ -179,13 +180,29 @@ Future<void> _captureBackgroundLocation() async {
     }
 
     // Get GPS position (works offline - no cellular data needed)
-    // Forces high accuracy GPS-only location
-    final position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-      timeLimit: const Duration(seconds: 30),
-      forceAndroidLocationManager:
-          false, // Use Google Play Services for better GPS
-    );
+    // Forces high accuracy GPS-only location with last known fallback
+    Position? position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: kIsWeb ? LocationAccuracy.medium : LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
+        forceAndroidLocationManager: false, // Use Google Play Services for better GPS
+      );
+    } catch (posErr) {
+      debugPrint('Background GPS getCurrentPosition failed/timed out: $posErr.');
+      if (!kIsWeb) {
+        try {
+          position = await Geolocator.getLastKnownPosition();
+        } catch (lastPosErr) {
+          debugPrint('Background getLastKnownPosition error: $lastPosErr');
+        }
+      }
+    }
+
+    if (position == null) {
+      debugPrint('Background GPS: No position acquired');
+      return;
+    }
 
     debugPrint('Background GPS: ${position.latitude}, ${position.longitude}');
 
@@ -193,12 +210,21 @@ Future<void> _captureBackgroundLocation() async {
     final storage = OfflineStorageService.instance;
     await storage.ensureInitialized();
 
+    int? batteryLevel;
+    if (!kIsWeb) {
+      try {
+        batteryLevel = await Battery().batteryLevel;
+      } catch (_) {}
+    }
+
     final location = LocationModel(
       coupleId: '',
       ownerId: userId,
       latitude: position.latitude,
       longitude: position.longitude,
+      speed: position.speed,
       accuracy: position.accuracy,
+      batteryLevel: batteryLevel,
       timestamp: DateTime.now(),
       source: LocationSource.background,
     );

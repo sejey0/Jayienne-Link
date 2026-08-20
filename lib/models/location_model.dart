@@ -48,7 +48,9 @@ class LocationModel {
       longitude: (map['longitude'] as num).toDouble(),
       accuracy: (map['accuracy'] as num?)?.toDouble() ?? 15.0,
       speed: (map['speed'] as num?)?.toDouble(),
-      batteryLevel: map['battery_level'] as int?,
+      batteryLevel: map['battery_level'] != null
+          ? (map['battery_level'] as num).toInt()
+          : null,
       timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int),
       createdAt: map['created_at'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int)
@@ -92,7 +94,9 @@ class LocationModel {
       longitude: (json['longitude'] as num).toDouble(),
       accuracy: (json['accuracy'] as num?)?.toDouble() ?? 15.0,
       speed: (json['speed'] as num?)?.toDouble(),
-      batteryLevel: json['battery_level'] as int?,
+      batteryLevel: json['battery_level'] != null
+          ? (json['battery_level'] as num).toInt()
+          : null,
       timestamp: json['timestamp'] != null
           ? DateTime.parse(json['timestamp'] as String)
           : DateTime.now(),

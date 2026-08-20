@@ -279,6 +279,14 @@ class LocationProvider extends ChangeNotifier {
       _pendingSyncCount = await _storageService.getUnsyncedCount(userId);
       _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.synced;
 
+      // Fallback: If local SQLite has no last known coordinates (e.g. Web), fetch from Supabase
+      if (_currentLocation == null && _coupleId != null) {
+        _currentLocation = await _syncService.fetchUserLastLocation(_coupleId!, userId);
+      }
+      if (_partnerLocation == null && _coupleId != null && _partnerId != null) {
+        _partnerLocation = await _syncService.getPartnerLastLocation(_coupleId!, _partnerId!);
+      }
+
       _subscribeToStreams();
       _startBatterySmartLocationStream();
 
@@ -317,8 +325,8 @@ class LocationProvider extends ChangeNotifier {
     if (!_permissionStatus.canTrack) return;
 
     _devicePositionSubscription?.cancel();
-    const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
+    final locationSettings = LocationSettings(
+      accuracy: kIsWeb ? LocationAccuracy.medium : LocationAccuracy.high,
       distanceFilter: 10, // Only trigger after 10m movement to save battery
     );
 
@@ -326,6 +334,12 @@ class LocationProvider extends ChangeNotifier {
       locationSettings: locationSettings,
     ).listen((Position position) async {
       if (_userId == null) return;
+
+      if (!kIsWeb) {
+        try {
+          _batteryLevel = await _battery.batteryLevel;
+        } catch (_) {}
+      }
 
       final locationModel = LocationModel(
         coupleId: _coupleId ?? '',
@@ -350,6 +364,8 @@ class LocationProvider extends ChangeNotifier {
       }
 
       notifyListeners();
+    }, onError: (err) {
+      debugPrint('Geolocator position stream error: $err');
     });
   }
 

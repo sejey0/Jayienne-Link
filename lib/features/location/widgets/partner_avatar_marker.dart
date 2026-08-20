@@ -81,96 +81,100 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
 
     return GestureDetector(
       onTap: widget.onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Battery level badge floating on top
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.75),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: batteryColor.withValues(alpha: 0.6), width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _getBatteryIcon(widget.batteryLevel, widget.batteryState),
-                  color: batteryColor,
-                  size: 12,
-                ),
-                const SizedBox(width: 3),
-                Text(
-                  batteryLvlText,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 3),
-
-          // Glowing animated Avatar Ring
-          ScaleTransition(
-            scale: _pulseAnimation,
-            child: Container(
-              width: 52,
-              height: 52,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Battery level badge floating on top
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accent.withValues(alpha: 0.25),
-                border: Border.all(
-                  color: accent,
-                  width: 3,
-                ),
+                color: Colors.black.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: batteryColor.withValues(alpha: 0.6), width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: accent.withValues(alpha: 0.5),
-                    blurRadius: 10,
-                    spreadRadius: 2,
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(2),
-                child: ClipOval(
-                  child: SmartProfileImage(
-                    imageUrl: widget.photoUrl,
-                    width: 44,
-                    height: 44,
-                    placeholder: Container(
-                      color: accent.withValues(alpha: 0.3),
-                      child: Icon(Icons.person, color: accent, size: 24),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _getBatteryIcon(widget.batteryLevel, widget.batteryState),
+                    color: batteryColor,
+                    size: 11,
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    batteryLvlText,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
                     ),
-                    errorWidget: Container(
-                      color: accent.withValues(alpha: 0.3),
-                      child: Icon(Icons.person, color: accent, size: 24),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 2),
+
+            // Glowing animated Avatar Ring
+            ScaleTransition(
+              scale: _pulseAnimation,
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: accent.withValues(alpha: 0.25),
+                  border: Border.all(
+                    color: accent,
+                    width: 2.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.5),
+                      blurRadius: 8,
+                      spreadRadius: 1.5,
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: ClipOval(
+                    child: SmartProfileImage(
+                      imageUrl: widget.photoUrl,
+                      width: 40,
+                      height: 40,
+                      placeholder: Container(
+                        color: accent.withValues(alpha: 0.3),
+                        child: Icon(Icons.person, color: accent, size: 22),
+                      ),
+                      errorWidget: Container(
+                        color: accent.withValues(alpha: 0.3),
+                        child: Icon(Icons.person, color: accent, size: 22),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
 
-          // Bottom Map Pin Triangle Indicator
-          CustomPaint(
-            size: const Size(12, 6),
-            painter: _PinTrianglePainter(
-              color: accent,
+            // Bottom Map Pin Triangle Indicator
+            CustomPaint(
+              size: const Size(10, 5),
+              painter: _PinTrianglePainter(
+                color: accent,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

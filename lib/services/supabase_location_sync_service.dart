@@ -457,6 +457,33 @@ class SupabaseLocationSyncService {
     }
   }
 
+  /// Get user's last known location from Supabase
+  Future<LocationModel?> fetchUserLastLocation(
+    String coupleId,
+    String userId,
+  ) async {
+    try {
+      final response = await _supabase
+          .from(_locationsTable)
+          .select()
+          .eq('owner_id', userId)
+          .order('timestamp', ascending: false)
+          .limit(1);
+
+      if (response.isEmpty) {
+        return null;
+      }
+
+      return LocationModel.fromJson(
+        response.first,
+        source: LocationSource.local,
+      );
+    } catch (e) {
+      debugPrint('❌ Error fetching user last location from Supabase: $e');
+      return null;
+    }
+  }
+
   // =====================
   // SYNC STATUS
   // =====================

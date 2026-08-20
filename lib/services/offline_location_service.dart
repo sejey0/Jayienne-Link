@@ -116,6 +116,47 @@ class OfflineLocationService {
   // LOCATION CAPTURE
   // =====================
 
+  /// Web-safe position fetch with timeout and fallback
+  Future<Position?> _fetchPositionWithFallback({
+    LocationAccuracy? accuracy,
+    Duration timeLimit = const Duration(seconds: 15),
+  }) async {
+    final effectiveAccuracy =
+        accuracy ?? (kIsWeb ? LocationAccuracy.medium : LocationAccuracy.high);
+    try {
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: effectiveAccuracy,
+        timeLimit: timeLimit,
+      );
+    } catch (e) {
+      debugPrint('getCurrentPosition failed/timed out: $e');
+
+      // Only attempt getLastKnownPosition on non-Web platforms
+      if (!kIsWeb) {
+        try {
+          final lastPos = await Geolocator.getLastKnownPosition();
+          if (lastPos != null) return lastPos;
+        } catch (lastPosErr) {
+          debugPrint('getLastKnownPosition error: $lastPosErr');
+        }
+      }
+
+      return null;
+    }
+  }
+
+  /// Safely get current battery level percentage
+  Future<int?> getBatteryLevel() async {
+    if (kIsWeb) return null;
+    try {
+      final battery = Battery();
+      return await battery.batteryLevel;
+    } catch (e) {
+      debugPrint('Error getting battery level: $e');
+      return null;
+    }
+  }
+
   /// Get current location once (works offline - uses GPS directly)
   Future<LocationModel?> getCurrentLocation(String ownerId) async {
     try {
@@ -125,21 +166,23 @@ class OfflineLocationService {
           status == LocationPermissionStatus.deniedForever ||
           status == LocationPermissionStatus.serviceDisabled) {
         debugPrint('Location permission not granted: $status');
-        return null;
+        return await _storage.getLastKnownLocation(ownerId);
       }
 
-      // Get position from GPS (works offline)
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 30),
+      // Get position from GPS (works offline) with fallback to last known position
+      final position = await _fetchPositionWithFallback(
+        accuracy: kIsWeb ? LocationAccuracy.medium : LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
       );
+
+      if (position == null) {
+        debugPrint('Unable to get live position. Returning cached/last known location...');
+        return await _storage.getLastKnownLocation(ownerId);
+      }
 
       _lastPosition = position;
 
-      int? batteryLevel;
-      try {
-        batteryLevel = await Battery().batteryLevel;
-      } catch (_) {}
+      final batteryLevel = await getBatteryLevel();
 
       // Create location model
       final location = LocationModel(
@@ -147,13 +190,14 @@ class OfflineLocationService {
         ownerId: ownerId,
         latitude: position.latitude,
         longitude: position.longitude,
+        speed: position.speed,
         accuracy: position.accuracy,
         batteryLevel: batteryLevel,
         timestamp: DateTime.now(),
         source: LocationSource.local,
       );
 
-      // Always save to SQLite first (offline-first)
+      // Always save to SQLite first (offline-first, no-op on Web)
       final id = await _storage.insertLocation(location);
       final savedLocation = location.copyWith(localId: id);
 
@@ -163,7 +207,7 @@ class OfflineLocationService {
       return savedLocation;
     } catch (e) {
       debugPrint('Error getting location: $e');
-      return null;
+      return await _storage.getLastKnownLocation(ownerId);
     }
   }
 
@@ -181,22 +225,24 @@ class OfflineLocationService {
     // Check if we've moved enough since last capture
     if (_lastPosition != null) {
       try {
-        final currentPos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.medium,
+        final currentPos = await _fetchPositionWithFallback(
+          accuracy: LocationAccuracy.medium,
           timeLimit: const Duration(seconds: 15),
         );
 
-        final distance = Geolocator.distanceBetween(
-          _lastPosition!.latitude,
-          _lastPosition!.longitude,
-          currentPos.latitude,
-          currentPos.longitude,
-        );
+        if (currentPos != null) {
+          final distance = Geolocator.distanceBetween(
+            _lastPosition!.latitude,
+            _lastPosition!.longitude,
+            currentPos.latitude,
+            currentPos.longitude,
+          );
 
-        if (distance < _movementThreshold) {
-          debugPrint(
-              'Skipping capture - no significant movement (${distance.toStringAsFixed(1)}m)');
-          return null;
+          if (distance < _movementThreshold) {
+            debugPrint(
+                'Skipping capture - no significant movement (${distance.toStringAsFixed(1)}m)');
+            return null;
+          }
         }
       } catch (e) {
         // Continue with capture if movement check fails
@@ -240,13 +286,17 @@ class OfflineLocationService {
       (position) async {
         _lastPosition = position;
 
+        final batteryLevel = await getBatteryLevel();
+
         // Create and save location
         final location = LocationModel(
           coupleId: '',
           ownerId: ownerId,
           latitude: position.latitude,
           longitude: position.longitude,
+          speed: position.speed,
           accuracy: position.accuracy,
+          batteryLevel: batteryLevel,
           timestamp: DateTime.now(),
           source: LocationSource.local,
         );
@@ -282,17 +332,26 @@ class OfflineLocationService {
   /// This is called by the background service
   Future<LocationModel?> captureBackgroundLocation(String ownerId) async {
     try {
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 30),
+      final position = await _fetchPositionWithFallback(
+        accuracy: kIsWeb ? LocationAccuracy.medium : LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
       );
+
+      if (position == null) {
+        debugPrint('Background capture: No position available');
+        return await _storage.getLastKnownLocation(ownerId);
+      }
+
+      final batteryLevel = await getBatteryLevel();
 
       final location = LocationModel(
         coupleId: '',
         ownerId: ownerId,
         latitude: position.latitude,
         longitude: position.longitude,
+        speed: position.speed,
         accuracy: position.accuracy,
+        batteryLevel: batteryLevel,
         timestamp: DateTime.now(),
         source: LocationSource.background,
       );

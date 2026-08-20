@@ -13,6 +13,7 @@ class LocationModel {
   final double longitude;
   final double accuracy; // GPS accuracy in meters
   final double? speed; // Movement speed in m/s
+  final double? heading; // Direction of travel in degrees (0-360)
   final int? batteryLevel; // Battery percentage 0-100
   final DateTime timestamp;
   final DateTime? createdAt; // When record was created in database
@@ -29,6 +30,7 @@ class LocationModel {
     required this.longitude,
     required this.accuracy,
     this.speed,
+    this.heading,
     this.batteryLevel,
     required this.timestamp,
     this.createdAt,
@@ -48,6 +50,7 @@ class LocationModel {
       longitude: (map['longitude'] as num).toDouble(),
       accuracy: (map['accuracy'] as num?)?.toDouble() ?? 15.0,
       speed: (map['speed'] as num?)?.toDouble(),
+      heading: (map['heading'] as num?)?.toDouble(),
       batteryLevel: map['battery_level'] != null
           ? (map['battery_level'] as num).toInt()
           : null,
@@ -72,6 +75,7 @@ class LocationModel {
       'longitude': longitude,
       'accuracy': accuracy,
       if (speed != null) 'speed': speed,
+      if (heading != null) 'heading': heading,
       if (batteryLevel != null) 'battery_level': batteryLevel,
       'timestamp': timestamp.millisecondsSinceEpoch,
       'created_at': createdAt?.millisecondsSinceEpoch,
@@ -94,6 +98,7 @@ class LocationModel {
       longitude: (json['longitude'] as num).toDouble(),
       accuracy: (json['accuracy'] as num?)?.toDouble() ?? 15.0,
       speed: (json['speed'] as num?)?.toDouble(),
+      heading: (json['heading'] as num?)?.toDouble(),
       batteryLevel: json['battery_level'] != null
           ? (json['battery_level'] as num).toInt()
           : null,
@@ -120,6 +125,7 @@ class LocationModel {
         'longitude': double.parse(longitude.toStringAsFixed(4)),
         'timestamp': timestamp.toIso8601String(),
         if (speed != null) 'speed': speed,
+        if (heading != null) 'heading': heading,
         if (batteryLevel != null) 'battery_level': batteryLevel,
       };
     }
@@ -133,6 +139,7 @@ class LocationModel {
       'longitude': longitude,
       'accuracy': accuracy,
       if (speed != null) 'speed': speed,
+      if (heading != null) 'heading': heading,
       if (batteryLevel != null) 'battery_level': batteryLevel,
       'timestamp': timestamp.toIso8601String(),
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
@@ -169,6 +176,7 @@ class LocationModel {
     double? longitude,
     double? accuracy,
     double? speed,
+    double? heading,
     int? batteryLevel,
     DateTime? timestamp,
     DateTime? createdAt,
@@ -185,6 +193,7 @@ class LocationModel {
       longitude: longitude ?? this.longitude,
       accuracy: accuracy ?? this.accuracy,
       speed: speed ?? this.speed,
+      heading: heading ?? this.heading,
       batteryLevel: batteryLevel ?? this.batteryLevel,
       timestamp: timestamp ?? this.timestamp,
       createdAt: createdAt ?? this.createdAt,

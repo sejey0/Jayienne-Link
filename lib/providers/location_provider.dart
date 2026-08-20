@@ -89,6 +89,16 @@ class LocationProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  // History & Route Playback State
+  List<LocationModel> _historyLocations = [];
+  bool _isHistoryMode = false;
+  bool _isPlayingRoute = false;
+  int _playbackIndex = 0;
+  DateTime _selectedHistoryDate = DateTime.now();
+  String? _historyOwnerId;
+  bool _isLoadingHistory = false;
+  Timer? _playbackTimer;
+
   // Stream Subscriptions
   StreamSubscription<Position>? _devicePositionSubscription;
   StreamSubscription<BatteryState>? _batterySubscription;
@@ -115,12 +125,40 @@ class LocationProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isSharingEnabled => _settings.sharingEnabled;
   bool get isBackgroundSharingEnabled => _settings.backgroundSharingEnabled;
+  String? get userId => _userId;
+  String? get partnerId => _partnerId;
+  String? get coupleId => _coupleId;
   bool get hasPartner => _coupleId != null && _coupleId!.isNotEmpty;
   bool get canShare => _permissionStatus.canTrack && hasPartner;
   UserModel? get currentUser => _currentUser;
   UserModel? get partnerUser => _partnerUser;
   int get batteryLevel => _batteryLevel;
   BatteryState get batteryState => _batteryState;
+
+  // History Getters
+  List<LocationModel> get historyLocations => _historyLocations;
+  bool get isHistoryMode => _isHistoryMode;
+  bool get isPlayingRoute => _isPlayingRoute;
+  int get playbackIndex => _playbackIndex;
+  DateTime get selectedHistoryDate => _selectedHistoryDate;
+  String? get historyOwnerId => _historyOwnerId;
+  bool get isLoadingHistory => _isLoadingHistory;
+
+  LocationModel? get currentPlaybackLocation {
+    if (!_isHistoryMode || _historyLocations.isEmpty) return null;
+    if (_playbackIndex < 0 || _playbackIndex >= _historyLocations.length) return _historyLocations.first;
+    return _historyLocations[_playbackIndex];
+  }
+
+  LatLng? get playbackLatLng {
+    final loc = currentPlaybackLocation;
+    if (loc == null) return null;
+    return LatLng(loc.latitude, loc.longitude);
+  }
+
+  List<LatLng> get historyPolylinePoints {
+    return _historyLocations.map((loc) => LatLng(loc.latitude, loc.longitude)).toList();
+  }
 
   /// Current user position as LatLng
   LatLng? get myLatLng {
@@ -351,6 +389,7 @@ class LocationProvider extends ChangeNotifier {
         latitude: position.latitude,
         longitude: position.longitude,
         speed: position.speed,
+        heading: position.heading,
         accuracy: position.accuracy,
         batteryLevel: _batteryLevel,
         timestamp: DateTime.now(),
@@ -699,6 +738,109 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
+  // =====================
+  // LOCATION HISTORY & PLAYBACK
+  // =====================
+
+  Future<void> loadLocationHistoryForDate({
+    required String ownerId,
+    required DateTime date,
+  }) async {
+    _historyOwnerId = ownerId;
+    _selectedHistoryDate = date;
+    _isLoadingHistory = true;
+    _playbackTimer?.cancel();
+    _isPlayingRoute = false;
+    _playbackIndex = 0;
+    notifyListeners();
+
+    try {
+      final points = await _syncService.fetchHistoryForDate(
+        ownerId: ownerId,
+        date: date,
+      );
+      _historyLocations = points;
+      _playbackIndex = 0;
+    } catch (e) {
+      debugPrint('Error loading location history: $e');
+      _historyLocations = [];
+    } finally {
+      _isLoadingHistory = false;
+      notifyListeners();
+    }
+  }
+
+  void toggleHistoryMode(bool enable, {String? ownerId}) {
+    _isHistoryMode = enable;
+    if (enable) {
+      final targetOwner = ownerId ?? _historyOwnerId ?? _partnerId ?? _userId;
+      if (targetOwner != null) {
+        loadLocationHistoryForDate(ownerId: targetOwner, date: _selectedHistoryDate);
+      }
+    } else {
+      pauseRoutePlayback();
+    }
+    notifyListeners();
+  }
+
+  void setSelectedHistoryDate(DateTime date, {String? ownerId}) {
+    final targetOwner = ownerId ?? _historyOwnerId ?? _partnerId ?? _userId;
+    if (targetOwner != null) {
+      loadLocationHistoryForDate(ownerId: targetOwner, date: date);
+    } else {
+      _selectedHistoryDate = date;
+      notifyListeners();
+    }
+  }
+
+  void setHistoryOwner(String ownerId) {
+    if (_historyOwnerId != ownerId) {
+      loadLocationHistoryForDate(ownerId: ownerId, date: _selectedHistoryDate);
+    }
+  }
+
+  void startRoutePlayback() {
+    if (_historyLocations.isEmpty) return;
+
+    if (_playbackIndex >= _historyLocations.length - 1) {
+      _playbackIndex = 0;
+    }
+
+    _isPlayingRoute = true;
+    _playbackTimer?.cancel();
+    _playbackTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      if (_playbackIndex < _historyLocations.length - 1) {
+        _playbackIndex++;
+        notifyListeners();
+      } else {
+        pauseRoutePlayback();
+      }
+    });
+    notifyListeners();
+  }
+
+  void pauseRoutePlayback() {
+    _isPlayingRoute = false;
+    _playbackTimer?.cancel();
+    _playbackTimer = null;
+    notifyListeners();
+  }
+
+  void toggleRoutePlayback() {
+    if (_isPlayingRoute) {
+      pauseRoutePlayback();
+    } else {
+      startRoutePlayback();
+    }
+  }
+
+  void seekPlayback(int index) {
+    if (index >= 0 && index < _historyLocations.length) {
+      _playbackIndex = index;
+      notifyListeners();
+    }
+  }
+
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
@@ -728,6 +870,7 @@ class LocationProvider extends ChangeNotifier {
     _partnerLocationSubscription?.cancel();
     _syncService.stopListeningToPartner();
     _foregroundCaptureTimer?.cancel();
+    _playbackTimer?.cancel();
     super.dispose();
   }
 

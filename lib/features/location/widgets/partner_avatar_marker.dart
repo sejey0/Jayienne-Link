@@ -1,15 +1,18 @@
+import 'dart:math' as math;
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../widgets/smart_profile_image.dart';
 
 /// Reusable partner map marker widget featuring partner photo, glowing accent border,
-/// accuracy pulse ring, and a mini battery status badge.
+/// accuracy pulse ring, direction arrow indicator, and a mini battery status badge.
 class PartnerAvatarMarker extends StatefulWidget {
   final String? photoUrl;
   final String partnerName;
   final int? batteryLevel;
   final BatteryState? batteryState;
+  final double? heading;
+  final double? speed;
   final bool isSelected;
   final Color? accentColor;
   final VoidCallback? onTap;
@@ -20,6 +23,8 @@ class PartnerAvatarMarker extends StatefulWidget {
     required this.partnerName,
     this.batteryLevel,
     this.batteryState,
+    this.heading,
+    this.speed,
     this.isSelected = false,
     this.accentColor,
     this.onTap,
@@ -78,6 +83,9 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
     final batteryColor = _getBatteryColor(widget.batteryLevel, widget.batteryState);
 
     final accent = widget.accentColor ?? (widget.isSelected ? AppColors.softRose : AppColors.lavender);
+    final bool showHeading = widget.heading != null &&
+        widget.heading! >= 0 &&
+        (widget.speed == null || widget.speed! > 0.5);
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -124,46 +132,75 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
             ),
             const SizedBox(height: 2),
 
-            // Glowing animated Avatar Ring
-            ScaleTransition(
-              scale: _pulseAnimation,
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: accent.withValues(alpha: 0.25),
-                  border: Border.all(
-                    color: accent,
-                    width: 2.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.5),
-                      blurRadius: 8,
-                      spreadRadius: 1.5,
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: ClipOval(
-                    child: SmartProfileImage(
-                      imageUrl: widget.photoUrl,
-                      width: 40,
-                      height: 40,
-                      placeholder: Container(
-                        color: accent.withValues(alpha: 0.3),
-                        child: Icon(Icons.person, color: accent, size: 22),
-                      ),
-                      errorWidget: Container(
-                        color: accent.withValues(alpha: 0.3),
-                        child: Icon(Icons.person, color: accent, size: 22),
+            // Avatar Ring with Rotated Direction Arrow
+            Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                // Direction Arrow Indicator (Rotated to match heading)
+                if (showHeading)
+                  Transform.rotate(
+                    angle: (widget.heading! * (math.pi / 180)),
+                    child: Container(
+                      width: 58,
+                      height: 58,
+                      alignment: Alignment.topCenter,
+                      child: Icon(
+                        Icons.navigation_rounded,
+                        size: 15,
+                        color: accent,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            blurRadius: 4,
+                          ),
+                        ],
                       ),
                     ),
                   ),
+
+                // Glowing animated Avatar Ring
+                ScaleTransition(
+                  scale: _pulseAnimation,
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: accent.withValues(alpha: 0.25),
+                      border: Border.all(
+                        color: accent,
+                        width: 2.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: accent.withValues(alpha: 0.5),
+                          blurRadius: 8,
+                          spreadRadius: 1.5,
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: ClipOval(
+                        child: SmartProfileImage(
+                          imageUrl: widget.photoUrl,
+                          width: 40,
+                          height: 40,
+                          placeholder: Container(
+                            color: accent.withValues(alpha: 0.3),
+                            child: Icon(Icons.person, color: accent, size: 22),
+                          ),
+                          errorWidget: Container(
+                            color: accent.withValues(alpha: 0.3),
+                            child: Icon(Icons.person, color: accent, size: 22),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
 
             // Bottom Map Pin Triangle Indicator

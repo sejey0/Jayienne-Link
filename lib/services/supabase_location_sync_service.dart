@@ -484,6 +484,51 @@ class SupabaseLocationSyncService {
     }
   }
 
+  /// Fetch location history points for a specific date from Supabase (with fallback to SQLite)
+  Future<List<LocationModel>> fetchHistoryForDate({
+    required String ownerId,
+    required DateTime date,
+  }) async {
+    final startOfDay = DateTime(date.year, date.month, date.day, 0, 0, 0);
+    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
+
+    // Try fetching from local SQLite first if not on Web
+    if (!kIsWeb) {
+      final localPoints = await _storage.getLocationsByDate(ownerId, date);
+      if (localPoints.isNotEmpty) {
+        return localPoints;
+      }
+    }
+
+    // Fetch from Supabase
+    try {
+      final response = await _supabase
+          .from(_locationsTable)
+          .select()
+          .eq('owner_id', ownerId)
+          .gte('timestamp', startOfDay.toIso8601String())
+          .lte('timestamp', endOfDay.toIso8601String())
+          .order('timestamp', ascending: true);
+
+      final List<LocationModel> remoteLocations = (response as List)
+          .map((json) => LocationModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      // Store in SQLite for offline caching
+      if (!kIsWeb && remoteLocations.isNotEmpty) {
+        await _storage.storeRemoteLocations(remoteLocations);
+      }
+
+      return remoteLocations;
+    } catch (e) {
+      debugPrint('❌ Error fetching location history for date $date: $e');
+      if (!kIsWeb) {
+        return await _storage.getLocationsByDate(ownerId, date);
+      }
+      return [];
+    }
+  }
+
   // =====================
   // SYNC STATUS
   // =====================

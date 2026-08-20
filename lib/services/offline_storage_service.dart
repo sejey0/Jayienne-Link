@@ -9,7 +9,7 @@ import '../models/location_model.dart';
 /// Provides offline-first storage with sync status tracking.
 class OfflineStorageService {
   static const String _databaseName = 'jayienne_link_locations.db';
-  static const int _databaseVersion = 4; // Added speed & battery_level migrations
+  static const int _databaseVersion = 5; // Added heading migration
   static const String _locationsTable = 'locations';
   static const String _settingsTable = 'location_settings';
 
@@ -64,6 +64,7 @@ class OfflineStorageService {
         longitude REAL NOT NULL,
         accuracy REAL NOT NULL,
         speed REAL DEFAULT 0.0,
+        heading REAL DEFAULT 0.0,
         battery_level INTEGER,
         timestamp INTEGER NOT NULL,
         is_synced INTEGER NOT NULL DEFAULT 0,
@@ -144,6 +145,16 @@ class OfflineStorageService {
         _locationsTable,
         'battery_level',
         'INTEGER',
+      );
+    }
+
+    // Migration: Add heading column
+    if (oldVersion < 5) {
+      await _addColumnIfMissing(
+        db,
+        _locationsTable,
+        'heading',
+        'REAL DEFAULT 0.0',
       );
     }
   }
@@ -346,6 +357,29 @@ class OfflineStorageService {
       orderBy: 'timestamp DESC',
       limit: limit,
       offset: offset,
+    );
+    return maps.map((map) => LocationModel.fromMap(map)).toList();
+  }
+
+  /// Get all locations for a specific date sorted chronologically (ASC) for playback
+  Future<List<LocationModel>> getLocationsByDate(
+    String ownerId,
+    DateTime date,
+  ) async {
+    if (kIsWeb) return [];
+    final db = await database;
+    final startOfDay = DateTime(date.year, date.month, date.day, 0, 0, 0);
+    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
+
+    final maps = await db.query(
+      _locationsTable,
+      where: 'owner_id = ? AND timestamp >= ? AND timestamp <= ?',
+      whereArgs: [
+        ownerId,
+        startOfDay.millisecondsSinceEpoch,
+        endOfDay.millisecondsSinceEpoch,
+      ],
+      orderBy: 'timestamp ASC',
     );
     return maps.map((map) => LocationModel.fromMap(map)).toList();
   }

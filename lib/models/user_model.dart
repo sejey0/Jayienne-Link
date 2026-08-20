@@ -36,7 +36,9 @@ class UserModel {
   String get uid => id;
 
   /// Role getters
-  bool get isAdmin => role == 'admin';
+  bool get isAdmin =>
+      role.toLowerCase().trim() == 'admin' ||
+      role.toLowerCase().trim() == 'superadmin';
   bool get isDeactivated => !isActive;
 
   UserModel copyWith({
@@ -75,6 +77,12 @@ class UserModel {
 
   /// Create from Supabase JSON response
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    final rawRole = json['role'] as String?;
+    final isAdminBool = json['is_admin'] == true || json['isAdmin'] == true;
+    final resolvedRole = (rawRole != null && rawRole.trim().isNotEmpty)
+        ? rawRole.trim().toLowerCase()
+        : (isAdminBool ? 'admin' : 'user');
+
     return UserModel(
       id: json['id'] as String,
       email: json['email'] as String? ?? '',
@@ -88,7 +96,7 @@ class UserModel {
       inviteCode: json['invite_code'] as String?,
       bubbleTheme: json['bubble_theme'] as String? ?? 'capybara',
       profileComplete: json['profile_complete'] as bool? ?? false,
-      role: json['role'] as String? ?? 'user',
+      role: resolvedRole,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)

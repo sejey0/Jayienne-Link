@@ -16,6 +16,7 @@ import '../../../providers/debug_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_storage_service.dart';
+import '../../admin/screens/admin_dashboard_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -48,11 +49,21 @@ class SettingsScreen extends StatelessWidget {
           if (user != null && user.isAdmin) ...[
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.admin_panel_settings_rounded, color: Colors.purple),
-              title: const Text('Admin Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('Manage users, activate/deactivate accounts'),
+              leading: const Icon(Icons.admin_panel_settings_rounded,
+                  color: Colors.purple),
+              title: const Text('Admin Dashboard',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text(
+                  'Manage app sync, data recovery, and couple settings'),
               trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.push(RouteNames.adminDashboard),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminDashboardScreen(),
+                  ),
+                );
+              },
             ),
           ],
           if (user != null) ...[

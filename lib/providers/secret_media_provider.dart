@@ -218,6 +218,35 @@ class SecretMediaProvider extends ChangeNotifier {
     }
   }
 
+  /// Restore all deleted media (Admin recovery)
+  Future<int> restoreAllDeletedMedia() async {
+    if (_coupleId == null) {
+      _error = 'Couple ID not initialized';
+      notifyListeners();
+      return 0;
+    }
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final restoredCount =
+          await _service.restoreAllDeletedMedia(coupleId: _coupleId!);
+      if (restoredCount > 0) {
+        await _loadInitial();
+      }
+      return restoredCount;
+    } catch (e) {
+      _error = 'Failed to restore deleted media: $e';
+      debugPrint(_error);
+      return 0;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// Toggle between showing shared and hidden media
   void toggleHiddenVault() {
     _showHiddenVault = !_showHiddenVault;
@@ -305,11 +334,25 @@ class SecretMediaProvider extends ChangeNotifier {
     }
   }
 
-  /// Restore media from trash
+  /// Restore media from trash (preserves is_hidden placement)
   Future<bool> restoreFromTrash(String mediaId) async {
     try {
-      await _service.restoreSecretMedia(mediaId);
+      final restoredItem = await _service.restoreSecretMedia(mediaId);
       _error = null;
+
+      // Update local array buffers according to isHidden
+      if (restoredItem.isHidden) {
+        if (!_hiddenMedia.any((m) => m.id == restoredItem.id)) {
+          _hiddenMedia.insert(0, restoredItem);
+        }
+        _sharedMedia.removeWhere((m) => m.id == restoredItem.id);
+      } else {
+        if (!_sharedMedia.any((m) => m.id == restoredItem.id)) {
+          _sharedMedia.insert(0, restoredItem);
+        }
+        _hiddenMedia.removeWhere((m) => m.id == restoredItem.id);
+      }
+
       await _loadInitial();
       notifyListeners();
       return true;

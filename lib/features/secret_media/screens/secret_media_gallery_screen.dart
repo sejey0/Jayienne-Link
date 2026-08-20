@@ -369,12 +369,13 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
         child: Container(
           color: Colors.grey.shade900,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // 1. Base Image/Video Thumbnail
+              // 1. Bottom Layer: Media Image / Thumbnail
               if (displayImageUrl.isNotEmpty)
                 Image.network(
                   displayImageUrl,
@@ -388,7 +389,7 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                       ),
                     );
                   },
-                  errorBuilder: (c, e, s) => Container(
+                  errorBuilder: (context, error, stackTrace) => Container(
                     color: Colors.grey.shade900,
                     child: const Center(
                       child: Icon(
@@ -411,32 +412,36 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                   ),
                 ),
 
-              // 2. Privacy Mask / Blur Filter Overlay
+              // 2. Middle Layer: Permanent Blur & Dark Privacy Overlay
               Positioned.fill(
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                   child: Container(
-                    color: Colors.black.withOpacity(0.25),
+                    color: Colors.black.withValues(alpha: 0.35),
                     child: const Center(
                       child: Icon(
-                        Icons.lock_outline_rounded,
+                        Icons.lock_rounded,
                         color: Colors.white70,
-                        size: 22,
+                        size: 24,
                       ),
                     ),
                   ),
                 ),
               ),
 
-              // 3. Media Type Indicator (e.g. Play icon for Videos)
+              // 3. Top Layer: Video Indicator (if applicable)
               if (media.mediaType == 'video')
                 const Positioned(
-                  right: 8,
                   top: 8,
-                  child: Icon(
-                    Icons.play_circle_fill_rounded,
-                    color: Colors.white,
-                    size: 20,
+                  right: 8,
+                  child: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: Colors.black54,
+                    child: Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
                 ),
 
@@ -446,7 +451,7 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                 left: 4,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.4),
+                    color: Colors.black.withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
                   child: PopupMenuButton(

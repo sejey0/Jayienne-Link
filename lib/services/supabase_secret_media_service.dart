@@ -157,12 +157,12 @@ class SupabaseSecretMediaService {
     }
   }
 
-  // Soft delete secret media (marks deleted_at and sets is_hidden = true)
+  // Soft delete secret media (marks deleted_at without altering is_hidden)
   Future<void> deleteSecretMedia(String mediaId) async {
     try {
       await _supabase.from(_tableName).update({
         'deleted_at': DateTime.now().toIso8601String(),
-        'is_hidden': true,
+        'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', mediaId);
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
@@ -181,12 +181,12 @@ class SupabaseSecretMediaService {
           .from(_tableName)
           .select()
           .eq('couple_id', coupleId)
+          .not('deleted_at', 'is', null)
           .order('deleted_at', ascending: false);
 
       return (response as List)
           .cast<Map<String, dynamic>>()
           .map((item) => SecretMediaModel.fromJson(item))
-          .where((media) => media.deletedAt != null)
           .toList();
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
@@ -198,12 +198,72 @@ class SupabaseSecretMediaService {
     }
   }
 
-  // Restore deleted secret media
+  // Restore all soft-deleted secret media for a couple (Admin recovery sync - preserves is_hidden)
+  Future<int> restoreAllDeletedMedia({required String coupleId}) async {
+    try {
+      debugPrint('🔄 RESTORING ALL DELETED MEDIA FOR COUPLE_ID: $coupleId');
+      // Fetches all media items for the couple where deleted_at IS NOT NULL
+      final deletedRecords = await _supabase
+          .from(_tableName)
+          .select('id')
+          .eq('couple_id', coupleId)
+          .not('deleted_at', 'is', null);
+
+      final count = (deletedRecords as List).length;
+      debugPrint('📦 FOUND $count DELETED MEDIA ITEMS TO RESTORE');
+
+      if (count > 0) {
+        // Restores deleted records back to active state ONLY resetting deleted_at to NULL
+        await _supabase
+            .from(_tableName)
+            .update({
+              'deleted_at': null,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('couple_id', coupleId)
+            .not('deleted_at', 'is', null);
+        debugPrint('✅ RESTORED $count DELETED MEDIA ITEMS (is_hidden preserved)');
+      }
+
+      return count;
+    } catch (e) {
+      if (_isMissingSecretMediaTable(e)) {
+        debugPrint('Error restoring all secret media: $_missingTableHelp');
+        throw _tableSetupException();
+      }
+      debugPrint('Error restoring all secret media: $e');
+      rethrow;
+    }
+  }
+
+  // Restore single deleted secret media (preserves is_hidden)
   Future<SecretMediaModel> restoreSecretMedia(String mediaId) async {
     try {
+      // 1. Try Supabase RPC function restore_secret_media
+      try {
+        final rpcResponse = await _supabase.rpc('restore_secret_media', params: {
+          'target_id': mediaId,
+        });
+        if (rpcResponse != null) {
+          if (rpcResponse is List && rpcResponse.isNotEmpty) {
+            return SecretMediaModel.fromJson(
+                rpcResponse[0] as Map<String, dynamic>);
+          } else if (rpcResponse is Map<String, dynamic>) {
+            return SecretMediaModel.fromJson(rpcResponse);
+          }
+        }
+      } catch (rpcError) {
+        debugPrint(
+            'restore_secret_media RPC not available or failed, falling back to direct update: $rpcError');
+      }
+
+      // 2. Direct update fallback (ONLY clears deleted_at, preserves original is_hidden)
       final response = await _supabase
           .from(_tableName)
-          .update({'deleted_at': null as dynamic})
+          .update({
+            'deleted_at': null,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
           .eq('id', mediaId)
           .select();
 

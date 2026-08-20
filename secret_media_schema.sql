@@ -147,3 +147,21 @@ USING (
 -- Grant permissions
 GRANT ALL ON secret_media TO authenticated;
 GRANT SELECT ON secret_media TO authenticated;
+
+-- Function to safely restore a soft-deleted secret media without modifying is_hidden
+CREATE OR REPLACE FUNCTION restore_secret_media(target_id UUID)
+RETURNS SETOF secret_media
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  UPDATE secret_media
+  SET deleted_at = NULL,
+      updated_at = NOW()
+  WHERE id = target_id
+  RETURNING *;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION restore_secret_media(UUID) TO authenticated;

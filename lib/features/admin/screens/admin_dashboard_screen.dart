@@ -6,6 +6,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/admin_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../providers/secret_media_provider.dart';
 import '../../../widgets/smart_profile_image.dart';
 
 /// Senior Admin Dashboard Screen accurately aligned with Jayienne Link design system
@@ -232,8 +233,181 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        _buildAdminToolsSection(context, isDark),
       ],
     );
+  }
+
+  // --- ADMIN TOOLS SECTION ---
+  Widget _buildAdminToolsSection(
+    BuildContext context,
+    bool isDark,
+  ) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.purple.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withValues(alpha: 0.08),
+            blurRadius: 10,
+            spreadRadius: 1,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.restore_from_trash_rounded,
+                  color: Colors.purple,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Media Recovery Sync',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppColors.deepCharcoal,
+                      ),
+                    ),
+                    Text(
+                      'Restore soft-deleted secret photos & videos',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _handleRestoreAllMedia(context),
+                  icon: const Icon(Icons.sync_rounded, size: 18),
+                  label: const Text('Sync & Restore Media'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleRestoreAllMedia(BuildContext context) async {
+    final user = context.read<UserProvider>().user;
+    final coupleId = user?.coupleId;
+
+    if (coupleId == null || coupleId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No active couple found for media restoration.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restore All Deleted Media?'),
+        content: const Text(
+          'This will restore all soft-deleted secret photos and videos back to the active gallery status.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(
+          child: CircularProgressIndicator(color: Colors.purple),
+        ),
+      );
+
+      final restoredCount = await context
+          .read<SecretMediaProvider>()
+          .restoreAllDeletedMedia();
+
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              restoredCount > 0
+                  ? 'Successfully restored $restoredCount secret media items!'
+                  : 'No deleted secret media items found to restore.',
+            ),
+            backgroundColor:
+                restoredCount > 0 ? Colors.green : Colors.grey.shade800,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to restore media: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildStatCard(

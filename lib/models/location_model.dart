@@ -289,7 +289,7 @@ class LocationSharingSettings {
   final DateTime? lastUpdated;
 
   LocationSharingSettings({
-    this.sharingEnabled = false,
+    this.sharingEnabled = true,
     this.backgroundSharingEnabled = false,
     this.updateIntervalMinutes = 15,
     this.dataSaverEnabled = false,
@@ -299,8 +299,9 @@ class LocationSharingSettings {
   factory LocationSharingSettings.fromMap(Map<String, dynamic> map) {
     return LocationSharingSettings(
       // SQLite stores booleans as integers (0/1)
-      sharingEnabled:
-          (map['sharing_enabled'] == 1 || map['sharing_enabled'] == true),
+      sharingEnabled: map['sharing_enabled'] != null
+          ? (map['sharing_enabled'] == 1 || map['sharing_enabled'] == true)
+          : true,
       backgroundSharingEnabled: (map['background_sharing_enabled'] == 1 ||
           map['background_sharing_enabled'] == true),
       updateIntervalMinutes: map['update_interval_minutes'] as int? ?? 15,
@@ -326,7 +327,7 @@ class LocationSharingSettings {
   /// Create from Supabase JSON
   factory LocationSharingSettings.fromJson(Map<String, dynamic> json) {
     return LocationSharingSettings(
-      sharingEnabled: json['sharing_enabled'] as bool? ?? false,
+      sharingEnabled: json['sharing_enabled'] as bool? ?? true,
       backgroundSharingEnabled:
           json['background_sharing_enabled'] as bool? ?? false,
       updateIntervalMinutes: json['update_interval_minutes'] as int? ?? 15,

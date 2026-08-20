@@ -89,4 +89,18 @@ class LocalCacheService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_firstLaunchKey, false);
   }
+
+  static const String _sharingEnabledKey = 'location_sharing_enabled';
+
+  /// Load persisted sharing state (defaults to true so tracking stays active)
+  static Future<bool> loadSharingEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_sharingEnabledKey) ?? true;
+  }
+
+  /// Save persisted sharing state
+  static Future<void> saveSharingEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_sharingEnabledKey, enabled);
+  }
 }

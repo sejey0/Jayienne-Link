@@ -9,6 +9,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../services/offline_location_service.dart';
 import '../../../widgets/common/live_time_text.dart';
 import '../widgets/location_share_toggle.dart';
 import '../widgets/offline_status_indicator.dart';
@@ -38,10 +39,19 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      final provider = context.read<LocationProvider>();
+
+      // Auto-resume location tracking if sharing is enabled and permissions allow
+      if (provider.isSharingEnabled &&
+          (provider.permissionStatus == LocationPermissionStatus.whileInUse ||
+              provider.permissionStatus == LocationPermissionStatus.always)) {
+        await provider.startTracking();
+      }
+
       _refreshLocations();
-      context.read<LocationProvider>().startForegroundRecording();
+      provider.startForegroundRecording();
     });
   }
 

@@ -224,7 +224,11 @@ class LocationProvider extends ChangeNotifier {
         _syncService.setCredentials(userId, _coupleId!);
       }
 
-      _settings = await _storageService.getSettings(userId) ?? LocationSharingSettings();
+      final savedSharingEnabled = await LocalCacheService.loadSharingEnabled();
+      final dbSettings = await _storageService.getSettings(userId);
+      _settings = (dbSettings ?? LocationSharingSettings(sharingEnabled: savedSharingEnabled)).copyWith(
+        sharingEnabled: dbSettings?.sharingEnabled ?? savedSharingEnabled,
+      );
       _permissionStatus = await _locationService.getPermissionStatus();
       _currentLocation = await _storageService.getLastKnownLocation(userId);
 
@@ -674,6 +678,7 @@ class LocationProvider extends ChangeNotifier {
   Future<void> _updateSettings(LocationSharingSettings newSettings) async {
     if (_userId == null) return;
     _settings = newSettings;
+    await LocalCacheService.saveSharingEnabled(newSettings.sharingEnabled);
     await _storageService.saveSettings(_userId!, newSettings);
     notifyListeners();
   }

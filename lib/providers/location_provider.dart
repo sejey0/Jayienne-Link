@@ -362,14 +362,17 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
-  /// Start battery-smart Geolocator stream with distance filter (10m)
+  Position? _lastSavedPosition;
+  DateTime? _lastSavedTime;
+
+  /// Start battery-smart Geolocator stream with distance filter (15m)
   void _startBatterySmartLocationStream() {
     if (!_permissionStatus.canTrack) return;
 
     _devicePositionSubscription?.cancel();
     final locationSettings = LocationSettings(
       accuracy: kIsWeb ? LocationAccuracy.medium : LocationAccuracy.high,
-      distanceFilter: 10, // Only trigger after 10m movement to save battery
+      distanceFilter: 15, // Only trigger after 15m movement to save battery
     );
 
     _devicePositionSubscription = Geolocator.getPositionStream(
@@ -383,6 +386,8 @@ class LocationProvider extends ChangeNotifier {
         } catch (_) {}
       }
 
+      final now = DateTime.now();
+
       final locationModel = LocationModel(
         coupleId: _coupleId ?? '',
         ownerId: _userId!,
@@ -392,18 +397,44 @@ class LocationProvider extends ChangeNotifier {
         heading: position.heading,
         accuracy: position.accuracy,
         batteryLevel: _batteryLevel,
-        timestamp: DateTime.now(),
-        createdAt: DateTime.now(),
+        timestamp: now,
+        createdAt: now,
       );
 
       _currentLocation = locationModel;
-      await _storageService.insertLocation(locationModel);
-      _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
 
-      if (isOnline && _coupleId != null) {
-        syncLocations();
-      } else {
-        _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.offline;
+      // Smart database throttling check to prevent 1-second database bloat
+      bool shouldSaveToDb = true;
+      if (_lastSavedPosition != null && _lastSavedTime != null) {
+        final elapsed = now.difference(_lastSavedTime!);
+        final distance = Geolocator.distanceBetween(
+          _lastSavedPosition!.latitude,
+          _lastSavedPosition!.longitude,
+          position.latitude,
+          position.longitude,
+        );
+
+        // If stationary (speed < 0.5 m/s) and moved less than 15m, skip DB insert
+        if (position.speed < 0.5 && distance < 15.0) {
+          shouldSaveToDb = false;
+        } else if (elapsed < const Duration(seconds: 15) && distance < 20.0) {
+          // Only save if at least 15s elapsed OR distance > 20m
+          shouldSaveToDb = false;
+        }
+      }
+
+      if (shouldSaveToDb) {
+        _lastSavedPosition = position;
+        _lastSavedTime = now;
+
+        await _storageService.insertLocation(locationModel);
+        _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
+
+        if (isOnline && _coupleId != null) {
+          syncLocations();
+        } else {
+          _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.offline;
+        }
       }
 
       notifyListeners();

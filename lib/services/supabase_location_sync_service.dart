@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/location_model.dart';
 import 'offline_storage_service.dart';
@@ -519,7 +520,7 @@ class SupabaseLocationSyncService {
         await _storage.storeRemoteLocations(remoteLocations);
       }
 
-      return remoteLocations;
+      return _downsamplePoints(remoteLocations);
     } catch (e) {
       debugPrint('❌ Error fetching location history for date $date: $e');
       if (!kIsWeb) {
@@ -527,6 +528,54 @@ class SupabaseLocationSyncService {
       }
       return [];
     }
+  }
+
+  /// Downsamples points to max 300 per day and eliminates <10m / <10s duplicates
+  List<LocationModel> _downsamplePoints(
+    List<LocationModel> raw, {
+    int maxPoints = 300,
+    double minDistanceMeters = 10.0,
+    int minIntervalSeconds = 10,
+  }) {
+    if (raw.length <= 2) return raw;
+
+    final List<LocationModel> filtered = [raw.first];
+
+    for (int i = 1; i < raw.length - 1; i++) {
+      final current = raw[i];
+      final last = filtered.last;
+
+      final elapsed = current.timestamp.difference(last.timestamp).inSeconds.abs();
+      final distance = Geolocator.distanceBetween(
+        last.latitude,
+        last.longitude,
+        current.latitude,
+        current.longitude,
+      );
+
+      if (distance < minDistanceMeters || elapsed < minIntervalSeconds) {
+        continue;
+      }
+
+      filtered.add(current);
+    }
+
+    filtered.add(raw.last);
+
+    if (filtered.length > maxPoints) {
+      final List<LocationModel> decimated = [filtered.first];
+      final double step = (filtered.length - 1) / (maxPoints - 1);
+      for (int i = 1; i < maxPoints - 1; i++) {
+        final index = (i * step).round();
+        if (index > 0 && index < filtered.length - 1) {
+          decimated.add(filtered[index]);
+        }
+      }
+      decimated.add(filtered.last);
+      return decimated;
+    }
+
+    return filtered;
   }
 
   // =====================

@@ -20,13 +20,15 @@ class OfflineLocationService {
 
   // Last known position for quick access
   Position? _lastPosition;
+  Position? _lastSavedPosition;
+  DateTime? _lastSavedTime;
 
   // Throttling to prevent excessive updates
   DateTime? _lastCaptureTime;
-  static const Duration _minCaptureInterval = Duration(seconds: 30);
+  static const Duration _minCaptureInterval = Duration(seconds: 15);
 
   // Movement detection threshold (meters)
-  static const double _movementThreshold = 10.0;
+  static const double _movementThreshold = 15.0;
 
   OfflineLocationService._();
 
@@ -262,7 +264,7 @@ class OfflineLocationService {
   /// Start continuous location tracking
   Future<bool> startTracking(
     String ownerId, {
-    int distanceFilter = 50, // meters
+    int distanceFilter = 15, // 15 meters minimum movement
     LocationAccuracy accuracy = LocationAccuracy.high,
   }) async {
     // Check permissions
@@ -281,11 +283,36 @@ class OfflineLocationService {
       locationSettings: AndroidSettings(
         accuracy: accuracy,
         distanceFilter: distanceFilter,
-        intervalDuration: const Duration(seconds: 10),
+        intervalDuration: const Duration(seconds: 15),
       ),
     ).listen(
       (position) async {
         _lastPosition = position;
+
+        // Smart Throttling check to prevent 1-second database bloat
+        final now = DateTime.now();
+        if (_lastSavedPosition != null && _lastSavedTime != null) {
+          final elapsed = now.difference(_lastSavedTime!);
+          final distance = Geolocator.distanceBetween(
+            _lastSavedPosition!.latitude,
+            _lastSavedPosition!.longitude,
+            position.latitude,
+            position.longitude,
+          );
+
+          // If stationary (speed < 0.5 m/s) and moved less than 15m, skip saving
+          if (position.speed < 0.5 && distance < 15.0) {
+            return;
+          }
+
+          // Only save if at least 15 seconds elapsed OR distance > 20 meters
+          if (elapsed < const Duration(seconds: 15) && distance < 20.0) {
+            return;
+          }
+        }
+
+        _lastSavedPosition = position;
+        _lastSavedTime = now;
 
         final batteryLevel = await getBatteryLevel();
 
@@ -299,7 +326,7 @@ class OfflineLocationService {
           heading: position.heading,
           accuracy: position.accuracy,
           batteryLevel: batteryLevel,
-          timestamp: DateTime.now(),
+          timestamp: now,
           source: LocationSource.local,
         );
 

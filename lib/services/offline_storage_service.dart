@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -361,7 +362,7 @@ class OfflineStorageService {
     return maps.map((map) => LocationModel.fromMap(map)).toList();
   }
 
-  /// Get all locations for a specific date sorted chronologically (ASC) for playback
+  /// Get all locations for a specific date sorted chronologically (ASC) with downsampling for playback
   Future<List<LocationModel>> getLocationsByDate(
     String ownerId,
     DateTime date,
@@ -381,7 +382,60 @@ class OfflineStorageService {
       ],
       orderBy: 'timestamp ASC',
     );
-    return maps.map((map) => LocationModel.fromMap(map)).toList();
+    final raw = maps.map((map) => LocationModel.fromMap(map)).toList();
+    return _downsampleLocations(raw);
+  }
+
+  /// Downsamples a list of locations to eliminate clustered/redundant points (<10m or <10s)
+  /// and limits points to a maximum of 300 per day while preserving start & end waypoints.
+  List<LocationModel> _downsampleLocations(
+    List<LocationModel> raw, {
+    int maxPoints = 300,
+    double minDistanceMeters = 10.0,
+    int minIntervalSeconds = 10,
+  }) {
+    if (raw.length <= 2) return raw;
+
+    final List<LocationModel> filtered = [raw.first];
+
+    for (int i = 1; i < raw.length - 1; i++) {
+      final current = raw[i];
+      final last = filtered.last;
+
+      final elapsed = current.timestamp.difference(last.timestamp).inSeconds.abs();
+      final distance = Geolocator.distanceBetween(
+        last.latitude,
+        last.longitude,
+        current.latitude,
+        current.longitude,
+      );
+
+      // Skip if closer than 10m or within 10s of last kept point
+      if (distance < minDistanceMeters || elapsed < minIntervalSeconds) {
+        continue;
+      }
+
+      filtered.add(current);
+    }
+
+    // Always include the latest point
+    filtered.add(raw.last);
+
+    // If still exceeds maxPoints, uniform stride decimation
+    if (filtered.length > maxPoints) {
+      final List<LocationModel> decimated = [filtered.first];
+      final double step = (filtered.length - 1) / (maxPoints - 1);
+      for (int i = 1; i < maxPoints - 1; i++) {
+        final index = (i * step).round();
+        if (index > 0 && index < filtered.length - 1) {
+          decimated.add(filtered[index]);
+        }
+      }
+      decimated.add(filtered.last);
+      return decimated;
+    }
+
+    return filtered;
   }
 
   /// Get all locations for a specific day

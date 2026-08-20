@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/constants/app_colors.dart';
 import '../models/heartbeat_model.dart';
 import '../models/heartbeat_reaction_model.dart';
 import '../models/heartbeat_read_model.dart';
@@ -22,6 +25,41 @@ class TouchTrailPoint {
   double get opacity {
     final ageMs = DateTime.now().difference(timestamp).inMilliseconds;
     const maxAgeMs = 400; // Trail fades over 400ms
+    if (ageMs >= maxAgeMs) return 0.0;
+    return (1.0 - (ageMs / maxAgeMs)).clamp(0.0, 1.0);
+  }
+}
+
+/// Particle types for collision explosion effect
+enum TouchParticleType { heart, sparkle }
+
+/// Representation of an animated physics particle bursting from touch collision
+class TouchParticle {
+  Offset position;
+  Offset velocity;
+  double scale;
+  double opacity;
+  double rotation;
+  double rotationSpeed;
+  Color color;
+  final TouchParticleType type;
+  final int maxAgeMs;
+  final DateTime createdAt;
+
+  TouchParticle({
+    required this.position,
+    required this.velocity,
+    required this.scale,
+    required this.color,
+    this.type = TouchParticleType.heart,
+    this.opacity = 1.0,
+    this.rotation = 0.0,
+    this.rotationSpeed = 0.05,
+    this.maxAgeMs = 700,
+  }) : createdAt = DateTime.now();
+
+  double get currentOpacity {
+    final ageMs = DateTime.now().difference(createdAt).inMilliseconds;
     if (ageMs >= maxAgeMs) return 0.0;
     return (1.0 - (ageMs / maxAgeMs)).clamp(0.0, 1.0);
   }
@@ -72,6 +110,7 @@ class HeartbeatProvider extends ChangeNotifier {
   // ===================================================
   // REALTIME TOUCH & GRAPHICS STATE
   // ===================================================
+  Size _screenSize = Size.zero;
   Offset? _localCurrentTouch;
   Offset? _partnerCurrentTouch;
   Offset? _partnerTargetTouch;
@@ -80,6 +119,7 @@ class HeartbeatProvider extends ChangeNotifier {
 
   final List<TouchTrailPoint> _localTouchTrail = [];
   final List<TouchTrailPoint> _partnerTouchTrail = [];
+  final List<TouchParticle> _collisionParticles = [];
 
   // Proximity & Collision State
   bool _isColliding = false;
@@ -101,12 +141,14 @@ class HeartbeatProvider extends ChangeNotifier {
   bool get canSend => _partnerId != null && _coupleId != null && _userId != null;
 
   // Touch getters
+  Size get screenSize => _screenSize;
   Offset? get localCurrentTouch => _localCurrentTouch;
   Offset? get partnerCurrentTouch => _partnerCurrentTouch;
   bool get isLocalTouching => _isLocalTouching;
   bool get isPartnerTouching => _isPartnerTouching;
   List<TouchTrailPoint> get localTouchTrail => List.unmodifiable(_localTouchTrail);
   List<TouchTrailPoint> get partnerTouchTrail => List.unmodifiable(_partnerTouchTrail);
+  List<TouchParticle> get collisionParticles => List.unmodifiable(_collisionParticles);
   bool get isColliding => _isColliding;
   Offset? get collisionPoint => _collisionPoint;
   double get collisionRippleRadius => _collisionRippleRadius;
@@ -148,6 +190,13 @@ class HeartbeatProvider extends ChangeNotifier {
   // REALTIME TOUCH BROADCAST & INTERPOLATION LOGIC
   // ===================================================
 
+  /// Update active screen dimensions for aspect ratio normalization
+  void updateScreenSize(Size size) {
+    if (_screenSize != size && size.width > 0 && size.height > 0) {
+      _screenSize = size;
+    }
+  }
+
   /// Start Realtime Touch Subscription Session
   void startTouchSession() {
     if (_coupleId == null) return;
@@ -171,11 +220,16 @@ class HeartbeatProvider extends ChangeNotifier {
     _isPartnerTouching = false;
     _localTouchTrail.clear();
     _partnerTouchTrail.clear();
+    _collisionParticles.clear();
   }
 
-  /// Send Local User Touch Update (Throttled at 30 FPS via Service)
-  void sendLocalTouch(Offset position, String state, {double intensity = 1.0}) {
+  /// Send Local User Touch Update with normalized coordinates
+  void sendLocalTouch(Offset position, String state, {double intensity = 1.0, Size? screenSize}) {
     if (_coupleId == null || _userId == null) return;
+
+    if (screenSize != null && screenSize.width > 0 && screenSize.height > 0) {
+      _screenSize = screenSize;
+    }
 
     _localCurrentTouch = position;
     _isLocalTouching = state != 'up';
@@ -188,12 +242,20 @@ class HeartbeatProvider extends ChangeNotifier {
       ));
     }
 
+    // Calculate normalized 0.0 - 1.0 coordinates to prevent screen size mismatch
+    double normX = position.dx;
+    double normY = position.dy;
+    if (_screenSize.width > 0 && _screenSize.height > 0) {
+      normX = (position.dx / _screenSize.width).clamp(0.0, 1.0);
+      normY = (position.dy / _screenSize.height).clamp(0.0, 1.0);
+    }
+
     // Broadcast over WebSocket (Throttled at 30 FPS)
     _service.broadcastTouchThrottled(
       coupleId: _coupleId!,
       userId: _userId!,
-      x: position.dx,
-      y: position.dy,
+      x: normX,
+      y: normY,
       state: state,
       intensity: intensity,
     );
@@ -202,9 +264,18 @@ class HeartbeatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Partner touch event handler
+  /// Partner touch event handler (Denormalizes coordinates to local screen size)
   void _onPartnerTouchReceived(TouchPayload payload) {
-    final newPos = Offset(payload.x, payload.y);
+    double localX = payload.x;
+    double localY = payload.y;
+
+    // Denormalize if coordinates are normalized (0.0 - 1.0) and local size is known
+    if (_screenSize.width > 0 && _screenSize.height > 0 && payload.x <= 1.0 && payload.y <= 1.0) {
+      localX = payload.x * _screenSize.width;
+      localY = payload.y * _screenSize.height;
+    }
+
+    final newPos = Offset(localX, localY);
     _partnerTargetTouch = newPos;
     _isPartnerTouching = payload.state != 'up';
 
@@ -245,6 +316,17 @@ class HeartbeatProvider extends ChangeNotifier {
       }
     }
 
+    // 4. Update collision particles physics & decay
+    if (_collisionParticles.isNotEmpty) {
+      for (final p in _collisionParticles) {
+        p.position += p.velocity;
+        p.velocity *= 0.93; // Air friction damping
+        p.rotation += p.rotationSpeed;
+        p.opacity = p.currentOpacity;
+      }
+      _collisionParticles.removeWhere((p) => p.opacity <= 0.0);
+    }
+
     notifyListeners();
   }
 
@@ -258,16 +340,56 @@ class HeartbeatProvider extends ChangeNotifier {
         if (_lastCollisionHapticTime == null || now.difference(_lastCollisionHapticTime!) >= const Duration(milliseconds: 150)) {
           _lastCollisionHapticTime = now;
           _isColliding = true;
-          _collisionPoint = Offset(
+          final midpoint = Offset(
             (_localCurrentTouch!.dx + _partnerCurrentTouch!.dx) / 2,
             (_localCurrentTouch!.dy + _partnerCurrentTouch!.dy) / 2,
           );
+          _collisionPoint = midpoint;
           _collisionRippleRadius = 5.0;
+
+          // Spawn Heart & Sparkle Particle Explosion
+          _spawnCollisionParticles(midpoint);
 
           // Intense heartbeat vibration pulse on intersection
           HapticFeedback.heavyImpact();
         }
       }
+    }
+  }
+
+  /// Spawns 16-22 hearts and sparkles bursting outward from collision point
+  void _spawnCollisionParticles(Offset origin) {
+    final rng = math.Random();
+    final count = 16 + rng.nextInt(6); // 16 - 21 particles
+    final colors = [
+      AppColors.softRose,
+      AppColors.lavender,
+      Colors.amberAccent,
+      Colors.pinkAccent.shade100,
+      Colors.white,
+    ];
+
+    for (int i = 0; i < count; i++) {
+      final angle = rng.nextDouble() * 2 * math.pi;
+      final speed = 2.5 + rng.nextDouble() * 4.5;
+      final velocity = Offset(math.cos(angle) * speed, math.sin(angle) * speed);
+      final color = colors[rng.nextInt(colors.length)];
+      final scale = 0.8 + rng.nextDouble() * 0.9;
+      final type = rng.nextBool() ? TouchParticleType.heart : TouchParticleType.sparkle;
+      final rotation = rng.nextDouble() * 2 * math.pi;
+      final rotationSpeed = (rng.nextDouble() - 0.5) * 0.15;
+      final maxAgeMs = 500 + rng.nextInt(350); // 500ms - 850ms lifetime
+
+      _collisionParticles.add(TouchParticle(
+        position: origin,
+        velocity: velocity,
+        scale: scale,
+        color: color,
+        type: type,
+        rotation: rotation,
+        rotationSpeed: rotationSpeed,
+        maxAgeMs: maxAgeMs,
+      ));
     }
   }
 

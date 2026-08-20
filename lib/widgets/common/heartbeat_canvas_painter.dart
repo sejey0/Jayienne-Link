@@ -6,6 +6,7 @@ import '../../providers/heartbeat_provider.dart';
 /// - Smooth touch glows
 /// - Fading historic touch trails
 /// - Proximity collision pulse & ripple animations
+/// - Heart & sparkle particle burst explosion
 class HeartbeatCanvasPainter extends CustomPainter {
   final Offset? localTouch;
   final Offset? partnerTouch;
@@ -13,6 +14,7 @@ class HeartbeatCanvasPainter extends CustomPainter {
   final bool isPartnerTouching;
   final List<TouchTrailPoint> localTrail;
   final List<TouchTrailPoint> partnerTrail;
+  final List<TouchParticle> particles;
   final bool isColliding;
   final Offset? collisionPoint;
   final double collisionRippleRadius;
@@ -24,6 +26,7 @@ class HeartbeatCanvasPainter extends CustomPainter {
     required this.isPartnerTouching,
     required this.localTrail,
     required this.partnerTrail,
+    required this.particles,
     required this.isColliding,
     required this.collisionPoint,
     required this.collisionRippleRadius,
@@ -47,6 +50,11 @@ class HeartbeatCanvasPainter extends CustomPainter {
     // 3. Draw Proximity Collision Ripple Rings
     if (isColliding && collisionPoint != null) {
       _drawCollisionRipple(canvas, collisionPoint!, collisionRippleRadius);
+    }
+
+    // 4. Draw Heart & Sparkle Particle Burst Engine
+    if (particles.isNotEmpty) {
+      _drawParticles(canvas, particles);
     }
   }
 
@@ -118,6 +126,63 @@ class HeartbeatCanvasPainter extends CustomPainter {
       ..strokeWidth = 2.0;
 
     canvas.drawCircle(center, (radius * 0.6), innerRipplePaint);
+  }
+
+  /// Render physics-based bursting heart and sparkle particles
+  void _drawParticles(Canvas canvas, List<TouchParticle> particles) {
+    for (int i = 0; i < particles.length; i++) {
+      final p = particles[i];
+      if (p.opacity <= 0.0) continue;
+
+      final paint = Paint()
+        ..color = p.color.withValues(alpha: p.opacity)
+        ..style = PaintingStyle.fill;
+
+      final glowPaint = Paint()
+        ..color = p.color.withValues(alpha: p.opacity * 0.45)
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+      canvas.save();
+      canvas.translate(p.position.dx, p.position.dy);
+      canvas.rotate(p.rotation);
+      canvas.scale(p.scale);
+
+      if (p.type == TouchParticleType.heart) {
+        _drawHeartShape(canvas, glowPaint);
+        _drawHeartShape(canvas, paint);
+      } else {
+        _drawSparkleShape(canvas, glowPaint);
+        _drawSparkleShape(canvas, paint);
+      }
+
+      canvas.restore();
+    }
+  }
+
+  /// Draw vector heart geometry
+  void _drawHeartShape(Canvas canvas, Paint paint) {
+    const width = 12.0;
+    const height = 12.0;
+    final path = Path();
+    path.moveTo(0, height * 0.3);
+    path.cubicTo(-width * 0.55, -height * 0.35, -width * 0.8, height * 0.35, 0, height * 0.8);
+    path.cubicTo(width * 0.8, height * 0.35, width * 0.55, -height * 0.35, 0, height * 0.3);
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  /// Draw vector sparkle/star geometry
+  void _drawSparkleShape(Canvas canvas, Paint paint) {
+    const r = 7.0;
+    final path = Path();
+    path.moveTo(0, -r);
+    path.quadraticBezierTo(0, 0, r, 0);
+    path.quadraticBezierTo(0, 0, 0, r);
+    path.quadraticBezierTo(0, 0, -r, 0);
+    path.quadraticBezierTo(0, 0, 0, -r);
+    path.close();
+    canvas.drawPath(path, paint);
   }
 
   @override

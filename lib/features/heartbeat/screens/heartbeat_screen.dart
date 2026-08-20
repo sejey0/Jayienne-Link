@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
@@ -25,6 +26,9 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
   final FocusNode _messageFocusNode = FocusNode();
   late AnimationController _canvasTickerController;
 
+  HeartbeatProvider? _heartbeatProvider;
+  Size _canvasSize = Size.zero;
+
   @override
   void initState() {
     super.initState();
@@ -37,30 +41,34 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
       duration: const Duration(seconds: 1),
     )..addListener(() {
         if (!mounted) return;
-        context.read<HeartbeatProvider>().tickInterpolation(0.2);
+        _heartbeatProvider?.tickInterpolation(0.2);
       })..repeat();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<HeartbeatProvider>().startTouchSession();
+      _heartbeatProvider?.startTouchSession();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _heartbeatProvider = context.read<HeartbeatProvider>();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!mounted) return;
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-      context.read<HeartbeatProvider>().stopTouchSession();
+      _heartbeatProvider?.stopTouchSession();
     } else if (state == AppLifecycleState.resumed) {
-      context.read<HeartbeatProvider>().startTouchSession();
+      _heartbeatProvider?.startTouchSession();
     }
   }
 
   @override
   void deactivate() {
-    if (mounted) {
-      context.read<HeartbeatProvider>().stopTouchSession();
-    }
+    _heartbeatProvider?.stopTouchSession();
     super.deactivate();
   }
 
@@ -76,8 +84,8 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
   }
 
   void _handleFocusChange() {
-    if (!_messageFocusNode.hasFocus) {
-      context.read<HeartbeatProvider>().stopTyping();
+    if (!_messageFocusNode.hasFocus && mounted) {
+      _heartbeatProvider?.stopTyping();
     }
   }
 
@@ -205,40 +213,48 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
               padding: const EdgeInsets.all(AppDimensions.spacingLg),
               child: _buildNotLinkedState(context),
             )
-          : Listener(
-              onPointerDown: (event) {
-                heartbeatProvider.sendLocalTouch(event.localPosition, 'down');
-              },
-              onPointerMove: (event) {
-                heartbeatProvider.sendLocalTouch(event.localPosition, 'move');
-              },
-              onPointerUp: (event) {
-                heartbeatProvider.sendLocalTouch(event.localPosition, 'up');
-              },
-              onPointerCancel: (event) {
-                heartbeatProvider.sendLocalTouch(event.localPosition, 'up');
-              },
-              behavior: HitTestBehavior.translucent,
-              child: Stack(
-                children: [
-                  // Realtime Touch Canvas Overlay
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: HeartbeatCanvasPainter(
-                        localTouch: heartbeatProvider.localCurrentTouch,
-                        partnerTouch: heartbeatProvider.partnerCurrentTouch,
-                        isLocalTouching: heartbeatProvider.isLocalTouching,
-                        isPartnerTouching: heartbeatProvider.isPartnerTouching,
-                        localTrail: heartbeatProvider.localTouchTrail,
-                        partnerTrail: heartbeatProvider.partnerTouchTrail,
-                        isColliding: heartbeatProvider.isColliding,
-                        collisionPoint: heartbeatProvider.collisionPoint,
-                        collisionRippleRadius: heartbeatProvider.collisionRippleRadius,
-                      ),
-                    ),
-                  ),
-                  Column(
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                _canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
+                return Listener(
+                  onPointerDown: (event) {
+                    if (!mounted) return;
+                    heartbeatProvider.sendLocalTouch(event.localPosition, 'down', screenSize: _canvasSize);
+                  },
+                  onPointerMove: (event) {
+                    if (!mounted) return;
+                    heartbeatProvider.sendLocalTouch(event.localPosition, 'move', screenSize: _canvasSize);
+                  },
+                  onPointerUp: (event) {
+                    if (!mounted) return;
+                    heartbeatProvider.sendLocalTouch(event.localPosition, 'up', screenSize: _canvasSize);
+                  },
+                  onPointerCancel: (event) {
+                    if (!mounted) return;
+                    heartbeatProvider.sendLocalTouch(event.localPosition, 'up', screenSize: _canvasSize);
+                  },
+                  behavior: HitTestBehavior.translucent,
+                  child: Stack(
                     children: [
+                      // Realtime Touch Canvas Overlay
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: HeartbeatCanvasPainter(
+                            localTouch: heartbeatProvider.localCurrentTouch,
+                            partnerTouch: heartbeatProvider.partnerCurrentTouch,
+                            isLocalTouching: heartbeatProvider.isLocalTouching,
+                            isPartnerTouching: heartbeatProvider.isPartnerTouching,
+                            localTrail: heartbeatProvider.localTouchTrail,
+                            partnerTrail: heartbeatProvider.partnerTouchTrail,
+                            particles: heartbeatProvider.collisionParticles,
+                            isColliding: heartbeatProvider.isColliding,
+                            collisionPoint: heartbeatProvider.collisionPoint,
+                            collisionRippleRadius: heartbeatProvider.collisionRippleRadius,
+                          ),
+                        ),
+                      ),
+                      Column(
+                        children: [
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(
@@ -277,9 +293,15 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                                         separatorBuilder: (_, __) => const SizedBox(
                                             height: AppDimensions.spacingSm),
                                         itemBuilder: (context, index) {
-                                          return _buildHeartbeatTile(
+                                          final current = heartbeats[index];
+                                          final older = (index + 1 < heartbeats.length) ? heartbeats[index + 1] : null;
+                                          final currentDate = current.createdAt ?? current.sentAt;
+                                          final olderDate = older != null ? (older.createdAt ?? older.sentAt) : null;
+                                          final showHeader = _isDifferentDay(currentDate, olderDate);
+
+                                          final tile = _buildHeartbeatTile(
                                             context,
-                                            heartbeat: heartbeats[index],
+                                            heartbeat: current,
                                             heartbeatProvider: heartbeatProvider,
                                             userId: user.id,
                                             userPhotoUrl: user.photoUrl,
@@ -287,6 +309,19 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                                             userBubbleTheme: user.bubbleTheme,
                                             partnerBubbleTheme: partner?.bubbleTheme,
                                           );
+
+                                          if (showHeader) {
+                                            return Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                                              children: [
+                                                _buildDateHeaderChip(context, _formatDateHeader(currentDate)),
+                                                tile,
+                                              ],
+                                            );
+                                          }
+
+                                          return tile;
                                         },
                                       ),
                               ),
@@ -331,7 +366,9 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                   ),
                 ],
               ),
-            ),
+            );
+          },
+        ),
     );
   }
 
@@ -844,6 +881,60 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDateHeader(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    if (messageDate == today) {
+      return 'Today';
+    } else if (messageDate == yesterday) {
+      return 'Yesterday';
+    } else if (now.year == date.year) {
+      return DateFormat('EEEE, MMM d').format(date); // e.g. "Monday, Aug 20"
+    } else {
+      return DateFormat('MMM d, yyyy').format(date); // e.g. "Aug 20, 2025"
+    }
+  }
+
+  bool _isDifferentDay(DateTime? d1, DateTime? d2) {
+    if (d1 == null || d2 == null) return true;
+    return d1.year != d2.year || d1.month != d2.month || d1.day != d2.day;
+  }
+
+  Widget _buildDateHeaderChip(BuildContext context, String title) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 10.0),
+        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 4.0),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.black.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.04),
+          ),
+        ),
+        child: Text(
+          title,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 11.5,
+                letterSpacing: 0.3,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.8)
+                    : Colors.grey.shade700,
+              ),
         ),
       ),
     );

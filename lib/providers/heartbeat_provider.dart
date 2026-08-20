@@ -7,7 +7,6 @@ import '../core/constants/app_colors.dart';
 import '../models/heartbeat_model.dart';
 import '../models/heartbeat_reaction_model.dart';
 import '../models/heartbeat_read_model.dart';
-import '../models/heartbeat_typing_model.dart';
 import '../services/supabase_heartbeat_service.dart';
 
 /// Representation of a touch point along a fading touch trail
@@ -81,7 +80,7 @@ class HeartbeatProvider extends ChangeNotifier {
   StreamSubscription<List<HeartbeatModel>>? _heartbeatSubscription;
   StreamSubscription<List<HeartbeatReactionModel>>? _reactionSubscription;
   StreamSubscription<List<HeartbeatReadModel>>? _readSubscription;
-  StreamSubscription<List<HeartbeatTypingModel>>? _typingSubscription;
+  StreamSubscription<Map<String, dynamic>>? _typingSubscription;
   StreamSubscription<TouchPayload>? _touchSubscription;
 
   Timer? _pollingTimer;

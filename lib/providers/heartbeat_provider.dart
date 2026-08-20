@@ -596,35 +596,6 @@ class HeartbeatProvider extends ChangeNotifier {
     return grouped;
   }
 
-  void handleTypingChanged(String text) {
-    if (!canSend) return;
-    final isTyping = text.trim().isNotEmpty;
-    if (!isTyping) {
-      _typingStopTimer?.cancel();
-      _setTyping(false);
-      return;
-    }
-
-    _typingStopTimer?.cancel();
-    _typingStopTimer = Timer(
-      const Duration(seconds: 2),
-      () => _setTyping(false),
-    );
-
-    final now = DateTime.now();
-    final shouldPing = !_isTyping ||
-        _lastTypingSentAt == null ||
-        now.difference(_lastTypingSentAt!) >= _typingPingInterval;
-    if (shouldPing) {
-      _setTyping(true, force: true);
-    }
-  }
-
-  void stopTyping() {
-    _typingStopTimer?.cancel();
-    _setTyping(false);
-  }
-
   Future<void> toggleReaction(String heartbeatId) async {
     if (_coupleId == null || _userId == null) return;
     final hadReaction = hasMyReaction(heartbeatId);

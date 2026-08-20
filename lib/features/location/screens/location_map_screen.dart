@@ -242,6 +242,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
               ),
             ),
             children: [
+              // Base Map Layer (OpenStreetMap / Satellite Imagery)
               TileLayer(
                 urlTemplate: isSatelliteView
                     ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
@@ -249,6 +250,15 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                 userAgentPackageName: 'com.jayiennelink.app',
                 maxZoom: 19,
               ),
+
+              // Overlay Layer for Hybrid Satellite View (Boundaries, Roads & Place Names)
+              if (isSatelliteView)
+                TileLayer(
+                  urlTemplate:
+                      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+                  userAgentPackageName: 'com.jayiennelink.app',
+                  maxZoom: 19,
+                ),
 
               // Polyline Layer for History Mode OR Live connection line
               if (isHistoryMode && historyPoints.isNotEmpty)

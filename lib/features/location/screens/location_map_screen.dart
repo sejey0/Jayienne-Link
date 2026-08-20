@@ -41,6 +41,9 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   DateTime? _lastHistoryDate;
   int _lastHistoryLength = 0;
   int _lastPlaybackIndex = -1;
+  bool _isRefreshing = false;
+  bool _isSatelliteView = false;
+  bool _isFullscreen = false;
 
   @override
   void initState() {
@@ -77,13 +80,20 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   }
 
   Future<void> _refreshLocations() async {
-    if (!mounted) return;
-    final provider = context.read<LocationProvider>();
-    await provider.captureLocation();
-    if (!mounted) return;
-    await provider.refreshPartnerLocation();
-    if (!mounted) return;
-    await provider.refreshUserData();
+    if (!mounted || _isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    try {
+      final provider = context.read<LocationProvider>();
+      await provider.captureLocation();
+      if (!mounted) return;
+      await provider.refreshPartnerLocation();
+      if (!mounted) return;
+      await provider.refreshUserData();
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
   }
 
   void _fitBoth(LocationProvider provider) {
@@ -131,6 +141,12 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     final historyPoints = locationProvider.historyPolylinePoints;
     final playbackPos = locationProvider.playbackLatLng;
     final playbackLoc = locationProvider.currentPlaybackLocation;
+
+    final isSatelliteView = _isSatelliteView == true;
+    final isFullscreen = _isFullscreen == true;
+    final isPartnerSelected = _isPartnerSelected == true;
+    final isMeSelected = _isMeSelected == true;
+    final isRefreshing = _isRefreshing == true;
 
     final myId = currentUser?.id ?? locationProvider.userId;
     final partnerId = partnerUser?.id ?? locationProvider.partnerId;
@@ -188,32 +204,34 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     final initialCenter = playbackPos ?? partnerPos ?? myPos ?? const LatLng(0, 0);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isHistoryMode ? 'Route History' : 'Live Location Map'),
-        actions: [
-          if (!isHistoryMode) const OfflineStatusIndicator(),
-          const SizedBox(width: AppDimensions.spacingSm),
-          // Toggle History Mode Button
-          IconButton(
-            icon: Icon(
-              isHistoryMode ? Icons.map_rounded : Icons.route_rounded,
-              color: isHistoryMode ? AppColors.softRose : null,
+      appBar: isFullscreen
+          ? null
+          : AppBar(
+              title: Text(isHistoryMode ? 'Route History' : 'Live Location Map'),
+              actions: [
+                if (!isHistoryMode) const OfflineStatusIndicator(),
+                const SizedBox(width: AppDimensions.spacingSm),
+                // Toggle History Mode Button
+                IconButton(
+                  icon: Icon(
+                    isHistoryMode ? Icons.map_rounded : Icons.route_rounded,
+                    color: isHistoryMode ? AppColors.softRose : null,
+                  ),
+                  onPressed: () {
+                    locationProvider.toggleHistoryMode(!isHistoryMode);
+                  },
+                  tooltip: isHistoryMode ? 'Back to Live Map' : 'Route History Playback',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.history),
+                  onPressed: () => context.push(RouteNames.locationHistory),
+                  tooltip: 'Location history list',
+                ),
+              ],
             ),
-            onPressed: () {
-              locationProvider.toggleHistoryMode(!isHistoryMode);
-            },
-            tooltip: isHistoryMode ? 'Back to Live Map' : 'Route History Playback',
-          ),
-          IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () => context.push(RouteNames.locationHistory),
-            tooltip: 'Location history list',
-          ),
-        ],
-      ),
       body: Stack(
         children: [
-          // 1. FlutterMap OpenStreetMap Canvas
+          // 1. FlutterMap OpenStreetMap / Satellite Canvas
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -225,8 +243,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: isSatelliteView
+                    ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.jayiennelink.app',
+                maxZoom: 19,
               ),
 
               // Polyline Layer for History Mode OR Live connection line
@@ -352,7 +373,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                         ),
                       ),
 
-                    // My Location Marker (Custom Profile Avatar + Heading)
+                    // My Location Profile Marker
                     if (myPos != null)
                       Marker(
                         point: myPos,
@@ -368,17 +389,18 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                           heading: locationProvider.currentLocation?.heading,
                           speed: locationProvider.currentLocation?.speed,
                           accentColor: AppColors.softRose,
-                          isSelected: _isMeSelected,
+                          isSelected: isMeSelected,
                           onTap: () {
                             setState(() {
-                              _isMeSelected = !_isMeSelected;
+                              _isMeSelected = !isMeSelected;
+                              if (_isMeSelected) _isPartnerSelected = false;
                             });
-                            _mapController.move(myPos, 15.5);
+                            _mapController.move(myPos, 16.0);
                           },
                         ),
                       ),
 
-                    // Partner Location Marker (Custom Avatar + Heading + Battery Badge)
+                    // Partner Location Profile Marker
                     if (partnerPos != null)
                       Marker(
                         point: partnerPos,
@@ -386,17 +408,19 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                         height: 86,
                         child: PartnerAvatarMarker(
                           photoUrl: partnerUser?.photoUrl,
-                          partnerName: partnerUser?.displayName ?? 'Your Person',
+                          partnerName: partnerUser?.displayName ?? 'Partner',
                           batteryLevel: partnerLoc?.batteryLevel,
                           batteryState: BatteryState.unknown,
                           heading: partnerLoc?.heading,
                           speed: partnerLoc?.speed,
-                          isSelected: _isPartnerSelected,
+                          accentColor: AppColors.lavender,
+                          isSelected: isPartnerSelected,
                           onTap: () {
                             setState(() {
-                              _isPartnerSelected = !_isPartnerSelected;
+                              _isPartnerSelected = !isPartnerSelected;
+                              if (_isPartnerSelected) _isMeSelected = false;
                             });
-                            _centerPartner(locationProvider);
+                            _mapController.move(partnerPos, 16.0);
                           },
                         ),
                       ),
@@ -406,160 +430,266 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
             ],
           ),
 
-          // 2. Floating Action Controls (Fit Both, Center Me, Center Partner, Refresh)
-          if (!isHistoryMode)
+          // Floating Fullscreen Exit Button (Top Left when in fullscreen)
+          if (isFullscreen)
             Positioned(
-              right: 16,
-              bottom: 220,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildFloatingControlButton(
-                    icon: Icons.zoom_out_map_rounded,
-                    tooltip: 'Fit Both Partners',
-                    color: AppColors.softRose,
-                    iconColor: Colors.white,
-                    onPressed: () => _fitBoth(locationProvider),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildFloatingControlButton(
-                    icon: Icons.favorite_rounded,
-                    tooltip: 'Center Partner',
-                    color: AppColors.lavender,
-                    iconColor: Colors.white,
+              top: MediaQuery.of(context).padding.top + 10,
+              left: 16,
+              child: _buildFloatingControlButton(
+                icon: Icons.arrow_back_rounded,
+                tooltip: 'Exit Fullscreen',
+                color: Colors.white,
+                iconColor: AppColors.deepCharcoal,
+                onPressed: () {
+                  setState(() {
+                    _isFullscreen = false;
+                  });
+                },
+              ),
+            ),
+
+          // 2. Floating Action Controls (Satellite, Fullscreen, Fit Both, Center Partner, Center Me, Refresh)
+          Positioned(
+            right: 16,
+            bottom: isFullscreen ? 24 : (isHistoryMode ? 280 : 220),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Satellite View Toggle Button
+                _buildFloatingControlButton(
+                  icon: isSatelliteView ? Icons.map_rounded : Icons.satellite_alt_rounded,
+                  tooltip: isSatelliteView ? 'Switch to Standard Map' : 'Switch to Satellite View',
+                  color: isSatelliteView ? AppColors.softRose : Colors.white,
+                  iconColor: isSatelliteView ? Colors.white : AppColors.deepCharcoal,
+                  onPressed: () {
+                    setState(() {
+                      _isSatelliteView = !isSatelliteView;
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // Fullscreen Map Toggle Button
+                _buildFloatingControlButton(
+                  icon: isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                  tooltip: isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Map',
+                  color: isFullscreen ? AppColors.softRose : Colors.white,
+                  iconColor: isFullscreen ? Colors.white : AppColors.deepCharcoal,
+                  onPressed: () {
+                    setState(() {
+                      _isFullscreen = !isFullscreen;
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // Fit Both Button (Pink Button with people icon)
+                _buildFloatingControlButton(
+                  icon: Icons.people_alt_rounded,
+                  tooltip: 'Fit Both in View',
+                  color: AppColors.softRose,
+                  iconColor: Colors.white,
+                  onPressed: () => _fitBoth(locationProvider),
+                ),
+                const SizedBox(height: 10),
+
+                // Center Partner Button (Mini Profile Avatar)
+                if (partnerUser != null || locationProvider.hasPartner) ...[
+                  _buildAvatarFloatingButton(
+                    photoUrl: partnerUser?.photoUrl,
+                    tooltip: 'Center ${partnerUser?.displayName ?? "Partner"}',
+                    borderColor: AppColors.lavender,
+                    fallbackIcon: Icons.favorite_rounded,
                     onPressed: () => _centerPartner(locationProvider),
                   ),
                   const SizedBox(height: 10),
-                  _buildFloatingControlButton(
-                    icon: Icons.my_location_rounded,
-                    tooltip: 'Center Me',
-                    color: Colors.white,
-                    iconColor: AppColors.deepCharcoal,
-                    onPressed: () => _centerMe(locationProvider),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildFloatingControlButton(
-                    icon: Icons.refresh_rounded,
-                    tooltip: 'Refresh Location',
-                    color: Colors.white,
-                    iconColor: AppColors.deepCharcoal,
-                    onPressed: _refreshLocations,
-                  ),
                 ],
-              ),
+
+                // Center Me Button (Mini Profile Avatar or Location Pin)
+                _buildAvatarFloatingButton(
+                  photoUrl: currentUser?.photoUrl,
+                  tooltip: 'Center Me',
+                  borderColor: AppColors.softRose,
+                  fallbackIcon: Icons.my_location_rounded,
+                  onPressed: () => _centerMe(locationProvider),
+                ),
+                const SizedBox(height: 10),
+
+                // Refresh Button (Bottom White Button with Spin)
+                _buildFloatingControlButton(
+                  icon: Icons.refresh_rounded,
+                  isLoading: isRefreshing,
+                  tooltip: 'Refresh Location',
+                  color: Colors.white,
+                  iconColor: AppColors.deepCharcoal,
+                  onPressed: _refreshLocations,
+                ),
+              ],
             ),
+          ),
 
           // 3. Bottom Panel: Location History Sheet (in History Mode) OR Live Info Card (in Live Mode)
-          if (isHistoryMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: LocationHistorySheet(
-                onClose: () {
-                  locationProvider.toggleHistoryMode(false);
-                },
-              ),
-            )
-          else
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+          if (!isFullscreen) ...[
+            if (isHistoryMode)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: LocationHistorySheet(
+                  onClose: () {
+                    locationProvider.toggleHistoryMode(false);
+                  },
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Distance & Status Header Row
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.softRose.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
+              )
+            else
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Distance & Status Header Row
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.softRose.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.location_on_rounded,
+                              color: AppColors.softRose,
+                              size: 24,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.location_on_rounded,
-                            color: AppColors.softRose,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                locationProvider.formattedDistance,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  locationProvider.formattedDistance,
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.directions_walk_rounded,
+                                      size: 14,
+                                      color: Colors.grey.shade600,
                                     ),
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.directions_walk_rounded,
-                                    size: 14,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    locationProvider.partnerActivityStatus,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: Colors.grey.shade700,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                  ),
-                                  if (partnerLoc != null) ...[
+                                    const SizedBox(width: 4),
                                     Text(
-                                      ' · ',
-                                      style: TextStyle(color: Colors.grey.shade400),
-                                    ),
-                                    LiveTimeText(
-                                      textBuilder: () => partnerLoc.timeAgo,
+                                      locationProvider.partnerActivityStatus,
                                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                            color: isOnline ? AppColors.success : AppColors.warning,
+                                            color: Colors.grey.shade700,
                                             fontWeight: FontWeight.w500,
                                           ),
                                     ),
+                                    if (partnerLoc != null) ...[
+                                      Text(
+                                        ' · ',
+                                        style: TextStyle(color: Colors.grey.shade400),
+                                      ),
+                                      LiveTimeText(
+                                        textBuilder: () => partnerLoc.timeAgo,
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              color: isOnline ? AppColors.success : AppColors.warning,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                      ),
+                                    ],
                                   ],
-                                ],
-                              ),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
 
-                        // Fit Camera Icon Shortcut
-                        IconButton(
-                          icon: const Icon(Icons.fullscreen_rounded, color: AppColors.softRose),
-                          onPressed: () => _fitBoth(locationProvider),
-                          tooltip: 'Fit Both in View',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
+                          // Fit Camera Icon Shortcut
+                          IconButton(
+                            icon: const Icon(Icons.fullscreen_rounded, color: AppColors.softRose),
+                            onPressed: () => _fitBoth(locationProvider),
+                            tooltip: 'Fit Both in View',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
 
-                    // Location Sharing Toggle Bar
-                    const LocationShareToggle(),
-                  ],
+                      // Location Sharing Toggle Bar
+                      const LocationShareToggle(),
+                    ],
+                  ),
                 ),
               ),
-            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarFloatingButton({
+    required String? photoUrl,
+    required String tooltip,
+    required Color borderColor,
+    required IconData fallbackIcon,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: borderColor, width: 2.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.white,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed,
+            child: photoUrl != null && photoUrl.isNotEmpty
+                ? Image.network(
+                    photoUrl,
+                    width: 46,
+                    height: 46,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Icon(fallbackIcon, color: borderColor, size: 20),
+                    ),
+                  )
+                : Center(
+                    child: Icon(fallbackIcon, color: borderColor, size: 20),
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -570,6 +700,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     required Color color,
     required Color iconColor,
     required VoidCallback onPressed,
+    bool isLoading = false,
   }) {
     return Tooltip(
       message: tooltip,
@@ -579,14 +710,25 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
         elevation: 4,
         child: InkWell(
           customBorder: const CircleBorder(),
-          onTap: onPressed,
+          onTap: isLoading ? null : onPressed,
           child: SizedBox(
             width: 46,
             height: 46,
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 22,
+            child: Center(
+              child: isLoading
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: iconColor,
+                      ),
+                    )
+                  : Icon(
+                      icon,
+                      color: iconColor,
+                      size: 22,
+                    ),
             ),
           ),
         ),

@@ -42,7 +42,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   int _lastHistoryLength = 0;
   int _lastPlaybackIndex = -1;
   bool _isRefreshing = false;
-  bool _isSatelliteView = false;
+  bool _isSatelliteView = true;
   bool _isFullscreen = false;
 
   @override

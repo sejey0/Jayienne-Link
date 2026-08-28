@@ -31,11 +31,13 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
   bool _isUploadingHugPhoto = false;
   bool _isKissPressed = false;
   bool _isHugPressed = false;
+  List<String> _savedMessageTemplates = [];
 
   @override
   void initState() {
     super.initState();
     _loadSavedPhotos();
+    _loadSavedMessageTemplates();
   }
 
   @override
@@ -50,6 +52,47 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
     setState(() {
       _kissPhotoUrl = prefs.getString('love_nudge_custom_kiss_photo');
       _hugPhotoUrl = prefs.getString('love_nudge_custom_hug_photo');
+    });
+  }
+
+  Future<void> _loadSavedMessageTemplates() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList('love_nudge_saved_message_templates') ?? [];
+    if (!mounted) return;
+    setState(() {
+      _savedMessageTemplates = list;
+    });
+  }
+
+  Future<void> _saveMessageTemplate(String message) async {
+    final trimmed = message.trim();
+    if (trimmed.isEmpty) return;
+
+    final list = List<String>.from(_savedMessageTemplates);
+    list.removeWhere((item) => item.toLowerCase() == trimmed.toLowerCase());
+    list.insert(0, trimmed);
+
+    if (list.length > 8) {
+      list.removeRange(8, list.length);
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('love_nudge_saved_message_templates', list);
+
+    if (!mounted) return;
+    setState(() {
+      _savedMessageTemplates = list;
+    });
+  }
+
+  Future<void> _deleteMessageTemplate(String template) async {
+    HapticFeedback.lightImpact();
+    final list = List<String>.from(_savedMessageTemplates)..remove(template);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('love_nudge_saved_message_templates', list);
+    if (!mounted) return;
+    setState(() {
+      _savedMessageTemplates = list;
     });
   }
 
@@ -220,17 +263,10 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
                     ),
                     child: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
                   ),
-                  title: const Text('Remove Custom Photo', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
-                  onTap: () async {
+                  title: const Text('Delete Custom Photo', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
+                  onTap: () {
                     Navigator.pop(ctx);
-                    await _savePhoto(isKiss, null);
-                    setState(() {
-                      if (isKiss) {
-                        _kissPhotoUrl = null;
-                      } else {
-                        _hugPhotoUrl = null;
-                      }
-                    });
+                    _confirmAndDeletePhoto(isKiss);
                   },
                 ),
             ],
@@ -240,8 +276,116 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
     );
   }
 
+  Future<void> _confirmAndDeletePhoto(bool isKiss) async {
+    HapticFeedback.lightImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final photoType = isKiss ? 'Virtual Kiss' : 'Warm Hug';
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(
+            color: isDark ? Colors.white12 : Colors.grey.shade200,
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Delete Photo?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to remove the custom photo for $photoType?',
+          style: TextStyle(
+            fontSize: 13.5,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white60 : Colors.grey.shade700,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text(
+              'Delete',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      await _savePhoto(isKiss, null);
+      if (!mounted) return;
+      setState(() {
+        if (isKiss) {
+          _kissPhotoUrl = null;
+        } else {
+          _hugPhotoUrl = null;
+        }
+      });
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              '$photoType custom photo deleted',
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+        );
+    }
+  }
+
   void _triggerNudge({required bool isKiss, required String partnerName}) {
     HapticFeedback.mediumImpact();
+    FocusScope.of(context).unfocus();
 
     final coupleProvider = context.read<CoupleProvider>();
     final userProvider = context.read<UserProvider>();
@@ -250,6 +394,10 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
 
     final photoUrl = isKiss ? _kissPhotoUrl : _hugPhotoUrl;
     final message = _messageController.text.trim();
+
+    if (message.isNotEmpty) {
+      _saveMessageTemplate(message);
+    }
 
     final payload = LoveNudgePayload(
       senderId: user?.uid ?? '',
@@ -379,188 +527,383 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
         elevation: 0,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppDimensions.spacingLg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppDimensions.spacingLg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
 
-              // Hero Banner Card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(22.0),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.softRose.withValues(alpha: 0.92),
-                      AppColors.lavender.withValues(alpha: 0.95),
+                // Hero Banner Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(22.0),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.softRose.withValues(alpha: 0.92),
+                        AppColors.lavender.withValues(alpha: 0.95),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(26),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.softRose.withValues(alpha: 0.35),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
                     ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(26),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.softRose.withValues(alpha: 0.35),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Send a Touch to $partnerName',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 21,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Upload your photo to send a personalized virtual kiss or warm hug that pops up in real time on both screens!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12.5,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // CARD 1: VIRTUAL KISS
-              _buildNudgeCard(
-                isDark: isDark,
-                isKiss: true,
-                title: 'Virtual Kiss',
-                subtitle: 'Send your kiss with custom photo',
-                primaryColor: const Color(0xFFFF4081),
-                secondaryColor: const Color(0xFFFF5252),
-                photoUrl: _kissPhotoUrl,
-                isUploading: _isUploadingKissPhoto,
-                isPressed: _isKissPressed,
-                partnerName: partnerName,
-                onTapDown: () => setState(() => _isKissPressed = true),
-                onTapUp: () {
-                  setState(() => _isKissPressed = false);
-                  _triggerNudge(isKiss: true, partnerName: partnerName);
-                },
-                onTapCancel: () => setState(() => _isKissPressed = false),
-                onUploadTap: () => _showPhotoOptionsModal(true),
-              ),
-              const SizedBox(height: 20),
-
-              // CARD 2: WARM HUG
-              _buildNudgeCard(
-                isDark: isDark,
-                isKiss: false,
-                title: 'Warm Hug',
-                subtitle: 'Send your warm hug with custom photo',
-                primaryColor: const Color(0xFFAB47BC),
-                secondaryColor: const Color(0xFF7B1FA2),
-                photoUrl: _hugPhotoUrl,
-                isUploading: _isUploadingHugPhoto,
-                isPressed: _isHugPressed,
-                partnerName: partnerName,
-                onTapDown: () => setState(() => _isHugPressed = true),
-                onTapUp: () {
-                  setState(() => _isHugPressed = false);
-                  _triggerNudge(isKiss: false, partnerName: partnerName);
-                },
-                onTapCancel: () => setState(() => _isHugPressed = false),
-                onUploadTap: () => _showPhotoOptionsModal(false),
-              ),
-              const SizedBox(height: 24),
-
-              // OPTIONAL SWEET NOTE SECTION (Clean text field without predefined templates)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E142B) : Colors.white,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : Colors.grey.shade200,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.favorite_rounded,
-                          size: 16,
-                          color: Color(0xFFFF758C),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Send a Touch to $partnerName',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 21,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Attach Sweet Message (Optional)',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : const Color(0xFF2D4059),
-                          ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Upload your photo to send a personalized virtual kiss or warm hug that pops up in real time on both screens!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.5,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // CARD 1: VIRTUAL KISS
+                _buildNudgeCard(
+                  isDark: isDark,
+                  isKiss: true,
+                  title: 'Virtual Kiss',
+                  subtitle: 'Send your kiss with custom photo',
+                  primaryColor: const Color(0xFFFF4081),
+                  secondaryColor: const Color(0xFFFF5252),
+                  photoUrl: _kissPhotoUrl,
+                  isUploading: _isUploadingKissPhoto,
+                  isPressed: _isKissPressed,
+                  partnerName: partnerName,
+                  onTapDown: () => setState(() => _isKissPressed = true),
+                  onTapUp: () {
+                    setState(() => _isKissPressed = false);
+                    _triggerNudge(isKiss: true, partnerName: partnerName);
+                  },
+                  onTapCancel: () => setState(() => _isKissPressed = false),
+                  onUploadTap: () => _showPhotoOptionsModal(true),
+                  onDeletePhotoTap: () => _confirmAndDeletePhoto(true),
+                ),
+                const SizedBox(height: 20),
+
+                // CARD 2: WARM HUG
+                _buildNudgeCard(
+                  isDark: isDark,
+                  isKiss: false,
+                  title: 'Warm Hug',
+                  subtitle: 'Send your warm hug with custom photo',
+                  primaryColor: const Color(0xFFAB47BC),
+                  secondaryColor: const Color(0xFF7B1FA2),
+                  photoUrl: _hugPhotoUrl,
+                  isUploading: _isUploadingHugPhoto,
+                  isPressed: _isHugPressed,
+                  partnerName: partnerName,
+                  onTapDown: () => setState(() => _isHugPressed = true),
+                  onTapUp: () {
+                    setState(() => _isHugPressed = false);
+                    _triggerNudge(isKiss: false, partnerName: partnerName);
+                  },
+                  onTapCancel: () => setState(() => _isHugPressed = false),
+                  onUploadTap: () => _showPhotoOptionsModal(false),
+                  onDeletePhotoTap: () => _confirmAndDeletePhoto(false),
+                ),
+                const SizedBox(height: 24),
+
+                // OPTIONAL SWEET NOTE SECTION (Clean text field without predefined templates)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E142B) : Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.grey.shade200,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ListenableBuilder(
+                        listenable: _messageController,
+                        builder: (context, _) {
+                          final currentTrimmed = _messageController.text.trim();
+                          final isAlreadySaved = _savedMessageTemplates.any(
+                            (t) => t.trim().toLowerCase() == currentTrimmed.toLowerCase(),
+                          );
+
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.favorite_rounded,
+                                    size: 16,
+                                    color: Color(0xFFFF758C),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Attach Sweet Message (Optional)',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : const Color(0xFF2D4059),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (currentTrimmed.isNotEmpty)
+                                isAlreadySaved
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.check_circle_outline_rounded, size: 12, color: Colors.green),
+                                            SizedBox(width: 3),
+                                            Text(
+                                              'Saved',
+                                              style: TextStyle(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.green,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : InkWell(
+                                        onTap: () {
+                                          HapticFeedback.lightImpact();
+                                          FocusScope.of(context).unfocus();
+                                          final textToSave = _messageController.text;
+                                          _saveMessageTemplate(textToSave);
+                                          ScaffoldMessenger.of(context)
+                                            ..hideCurrentSnackBar()
+                                            ..showSnackBar(
+                                              SnackBar(
+                                                content: const Text(
+                                                  'Template saved!',
+                                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                                                ),
+                                                backgroundColor: const Color(0xFFFF758C),
+                                                duration: const Duration(seconds: 1),
+                                                behavior: SnackBarBehavior.floating,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                              ),
+                                            );
+                                        },
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFF758C).withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.bookmark_add_outlined, size: 12, color: Color(0xFFFF758C)),
+                                              SizedBox(width: 3),
+                                              Text(
+                                                'Save',
+                                                style: TextStyle(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFFFF758C),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      ListenableBuilder(
+                        listenable: _messageController,
+                        builder: (context, _) {
+                          return TextField(
+                            controller: _messageController,
+                            maxLength: 80,
+                            decoration: InputDecoration(
+                              hintText: 'Write a sweet note to pop up with your nudge...',
+                              hintStyle: TextStyle(
+                                fontSize: 12.5,
+                                color: isDark ? Colors.white38 : Colors.grey.shade400,
+                              ),
+                              counterText: '',
+                              filled: true,
+                              fillColor: isDark
+                                  ? Colors.white.withValues(alpha: 0.04)
+                                  : Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              suffixIcon: _messageController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear_rounded, size: 18),
+                                      onPressed: () {
+                                        HapticFeedback.lightImpact();
+                                        _messageController.clear();
+                                      },
+                                    )
+                                  : null,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(
+                                  color: isDark ? Colors.white12 : Colors.grey.shade300,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(
+                                  color: isDark ? Colors.white12 : Colors.grey.shade200,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFFF758C),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      if (_savedMessageTemplates.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.history_rounded,
+                              size: 13,
+                              color: isDark ? Colors.white54 : Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Saved Templates (Tap to use)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white54 : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ListenableBuilder(
+                          listenable: _messageController,
+                          builder: (context, _) {
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: _savedMessageTemplates.map((template) {
+                                  final isSelected = _messageController.text.trim() == template;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: InkWell(
+                                      onTap: () {
+                                        HapticFeedback.selectionClick();
+                                        _messageController.text = template;
+                                        _messageController.selection = TextSelection.fromPosition(
+                                          TextPosition(offset: template.length),
+                                        );
+                                      },
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? const Color(0xFFFF758C).withValues(alpha: 0.18)
+                                              : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100),
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? const Color(0xFFFF758C).withValues(alpha: 0.6)
+                                                : (isDark ? Colors.white10 : Colors.grey.shade300),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ConstrainedBox(
+                                              constraints: const BoxConstraints(maxWidth: 160),
+                                              child: Text(
+                                                template,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                                  color: isSelected
+                                                      ? const Color(0xFFFF758C)
+                                                      : (isDark ? Colors.white : Colors.black87),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            GestureDetector(
+                                              onTap: () => _deleteMessageTemplate(template),
+                                              child: Icon(
+                                                Icons.close_rounded,
+                                                size: 13,
+                                                color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            );
+                          },
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _messageController,
-                      maxLength: 80,
-                      decoration: InputDecoration(
-                        hintText: 'Write a sweet note to pop up with your nudge...',
-                        hintStyle: TextStyle(
-                          fontSize: 12.5,
-                          color: isDark ? Colors.white38 : Colors.grey.shade400,
-                        ),
-                        counterText: '',
-                        filled: true,
-                        fillColor: isDark
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : Colors.grey.shade50,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(
-                            color: isDark ? Colors.white12 : Colors.grey.shade300,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(
-                            color: isDark ? Colors.white12 : Colors.grey.shade200,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFFF758C),
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-            ],
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
@@ -582,6 +925,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
     required VoidCallback onTapUp,
     required VoidCallback onTapCancel,
     required VoidCallback onUploadTap,
+    required VoidCallback onDeletePhotoTap,
   }) {
     return Container(
       width: double.infinity,
@@ -663,46 +1007,88 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
               ),
               const SizedBox(width: 8),
 
-              // Upload / Change Photo Pill Button
-              InkWell(
-                onTap: isUploading ? null : onUploadTap,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: primaryColor.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isUploading)
-                        SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
-                        )
-                      else
-                        Icon(
-                          photoUrl != null ? Icons.edit_rounded : Icons.add_a_photo_rounded,
-                          size: 13,
-                          color: primaryColor,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (photoUrl != null) ...[
+                    InkWell(
+                      onTap: onDeletePhotoTap,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.error.withValues(alpha: 0.25),
+                          ),
                         ),
-                      const SizedBox(width: 5),
-                      Text(
-                        photoUrl != null ? 'Change' : '+ Photo',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: primaryColor,
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.delete_outline_rounded,
+                              size: 13,
+                              color: AppColors.error,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Clear',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.error,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+
+                  // Upload / Change Photo Pill Button
+                  InkWell(
+                    onTap: isUploading ? null : onUploadTap,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: primaryColor.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isUploading)
+                            SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
+                            )
+                          else
+                            Icon(
+                              photoUrl != null ? Icons.edit_rounded : Icons.add_a_photo_rounded,
+                              size: 13,
+                              color: primaryColor,
+                            ),
+                          const SizedBox(width: 5),
+                          Text(
+                            photoUrl != null ? 'Change' : '+ Photo',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -724,9 +1110,31 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
                   ),
                   child: _buildPhotoThumbnail(photoUrl),
                 ),
+                // Delete button with confirmation on top-right
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Material(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      onTap: onDeletePhotoTap,
+                      customBorder: const CircleBorder(),
+                      child: const Padding(
+                        padding: EdgeInsets.all(7),
+                        child: Icon(
+                          Icons.delete_outline_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Attached badge on bottom-left
                 Positioned(
                   bottom: 8,
-                  right: 8,
+                  left: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(

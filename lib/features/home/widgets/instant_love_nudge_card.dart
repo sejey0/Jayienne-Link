@@ -80,7 +80,7 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
           content: Row(
             children: [
               isKiss
-                  ? const KissLipsIcon(size: 20, color: Colors.white)
+                  ? const Icon(Icons.favorite_rounded, size: 20, color: Colors.white)
                   : const Icon(Icons.volunteer_activism_rounded, color: Colors.white, size: 20),
               const SizedBox(width: 10),
               Expanded(

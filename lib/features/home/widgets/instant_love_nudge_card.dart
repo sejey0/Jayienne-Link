@@ -2,14 +2,16 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_love_nudge_service.dart';
 import '../../../widgets/common/love_nudge_logo_widget.dart';
+import '../../../widgets/common/love_nudge_overlay_listener.dart';
 
-/// Senior Instant Love Nudge Card with Floating Heart Particle Overlay Animation
+/// Senior Instant Love Nudge Card with Realtime Live Pop-up & Floating Particle Overlay
 class InstantLoveNudgeCard extends StatefulWidget {
   const InstantLoveNudgeCard({super.key});
 
@@ -20,6 +22,23 @@ class InstantLoveNudgeCard extends StatefulWidget {
 class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
   bool _isKissPressed = false;
   bool _isHugPressed = false;
+  String? _kissPhotoUrl;
+  String? _hugPhotoUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPhotos();
+  }
+
+  Future<void> _loadPhotos() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _kissPhotoUrl = prefs.getString('love_nudge_custom_kiss_photo');
+      _hugPhotoUrl = prefs.getString('love_nudge_custom_hug_photo');
+    });
+  }
 
   void _triggerNudge({required bool isKiss, required String partnerName}) {
     HapticFeedback.mediumImpact();
@@ -28,6 +47,15 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
     final userProvider = context.read<UserProvider>();
     final couple = coupleProvider.couple;
     final user = userProvider.user;
+    final photoUrl = isKiss ? _kissPhotoUrl : _hugPhotoUrl;
+
+    final payload = LoveNudgePayload(
+      senderId: user?.uid ?? '',
+      senderName: user?.displayName.isNotEmpty == true ? user!.displayName : 'You',
+      nudgeType: isKiss ? 'kiss' : 'hug',
+      photoUrl: photoUrl,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+    );
 
     // Send Realtime Broadcast to Partner
     if (couple != null && couple.id != null && user != null) {
@@ -36,14 +64,13 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
         senderId: user.uid,
         senderName: user.displayName.isNotEmpty ? user.displayName : 'Your Partner',
         nudgeType: isKiss ? 'kiss' : 'hug',
+        photoUrl: photoUrl,
       );
     }
 
-    // Spawn Floating Hearts Particle Overlay across screen
-    _showFloatingHeartsOverlay(context, isKiss: isKiss);
+    // Spawn Realtime Live Screen Overlay locally on sender's device as well
+    LoveNudgeOverlayListener.showLocalNudgeEffect(context, payload);
 
-    // Show romantic feedback banner
-    final emoji = isKiss ? '💋' : '🤗';
     final actionText = isKiss ? 'Virtual Kiss' : 'Virtual Hug';
 
     ScaffoldMessenger.of(context)
@@ -52,11 +79,13 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
         SnackBar(
           content: Row(
             children: [
-              Text(emoji, style: const TextStyle(fontSize: 20)),
+              isKiss
+                  ? const KissLipsIcon(size: 20, color: Colors.white)
+                  : const Icon(Icons.volunteer_activism_rounded, color: Colors.white, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '$actionText sent to $partnerName! $emoji',
+                  '$actionText sent to $partnerName!',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -73,22 +102,6 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
           ),
         ),
       );
-  }
-
-  void _showFloatingHeartsOverlay(BuildContext context, {required bool isKiss}) {
-    final overlayState = Overlay.of(context);
-    late OverlayEntry overlayEntry;
-
-    overlayEntry = OverlayEntry(
-      builder: (context) => _FloatingHeartsParticleWidget(
-        isKiss: isKiss,
-        onFinished: () {
-          overlayEntry.remove();
-        },
-      ),
-    );
-
-    overlayState.insert(overlayEntry);
   }
 
   @override
@@ -191,7 +204,7 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('💋', style: TextStyle(fontSize: 18)),
+                            Icon(Icons.favorite_rounded, size: 18, color: Colors.white),
                             SizedBox(width: 6),
                             Text(
                               'Send Kiss',
@@ -233,7 +246,7 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('🤗', style: TextStyle(fontSize: 18)),
+                            Icon(Icons.volunteer_activism_rounded, color: Colors.white, size: 18),
                             SizedBox(width: 6),
                             Text(
                               'Send Hug',
@@ -256,134 +269,4 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
       ),
     );
   }
-}
-
-/// Floating Particle Animation Widget spawned on Overlay
-class _FloatingHeartsParticleWidget extends StatefulWidget {
-  final bool isKiss;
-  final VoidCallback onFinished;
-
-  const _FloatingHeartsParticleWidget({
-    required this.isKiss,
-    required this.onFinished,
-  });
-
-  @override
-  State<_FloatingHeartsParticleWidget> createState() =>
-      _FloatingHeartsParticleWidgetState();
-}
-
-class _FloatingHeartsParticleWidgetState
-    extends State<_FloatingHeartsParticleWidget>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  final List<_HeartParticle> _particles = [];
-  final Random _random = Random();
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    );
-
-    // Generate 16 floating heart particles with random trajectories
-    for (int i = 0; i < 16; i++) {
-      _particles.add(
-        _HeartParticle(
-          xRatio: 0.1 + _random.nextDouble() * 0.8,
-          startScale: 0.7 + _random.nextDouble() * 0.7,
-          speedY: 250 + _random.nextDouble() * 300,
-          driftX: (_random.nextDouble() - 0.5) * 120,
-          icon: widget.isKiss
-              ? (_random.nextBool() ? Icons.favorite_rounded : Icons.favorite_border_rounded)
-              : Icons.favorite_rounded,
-          color: widget.isKiss
-              ? Color.lerp(const Color(0xFFFF4081), const Color(0xFFFF5252), _random.nextDouble())!
-              : Color.lerp(const Color(0xFFAB47BC), const Color(0xFF7B1FA2), _random.nextDouble())!,
-          emoji: widget.isKiss ? '💋' : '🤗',
-          useEmoji: _random.nextDouble() < 0.35,
-        ),
-      );
-    }
-
-    _controller.forward();
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        widget.onFinished();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final progress = _controller.value;
-        final opacity = (1.0 - progress).clamp(0.0, 1.0);
-
-        return IgnorePointer(
-          child: Stack(
-            children: _particles.map((particle) {
-              final currentY = screenSize.height * 0.7 - (particle.speedY * progress);
-              final currentX = screenSize.width * particle.xRatio + (particle.driftX * progress);
-
-              return Positioned(
-                left: currentX,
-                top: currentY,
-                child: Opacity(
-                  opacity: opacity,
-                  child: Transform.scale(
-                    scale: particle.startScale * (1.0 + progress * 0.3),
-                    child: particle.useEmoji
-                        ? Text(
-                            particle.emoji,
-                            style: const TextStyle(fontSize: 24),
-                          )
-                        : Icon(
-                            particle.icon,
-                            color: particle.color,
-                            size: 26,
-                          ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _HeartParticle {
-  final double xRatio;
-  final double startScale;
-  final double speedY;
-  final double driftX;
-  final IconData icon;
-  final Color color;
-  final String emoji;
-  final bool useEmoji;
-
-  const _HeartParticle({
-    required this.xRatio,
-    required this.startScale,
-    required this.speedY,
-    required this.driftX,
-    required this.icon,
-    required this.color,
-    required this.emoji,
-    required this.useEmoji,
-  });
 }

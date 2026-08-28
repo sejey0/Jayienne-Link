@@ -72,14 +72,14 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
         route: RouteNames.photos,
       ),
       _FeatureModalItem(
-        title: 'Love Nudge 💋',
+        title: 'Love Nudge',
         subtitle: 'Send virtual kiss & hug',
         icon: Icons.favorite_rounded,
         gradientColors: [Color(0xFFFF4081), Color(0xFFD81B60)],
         actionType: _ActionType.loveNudgeScreen,
       ),
       _FeatureModalItem(
-        title: 'Decision Spinner 🎲',
+        title: 'Decision Spinner',
         subtitle: 'Date & food picker',
         icon: Icons.casino_rounded,
         gradientColors: [Color(0xFFBA68C8), Color(0xFF7B1FA2)],

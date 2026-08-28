@@ -1,18 +1,26 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as path;
 import 'supabase_data_service.dart';
 
 class LoveNudgePayload {
   final String senderId;
   final String senderName;
   final String nudgeType; // 'kiss' or 'hug'
+  final String? photoUrl;
+  final String? message;
   final int timestamp;
 
   LoveNudgePayload({
     required this.senderId,
     required this.senderName,
     required this.nudgeType,
+    this.photoUrl,
+    this.message,
     required this.timestamp,
   });
 
@@ -21,6 +29,8 @@ class LoveNudgePayload {
       senderId: map['sender_id'] as String? ?? '',
       senderName: map['sender_name'] as String? ?? 'Your Partner',
       nudgeType: map['nudge_type'] as String? ?? 'kiss',
+      photoUrl: map['photo_url'] as String?,
+      message: map['message'] as String?,
       timestamp: map['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch,
     );
   }
@@ -30,6 +40,8 @@ class LoveNudgePayload {
       'sender_id': senderId,
       'sender_name': senderName,
       'nudge_type': nudgeType,
+      if (photoUrl != null) 'photo_url': photoUrl,
+      if (message != null && message!.trim().isNotEmpty) 'message': message!.trim(),
       'timestamp': timestamp,
     };
   }
@@ -39,6 +51,9 @@ class SupabaseLoveNudgeService {
   static final SupabaseLoveNudgeService _instance = SupabaseLoveNudgeService._internal();
   factory SupabaseLoveNudgeService() => _instance;
   SupabaseLoveNudgeService._internal();
+
+  static const String _storageBucket = 'chat-photos';
+  static const String _fallbackStorageBucket = 'profile-photos';
 
   RealtimeChannel? _nudgeChannel;
   String? _activeCoupleId;
@@ -82,18 +97,22 @@ class SupabaseLoveNudgeService {
     return _nudgeController!.stream;
   }
 
-  /// Broadcast a love nudge (kiss or hug) to the couple's channel
+  /// Broadcast a love nudge (kiss or hug) with optional custom photo to the couple's channel
   Future<void> sendLoveNudge({
     required String coupleId,
     required String senderId,
     required String senderName,
     required String nudgeType,
+    String? photoUrl,
+    String? message,
   }) async {
     try {
       final payload = LoveNudgePayload(
         senderId: senderId,
         senderName: senderName,
         nudgeType: nudgeType,
+        photoUrl: photoUrl,
+        message: message,
         timestamp: DateTime.now().millisecondsSinceEpoch,
       );
 
@@ -105,7 +124,7 @@ class SupabaseLoveNudgeService {
         channel.subscribe();
       }
 
-      debugPrint('🚀 Sending Love Nudge ($nudgeType) to couple: $coupleId');
+      debugPrint('🚀 Sending Love Nudge ($nudgeType) with photo: ${photoUrl != null} to couple: $coupleId');
       await channel.sendBroadcastMessage(
         event: 'nudge',
         payload: payload.toMap(),
@@ -113,6 +132,87 @@ class SupabaseLoveNudgeService {
       debugPrint('✅ Love Nudge broadcast sent successfully');
     } catch (e) {
       debugPrint('❌ Error sending Love Nudge broadcast: $e');
+    }
+  }
+
+  /// Upload a custom photo for a love nudge (kiss / hug) to Supabase Storage
+  Future<String> uploadLoveNudgePhoto(String userId, File imageFile) async {
+    try {
+      if (!await imageFile.exists()) {
+        throw Exception('Image file does not exist');
+      }
+
+      final fileBytes = await imageFile.readAsBytes();
+      final optimizedBytes = await _optimizeNudgeImage(fileBytes);
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileExtension = path.extension(imageFile.path).toLowerCase();
+      final ext = fileExtension.isEmpty ? '.jpg' : fileExtension;
+      final fileName = 'nudge_${userId}_$timestamp$ext';
+
+      final client = SupabaseDataService.client;
+      try {
+        await client.storage
+            .from(_storageBucket)
+            .uploadBinary(
+              fileName,
+              optimizedBytes,
+              fileOptions: const FileOptions(
+                upsert: true,
+                contentType: 'image/jpeg',
+              ),
+            );
+        return client.storage.from(_storageBucket).getPublicUrl(fileName);
+      } catch (storageErr) {
+        debugPrint('Upload to $_storageBucket failed ($storageErr), trying $_fallbackStorageBucket...');
+        try {
+          await client.storage
+              .from(_fallbackStorageBucket)
+              .uploadBinary(
+                fileName,
+                optimizedBytes,
+                fileOptions: const FileOptions(
+                  upsert: true,
+                  contentType: 'image/jpeg',
+                ),
+              );
+          return client.storage.from(_fallbackStorageBucket).getPublicUrl(fileName);
+        } catch (_) {
+          return 'data:image/jpeg;base64,${base64Encode(optimizedBytes)}';
+        }
+      }
+    } catch (e) {
+      debugPrint('Error uploading love nudge photo: $e');
+      try {
+        final bytes = await imageFile.readAsBytes();
+        final optimized = await _optimizeNudgeImage(bytes);
+        return 'data:image/jpeg;base64,${base64Encode(optimized)}';
+      } catch (_) {
+        throw Exception('Failed to process love nudge photo: $e');
+      }
+    }
+  }
+
+  /// Optimize love nudge image dimensions and compression
+  Future<Uint8List> _optimizeNudgeImage(Uint8List imageBytes) async {
+    try {
+      final image = img.decodeImage(imageBytes);
+      if (image == null) return imageBytes;
+
+      img.Image resized = image;
+      if (image.width > 1080 || image.height > 1080) {
+        resized = img.copyResize(
+          image,
+          width: image.width > image.height ? 1080 : null,
+          height: image.height >= image.width ? 1080 : null,
+          interpolation: img.Interpolation.linear,
+        );
+      }
+
+      return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+    } catch (e) {
+      debugPrint('Love nudge image optimization failed, using original: $e');
+      return imageBytes;
     }
   }
 

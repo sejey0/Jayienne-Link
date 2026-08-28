@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/movie_model.dart';
@@ -8,7 +11,7 @@ import 'movie_alert_dialog.dart';
 import 'movie_poster_widget.dart';
 
 /// Bottom sheet allowing a partner to submit or edit their individual rating & review,
-/// set optional watched dates, and mark the movie as watched in real-time.
+/// set optional watched dates, attach watch photos/memories, and mark the movie as watched in real-time.
 class MarkWatchedSheet extends StatefulWidget {
   final MovieModel movie;
   final String currentUserId;
@@ -53,10 +56,14 @@ class MarkWatchedSheet extends StatefulWidget {
 
 class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
   final SupabaseMovieService _movieService = SupabaseMovieService();
+  final ImagePicker _imagePicker = ImagePicker();
   late final TextEditingController _notesController;
 
   int? _selectedRating; // Null by default for clean start unless editing own rating
   DateTime? _selectedDate;
+  List<String> _existingPhotos = [];
+  final List<File> _newPhotoFiles = [];
+  bool _isUploadingPhotos = false;
   bool _isSubmitting = false;
 
   int get _effectiveWatchNumber => widget.targetWatchNumber ?? widget.movie.watchCount;
@@ -72,6 +79,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
     _selectedRating = myRating?.rating;
     _notesController = TextEditingController(text: myRating?.notes ?? '');
     _selectedDate = widget.movie.watchedDate;
+    _existingPhotos = [...myRating?.photoUrls ?? []];
   }
 
   @override
@@ -112,6 +120,124 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
     setState(() => _selectedDate = null);
   }
 
+  Future<void> _pickGalleryPhotos() async {
+    HapticFeedback.selectionClick();
+    try {
+      final pickedList = await _imagePicker.pickMultiImage(
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+      if (pickedList.isNotEmpty) {
+        setState(() {
+          for (final picked in pickedList) {
+            _newPhotoFiles.add(File(picked.path));
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking memory photos: $e');
+      if (mounted) {
+        showCenterAlertDialog(
+          context: context,
+          title: 'Photo Selection Failed',
+          message: 'Could not select photos: $e',
+          icon: Icons.image_not_supported_rounded,
+          iconColor: AppColors.error,
+        );
+      }
+    }
+  }
+
+  Future<void> _pickCameraPhoto() async {
+    HapticFeedback.selectionClick();
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+      if (picked != null) {
+        setState(() {
+          _newPhotoFiles.add(File(picked.path));
+        });
+      }
+    } catch (e) {
+      debugPrint('Error capturing photo: $e');
+      if (mounted) {
+        showCenterAlertDialog(
+          context: context,
+          title: 'Camera Error',
+          message: 'Could not capture photo: $e',
+          icon: Icons.camera_alt_outlined,
+          iconColor: AppColors.error,
+        );
+      }
+    }
+  }
+
+  void _removeExistingPhoto(int index) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _existingPhotos.removeAt(index);
+    });
+  }
+
+  void _removeNewPhoto(int index) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _newPhotoFiles.removeAt(index);
+    });
+  }
+
+  void _showImageZoomDialog(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            InteractiveViewer(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(color: Color(0xFFFF758C)),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    padding: const EdgeInsets.all(20),
+                    color: Colors.black87,
+                    child: const Icon(Icons.broken_image_rounded, color: Colors.white70, size: 40),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: InkWell(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     if (widget.movie.id == null || widget.currentUserId.isEmpty) return;
 
@@ -131,6 +257,21 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
     HapticFeedback.mediumImpact();
 
     try {
+      final uploadedUrls = <String>[];
+      if (_newPhotoFiles.isNotEmpty) {
+        setState(() => _isUploadingPhotos = true);
+        for (final file in _newPhotoFiles) {
+          final url = await _movieService.uploadMoviePhoto(
+            widget.movie.coupleId.isNotEmpty ? widget.movie.coupleId : 'couple',
+            file,
+          );
+          uploadedUrls.add(url);
+        }
+        setState(() => _isUploadingPhotos = false);
+      }
+
+      final finalPhotos = [..._existingPhotos, ...uploadedUrls];
+
       await _movieService.markAsWatchedWithRating(
         movieId: widget.movie.id!,
         userId: widget.currentUserId,
@@ -139,6 +280,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
         notes: _notesController.text.trim().isNotEmpty
             ? _notesController.text.trim()
             : null,
+        photoUrls: finalPhotos,
         watchNumber: _effectiveWatchNumber,
       );
 
@@ -151,7 +293,10 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isSubmitting = false);
+      setState(() {
+        _isSubmitting = false;
+        _isUploadingPhotos = false;
+      });
       showCenterAlertDialog(
         context: context,
         title: 'Failed to Save',
@@ -585,6 +730,206 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                   ),
                 ),
               ),
+              const SizedBox(height: 18),
+
+              // ----------------------------------------------------
+              // WATCH MEMORIES & PHOTOS (OPTIONAL)
+              // ----------------------------------------------------
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.photo_camera_rounded,
+                        color: Color(0xFFFF758C),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Watch Photos & Memories (Optional)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF2D4059),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_existingPhotos.length + _newPhotoFiles.length > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${_existingPhotos.length + _newPhotoFiles.length} photo${_existingPhotos.length + _newPhotoFiles.length == 1 ? '' : 's'}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFFF758C),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Action Buttons to Add Photo (Gallery Bulk Select & Camera)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickGalleryPhotos,
+                      icon: const Icon(Icons.photo_library_rounded, size: 16, color: Color(0xFFFF758C)),
+                      label: const Text('Bulk Select', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFFF758C),
+                        side: BorderSide(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        backgroundColor: isDark
+                            ? Colors.white.withValues(alpha: 0.03)
+                            : const Color(0xFFFF758C).withValues(alpha: 0.05),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickCameraPhoto,
+                      icon: const Icon(Icons.camera_alt_rounded, size: 16, color: Color(0xFFA18CD1)),
+                      label: const Text('Take a Photo', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFA18CD1),
+                        side: BorderSide(
+                          color: const Color(0xFFA18CD1).withValues(alpha: 0.35),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        backgroundColor: isDark
+                            ? Colors.white.withValues(alpha: 0.03)
+                            : const Color(0xFFA18CD1).withValues(alpha: 0.05),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Horizontal Thumbnails Preview List
+              if (_existingPhotos.isNotEmpty || _newPhotoFiles.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 90,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    children: [
+                      // Existing uploaded photos
+                      ..._existingPhotos.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final url = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: Stack(
+                            children: [
+                              GestureDetector(
+                                onTap: () => _showImageZoomDialog(context, url),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: CachedNetworkImage(
+                                    imageUrl: url,
+                                    width: 80,
+                                    height: 85,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => Container(
+                                      width: 80,
+                                      height: 85,
+                                      color: Colors.grey.withValues(alpha: 0.15),
+                                      child: const Center(
+                                        child: SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF758C)),
+                                        ),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) => Container(
+                                      width: 80,
+                                      height: 85,
+                                      color: Colors.grey.withValues(alpha: 0.2),
+                                      child: const Icon(Icons.broken_image_rounded, size: 20),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: GestureDetector(
+                                  onTap: () => _removeExistingPhoto(idx),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.close_rounded, color: Colors.white, size: 13),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+
+                      // New picked local image files
+                      ..._newPhotoFiles.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final file = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: Image.file(
+                                  file,
+                                  width: 80,
+                                  height: 85,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: GestureDetector(
+                                  onTap: () => _removeNewPhoto(idx),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.close_rounded, color: Colors.white, size: 13),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
 
               // Action Button
@@ -617,13 +962,27 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                       ),
                     ),
                     child: _isSubmitting
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Colors.white,
-                            ),
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                _isUploadingPhotos ? 'Uploading photos...' : 'Saving...',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           )
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,

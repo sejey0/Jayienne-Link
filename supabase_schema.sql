@@ -722,6 +722,7 @@ CREATE TABLE IF NOT EXISTS public.movies (
     couple_id UUID NOT NULL REFERENCES public.couples(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     poster_url TEXT,
+    photo_urls TEXT[] DEFAULT '{}',
     status TEXT NOT NULL DEFAULT 'watchlist' CHECK (status IN ('watchlist', 'watched')),
     rating INTEGER CHECK (rating >= 1 AND rating <= 5),
     notes TEXT,
@@ -793,7 +794,7 @@ EXCEPTION
 END $$;
 
 -- =====================================================
--- MOVIE RATINGS (DUAL PARTNER RATING SYSTEM)
+-- MOVIE RATINGS (DUAL PARTNER RATING SYSTEM & WATCH PHOTOS)
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.movie_ratings (
@@ -802,6 +803,8 @@ CREATE TABLE IF NOT EXISTS public.movie_ratings (
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     rating INTEGER CHECK (rating >= 1 AND rating <= 5),
     notes TEXT,
+    photo_urls TEXT[] DEFAULT '{}',
+    watch_number INTEGER DEFAULT 1,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(movie_id, user_id)
 );
@@ -818,6 +821,11 @@ CREATE POLICY "Allow couples to read ratings" ON public.movie_ratings
 DROP POLICY IF EXISTS "Users can only insert/update their own rating" ON public.movie_ratings;
 CREATE POLICY "Users can only insert/update their own rating" ON public.movie_ratings
     FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Safe migrations for existing databases:
+ALTER TABLE public.movies ADD COLUMN IF NOT EXISTS photo_urls TEXT[] DEFAULT '{}';
+ALTER TABLE public.movie_ratings ADD COLUMN IF NOT EXISTS photo_urls TEXT[] DEFAULT '{}';
+ALTER TABLE public.movie_ratings ADD COLUMN IF NOT EXISTS watch_number INTEGER DEFAULT 1;
 
 DO $$
 BEGIN

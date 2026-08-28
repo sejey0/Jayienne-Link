@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/movie_model.dart';
@@ -12,7 +15,7 @@ import 'movie_alert_dialog.dart';
 import 'movie_poster_widget.dart';
 
 /// Modal bottom sheet displaying detailed dual reviews for a watched movie
-/// Supports multi-session Watch History (1st Watch, Rewatch #1, etc.) and "Plan Rewatch" action
+/// Supports multi-session Watch History (1st Watch, Rewatch #1, etc.), Watch Photo Memories, and "Plan Rewatch" action
 class ViewMovieDetailsSheet extends StatefulWidget {
   final MovieModel movie;
   final String currentUserId;
@@ -53,8 +56,10 @@ class ViewMovieDetailsSheet extends StatefulWidget {
 
 class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
   final SupabaseMovieService _movieService = SupabaseMovieService();
+  final ImagePicker _imagePicker = ImagePicker();
   late int _selectedSession;
   bool _isPlanningRewatch = false;
+  bool _isUploadingQuickPhoto = false;
 
   @override
   void initState() {
@@ -64,6 +69,160 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
     final availableSessions = widget.movie.sessionNumbers;
     if (!availableSessions.contains(_selectedSession) && availableSessions.isNotEmpty) {
       _selectedSession = availableSessions.last;
+    }
+  }
+
+  void _showImageZoomDialog(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            InteractiveViewer(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(color: Color(0xFFFF758C)),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    padding: const EdgeInsets.all(20),
+                    color: Colors.black87,
+                    child: const Icon(Icons.broken_image_rounded, color: Colors.white70, size: 40),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: InkWell(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleQuickAddBulkPhotos() async {
+    HapticFeedback.selectionClick();
+    if (widget.movie.id == null || widget.currentUserId.isEmpty) return;
+
+    try {
+      final pickedList = await _imagePicker.pickMultiImage(
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+
+      if (pickedList.isEmpty) return;
+
+      setState(() => _isUploadingQuickPhoto = true);
+      HapticFeedback.mediumImpact();
+
+      final myRating = widget.movie.getRatingForUser(
+        widget.currentUserId,
+        watchNumber: _selectedSession,
+      );
+
+      for (final picked in pickedList) {
+        final uploadedUrl = await _movieService.uploadMoviePhoto(
+          widget.movie.coupleId.isNotEmpty ? widget.movie.coupleId : 'couple',
+          File(picked.path),
+        );
+
+        await _movieService.addWatchPhoto(
+          movieId: widget.movie.id!,
+          userId: widget.currentUserId,
+          photoUrl: uploadedUrl,
+          watchNumber: _selectedSession,
+          defaultRating: myRating?.rating ?? 5,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() => _isUploadingQuickPhoto = false);
+
+      widget.onMovieUpdated?.call();
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isUploadingQuickPhoto = false);
+      showCenterAlertDialog(
+        context: context,
+        title: 'Upload Failed',
+        message: 'Could not upload memory photos: $e',
+        icon: Icons.error_outline_rounded,
+        iconColor: AppColors.error,
+      );
+    }
+  }
+
+  Future<void> _handleQuickAddCameraPhoto() async {
+    HapticFeedback.selectionClick();
+    if (widget.movie.id == null || widget.currentUserId.isEmpty) return;
+
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+
+      if (picked == null) return;
+
+      setState(() => _isUploadingQuickPhoto = true);
+      HapticFeedback.mediumImpact();
+
+      final uploadedUrl = await _movieService.uploadMoviePhoto(
+        widget.movie.coupleId.isNotEmpty ? widget.movie.coupleId : 'couple',
+        File(picked.path),
+      );
+
+      final myRating = widget.movie.getRatingForUser(
+        widget.currentUserId,
+        watchNumber: _selectedSession,
+      );
+
+      await _movieService.addWatchPhoto(
+        movieId: widget.movie.id!,
+        userId: widget.currentUserId,
+        photoUrl: uploadedUrl,
+        watchNumber: _selectedSession,
+        defaultRating: myRating?.rating ?? 5,
+      );
+
+      if (!mounted) return;
+      setState(() => _isUploadingQuickPhoto = false);
+
+      widget.onMovieUpdated?.call();
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isUploadingQuickPhoto = false);
+      showCenterAlertDialog(
+        context: context,
+        title: 'Camera Upload Failed',
+        message: 'Could not upload snapshot: $e',
+        icon: Icons.error_outline_rounded,
+        iconColor: AppColors.error,
+      );
     }
   }
 
@@ -508,6 +667,9 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
               // ----------------------------------------------------
               // BOX 1: MY RATING & REVIEW FOR SELECTED SESSION
               // ----------------------------------------------------
+              // ----------------------------------------------------
+              // BOX 1: MY RATING & REVIEW FOR SELECTED SESSION
+              // ----------------------------------------------------
               _buildReviewBox(
                 title: sessions.length > 1
                     ? 'Your Review (${MovieModel.getSessionLabel(_selectedSession)})'
@@ -557,6 +719,15 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                 notes: partnerRating?.notes,
                 emptyMessage: "Partner hasn't reviewed this watch yet",
               ),
+              const SizedBox(height: 16),
+
+              // ----------------------------------------------------
+              // BOX 3: DEDICATED WATCH MEMORIES & DATE SNAPSHOTS
+              // ----------------------------------------------------
+              _buildWatchMemoriesSection(
+                isDark: isDark,
+                photos: widget.movie.getWatchPhotosForSession(_selectedSession),
+              ),
               const SizedBox(height: 20),
 
               // ----------------------------------------------------
@@ -600,6 +771,272 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWatchMemoriesSection({
+    required bool isDark,
+    required List<String> photos,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1E162B)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.1)
+              : const Color(0xFFFF758C).withValues(alpha: 0.25),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF758C).withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.photo_library_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Watch Memories',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF2D4059),
+                        ),
+                      ),
+                      Text(
+                        'Photos & snapshots during movie night',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              if (photos.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${photos.length} photo${photos.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFFF758C),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Action Buttons: Bulk Select (Gallery) & Take Snapshot (Camera)
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _isUploadingQuickPhoto ? null : _handleQuickAddBulkPhotos,
+                  icon: const Icon(Icons.photo_library_rounded, size: 16),
+                  label: const Text(
+                    'Bulk Select',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF758C),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isUploadingQuickPhoto ? null : _handleQuickAddCameraPhoto,
+                  icon: const Icon(Icons.camera_alt_rounded, size: 16, color: Color(0xFFA18CD1)),
+                  label: const Text(
+                    'Take Snapshot',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFA18CD1),
+                    side: BorderSide(color: const Color(0xFFA18CD1).withValues(alpha: 0.4)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          if (_isUploadingQuickPhoto) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF758C).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF758C)),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Uploading memory photos...',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white70 : const Color(0xFFFF758C),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Photos Grid Display
+          if (photos.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: photos.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: photos.length == 1 ? 1 : (photos.length == 2 ? 2 : 3),
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: photos.length == 1 ? 1.6 : 1.0,
+              ),
+              itemBuilder: (context, index) {
+                final url = photos[index];
+                return GestureDetector(
+                  onTap: () => _showImageZoomDialog(context, url),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: CachedNetworkImage(
+                        imageUrl: url,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: Colors.grey.withValues(alpha: 0.15),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFFFF758C),
+                              ),
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: Colors.grey.withValues(alpha: 0.2),
+                          child: const Icon(Icons.broken_image_rounded, size: 24),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ] else if (!_isUploadingQuickPhoto) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.02)
+                    : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.grey.shade200,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.add_photo_alternate_outlined,
+                    size: 24,
+                    color: isDark ? Colors.white38 : Colors.grey.shade400,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'No memories added yet. Tap Bulk Select or Take Snapshot to capture your movie snacks or cuddle setup!',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.3,
+                        color: isDark ? Colors.white38 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -753,6 +1190,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                 ),
               ),
             ],
+
             if (actionButton != null) ...[
               const SizedBox(height: 12),
               Align(

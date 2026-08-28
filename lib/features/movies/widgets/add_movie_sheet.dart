@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
@@ -14,7 +15,7 @@ import 'movie_poster_widget.dart';
 /// - Media Type Selector: Movie vs Series
 /// - Dynamic Visibility:
 ///   - "Plan to Watch" (watchlist): Title, Media Type, Poster selection
-///   - "Already Watched" (watched): Title, Media Type, Poster, 1-5 Heart Rating, Watched Date, and Review Notes
+///   - "Already Watched" (watched): Title, Media Type, Poster, 1-5 Heart Rating, Watched Date, Review Notes, and Watch Memories Photos
 class AddMovieSheet extends StatefulWidget {
   final String coupleId;
   final String currentUserId;
@@ -71,7 +72,10 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
   int _rating = 5;
   DateTime? _watchedDate;
   File? _selectedImageFile;
+  List<String> _existingWatchPhotos = [];
+  final List<File> _newWatchPhotoFiles = [];
   bool _isUploadingPoster = false;
+  bool _isUploadingWatchPhotos = false;
   bool _isSaving = false;
   int _posterInputMode = 0; // 0: Gallery pick, 1: Poster URL
 
@@ -90,6 +94,10 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
     _mediaType = editMovie?.mediaType ?? 'movie';
     _watchedDate = editMovie?.watchedDate;
     _rating = myRating?.rating ?? 5;
+    _existingWatchPhotos = [
+      ...?editMovie?.photoUrls,
+      ...?myRating?.photoUrls,
+    ].toSet().toList();
 
     if (editMovie?.posterUrl != null && editMovie!.posterUrl!.startsWith('http')) {
       _posterInputMode = 1;
@@ -132,6 +140,124 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
         );
       }
     }
+  }
+
+  Future<void> _pickGalleryWatchPhotos() async {
+    HapticFeedback.selectionClick();
+    try {
+      final pickedList = await _imagePicker.pickMultiImage(
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+      if (pickedList.isNotEmpty) {
+        setState(() {
+          for (final picked in pickedList) {
+            _newWatchPhotoFiles.add(File(picked.path));
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking watch photos: $e');
+      if (mounted) {
+        showCenterAlertDialog(
+          context: context,
+          title: 'Photo Selection Failed',
+          message: 'Could not select photos: $e',
+          icon: Icons.image_not_supported_rounded,
+          iconColor: AppColors.error,
+        );
+      }
+    }
+  }
+
+  Future<void> _pickCameraWatchPhoto() async {
+    HapticFeedback.selectionClick();
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+      if (picked != null) {
+        setState(() {
+          _newWatchPhotoFiles.add(File(picked.path));
+        });
+      }
+    } catch (e) {
+      debugPrint('Error capturing photo: $e');
+      if (mounted) {
+        showCenterAlertDialog(
+          context: context,
+          title: 'Camera Error',
+          message: 'Could not capture photo: $e',
+          icon: Icons.camera_alt_outlined,
+          iconColor: AppColors.error,
+        );
+      }
+    }
+  }
+
+  void _removeExistingWatchPhoto(int index) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _existingWatchPhotos.removeAt(index);
+    });
+  }
+
+  void _removeNewWatchPhoto(int index) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _newWatchPhotoFiles.removeAt(index);
+    });
+  }
+
+  void _showImageZoomDialog(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            InteractiveViewer(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(color: Color(0xFFFF758C)),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    padding: const EdgeInsets.all(20),
+                    color: Colors.black87,
+                    child: const Icon(Icons.broken_image_rounded, color: Colors.white70, size: 40),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: InkWell(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _selectWatchedDate() async {
@@ -200,6 +326,23 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
         finalPosterUrl = _posterUrlController.text.trim();
       }
 
+      final uploadedWatchPhotoUrls = <String>[];
+      if (_status == 'watched' && _newWatchPhotoFiles.isNotEmpty) {
+        setState(() => _isUploadingWatchPhotos = true);
+        for (final file in _newWatchPhotoFiles) {
+          final url = await _movieService.uploadMoviePhoto(
+            widget.coupleId.isNotEmpty
+                ? widget.coupleId
+                : (widget.movieToEdit?.coupleId ?? 'shared'),
+            file,
+          );
+          uploadedWatchPhotoUrls.add(url);
+        }
+        setState(() => _isUploadingWatchPhotos = false);
+      }
+
+      final allWatchPhotos = [..._existingWatchPhotos, ...uploadedWatchPhotoUrls];
+
       if (_isEditMode) {
         // 1. Update existing movie metadata
         final updatedMovie = widget.movieToEdit!.copyWith(
@@ -207,6 +350,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
           posterUrl: finalPosterUrl ?? widget.movieToEdit!.posterUrl,
           status: _status,
           mediaType: _mediaType,
+          photoUrls: _status == 'watched' ? allWatchPhotos : widget.movieToEdit!.photoUrls,
           watchedDate: _status == 'watched' ? _watchedDate : null,
           clearWatchedDate: _status != 'watched' || _watchedDate == null,
           updatedAt: DateTime.now(),
@@ -225,6 +369,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
             notes: _notesController.text.trim().isNotEmpty
                 ? _notesController.text.trim()
                 : null,
+            photoUrls: allWatchPhotos,
           );
         }
 
@@ -240,6 +385,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
           posterUrl: finalPosterUrl,
           status: _status,
           mediaType: _mediaType,
+          photoUrls: _status == 'watched' ? allWatchPhotos : const [],
           watchedDate: _status == 'watched' ? _watchedDate : null,
           createdAt: DateTime.now(),
         );
@@ -257,6 +403,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
             notes: _notesController.text.trim().isNotEmpty
                 ? _notesController.text.trim()
                 : null,
+            photoUrls: allWatchPhotos,
           );
         }
 
@@ -273,6 +420,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
       setState(() {
         _isSaving = false;
         _isUploadingPoster = false;
+        _isUploadingWatchPhotos = false;
       });
       showCenterAlertDialog(
         context: context,
@@ -1127,6 +1275,206 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                     ),
                   ),
                   const SizedBox(height: 18),
+
+                  // ----------------------------------------------------
+                  // WATCH MEMORIES & PHOTOS (OPTIONAL)
+                  // ----------------------------------------------------
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.photo_camera_rounded,
+                            color: Color(0xFFFF758C),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Watch Photos & Memories (Optional)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : const Color(0xFF2D4059),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_existingWatchPhotos.length + _newWatchPhotoFiles.length > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${_existingWatchPhotos.length + _newWatchPhotoFiles.length} photo${_existingWatchPhotos.length + _newWatchPhotoFiles.length == 1 ? '' : 's'}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFFF758C),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Action Buttons to Add Photo (Gallery Bulk Select & Camera)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickGalleryWatchPhotos,
+                          icon: const Icon(Icons.photo_library_rounded, size: 16, color: Color(0xFFFF758C)),
+                          label: const Text('Bulk Select', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFFF758C),
+                            side: BorderSide(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            backgroundColor: isDark
+                                ? Colors.white.withValues(alpha: 0.03)
+                                : const Color(0xFFFF758C).withValues(alpha: 0.05),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickCameraWatchPhoto,
+                          icon: const Icon(Icons.camera_alt_rounded, size: 16, color: Color(0xFFA18CD1)),
+                          label: const Text('Take a Photo', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFA18CD1),
+                            side: BorderSide(
+                              color: const Color(0xFFA18CD1).withValues(alpha: 0.35),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            backgroundColor: isDark
+                                ? Colors.white.withValues(alpha: 0.03)
+                                : const Color(0xFFA18CD1).withValues(alpha: 0.05),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Horizontal Thumbnails Preview List
+                  if (_existingWatchPhotos.isNotEmpty || _newWatchPhotoFiles.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 90,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        children: [
+                          // Existing uploaded photos
+                          ..._existingWatchPhotos.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final url = entry.value;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: Stack(
+                                children: [
+                                  GestureDetector(
+                                    onTap: () => _showImageZoomDialog(context, url),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: CachedNetworkImage(
+                                        imageUrl: url,
+                                        width: 80,
+                                        height: 85,
+                                        fit: BoxFit.cover,
+                                        placeholder: (context, url) => Container(
+                                          width: 80,
+                                          height: 85,
+                                          color: Colors.grey.withValues(alpha: 0.15),
+                                          child: const Center(
+                                            child: SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF758C)),
+                                            ),
+                                          ),
+                                        ),
+                                        errorWidget: (context, url, error) => Container(
+                                          width: 80,
+                                          height: 85,
+                                          color: Colors.grey.withValues(alpha: 0.2),
+                                          child: const Icon(Icons.broken_image_rounded, size: 20),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: GestureDetector(
+                                      onTap: () => _removeExistingWatchPhoto(idx),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(3),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.close_rounded, color: Colors.white, size: 13),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+
+                          // New picked local image files
+                          ..._newWatchPhotoFiles.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final file = entry.value;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: Image.file(
+                                      file,
+                                      width: 80,
+                                      height: 85,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: GestureDetector(
+                                      onTap: () => _removeNewWatchPhoto(idx),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(3),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.close_rounded, color: Colors.white, size: 13),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
                 ],
                 const SizedBox(height: 10),
 
@@ -1175,7 +1523,9 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                                 Text(
                                   _isUploadingPoster
                                       ? 'Uploading poster...'
-                                      : 'Saving...',
+                                      : (_isUploadingWatchPhotos
+                                          ? 'Uploading photos...'
+                                          : 'Saving...'),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,

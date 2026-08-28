@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'movie_rating_model.dart';
 
@@ -13,6 +14,7 @@ class MovieModel {
   final int watchCount; // Total times watched (1 for 1st watch, 2 for 2nd watch, etc.)
   final int? rating; // Legacy fallback single rating
   final String? notes; // Legacy fallback notes
+  final List<String> photoUrls; // Watch memories / photos taken while watching
   final DateTime? watchedDate;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -28,6 +30,7 @@ class MovieModel {
     this.watchCount = 1,
     this.rating,
     this.notes,
+    this.photoUrls = const [],
     this.watchedDate,
     required this.createdAt,
     this.updatedAt,
@@ -71,6 +74,37 @@ class MovieModel {
 
   String get formattedCreatedDate {
     return DateFormat('MMM d, yyyy').format(createdAt.toLocal());
+  }
+
+  /// Returns all watch photos across this movie and all partner reviews
+  List<String> get allWatchPhotos {
+    final list = <String>[...photoUrls];
+    for (final r in ratings) {
+      for (final p in r.photoUrls) {
+        if (!list.contains(p)) {
+          list.add(p);
+        }
+      }
+    }
+    return list;
+  }
+
+  /// Returns watch photos specifically attached to a given watch session
+  List<String> getWatchPhotosForSession(int sessionNum) {
+    final list = <String>[];
+    if (sessionNum == watchCount) {
+      for (final p in photoUrls) {
+        if (!list.contains(p)) list.add(p);
+      }
+    }
+    for (final r in ratings.where((r) => r.watchNumber == sessionNum)) {
+      for (final p in r.photoUrls) {
+        if (!list.contains(p)) {
+          list.add(p);
+        }
+      }
+    }
+    return list;
   }
 
   /// Calculates average rating across latest session (or all ratings)
@@ -172,6 +206,24 @@ class MovieModel {
       }
     }
 
+    List<String> parsePhotos(dynamic value) {
+      if (value == null) return const [];
+      if (value is List) {
+        return value.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+      }
+      if (value is String) {
+        if (value.trim().isEmpty) return const [];
+        try {
+          final decoded = jsonDecode(value);
+          if (decoded is List) {
+            return decoded.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+          }
+        } catch (_) {}
+        return value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      }
+      return const [];
+    }
+
     return MovieModel(
       id: json['id']?.toString(),
       coupleId: json['couple_id']?.toString() ?? '',
@@ -184,6 +236,7 @@ class MovieModel {
           : 1,
       rating: json['rating'] != null ? int.tryParse(json['rating'].toString()) : null,
       notes: json['notes']?.toString(),
+      photoUrls: parsePhotos(json['photo_urls'] ?? json['photos']),
       watchedDate: parseNullableDateTime(json['watched_date']),
       createdAt: parseDateTime(json['created_at'], DateTime.now()),
       updatedAt: parseNullableDateTime(json['updated_at']),
@@ -200,6 +253,7 @@ class MovieModel {
       'status': status,
       'media_type': mediaType,
       'watch_count': watchCount,
+      'photo_urls': photoUrls,
       'watched_date': watchedDate?.toUtc().toIso8601String(),
       'created_at': createdAt.toUtc().toIso8601String(),
       if (updatedAt != null) 'updated_at': updatedAt!.toUtc().toIso8601String(),
@@ -216,6 +270,7 @@ class MovieModel {
     int? watchCount,
     int? rating,
     String? notes,
+    List<String>? photoUrls,
     DateTime? watchedDate,
     bool clearWatchedDate = false,
     DateTime? createdAt,
@@ -232,6 +287,7 @@ class MovieModel {
       watchCount: watchCount ?? this.watchCount,
       rating: rating ?? this.rating,
       notes: notes ?? this.notes,
+      photoUrls: photoUrls ?? this.photoUrls,
       watchedDate: clearWatchedDate ? null : (watchedDate ?? this.watchedDate),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

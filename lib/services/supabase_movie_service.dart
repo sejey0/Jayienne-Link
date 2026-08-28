@@ -104,6 +104,8 @@ class SupabaseMovieService {
         'status': movie.status,
         'media_type': movie.mediaType,
         'watch_count': movie.watchCount,
+        if (movie.photoUrls.isNotEmpty)
+          'photo_urls': movie.photoUrls,
         if (movie.watchedDate != null)
           'watched_date': movie.watchedDate!.toUtc().toIso8601String(),
         'created_at': movie.createdAt.toUtc().toIso8601String(),
@@ -113,13 +115,27 @@ class SupabaseMovieService {
         data['id'] = movie.id;
       }
 
-      final response = await _supabase
-          .from(_tableName)
-          .insert(data)
-          .select()
-          .single();
+      try {
+        final response = await _supabase
+            .from(_tableName)
+            .insert(data)
+            .select()
+            .single();
 
-      return MovieModel.fromJson(response);
+        return MovieModel.fromJson(response);
+      } catch (insertErr) {
+        // Fallback without photo_urls if column is not yet present
+        if (data.containsKey('photo_urls')) {
+          data.remove('photo_urls');
+          final response = await _supabase
+              .from(_tableName)
+              .insert(data)
+              .select()
+              .single();
+          return MovieModel.fromJson(response);
+        }
+        rethrow;
+      }
     } catch (e) {
       debugPrint('Error adding movie: $e');
       rethrow;
@@ -140,6 +156,7 @@ class SupabaseMovieService {
         'status': movie.status,
         'media_type': movie.mediaType,
         'watch_count': movie.watchCount,
+        'photo_urls': movie.photoUrls,
         'watched_date': movie.watchedDate?.toUtc().toIso8601String(),
       };
 
@@ -152,7 +169,8 @@ class SupabaseMovieService {
             })
             .eq('id', movie.id!);
       } catch (colErr) {
-        debugPrint('Updating movie with updated_at failed, retrying without updated_at: $colErr');
+        debugPrint('Updating movie with photo_urls/updated_at failed, retrying without: $colErr');
+        data.remove('photo_urls');
         await _supabase
             .from(_tableName)
             .update(data)
@@ -200,12 +218,13 @@ class SupabaseMovieService {
     }
   }
 
-  /// Upsert a specific partner's rating and review strictly in `movie_ratings`
+  /// Upsert a specific partner's rating, review, and watch photos strictly in `movie_ratings`
   Future<void> upsertRating({
     required String movieId,
     required String userId,
     required int rating,
     String? notes,
+    List<String>? photoUrls,
     int watchNumber = 1,
   }) async {
     try {
@@ -214,6 +233,7 @@ class SupabaseMovieService {
         'user_id': userId,
         'rating': rating,
         'notes': notes?.trim(),
+        if (photoUrls != null) 'photo_urls': photoUrls,
         'watch_number': watchNumber,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
@@ -224,9 +244,17 @@ class SupabaseMovieService {
             .upsert(ratingData, onConflict: 'movie_id,user_id,watch_number');
       } catch (conflictErr) {
         debugPrint('Upsert with watch_number conflict failed, trying movie_id,user_id fallback: $conflictErr');
-        await _supabase
-            .from(_ratingsTableName)
-            .upsert(ratingData, onConflict: 'movie_id,user_id');
+        try {
+          await _supabase
+              .from(_ratingsTableName)
+              .upsert(ratingData, onConflict: 'movie_id,user_id');
+        } catch (colErr) {
+          debugPrint('Upsert with photo_urls failed, retrying without photo_urls: $colErr');
+          ratingData.remove('photo_urls');
+          await _supabase
+              .from(_ratingsTableName)
+              .upsert(ratingData, onConflict: 'movie_id,user_id');
+        }
       }
     } catch (e) {
       debugPrint('Error upserting movie rating: $e');
@@ -234,13 +262,66 @@ class SupabaseMovieService {
     }
   }
 
-  /// Mark a movie as watched and save the user's personal rating & review strictly in `movie_ratings`
+  /// Add a watch photo memory directly to a movie rating
+  Future<void> addWatchPhoto({
+    required String movieId,
+    required String userId,
+    required String photoUrl,
+    int watchNumber = 1,
+    int defaultRating = 5,
+  }) async {
+    try {
+      // 1. Fetch current rating for this user and session
+      final response = await _supabase
+          .from(_ratingsTableName)
+          .select()
+          .eq('movie_id', movieId)
+          .eq('user_id', userId);
+
+      final records = List<Map<String, dynamic>>.from(response);
+      Map<String, dynamic>? match;
+      for (final r in records) {
+        if (r['watch_number'] == watchNumber) {
+          match = r;
+          break;
+        }
+      }
+      match ??= records.isNotEmpty ? records.first : null;
+
+      List<String> existingPhotos = [];
+      if (match != null && match['photo_urls'] != null) {
+        final raw = match['photo_urls'];
+        if (raw is List) {
+          existingPhotos = raw.map((e) => e.toString()).toList();
+        }
+      }
+
+      if (!existingPhotos.contains(photoUrl)) {
+        existingPhotos.add(photoUrl);
+      }
+
+      await upsertRating(
+        movieId: movieId,
+        userId: userId,
+        rating: match != null && match['rating'] != null ? int.tryParse(match['rating'].toString()) ?? defaultRating : defaultRating,
+        notes: match?['notes']?.toString(),
+        photoUrls: existingPhotos,
+        watchNumber: watchNumber,
+      );
+    } catch (e) {
+      debugPrint('Error adding watch photo: $e');
+      rethrow;
+    }
+  }
+
+  /// Mark a movie as watched and save the user's personal rating, review, and watch photos strictly in `movie_ratings`
   Future<void> markAsWatchedWithRating({
     required String movieId,
     required String userId,
     required int rating,
     DateTime? watchedDate,
     String? notes,
+    List<String>? photoUrls,
     int watchNumber = 1,
   }) async {
     try {
@@ -273,6 +354,7 @@ class SupabaseMovieService {
         userId: userId,
         rating: rating,
         notes: notes,
+        photoUrls: photoUrls,
         watchNumber: watchNumber,
       );
     } catch (e) {
@@ -373,6 +455,89 @@ class SupabaseMovieService {
       return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
     } catch (e) {
       debugPrint('Poster image optimization failed, using original: $e');
+      return imageBytes;
+    }
+  }
+
+  /// Upload a watch snapshot / memory photo to Supabase Storage with Base64 fallback
+  Future<String> uploadMoviePhoto(String coupleId, File imageFile) async {
+    try {
+      if (!await imageFile.exists()) {
+        throw Exception('Selected image file does not exist');
+      }
+
+      final fileBytes = await imageFile.readAsBytes();
+      final optimizedBytes = await _optimizeWatchPhotoImage(fileBytes);
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileExtension = path.extension(imageFile.path).toLowerCase();
+      final fileName = 'watch_photo_${coupleId}_$timestamp${fileExtension.isEmpty ? '.jpg' : fileExtension}';
+
+      try {
+        await _supabase.storage
+            .from(_storageBucket)
+            .uploadBinary(
+              fileName,
+              optimizedBytes,
+              fileOptions: const FileOptions(
+                upsert: true,
+                contentType: 'image/jpeg',
+              ),
+            );
+
+        return _supabase.storage.from(_storageBucket).getPublicUrl(fileName);
+      } catch (bucketError) {
+        debugPrint('Primary movie bucket upload failed for photo, trying fallback: $bucketError');
+        try {
+          await _supabase.storage
+              .from(_fallbackStorageBucket)
+              .uploadBinary(
+                fileName,
+                optimizedBytes,
+                fileOptions: const FileOptions(
+                  upsert: true,
+                  contentType: 'image/jpeg',
+                ),
+              );
+
+          return _supabase.storage.from(_fallbackStorageBucket).getPublicUrl(fileName);
+        } catch (_) {
+          debugPrint('Using Base64 encoding fallback for watch photo');
+          final base64String = base64Encode(optimizedBytes);
+          return 'data:image/jpeg;base64,$base64String';
+        }
+      }
+    } catch (e) {
+      debugPrint('Error uploading watch photo: $e');
+      try {
+        final bytes = await imageFile.readAsBytes();
+        final optimized = await _optimizeWatchPhotoImage(bytes);
+        return 'data:image/jpeg;base64,${base64Encode(optimized)}';
+      } catch (_) {
+        throw Exception('Failed to process watch photo: $e');
+      }
+    }
+  }
+
+  /// Optimize watch memory photo dimensions and compression
+  Future<Uint8List> _optimizeWatchPhotoImage(Uint8List imageBytes) async {
+    try {
+      final image = img.decodeImage(imageBytes);
+      if (image == null) return imageBytes;
+
+      img.Image resized = image;
+      if (image.width > 1200 || image.height > 1200) {
+        resized = img.copyResize(
+          image,
+          width: image.width > image.height ? 1200 : null,
+          height: image.height >= image.width ? 1200 : null,
+          interpolation: img.Interpolation.linear,
+        );
+      }
+
+      return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+    } catch (e) {
+      debugPrint('Watch photo image optimization failed, using original: $e');
       return imageBytes;
     }
   }

@@ -1600,6 +1600,34 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             ),
                           ],
                         ),
+                        if (movie.allWatchPhotos.isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.photo_camera_rounded,
+                                  size: 11,
+                                  color: Color(0xFFFF758C),
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '${movie.allWatchPhotos.length} Photo${movie.allWatchPhotos.length == 1 ? '' : 's'}',
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFFF758C),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 8),

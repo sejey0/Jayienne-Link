@@ -353,7 +353,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                         ),
                         const SizedBox(height: 6),
 
-                        // Watched Date
+                        // Watched Date & Added Date
                         if (movie.watchedDate != null) ...[
                           Row(
                             children: [
@@ -378,8 +378,29 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                         ],
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 12,
+                              color: isDark ? Colors.white54 : Colors.grey.shade500,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Added ${movie.formattedCreatedDate}',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
 
                         // Session Average Score Badge
                         if (sessionAvg != null) ...[

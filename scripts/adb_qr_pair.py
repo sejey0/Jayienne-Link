@@ -160,6 +160,23 @@ def main():
         output = result.stdout + result.stderr
         if "connected" in output.lower():
             print("  Connected successfully!")
+            
+            # Switch to static TCP/IP port 5555
+            ip = connect_addr.split(":")[0]
+            print(f"  Upgrading to static port 5555 on {ip}...")
+            try:
+                subprocess.run([adb, "-s", connect_addr, "tcpip", "5555"], timeout=5)
+                subprocess.run([adb, "connect", f"{ip}:5555"], timeout=5)
+                
+                # Save IP to .device_ip
+                import os
+                ip_file = os.path.join(os.path.dirname(__file__), ".device_ip")
+                with open(ip_file, "w") as f:
+                    f.write(ip)
+                print(f"  Device saved to {ip}:5555 (ultra-stable, no disconnects)")
+            except Exception as e:
+                print(f"  Note: Could not switch to port 5555: {e}")
+
             print()
             print("=" * 55)
             print("  Ready! You can now run Flutter apps wirelessly.")

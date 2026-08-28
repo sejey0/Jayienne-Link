@@ -1007,88 +1007,46 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
               ),
               const SizedBox(width: 8),
 
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (photoUrl != null) ...[
-                    InkWell(
-                      onTap: onDeletePhotoTap,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.error.withValues(alpha: 0.25),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.delete_outline_rounded,
-                              size: 13,
-                              color: AppColors.error,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'Clear',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.error,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-
-                  // Upload / Change Photo Pill Button
-                  InkWell(
-                    onTap: isUploading ? null : onUploadTap,
+              // Upload / Change Photo Pill Button
+              InkWell(
+                onTap: isUploading ? null : onUploadTap,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: primaryColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: primaryColor.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isUploading)
-                            SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
-                            )
-                          else
-                            Icon(
-                              photoUrl != null ? Icons.edit_rounded : Icons.add_a_photo_rounded,
-                              size: 13,
-                              color: primaryColor,
-                            ),
-                          const SizedBox(width: 5),
-                          Text(
-                            photoUrl != null ? 'Change' : '+ Photo',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
+                    border: Border.all(
+                      color: primaryColor.withValues(alpha: 0.3),
                     ),
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isUploading)
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
+                        )
+                      else
+                        Icon(
+                          photoUrl != null ? Icons.edit_rounded : Icons.add_a_photo_rounded,
+                          size: 13,
+                          color: primaryColor,
+                        ),
+                      const SizedBox(width: 5),
+                      Text(
+                        photoUrl != null ? 'Change' : '+ Photo',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),

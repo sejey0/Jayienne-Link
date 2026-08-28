@@ -74,7 +74,7 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
       _FeatureModalItem(
         title: 'Love Nudge',
         subtitle: 'Send virtual kiss & hug',
-        icon: Icons.favorite_rounded,
+        icon: Icons.volunteer_activism_rounded,
         gradientColors: [Color(0xFFFF4081), Color(0xFFD81B60)],
         actionType: _ActionType.loveNudgeScreen,
       ),
@@ -352,13 +352,11 @@ class _FeatureModalTileState extends State<_FeatureModalTile> {
                     ),
                   ],
                 ),
-                child: widget.item.actionType == _ActionType.loveNudgeScreen
-                    ? const LoveNudgeHeaderIcon(size: 20, color: Colors.white)
-                    : Icon(
-                        widget.item.icon,
-                        color: Colors.white,
-                        size: 20,
-                      ),
+                child: Icon(
+                  widget.item.icon,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(

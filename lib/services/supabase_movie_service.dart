@@ -314,6 +314,74 @@ class SupabaseMovieService {
     }
   }
 
+  /// Remove a watch photo from movie ratings and/or movie record
+  Future<void> removeWatchPhoto({
+    required String movieId,
+    required String userId,
+    required String photoUrl,
+    int watchNumber = 1,
+  }) async {
+    try {
+      // 1. Fetch all ratings for this movie
+      final ratingsResponse = await _supabase
+          .from(_ratingsTableName)
+          .select()
+          .eq('movie_id', movieId);
+
+      for (final r in ratingsResponse) {
+        final rRatingId = r['id']?.toString();
+        final rawPhotos = r['photo_urls'];
+        List<String> photos = [];
+        if (rawPhotos is List) {
+          photos = rawPhotos.map((e) => e.toString()).toList();
+        }
+        if (photos.contains(photoUrl)) {
+          photos.remove(photoUrl);
+          if (rRatingId != null) {
+            try {
+              await _supabase
+                  .from(_ratingsTableName)
+                  .update({
+                    'photo_urls': photos,
+                    'updated_at': DateTime.now().toUtc().toIso8601String(),
+                  })
+                  .eq('id', rRatingId);
+            } catch (_) {}
+          }
+        }
+      }
+
+      // Also clean up movie photo_urls if present
+      final movieResponse = await _supabase
+          .from(_tableName)
+          .select('photo_urls')
+          .eq('id', movieId)
+          .maybeSingle();
+
+      if (movieResponse != null) {
+        final rawMoviePhotos = movieResponse['photo_urls'];
+        if (rawMoviePhotos is List) {
+          final mPhotos = rawMoviePhotos.map((e) => e.toString()).toList();
+          if (mPhotos.contains(photoUrl)) {
+            mPhotos.remove(photoUrl);
+            try {
+              await _supabase
+                  .from(_tableName)
+                  .update({
+                    'photo_urls': mPhotos,
+                    'updated_at': DateTime.now().toUtc().toIso8601String(),
+                  })
+                  .eq('id', movieId);
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error removing watch photo: $e');
+      rethrow;
+    }
+  }
+
   /// Mark a movie as watched and save the user's personal rating, review, and watch photos strictly in `movie_ratings`
   Future<void> markAsWatchedWithRating({
     required String movieId,

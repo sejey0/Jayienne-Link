@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/movie_model.dart';
+import '../../../models/movie_rating_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_movie_service.dart';
@@ -57,6 +58,10 @@ class ViewMovieDetailsSheet extends StatefulWidget {
 class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
   final SupabaseMovieService _movieService = SupabaseMovieService();
   final ImagePicker _imagePicker = ImagePicker();
+  MovieModel? _currentMovieState;
+  MovieModel get _currentMovie => _currentMovieState ?? widget.movie;
+  set _currentMovie(MovieModel val) => _currentMovieState = val;
+
   late int _selectedSession;
   bool _isPlanningRewatch = false;
   bool _isUploadingQuickPhoto = false;
@@ -64,11 +69,20 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
   @override
   void initState() {
     super.initState();
+    _currentMovieState = widget.movie;
     // Default to the latest watch session
     _selectedSession = widget.movie.watchCount > 0 ? widget.movie.watchCount : 1;
     final availableSessions = widget.movie.sessionNumbers;
     if (!availableSessions.contains(_selectedSession) && availableSessions.isNotEmpty) {
       _selectedSession = availableSessions.last;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ViewMovieDetailsSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.movie != oldWidget.movie && _currentMovieState == null) {
+      _currentMovieState = widget.movie;
     }
   }
 
@@ -100,6 +114,24 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
             ),
             Positioned(
               top: 10,
+              left: 10,
+              child: InkWell(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmDeletePhoto(imageUrl);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
               right: 10,
               child: InkWell(
                 onTap: () => Navigator.pop(ctx),
@@ -121,7 +153,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
 
   Future<void> _handleQuickAddBulkPhotos() async {
     HapticFeedback.selectionClick();
-    if (widget.movie.id == null || widget.currentUserId.isEmpty) return;
+    if (_currentMovie.id == null || widget.currentUserId.isEmpty) return;
 
     try {
       final pickedList = await _imagePicker.pickMultiImage(
@@ -135,19 +167,21 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
       setState(() => _isUploadingQuickPhoto = true);
       HapticFeedback.mediumImpact();
 
-      final myRating = widget.movie.getRatingForUser(
+      final myRating = _currentMovie.getRatingForUser(
         widget.currentUserId,
         watchNumber: _selectedSession,
       );
 
+      final newUploadedUrls = <String>[];
       for (final picked in pickedList) {
         final uploadedUrl = await _movieService.uploadMoviePhoto(
-          widget.movie.coupleId.isNotEmpty ? widget.movie.coupleId : 'couple',
+          _currentMovie.coupleId.isNotEmpty ? _currentMovie.coupleId : 'couple',
           File(picked.path),
         );
+        newUploadedUrls.add(uploadedUrl);
 
         await _movieService.addWatchPhoto(
-          movieId: widget.movie.id!,
+          movieId: _currentMovie.id!,
           userId: widget.currentUserId,
           photoUrl: uploadedUrl,
           watchNumber: _selectedSession,
@@ -155,15 +189,50 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
         );
       }
 
+      // Update in-place local state
+      List<MovieRatingModel> updatedRatings = List.from(_currentMovie.ratings);
+      final existingRating = _currentMovie.getRatingForUser(
+        widget.currentUserId,
+        watchNumber: _selectedSession,
+      );
+
+      if (existingRating != null) {
+        final updatedPhotos = List<String>.from(existingRating.photoUrls)..addAll(newUploadedUrls);
+        final newRating = existingRating.copyWith(photoUrls: updatedPhotos);
+        final idx = updatedRatings.indexWhere((r) => r.id == existingRating.id || (r.userId == widget.currentUserId && r.watchNumber == _selectedSession));
+        if (idx != -1) {
+          updatedRatings[idx] = newRating;
+        } else {
+          updatedRatings.add(newRating);
+        }
+      } else {
+        updatedRatings.add(MovieRatingModel(
+          movieId: _currentMovie.id ?? '',
+          userId: widget.currentUserId,
+          rating: 5,
+          watchNumber: _selectedSession,
+          photoUrls: newUploadedUrls,
+          updatedAt: DateTime.now(),
+        ));
+      }
+
       if (!mounted) return;
-      setState(() => _isUploadingQuickPhoto = false);
+      setState(() {
+        _currentMovie = _currentMovie.copyWith(ratings: updatedRatings);
+        _isUploadingQuickPhoto = false;
+      });
 
       widget.onMovieUpdated?.call();
-      Navigator.pop(context, {
-        'action': 'add_memories',
-        'title': widget.movie.title,
-        'count': pickedList.length,
-      });
+
+      showCenterAlertDialog(
+        context: context,
+        title: 'Memories Saved! 📸',
+        message: pickedList.length == 1
+            ? 'Successfully added 1 photo memory 💕'
+            : 'Successfully added ${pickedList.length} photo memories 💕',
+        icon: Icons.check_circle_rounded,
+        iconColor: const Color(0xFFFF758C),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isUploadingQuickPhoto = false);
@@ -179,7 +248,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
 
   Future<void> _handleQuickAddCameraPhoto() async {
     HapticFeedback.selectionClick();
-    if (widget.movie.id == null || widget.currentUserId.isEmpty) return;
+    if (_currentMovie.id == null || widget.currentUserId.isEmpty) return;
 
     try {
       final picked = await _imagePicker.pickImage(
@@ -195,32 +264,65 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
       HapticFeedback.mediumImpact();
 
       final uploadedUrl = await _movieService.uploadMoviePhoto(
-        widget.movie.coupleId.isNotEmpty ? widget.movie.coupleId : 'couple',
+        _currentMovie.coupleId.isNotEmpty ? _currentMovie.coupleId : 'couple',
         File(picked.path),
       );
 
-      final myRating = widget.movie.getRatingForUser(
+      final myRating = _currentMovie.getRatingForUser(
         widget.currentUserId,
         watchNumber: _selectedSession,
       );
 
       await _movieService.addWatchPhoto(
-        movieId: widget.movie.id!,
+        movieId: _currentMovie.id!,
         userId: widget.currentUserId,
         photoUrl: uploadedUrl,
         watchNumber: _selectedSession,
         defaultRating: myRating?.rating ?? 5,
       );
 
+      // Update in-place local state
+      List<MovieRatingModel> updatedRatings = List.from(_currentMovie.ratings);
+      final existingRating = _currentMovie.getRatingForUser(
+        widget.currentUserId,
+        watchNumber: _selectedSession,
+      );
+
+      if (existingRating != null) {
+        final updatedPhotos = List<String>.from(existingRating.photoUrls)..add(uploadedUrl);
+        final newRating = existingRating.copyWith(photoUrls: updatedPhotos);
+        final idx = updatedRatings.indexWhere((r) => r.id == existingRating.id || (r.userId == widget.currentUserId && r.watchNumber == _selectedSession));
+        if (idx != -1) {
+          updatedRatings[idx] = newRating;
+        } else {
+          updatedRatings.add(newRating);
+        }
+      } else {
+        updatedRatings.add(MovieRatingModel(
+          movieId: _currentMovie.id ?? '',
+          userId: widget.currentUserId,
+          rating: 5,
+          watchNumber: _selectedSession,
+          photoUrls: [uploadedUrl],
+          updatedAt: DateTime.now(),
+        ));
+      }
+
       if (!mounted) return;
-      setState(() => _isUploadingQuickPhoto = false);
+      setState(() {
+        _currentMovie = _currentMovie.copyWith(ratings: updatedRatings);
+        _isUploadingQuickPhoto = false;
+      });
 
       widget.onMovieUpdated?.call();
-      Navigator.pop(context, {
-        'action': 'add_memories',
-        'title': widget.movie.title,
-        'count': 1,
-      });
+
+      showCenterAlertDialog(
+        context: context,
+        title: 'Snapshot Saved! 📸',
+        message: 'Successfully added snapshot memory 💕',
+        icon: Icons.check_circle_rounded,
+        iconColor: const Color(0xFFFF758C),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isUploadingQuickPhoto = false);
@@ -234,12 +336,147 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
     }
   }
 
+  Future<void> _confirmDeletePhoto(String photoUrl) async {
+    HapticFeedback.selectionClick();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Delete Memory?',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to delete this memory photo? This action cannot be undone.',
+          style: TextStyle(fontSize: 13.5, height: 1.4),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: BorderSide(
+                      color: isDark ? Colors.white24 : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.grey.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Delete',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || _currentMovie.id == null) return;
+
+    try {
+      HapticFeedback.mediumImpact();
+      await _movieService.removeWatchPhoto(
+        movieId: _currentMovie.id!,
+        userId: widget.currentUserId,
+        photoUrl: photoUrl,
+        watchNumber: _selectedSession,
+      );
+
+      // Update local state in-place
+      List<MovieRatingModel> updatedRatings = _currentMovie.ratings.map((r) {
+        final filteredPhotos = r.photoUrls.where((p) => p != photoUrl).toList();
+        return r.copyWith(photoUrls: filteredPhotos);
+      }).toList();
+
+      final filteredMoviePhotos = _currentMovie.photoUrls.where((p) => p != photoUrl).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _currentMovie = _currentMovie.copyWith(
+          ratings: updatedRatings,
+          photoUrls: filteredMoviePhotos,
+        );
+      });
+
+      widget.onMovieUpdated?.call();
+
+      showCenterAlertDialog(
+        context: context,
+        title: 'Photo Removed',
+        message: 'Memory photo has been deleted 💕',
+        icon: Icons.delete_sweep_rounded,
+        iconColor: const Color(0xFFFF758C),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      showCenterAlertDialog(
+        context: context,
+        title: 'Delete Failed',
+        message: 'Could not delete memory photo: $e',
+        icon: Icons.error_outline_rounded,
+        iconColor: AppColors.error,
+      );
+    }
+  }
+
   Future<void> _openRateSheet(BuildContext context, int sessionNum) async {
     HapticFeedback.lightImpact();
     Navigator.pop(context, true); // Close details sheet and signal refresh
     final res = await MarkWatchedSheet.show(
       context,
-      movie: widget.movie,
+      movie: _currentMovie,
       currentUserId: widget.currentUserId,
       partnerName: widget.partnerName,
       targetWatchNumber: sessionNum,
@@ -377,7 +614,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
     final coupleProvider = context.watch<CoupleProvider>();
     final myPhotoUrl = userProvider.user?.photoUrl;
     final partnerPhotoUrl = coupleProvider.partner?.photoUrl;
-    final movie = widget.movie;
+    final movie = _currentMovie;
     final sessions = movie.sessionNumbers;
 
     // Get ratings for the currently selected session
@@ -734,7 +971,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
               // ----------------------------------------------------
               _buildWatchMemoriesSection(
                 isDark: isDark,
-                photos: widget.movie.getWatchPhotosForSession(_selectedSession),
+                photos: _currentMovie.getWatchPhotosForSession(_selectedSession),
               ),
               const SizedBox(height: 20),
 
@@ -965,44 +1202,69 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
               ),
               itemBuilder: (context, index) {
                 final url = photos[index];
-                return GestureDetector(
-                  onTap: () => _showImageZoomDialog(context, url),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: CachedNetworkImage(
-                        imageUrl: url,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: Colors.grey.withValues(alpha: 0.15),
-                          child: const Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFFFF758C),
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: GestureDetector(
+                        onTap: () => _showImageZoomDialog(context, url),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: CachedNetworkImage(
+                              imageUrl: url,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
+                                color: Colors.grey.withValues(alpha: 0.15),
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Color(0xFFFF758C),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: Colors.grey.withValues(alpha: 0.2),
+                                child: const Icon(Icons.broken_image_rounded, size: 24),
                               ),
                             ),
                           ),
                         ),
-                        errorWidget: (context, url, error) => Container(
-                          color: Colors.grey.withValues(alpha: 0.2),
-                          child: const Icon(Icons.broken_image_rounded, size: 24),
+                      ),
+                    ),
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: GestureDetector(
+                        onTap: () => _confirmDeletePhoto(url),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 );
               },
             ),

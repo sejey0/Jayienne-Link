@@ -159,7 +159,11 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
       setState(() => _isUploadingQuickPhoto = false);
 
       widget.onMovieUpdated?.call();
-      Navigator.pop(context, true);
+      Navigator.pop(context, {
+        'action': 'add_memories',
+        'title': widget.movie.title,
+        'count': pickedList.length,
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isUploadingQuickPhoto = false);
@@ -212,7 +216,11 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
       setState(() => _isUploadingQuickPhoto = false);
 
       widget.onMovieUpdated?.call();
-      Navigator.pop(context, true);
+      Navigator.pop(context, {
+        'action': 'add_memories',
+        'title': widget.movie.title,
+        'count': 1,
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isUploadingQuickPhoto = false);
@@ -838,7 +846,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                         ),
                       ),
                       Text(
-                        'Photos & snapshots during movie night',
+                        'Photos & snapshots of this watch',
                         style: TextStyle(
                           fontSize: 11,
                           color: isDark ? Colors.white54 : Colors.grey.shade600,
@@ -1024,7 +1032,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'No memories added yet. Tap Bulk Select or Take Snapshot to capture your movie snacks or cuddle setup!',
+                      'No memories added yet. Tap Bulk Select or Take Snapshot to add photos of your setup, snacks, or memories anytime!',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.3,

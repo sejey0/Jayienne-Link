@@ -332,15 +332,29 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
 
     if (res != null && mounted) {
       _refreshMovies();
-      if (res is Map<String, dynamic> && res['action'] == 'plan_rewatch') {
-        final title = res['title'] ?? movie.title;
-        await showCenterAlertDialog(
-          context: context,
-          title: 'Moved to Watchlist!',
-          message: '"$title" is ready for a rewatch 💕',
-          icon: Icons.replay_rounded,
-          iconColor: const Color(0xFFFF758C),
-        );
+      if (res is Map<String, dynamic>) {
+        if (res['action'] == 'plan_rewatch') {
+          final title = res['title'] ?? movie.title;
+          await showCenterAlertDialog(
+            context: context,
+            title: 'Moved to Watchlist!',
+            message: '"$title" is ready for a rewatch 💕',
+            icon: Icons.replay_rounded,
+            iconColor: const Color(0xFFFF758C),
+          );
+        } else if (res['action'] == 'add_memories') {
+          final title = res['title'] ?? movie.title;
+          final count = res['count'] ?? 1;
+          await showCenterAlertDialog(
+            context: context,
+            title: 'Memories Saved! 📸',
+            message: count == 1
+                ? 'Successfully added 1 photo memory to "$title" 💕'
+                : 'Successfully added $count photo memories to "$title" 💕',
+            icon: Icons.check_circle_rounded,
+            iconColor: const Color(0xFFFF758C),
+          );
+        }
       }
     }
   }

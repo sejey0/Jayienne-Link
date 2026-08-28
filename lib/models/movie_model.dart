@@ -149,9 +149,9 @@ class MovieModel {
   factory MovieModel.fromJson(Map<String, dynamic> json, {List<MovieRatingModel> ratings = const []}) {
     DateTime parseDateTime(dynamic value, DateTime fallback) {
       if (value == null) return fallback;
-      if (value is DateTime) return value;
+      if (value is DateTime) return value.toLocal();
       try {
-        return DateTime.parse(value.toString());
+        return DateTime.parse(value.toString()).toLocal();
       } catch (_) {
         return fallback;
       }
@@ -159,9 +159,14 @@ class MovieModel {
 
     DateTime? parseNullableDateTime(dynamic value) {
       if (value == null) return null;
-      if (value is DateTime) return value;
+      if (value is DateTime) return value.toLocal();
       try {
-        return DateTime.parse(value.toString());
+        final str = value.toString();
+        if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(str)) {
+          final parts = str.split('-').map(int.parse).toList();
+          return DateTime(parts[0], parts[1], parts[2]);
+        }
+        return DateTime.parse(str).toLocal();
       } catch (_) {
         return null;
       }
@@ -195,9 +200,9 @@ class MovieModel {
       'status': status,
       'media_type': mediaType,
       'watch_count': watchCount,
-      'watched_date': watchedDate?.toIso8601String(),
-      'created_at': createdAt.toIso8601String(),
-      if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
+      'watched_date': watchedDate?.toUtc().toIso8601String(),
+      'created_at': createdAt.toUtc().toIso8601String(),
+      if (updatedAt != null) 'updated_at': updatedAt!.toUtc().toIso8601String(),
     };
   }
 

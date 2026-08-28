@@ -105,8 +105,8 @@ class SupabaseMovieService {
         'media_type': movie.mediaType,
         'watch_count': movie.watchCount,
         if (movie.watchedDate != null)
-          'watched_date': movie.watchedDate!.toIso8601String(),
-        'created_at': movie.createdAt.toIso8601String(),
+          'watched_date': movie.watchedDate!.toUtc().toIso8601String(),
+        'created_at': movie.createdAt.toUtc().toIso8601String(),
       };
 
       if (movie.id != null && movie.id!.isNotEmpty) {
@@ -140,7 +140,7 @@ class SupabaseMovieService {
         'status': movie.status,
         'media_type': movie.mediaType,
         'watch_count': movie.watchCount,
-        'watched_date': movie.watchedDate?.toIso8601String(),
+        'watched_date': movie.watchedDate?.toUtc().toIso8601String(),
       };
 
       try {
@@ -148,7 +148,7 @@ class SupabaseMovieService {
             .from(_tableName)
             .update({
               ...data,
-              'updated_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toUtc().toIso8601String(),
             })
             .eq('id', movie.id!);
       } catch (colErr) {
@@ -176,7 +176,7 @@ class SupabaseMovieService {
       final updateData = <String, dynamic>{
         'status': 'watchlist',
         'watch_count': newWatchCount,
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
       try {
@@ -215,7 +215,7 @@ class SupabaseMovieService {
         'rating': rating,
         'notes': notes?.trim(),
         'watch_number': watchNumber,
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
       try {
@@ -248,7 +248,7 @@ class SupabaseMovieService {
       final updateData = <String, dynamic>{
         'status': 'watched',
         'watch_count': watchNumber < 1 ? 1 : watchNumber,
-        'watched_date': watchedDate?.toIso8601String(),
+        'watched_date': watchedDate?.toUtc().toIso8601String(),
       };
 
       try {
@@ -256,7 +256,7 @@ class SupabaseMovieService {
             .from(_tableName)
             .update({
               ...updateData,
-              'updated_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toUtc().toIso8601String(),
             })
             .eq('id', movieId);
       } catch (colErr) {

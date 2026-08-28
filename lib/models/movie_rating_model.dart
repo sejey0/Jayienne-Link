@@ -21,9 +21,9 @@ class MovieRatingModel {
   factory MovieRatingModel.fromJson(Map<String, dynamic> json) {
     DateTime parseDateTime(dynamic value, DateTime fallback) {
       if (value == null) return fallback;
-      if (value is DateTime) return value;
+      if (value is DateTime) return value.toLocal();
       try {
-        return DateTime.parse(value.toString());
+        return DateTime.parse(value.toString()).toLocal();
       } catch (_) {
         return fallback;
       }
@@ -55,7 +55,7 @@ class MovieRatingModel {
       'rating': rating,
       'notes': notes,
       'watch_number': watchNumber,
-      'updated_at': updatedAt.toIso8601String(),
+      'updated_at': updatedAt.toUtc().toIso8601String(),
     };
   }
 

@@ -105,8 +105,20 @@ echo On your phone, tap "Pair device with pairing code"
 echo.
 echo Enter the PAIRING address (e.g., 192.168.1.100:37215):
 set /p "PAIR_ADDR="
+if "%PAIR_ADDR%"=="" (
+    echo.
+    echo [ERROR] Pairing address cannot be empty.
+    echo.
+    goto connection_menu
+)
 echo Enter the PAIRING code shown on device:
 set /p "PAIR_CODE="
+if "%PAIR_CODE%"=="" (
+    echo.
+    echo [ERROR] Pairing code cannot be empty.
+    echo.
+    goto connection_menu
+)
 echo.
 echo Pairing with device...
 "%ADB%" pair %PAIR_ADDR% %PAIR_CODE%
@@ -127,8 +139,20 @@ echo On your phone, tap "Pair device with pairing code"
 echo.
 echo Enter the PAIRING address (e.g., 192.168.1.100:37215):
 set /p "PAIR_ADDR="
+if "%PAIR_ADDR%"=="" (
+    echo.
+    echo [ERROR] Pairing address cannot be empty.
+    echo.
+    goto connection_menu
+)
 echo Enter the PAIRING code shown on device:
 set /p "PAIR_CODE="
+if "%PAIR_CODE%"=="" (
+    echo.
+    echo [ERROR] Pairing code cannot be empty.
+    echo.
+    goto connection_menu
+)
 echo.
 echo Pairing with device...
 "%ADB%" pair %PAIR_ADDR% %PAIR_CODE%
@@ -147,6 +171,12 @@ echo.
 echo Now enter the CONNECT address from Wireless debugging screen
 echo (This is different from the pairing address, e.g., 192.168.1.100:43567):
 set /p "CONNECT_ADDR="
+if "%CONNECT_ADDR%"=="" (
+    echo.
+    echo [ERROR] Connect address cannot be empty.
+    echo.
+    goto connection_menu
+)
 echo.
 echo Connecting to device...
 "%ADB%" connect %CONNECT_ADDR%
@@ -289,6 +319,8 @@ echo ========================================
 echo.
 call flutter run -d %DEVICE_ID%
 echo.
+if "%IS_WEB%"=="1" (goto web_menu) else (goto menu)
+
 :releasemenu
 echo.
 echo ----------------------------------------

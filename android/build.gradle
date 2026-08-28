@@ -23,9 +23,9 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Force all subprojects (including plugins) to use Java 17
-subprojects {
-    pluginManager.withPlugin('com.android.library') {
+// Force all subprojects (including plugins) to use Java 17 and configure namespace if missing
+subprojects { project ->
+    def configureAndroid = {
         def androidExt = project.extensions.findByName('android')
         if (androidExt != null) {
             def currentNamespace = null
@@ -38,26 +38,31 @@ subprojects {
                 def safeName = project.name.replace('-', '_')
                 androidExt.namespace = "com.jayienne.${safeName}"
             }
-        }
-        android {
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
-            }
-        }
-    }
-    pluginManager.withPlugin('org.jetbrains.kotlin.android') {
-        android {
-            kotlinOptions {
-                jvmTarget = "17"
-            }
+            try {
+                androidExt.compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            } catch (Throwable ignored) {}
         }
     }
-    pluginManager.withPlugin('kotlin-android') {
-        android {
-            kotlinOptions {
-                jvmTarget = "17"
-            }
+
+    if (project.state.executed) {
+        configureAndroid()
+    } else {
+        project.afterEvaluate { configureAndroid() }
+    }
+
+    project.pluginManager.withPlugin('com.android.library') { configureAndroid() }
+    project.pluginManager.withPlugin('com.android.application') { configureAndroid() }
+
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = "17"
+        targetCompatibility = "17"
+    }
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "17"
         }
     }
 }

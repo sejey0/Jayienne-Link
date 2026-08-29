@@ -28,10 +28,7 @@ class _WheelSliceItem {
   });
 }
 
-/// Pure Custom & Online Decision Spinner Screen
-/// - Custom options are merged on the wheel alongside online icon slices
-/// - Custom options show their text labels; online suggestion slices show Material online icons
-/// - Dual persistence via SharedPreferences & Supabase so custom options are never lost on back navigation
+/// Pure Custom & Online Decision Spinner Screen with Ultra-Visible Precision Needle Picker
 class DecisionSpinnerScreen extends StatefulWidget {
   const DecisionSpinnerScreen({super.key});
 
@@ -43,6 +40,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     with SingleTickerProviderStateMixin {
   final Random _random = Random();
   final SupabaseMovieService _movieService = SupabaseMovieService();
+  final GlobalKey<_WheelPointerWidgetState> _pointerKey = GlobalKey();
 
   int _selectedCategoryIndex = 0; // 0: Food & Drinks, 1: Dates & Activities, 2: Movie Watchlist
   int _spinnerModeIndex = 0; // 0: Spin Wheel, 1: Quick Roulette
@@ -563,9 +561,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     final sliceCount = slices.length;
 
     final sliceAngle = (2 * pi) / sliceCount;
+    // Dead-center of the target slice in unrotated local coordinates
     final targetWedgeLocalCenter =
         (decision.targetSliceIndex + 0.5) * sliceAngle;
 
+    // Pointer is aligned at top 12 o'clock axis (-pi / 2)
     final targetNormalizedAngle =
         (-pi / 2 - targetWedgeLocalCenter) % (2 * pi);
 
@@ -589,6 +589,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       if (currentSlice != lastTickIndex) {
         lastTickIndex = currentSlice;
         HapticFeedback.selectionClick();
+        _pointerKey.currentState?.triggerFlick();
       }
     }
 
@@ -1882,30 +1883,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 ),
               ),
 
-              // Top Arrow Pointer
+              // Ultra-Visible Precision Needle Flapper / Picker Pointer with Flick Animation
               Positioned(
-                top: -8,
-                child: Container(
-                  width: 28,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.25),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.arrow_drop_down_rounded,
-                      color: Color(0xFFFF758C),
-                      size: 28,
-                    ),
-                  ),
+                top: -14,
+                child: _WheelPointerWidget(
+                  key: _pointerKey,
                 ),
               ),
             ],
@@ -2149,9 +2131,146 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   }
 }
 
-/// Custom Painter for the Merged Decision Wheel
-/// - Renders custom labels on custom wedges
-/// - Renders Material online icons on online suggestion wedges
+/// Precision Flapper / Pointer Widget with Dynamic Flick Physics
+class _WheelPointerWidget extends StatefulWidget {
+  const _WheelPointerWidget({super.key});
+
+  @override
+  State<_WheelPointerWidget> createState() => _WheelPointerWidgetState();
+}
+
+class _WheelPointerWidgetState extends State<_WheelPointerWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _flickController;
+  late Animation<double> _flickAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _flickController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _flickAnimation = Tween<double>(begin: 0.0, end: -0.16).chain(
+      CurveTween(curve: Curves.easeOutBack),
+    ).animate(_flickController);
+  }
+
+  void triggerFlick() {
+    if (!mounted) return;
+    _flickController.forward(from: 0.0).then((_) {
+      if (mounted) _flickController.reverse();
+    });
+  }
+
+  @override
+  void dispose() {
+    _flickController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _flickAnimation,
+      builder: (context, child) {
+        return Transform.rotate(
+          angle: _flickAnimation.value,
+          alignment: const Alignment(0, -0.6),
+          child: CustomPaint(
+            size: const Size(36, 46),
+            painter: _WheelPointerPainter(),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Custom Painter for the Ultra-Visible Radiant Golden Needle Pointer / Flapper
+class _WheelPointerPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Multi-layered Deep Drop Shadow Path
+    final shadowPath = Path()
+      ..moveTo(w / 2, h) // Razor Tip
+      ..lineTo(w * 0.88, h * 0.28)
+      ..arcToPoint(
+        Offset(w * 0.12, h * 0.28),
+        radius: Radius.circular(w * 0.38),
+      )
+      ..close();
+
+    canvas.drawShadow(shadowPath, Colors.black, 8.0, true);
+
+    // Needle Outer Body
+    final bodyPath = Path()
+      ..moveTo(w / 2, h) // Precision Razor Needle Tip
+      ..lineTo(w * 0.86, h * 0.30)
+      ..arcToPoint(
+        Offset(w * 0.14, h * 0.30),
+        radius: Radius.circular(w * 0.36),
+      )
+      ..close();
+
+    // 24K Radiant Gold Gradient
+    final bodyPaint = Paint()
+      ..shader = const LinearGradient(
+        colors: [
+          Color(0xFFFFF9C4), // Gleaming Light Gold
+          Color(0xFFFFD700), // Pure Gold
+          Color(0xFFFF9800), // Rich Amber
+          Color(0xFFFF3D00), // Vivid Sunset Red Accent at tip
+        ],
+        stops: [0.0, 0.35, 0.70, 1.0],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, w, h))
+      ..style = PaintingStyle.fill;
+
+    canvas.drawPath(bodyPath, bodyPaint);
+
+    // Thick crisp white border for maximum contrast against any wheel slice
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 2.6
+      ..style = PaintingStyle.stroke;
+    canvas.drawPath(bodyPath, borderPaint);
+
+    // Center Ridge Specular Highlight Line
+    final ridgePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.95)
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(
+        Offset(w / 2, h * 0.24), Offset(w / 2, h - 2), ridgePaint);
+
+    // Top Metallic Rivet Bearing / Ruby Center
+    final pivotCenter = Offset(w / 2, h * 0.24);
+    final pivotOuterPaint = Paint()..color = Colors.white;
+    canvas.drawCircle(pivotCenter, 7.5, pivotOuterPaint);
+
+    final pivotInnerPaint = Paint()
+      ..shader = const RadialGradient(
+        colors: [Color(0xFFFF5252), Color(0xFFD50000), Color(0xFF880E4F)],
+        stops: [0.2, 0.7, 1.0],
+      ).createShader(Rect.fromCircle(center: pivotCenter, radius: 5.2));
+    canvas.drawCircle(pivotCenter, 5.2, pivotInnerPaint);
+
+    final highlightPaint =
+        Paint()..color = Colors.white.withValues(alpha: 0.95);
+    canvas.drawCircle(
+        Offset(pivotCenter.dx - 1.5, pivotCenter.dy - 1.5), 1.6, highlightPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Custom Painter for the Sleek Decision Wheel
 class _DecisionWheelPainter extends CustomPainter {
   final List<_WheelSliceItem> slices;
   final double angle;
@@ -2208,8 +2327,8 @@ class _DecisionWheelPainter extends CustomPainter {
 
       // Slice separator line
       final linePaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.5)
-        ..strokeWidth = 1.5
+        ..color = Colors.white.withValues(alpha: 0.6)
+        ..strokeWidth = 1.6
         ..style = PaintingStyle.stroke;
 
       final endX = radius * cos(startAngle);
@@ -2241,8 +2360,8 @@ class _DecisionWheelPainter extends CustomPainter {
           text: displayLabel,
           style: TextStyle(
             color: Colors.white,
-            fontSize: count > 8 ? 9.5 : 11.5,
-            fontWeight: FontWeight.w800,
+            fontSize: count > 8 ? 10.0 : 11.5,
+            fontWeight: FontWeight.w900,
             shadows: const [
               Shadow(
                 color: Colors.black45,
@@ -2271,7 +2390,7 @@ class _DecisionWheelPainter extends CustomPainter {
             fontSize: 16,
             fontFamily: iconData.fontFamily,
             package: iconData.fontPackage,
-            color: Colors.white.withValues(alpha: 0.9),
+            color: Colors.white.withValues(alpha: 0.92),
             shadows: const [
               Shadow(
                 color: Colors.black38,

@@ -46,15 +46,14 @@ android {
         }
     }
 
-    // Custom Output APK Naming (e.g. Jayienne_Link_v1.0.0.apk)
+    // Custom Output APK Naming
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
-            def version = variant.versionName ?: "1.0.0"
             def buildType = variant.buildType.name
             if (buildType == "release") {
-                outputFileName = "Jayienne_Link_v${version}.apk"
+                outputFileName = "Jayienne Link.apk"
             } else {
-                outputFileName = "Jayienne_Link_${buildType}.apk"
+                outputFileName = "Jayienne Link (${buildType}).apk"
             }
         }
     }

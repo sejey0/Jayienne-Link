@@ -126,13 +126,44 @@ class _MoodScreenState extends State<MoodScreen> {
     String callSign = mood.callSign;
     String selectedMood = mood.mood;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
             return AlertDialog(
-              title: const Text('Edit Mood'),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.edit_note_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Edit Mood',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: isDark ? Colors.white : AppColors.deepCharcoal,
+                    ),
+                  ),
+                ],
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -144,9 +175,12 @@ class _MoodScreenState extends State<MoodScreen> {
                         callSign = value;
                       },
                       textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Callsign',
                         hintText: 'e.g., wife',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppDimensions.spacingMd),
@@ -158,6 +192,7 @@ class _MoodScreenState extends State<MoodScreen> {
                         return ChoiceChip(
                           label: Text(option.label),
                           selected: selected,
+                          selectedColor: const Color(0xFFFF758C).withValues(alpha: 0.25),
                           onSelected: (_) {
                             setDialogState(() {
                               selectedMood = option.key;
@@ -174,9 +209,32 @@ class _MoodScreenState extends State<MoodScreen> {
                   onPressed: () => Navigator.pop(dialogContext, false),
                   child: const Text('Cancel'),
                 ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  child: const Text('Save'),
+                Container(
+                  height: 38,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Save',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ),
               ],
             );

@@ -113,6 +113,11 @@ class _AppLockScreenState extends State<AppLockScreen>
     // Enforce minimum 8 characters requirement
     if (input.length < AppLockProvider.minPasscodeLength) {
       _triggerError('Passcode must be at least ${AppLockProvider.minPasscodeLength} characters long.');
+      SnackbarHelper.showError(
+        context,
+        'Passcode must be at least ${AppLockProvider.minPasscodeLength} characters long.',
+        title: 'Passcode Too Short',
+      );
       return;
     }
 
@@ -163,11 +168,20 @@ class _AppLockScreenState extends State<AppLockScreen>
           }
         } else {
           _triggerError(lockProvider.error ?? 'Failed to save passcode.');
+          SnackbarHelper.showError(
+            context,
+            lockProvider.error ?? 'Failed to save passcode.',
+          );
           _resetSetupFlow();
         }
       } else {
         // Confirmation failed: reset to Step 1 with error feedback
         _triggerError('Passcodes do not match. Please try again.');
+        SnackbarHelper.showError(
+          context,
+          'Passcodes do not match. Please try again.',
+          title: 'Mismatch Error',
+        );
         _resetSetupFlow();
       }
     }
@@ -202,6 +216,20 @@ class _AppLockScreenState extends State<AppLockScreen>
     } else {
       _triggerError(null);
       _passcodeController.clear();
+      if (lockProvider.isLockedOut) {
+        SnackbarHelper.showError(
+          context,
+          'Too many failed attempts. Please try again in ${lockProvider.remainingLockoutSeconds} seconds.',
+          title: 'Account Locked Out',
+        );
+      } else {
+        final remaining = lockProvider.remainingAttempts;
+        SnackbarHelper.showError(
+          context,
+          'Incorrect passcode. $remaining attempt${remaining == 1 ? '' : 's'} remaining.',
+          title: 'Incorrect Passcode',
+        );
+      }
     }
   }
 
@@ -395,18 +423,6 @@ class _AppLockScreenState extends State<AppLockScreen>
                         ),
                       ),
 
-                      if (displayError != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          displayError,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: colorScheme.error,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
 
                       const SizedBox(height: 24),
 

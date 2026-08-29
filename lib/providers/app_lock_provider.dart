@@ -50,6 +50,8 @@ class AppLockProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool get isBiometricEnabled => _isBiometricEnabled;
   bool get isBiometricAvailable => _isBiometricAvailable;
   int get failedAttempts => _failedAttempts;
+  int get remainingAttempts =>
+      (maxFailedAttempts - _failedAttempts).clamp(0, maxFailedAttempts);
   String? get error => _error;
 
   /// Returns true if passcode meets minimum length requirement (8+ chars)

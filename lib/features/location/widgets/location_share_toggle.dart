@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -178,28 +179,103 @@ class LocationShareToggle extends StatelessWidget {
   }
 
   void _showPermissionDialog(BuildContext context, LocationProvider provider) {
+    HapticFeedback.lightImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Location Permission Needed'),
-        content: const Text(
-          'To share your location with your person, please enable '
-          'location access in your device settings.',
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.location_off_rounded, color: Colors.white, size: 32),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Location Permission Needed',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'To share real-time location with your partner, please enable location access in device settings.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        provider.openSettings();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Settings',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              provider.openSettings();
-            },
-            style: TextButton.styleFrom(foregroundColor: AppColors.softRose),
-            child: const Text('Open Settings'),
-          ),
-        ],
       ),
     );
   }

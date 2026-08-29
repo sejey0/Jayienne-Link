@@ -32,14 +32,15 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
 
   String _selectedType = 'image';
   bool _isUnlocked = false;
-  String? _lockError;
   late final List<TextEditingController> _lockControllers;
+  late final List<bool> _obscureLocks;
 
   @override
   void initState() {
     super.initState();
     _lockControllers =
         List.generate(_vaultLocks.length, (_) => TextEditingController());
+    _obscureLocks = List.generate(_vaultLocks.length, (_) => true);
     _isUnlocked = false; // Always show lock screen so it can be designed and tested
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -82,22 +83,27 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
     if (isValid) {
       setState(() {
         _isUnlocked = true;
-        _lockError = null;
       });
       context.read<SecretMediaProvider>().refresh();
+      SnackbarHelper.showSuccess(
+        context,
+        'Vault decrypted successfully!',
+        title: 'Vault Unlocked',
+      );
       return;
     }
 
-    setState(() {
-      _lockError = 'Incorrect lock combination. Please try again.';
-    });
+    SnackbarHelper.showError(
+      context,
+      'Incorrect lock combination. Please check your 6 security keys and try again.',
+      title: 'Access Denied',
+    );
   }
 
   void _bypassLockDebug() {
     HapticFeedback.lightImpact();
     setState(() {
       _isUnlocked = true;
-      _lockError = null;
     });
     context.read<SecretMediaProvider>().refresh();
     SnackbarHelper.showInfo(context, 'Vault bypassed (Debug Mode)');
@@ -183,94 +189,136 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
               ],
             ),
             child: Column(
-              children: List.generate(_vaultLocks.length, (index) {
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index == _vaultLocks.length - 1 ? 0 : 12,
-                  ),
-                  child: TextField(
-                    controller: _lockControllers[index],
-                    obscureText: true,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Security Key ${index + 1}',
-                      labelStyle: TextStyle(
-                        fontSize: 12.5,
-                        color: isDark ? Colors.white54 : Colors.grey.shade600,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.key_rounded,
-                        size: 18,
-                        color: isDark ? Colors.white38 : Colors.grey.shade400,
-                      ),
-                      filled: true,
-                      fillColor: isDark
-                          ? Colors.white.withValues(alpha: 0.04)
-                          : Colors.grey.shade50,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(
-                          color: isDark ? Colors.white12 : Colors.grey.shade300,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(
-                          color: isDark ? Colors.white12 : Colors.grey.shade200,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFFF758C),
-                          width: 1.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          if (_lockError != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with Show/Hide All keys
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(Icons.error_outline_rounded, size: 18, color: AppColors.error),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _lockError!,
-                        style: const TextStyle(
-                          color: AppColors.error,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                    Text(
+                      'Security Keys (6)',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white70 : Colors.grey.shade800,
+                      ),
+                    ),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        final anyHidden = _obscureLocks.any((e) => e == true);
+                        setState(() {
+                          for (int i = 0; i < _obscureLocks.length; i++) {
+                            _obscureLocks[i] = !anyHidden;
+                          }
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _obscureLocks.any((e) => e == true)
+                                  ? Icons.visibility_rounded
+                                  : Icons.visibility_off_rounded,
+                              size: 16,
+                              color: const Color(0xFFFF758C),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _obscureLocks.any((e) => e == true)
+                                  ? 'Show All'
+                                  : 'Hide All',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFFF758C),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 12),
+
+                ...List.generate(_vaultLocks.length, (index) {
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: index == _vaultLocks.length - 1 ? 0 : 12,
+                    ),
+                    child: TextField(
+                      controller: _lockControllers[index],
+                      obscureText: _obscureLocks[index],
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Security Key ${index + 1}',
+                        labelStyle: TextStyle(
+                          fontSize: 12.5,
+                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.key_rounded,
+                          size: 18,
+                          color: isDark ? Colors.white38 : Colors.grey.shade400,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureLocks[index]
+                                ? Icons.visibility_off_rounded
+                                : Icons.visibility_rounded,
+                            size: 20,
+                            color: isDark ? Colors.white54 : Colors.grey.shade600,
+                          ),
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            setState(() {
+                              _obscureLocks[index] = !_obscureLocks[index];
+                            });
+                          },
+                          tooltip: _obscureLocks[index] ? 'Show key' : 'Hide key',
+                        ),
+                        filled: true,
+                        fillColor: isDark
+                            ? Colors.white.withValues(alpha: 0.04)
+                            : Colors.grey.shade50,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                            color: isDark ? Colors.white12 : Colors.grey.shade300,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                            color: isDark ? Colors.white12 : Colors.grey.shade200,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFFF758C),
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
             ),
+          ),
+          const SizedBox(height: 20),
 
           // Primary Unlock Button
           Container(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -206,32 +207,107 @@ class _LocationOnboardingScreenState extends State<LocationOnboardingScreen> {
   }
 
   void _showPermissionDeniedDialog(BuildContext context) {
+    HapticFeedback.lightImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Location Permission'),
-        content: const Text(
-          'Location access is needed to share your location with your person. '
-          'You can enable it later in Settings.',
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.location_off_rounded, color: Colors.white, size: 32),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Location Permission',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Location access is needed to share real-time position with your partner. You can also enable it later in device settings.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      context.go(RouteNames.location);
+                    },
+                    child: const Text('Continue'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        final provider = context.read<LocationProvider>();
+                        await provider.openSettings();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Settings',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.go(RouteNames.location);
-            },
-            child: const Text('Continue without location'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final provider = context.read<LocationProvider>();
-              await provider.openSettings();
-            },
-            style: TextButton.styleFrom(foregroundColor: AppColors.softRose),
-            child: const Text('Open Settings'),
-          ),
-        ],
       ),
     );
   }

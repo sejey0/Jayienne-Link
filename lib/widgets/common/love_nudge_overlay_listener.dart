@@ -4,11 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/couple_provider.dart';
 import '../../services/supabase_love_nudge_service.dart';
-import 'love_nudge_logo_widget.dart';
 
 /// Global/Screen Wrapper that listens for real-time Love Nudges from the partner
 /// and displays interactive live screen overlays with custom photos & particle cascades.
@@ -92,62 +90,8 @@ class _LoveNudgeOverlayListenerState extends State<LoveNudgeOverlayListener> {
   void _handleIncomingPartnerNudge(LoveNudgePayload nudge) {
     HapticFeedback.heavyImpact();
 
-    final isKiss = nudge.nudgeType == 'kiss';
-    final actionText = isKiss ? 'Virtual Kiss' : 'Virtual Hug';
-
     // 1. Show Screen Floating Realtime Photo & Particle Burst Overlay
     _showLiveScreenOverlay(nudge);
-
-    // 2. Show Floating Top Banner SnackBar as backup
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                LoveNudgeLogoWidget(
-                  size: 32,
-                  animate: false,
-                  iconType: isKiss ? LoveNudgeIconType.kiss : LoveNudgeIconType.hug,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Incoming Love Nudge',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white.withValues(alpha: 0.85),
-                        ),
-                      ),
-                      Text(
-                        '${nudge.senderName} sent you a $actionText!',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: isKiss ? AppColors.softRose : const Color(0xFF8E24AA),
-            duration: const Duration(seconds: 4),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          ),
-        );
-    }
   }
 
   void _showLiveScreenOverlay(LoveNudgePayload nudge) {

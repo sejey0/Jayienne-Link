@@ -34,14 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) {
-      SnackbarHelper.showError(
-        context,
-        'Please enter a valid email and password.',
-        title: 'Missing Information',
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     final auth = context.read<AuthProvider>();
     final success = await auth.signIn(

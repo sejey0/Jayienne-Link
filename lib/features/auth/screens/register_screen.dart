@@ -35,14 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) {
-      SnackbarHelper.showError(
-        context,
-        'Please fill in all required registration fields properly.',
-        title: 'Missing Information',
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     final auth = context.read<AuthProvider>();
     final success = await auth.signUp(

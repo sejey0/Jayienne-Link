@@ -72,14 +72,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) {
-      SnackbarHelper.showError(
-        context,
-        'Please enter your display name.',
-        title: 'Validation Error',
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     final userProvider = context.read<UserProvider>();
     final auth = context.read<AuthProvider>();

@@ -29,14 +29,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   }
 
   Future<void> _sendCode() async {
-    if (!_formKey.currentState!.validate()) {
-      SnackbarHelper.showError(
-        context,
-        'Please enter a valid phone number with country code.',
-        title: 'Invalid Phone',
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     final auth = context.read<AuthProvider>();
     await auth.verifyPhone(_phoneController.text.trim());

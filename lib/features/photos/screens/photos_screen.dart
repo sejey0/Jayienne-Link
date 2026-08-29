@@ -1095,9 +1095,41 @@ class _EditCaptionDialogState extends State<_EditCaptionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
       scrollable: true,
-      title: const Text('Edit caption'),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.edit_note_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Edit Caption',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: isDark ? Colors.white : AppColors.deepCharcoal,
+            ),
+          ),
+        ],
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1106,8 +1138,11 @@ class _EditCaptionDialogState extends State<_EditCaptionDialog> {
             minLines: 1,
             maxLines: 3,
             textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Caption',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
           ),
           const SizedBox(height: AppDimensions.spacingSm),
@@ -1116,6 +1151,9 @@ class _EditCaptionDialogState extends State<_EditCaptionDialog> {
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
               labelText: 'Type "${widget.confirmationPhrase}" to save',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
           ),
         ],
@@ -1125,11 +1163,35 @@ class _EditCaptionDialogState extends State<_EditCaptionDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          onPressed: _isConfirmed
-              ? () => Navigator.of(context).pop(_captionController.text)
-              : null,
-          child: const Text('Save'),
+        Container(
+          height: 38,
+          decoration: BoxDecoration(
+            gradient: _isConfirmed
+                ? const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: _isConfirmed ? null : Colors.grey.shade400,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ElevatedButton(
+            onPressed: _isConfirmed
+                ? () => Navigator.of(context).pop(_captionController.text)
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white70,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
         ),
       ],
     );
@@ -1174,19 +1236,60 @@ class _DeletePhotoDialogState extends State<_DeletePhotoDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
       scrollable: true,
-      title: const Text('Delete photo?'),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.delete_outline_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Delete Photo?',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: isDark ? Colors.white : AppColors.deepCharcoal,
+            ),
+          ),
+        ],
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('This will remove the photo from the chat.'),
-          const SizedBox(height: AppDimensions.spacingSm),
+          Text(
+            'This will permanently remove the photo from your shared feed.',
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? Colors.white70 : Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: AppDimensions.spacingMd),
           TextField(
             controller: _confirmController,
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
               labelText: 'Type "${widget.confirmationPhrase}" to delete',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
           ),
         ],
@@ -1196,10 +1299,34 @@ class _DeletePhotoDialogState extends State<_DeletePhotoDialog> {
           onPressed: () => Navigator.of(context).pop(false),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          onPressed:
-              _isConfirmed ? () => Navigator.of(context).pop(true) : null,
-          child: const Text('Delete'),
+        Container(
+          height: 38,
+          decoration: BoxDecoration(
+            gradient: _isConfirmed
+                ? const LinearGradient(
+                    colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: _isConfirmed ? null : Colors.grey.shade400,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ElevatedButton(
+            onPressed:
+                _isConfirmed ? () => Navigator.of(context).pop(true) : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white70,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
         ),
       ],
     );

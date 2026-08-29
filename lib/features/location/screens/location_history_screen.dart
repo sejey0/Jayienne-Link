@@ -892,25 +892,100 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     BuildContext context,
     LocationProvider provider,
   ) async {
+    HapticFeedback.heavyImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Location History?'),
-        content: const Text(
-          'This will permanently delete all your location history. '
-          'This action cannot be undone.',
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF5252).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 32),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Delete Location History?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This will permanently delete all your recorded location history. This action cannot be undone.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Delete'),
-          ),
-        ],
       ),
     );
 

@@ -31,7 +31,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
   final FocusNode _captionFocusNode = FocusNode();
   final ImagePicker _picker = ImagePicker();
   File? _selectedImage;
-  bool _isComposerExpanded = true;
+  bool _isComposerHidden = false;
   bool _isSaving = false;
   static const String _editConfirmationPhrase = 'i love you';
 
@@ -81,7 +81,6 @@ class _PhotosScreenState extends State<PhotosScreen> {
   }
 
   Future<void> _downloadToGallery(
-    BuildContext context,
     PhotoMessageModel message,
   ) async {
     if (_isSaving) return;
@@ -326,12 +325,13 @@ class _PhotosScreenState extends State<PhotosScreen> {
   }) {
     final canSend = photoProvider.canSend && !photoProvider.isSending;
     final hasImage = _selectedImage != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
-    final previewHeight = isKeyboardOpen ? 80.0 : 160.0;
-    final placeholderHeight = isKeyboardOpen ? 48.0 : 120.0;
+    final previewHeight = isKeyboardOpen ? 90.0 : 160.0;
+    final placeholderHeight = isKeyboardOpen ? 52.0 : 100.0;
     final captionMaxLines = isKeyboardOpen ? 1 : 2;
-    final verticalSpacing = isKeyboardOpen ? 2.0 : AppDimensions.spacingSm;
-    final fieldVerticalPadding = isKeyboardOpen ? 2.0 : AppDimensions.spacingSm;
+    final verticalSpacing = isKeyboardOpen ? 4.0 : AppDimensions.spacingSm;
+    final fieldVerticalPadding = isKeyboardOpen ? 4.0 : AppDimensions.spacingSm;
     final screenHeight = MediaQuery.of(context).size.height;
     final maxComposerHeight =
         isKeyboardOpen ? screenHeight * 0.32 : double.infinity;
@@ -341,58 +341,193 @@ class _PhotosScreenState extends State<PhotosScreen> {
       AppDimensions.cardPadding,
       isKeyboardOpen ? AppDimensions.spacingSm : AppDimensions.cardPadding,
     );
+
+    if (_isComposerHidden) {
+      return GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() => _isComposerHidden = false);
+        },
+        child: AppCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFF06292), Color(0xFF9C27B0)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.photo_library_rounded,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Share a photo',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.keyboard_arrow_up_rounded,
+                size: 20,
+                color: isDark ? Colors.white70 : Colors.grey.shade600,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final composerBody = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          height: isKeyboardOpen ? 2 : AppDimensions.spacingMd,
+        Row(
+          children: [
+            const SizedBox(width: 32),
+            Expanded(
+              child: Text(
+                'Share a photo',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Hide',
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 22,
+                color: isDark ? Colors.white70 : Colors.grey.shade600,
+              ),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _captionFocusNode.unfocus();
+                FocusScope.of(context).unfocus();
+                setState(() => _isComposerHidden = true);
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+          ],
         ),
+        SizedBox(height: verticalSpacing),
         if (hasImage)
           Stack(
             children: [
-              ClipRRect(
-                borderRadius:
-                    BorderRadius.circular(AppDimensions.borderRadiusMedium),
-                child: Image.file(
-                  _selectedImage!,
-                  height: previewHeight,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFF06292).withValues(alpha: 0.4),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFF06292).withValues(alpha: 0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: Image.file(
+                    _selectedImage!,
+                    height: previewHeight,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
               Positioned(
                 top: 8,
                 right: 8,
-                child: IconButton(
-                  tooltip: 'Remove photo',
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () {
-                    setState(() {
-                      _selectedImage = null;
-                    });
-                  },
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.black54,
+                child: Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() => _selectedImage = null);
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.close_rounded, color: Colors.white, size: 18),
+                    ),
                   ),
                 ),
               ),
             ],
           )
         else
-          Container(
-            height: placeholderHeight,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius:
-                  BorderRadius.circular(AppDimensions.borderRadiusMedium),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Center(
-              child: Text(
-                'Select a photo to send',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              _showPickImageSheet(context);
+            },
+            child: Container(
+              height: placeholderHeight,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.04)
+                    : AppColors.softRose.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark
+                      ? AppColors.softRose.withValues(alpha: 0.2)
+                      : AppColors.softRose.withValues(alpha: 0.25),
+                  width: 1.2,
+                ),
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFF06292), Color(0xFF9C27B0)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFF06292).withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.add_photo_alternate_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Select or snap a photo',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: isDark ? Colors.white70 : AppColors.deepCharcoal,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -405,74 +540,117 @@ class _PhotosScreenState extends State<PhotosScreen> {
           maxLines: captionMaxLines,
           textInputAction: TextInputAction.send,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.deepCharcoal,
+                color: isDark ? AppColors.darkText : AppColors.deepCharcoal,
               ),
-          cursorColor: AppColors.softRose,
+          cursorColor: isDark ? AppColors.lavender : AppColors.softRose,
           onSubmitted: (_) => onSend(),
           decoration: InputDecoration(
-            hintText: 'Add a caption (optional)',
+            hintText: 'Add a sweet caption (optional)...',
             hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade600,
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                 ),
             filled: true,
-            fillColor: Colors.grey.shade100,
+            fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade100,
             contentPadding: EdgeInsets.symmetric(
               horizontal: AppDimensions.spacingMd,
               vertical: fieldVerticalPadding,
             ),
+            prefixIcon: const Icon(
+              Icons.edit_note_rounded,
+              color: AppColors.softRose,
+              size: 20,
+            ),
             border: OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(AppDimensions.borderRadiusMedium),
-              borderSide: BorderSide(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(AppDimensions.borderRadiusMedium),
-              borderSide: BorderSide(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(AppDimensions.borderRadiusMedium),
-              borderSide: const BorderSide(color: AppColors.softRose),
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: isDark ? AppColors.lavender : AppColors.softRose,
+              ),
             ),
           ),
         ),
         SizedBox(height: verticalSpacing),
         Row(
           children: [
-            _buildActionButton(
-              icon: Icons.photo_library_outlined,
-              backgroundColor: AppColors.lavender,
-              iconColor: Colors.white,
+            _buildSquircleActionButton(
+              icon: Icons.photo_library_rounded,
+              label: 'Gallery',
+              gradientColors: const [Color(0xFFF06292), Color(0xFF9C27B0)],
               onPressed: canSend ? onPickGallery : null,
-              tooltip: 'Gallery',
+              isDark: isDark,
             ),
             SizedBox(width: isKeyboardOpen ? 4 : AppDimensions.spacingSm),
-            _buildActionButton(
-              icon: Icons.photo_camera,
-              backgroundColor: AppColors.softRose,
-              iconColor: Colors.white,
+            _buildSquircleActionButton(
+              icon: Icons.photo_camera_rounded,
+              label: 'Camera',
+              gradientColors: const [Color(0xFFFF5252), Color(0xFFD81B60)],
               onPressed: canSend ? onPickCamera : null,
-              tooltip: 'Camera',
+              isDark: isDark,
             ),
             SizedBox(width: isKeyboardOpen ? 4 : AppDimensions.spacingSm),
             Expanded(
-              child: ElevatedButton.icon(
-                onPressed: canSend && hasImage ? onSend : null,
-                icon: photoProvider.isSending
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.send_rounded),
-                label: const Text('Send photo'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.softRose,
-                  foregroundColor: Colors.white,
+              child: Container(
+                height: 42,
+                decoration: BoxDecoration(
+                  gradient: (canSend && hasImage)
+                      ? const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: (canSend && hasImage)
+                      ? null
+                      : (isDark ? Colors.grey.shade800 : Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: (canSend && hasImage)
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: (canSend && hasImage) ? onSend : null,
+                  icon: photoProvider.isSending
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded, size: 16),
+                  label: const Text(
+                    'Send photo',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor:
+                        isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                    shadowColor: Colors.transparent,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -493,70 +671,241 @@ class _PhotosScreenState extends State<PhotosScreen> {
 
     return AppCard(
       padding: cardPadding,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          InkWell(
-            onTap: () =>
-                setState(() => _isComposerExpanded = !_isComposerExpanded),
-            borderRadius:
-                BorderRadius.circular(AppDimensions.borderRadiusMedium),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimensions.spacingSm,
-                vertical: AppDimensions.spacingXs,
+      child: composerContent,
+    );
+  }
+
+  void _showPickImageSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1C1427) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.softRose.withValues(alpha: 0.25),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
               ),
-              child: Row(
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Choose Photo Source',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: isDark ? Colors.white : AppColors.deepCharcoal,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  Expanded(
-                    child: Text(
-                      'Photo Messages',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
+                  _buildSourceModalTile(
+                    ctx,
+                    title: 'Gallery',
+                    icon: Icons.photo_library_rounded,
+                    gradientColors: const [Color(0xFFF06292), Color(0xFF9C27B0)],
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _pickImage(ImageSource.gallery);
+                    },
+                    isDark: isDark,
                   ),
-                  IconButton(
-                    icon: Icon(
-                      _isComposerExpanded
-                          ? Icons.keyboard_arrow_down
-                          : Icons.keyboard_arrow_up,
-                    ),
-                    onPressed: () => setState(
-                      () => _isComposerExpanded = !_isComposerExpanded,
-                    ),
+                  _buildSourceModalTile(
+                    ctx,
+                    title: 'Camera',
+                    icon: Icons.photo_camera_rounded,
+                    gradientColors: const [Color(0xFFFF5252), Color(0xFFD81B60)],
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _pickImage(ImageSource.camera);
+                    },
+                    isDark: isDark,
                   ),
                 ],
               ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSourceModalTile(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required List<Color> gradientColors,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return InkWell(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: 130,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : AppColors.softRose.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark
+                ? AppColors.softRose.withValues(alpha: 0.2)
+                : AppColors.softRose.withValues(alpha: 0.25),
+            width: 1.2,
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: gradientColors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: gradientColors.first.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(icon, color: Colors.white, size: 28),
             ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSquircleActionButton({
+    required IconData icon,
+    required String label,
+    required List<Color> gradientColors,
+    required VoidCallback? onPressed,
+    required bool isDark,
+  }) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : AppColors.softRose.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark
+                ? AppColors.softRose.withValues(alpha: 0.2)
+                : AppColors.softRose.withValues(alpha: 0.25),
+            width: 1.0,
           ),
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 200),
-            crossFadeState: _isComposerExpanded
-                ? CrossFadeState.showFirst
-                : CrossFadeState.showSecond,
-            firstChild: composerContent,
-            secondChild: const SizedBox.shrink(),
-          ),
-        ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: gradientColors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: gradientColors.first.withValues(alpha: 0.35),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(icon, size: 15, color: Colors.white),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildNotLinkedState(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AppCard(
       child: Column(
         children: [
-          const Icon(
-            Icons.photo_library_outlined,
-            color: AppColors.softRose,
-            size: 48,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFF06292), Color(0xFF9C27B0)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFF06292).withValues(alpha: 0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.photo_library_rounded,
+              color: Colors.white,
+              size: 40,
+            ),
           ),
           const SizedBox(height: AppDimensions.spacingMd),
           Text(
-            'Link with your partner to use Photo Messages',
+            'Link with your partner to share Photo Feed',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -564,9 +913,9 @@ class _PhotosScreenState extends State<PhotosScreen> {
           ),
           const SizedBox(height: AppDimensions.spacingXs),
           Text(
-            'Once linked, you can share photo messages instantly.',
+            'Once linked, you can share photos and memories instantly.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey,
+                  color: isDark ? Colors.white60 : Colors.grey,
                 ),
             textAlign: TextAlign.center,
           ),
@@ -575,50 +924,48 @@ class _PhotosScreenState extends State<PhotosScreen> {
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required Color backgroundColor,
-    required Color iconColor,
-    required VoidCallback? onPressed,
-    required String tooltip,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: backgroundColor,
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onPressed,
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 20,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildEmptyState(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.photo_library_outlined,
-            size: 48,
-            color: AppColors.lavender,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFF06292), Color(0xFF9C27B0)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFF06292).withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.photo_library_rounded,
+              size: 36,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: AppDimensions.spacingSm),
           Text(
-            'No photo messages yet',
+            'No photos shared yet',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Colors.grey,
+                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Snap or upload a photo to start your memory feed!',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: isDark ? Colors.white38 : Colors.grey.shade500,
                 ),
           ),
         ],
@@ -634,6 +981,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
     required String? userPhotoUrl,
     required String? partnerPhotoUrl,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMine = message.senderId == userId;
     final bubbleRadius = BorderRadius.only(
       topLeft: const Radius.circular(AppDimensions.borderRadiusMedium),
@@ -650,10 +998,12 @@ class _PhotosScreenState extends State<PhotosScreen> {
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.5,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
         child: Row(
-          mainAxisSize: MainAxisSize.max,
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             if (!isMine) ...[
@@ -671,16 +1021,27 @@ class _PhotosScreenState extends State<PhotosScreen> {
                 children: [
                   Container(
                     constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.4,
+                      maxWidth: MediaQuery.of(context).size.width * 0.60,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? const Color(0xFF231A33) : Colors.white,
                       borderRadius: bubbleRadius,
+                      border: Border.all(
+                        color: isDark
+                            ? (isMine
+                                ? AppColors.lavender.withValues(alpha: 0.3)
+                                : AppColors.softRose.withValues(alpha: 0.3))
+                            : (isMine
+                                ? AppColors.lavender.withValues(alpha: 0.2)
+                                : AppColors.softRose.withValues(alpha: 0.2)),
+                        width: 1.2,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
+                          color: (isMine ? AppColors.lavender : AppColors.softRose)
+                              .withValues(alpha: 0.18),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
@@ -697,16 +1058,23 @@ class _PhotosScreenState extends State<PhotosScreen> {
                     ),
                   ),
                   if (hasCaption) ...[
-                    const SizedBox(height: AppDimensions.spacingXs),
+                    const SizedBox(height: 4),
                     Container(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * 0.60,
+                      ),
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppDimensions.spacingMd,
                         vertical: AppDimensions.spacingSm,
                       ),
                       decoration: BoxDecoration(
-                        color: isMine
-                            ? AppColors.lavenderLight
-                            : AppColors.softRoseLight,
+                        color: isDark
+                            ? (isMine
+                                ? AppColors.lavender.withValues(alpha: 0.25)
+                                : AppColors.softRose.withValues(alpha: 0.25))
+                            : (isMine
+                                ? AppColors.lavenderLight
+                                : AppColors.softRoseLight),
                         borderRadius: bubbleRadius,
                       ),
                       child: Text(
@@ -715,7 +1083,9 @@ class _PhotosScreenState extends State<PhotosScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.deepCharcoal,
+                              color: isDark
+                                  ? AppColors.darkText
+                                  : AppColors.deepCharcoal,
                             ),
                       ),
                     ),
@@ -750,92 +1120,85 @@ class _PhotosScreenState extends State<PhotosScreen> {
     bool isMine, {
     required PhotoMessageProvider photoProvider,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final messageId = message.id;
     final hasSeen =
         messageId != null && isMine && photoProvider.isSeenByPartner(messageId);
     final seenTextStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Colors.grey.shade600,
+          color: isDark ? AppColors.lavender : Colors.grey.shade600,
           fontWeight: FontWeight.w600,
+          fontSize: 11,
         );
-    final timeText = Text(
-      message.formattedDateTime,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Colors.grey.shade700,
-          ),
-    );
+    final timeTextStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+          fontSize: 11,
+        );
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Flexible(
-          child: Row(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Flexible(
-                child: timeText,
-              ),
-              if (hasSeen) ...[
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text('Seen',
-                      style: seenTextStyle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ),
-              ],
-            ],
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            message.formattedDateTime,
+            style: timeTextStyle,
           ),
-        ),
-        const SizedBox(width: 4),
-        SizedBox(
-          width: 24,
-          height: 24,
-          child: PopupMenuButton<_PhotoMessageAction>(
-            padding: EdgeInsets.zero,
-            icon: Icon(
-              Icons.more_horiz,
-              size: 18,
-              color: Colors.grey.shade600,
+          if (hasSeen) ...[
+            const SizedBox(width: 6),
+            Text(
+              'Seen',
+              style: seenTextStyle,
             ),
-            onSelected: (action) {
-              if (action == _PhotoMessageAction.download) {
-                _downloadToGallery(context, message);
-              } else if (action == _PhotoMessageAction.edit) {
-                _showEditCaptionDialog(context, message);
-              } else if (action == _PhotoMessageAction.delete) {
-                _confirmDelete(context, message);
-              }
-            },
-            itemBuilder: (context) {
-              return [
-                const PopupMenuItem(
-                  value: _PhotoMessageAction.download,
-                  child: Row(
-                    children: [
-                      Icon(Icons.download, size: 18),
-                      SizedBox(width: 8),
-                      Text('Download'),
-                    ],
-                  ),
-                ),
-                if (isMine)
+          ],
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: PopupMenuButton<_PhotoMessageAction>(
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                Icons.more_horiz,
+                size: 18,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              ),
+              onSelected: (action) {
+                if (action == _PhotoMessageAction.download) {
+                  _downloadToGallery(message);
+                } else if (action == _PhotoMessageAction.edit) {
+                  _showEditCaptionDialog(context, message);
+                } else if (action == _PhotoMessageAction.delete) {
+                  _confirmDelete(context, message);
+                }
+              },
+              itemBuilder: (context) {
+                return [
                   const PopupMenuItem(
-                    value: _PhotoMessageAction.edit,
-                    child: Text('Edit caption'),
+                    value: _PhotoMessageAction.download,
+                    child: Row(
+                      children: [
+                        Icon(Icons.download, size: 18),
+                        SizedBox(width: 8),
+                        Text('Download'),
+                      ],
+                    ),
                   ),
-                if (isMine)
-                  const PopupMenuItem(
-                    value: _PhotoMessageAction.delete,
-                    child: Text('Delete'),
-                  ),
-              ];
-            },
+                  if (isMine)
+                    const PopupMenuItem(
+                      value: _PhotoMessageAction.edit,
+                      child: Text('Edit caption'),
+                    ),
+                  if (isMine)
+                    const PopupMenuItem(
+                      value: _PhotoMessageAction.delete,
+                      child: Text('Delete'),
+                    ),
+                ];
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -954,7 +1317,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                             : const Icon(Icons.download, color: Colors.white),
                         onPressed: _isSaving
                             ? null
-                            : () => _downloadToGallery(context, message),
+                            : () => _downloadToGallery(message),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close, color: Colors.white),

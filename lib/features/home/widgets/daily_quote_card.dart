@@ -104,20 +104,32 @@ class _DailyQuoteCardState extends State<DailyQuoteCard> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.softRose.withValues(alpha: 0.18),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                           shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C)
+                                  .withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: const Icon(
                           Icons.format_quote_rounded,
-                          color: AppColors.softRose,
-                          size: 18,
+                          color: Colors.white,
+                          size: 16,
                         ),
                       ),
                       const SizedBox(width: 10),
                       Text(
                         'Sweet Daily Note',
                         style: TextStyle(
-                          color: isDark ? Colors.white70 : AppColors.softRose,
+                          color: isDark ? Colors.white : AppColors.softRose,
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                           letterSpacing: 0.4,
@@ -130,13 +142,25 @@ class _DailyQuoteCardState extends State<DailyQuoteCard> {
                     icon: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppColors.softRose.withValues(alpha: 0.12),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                         shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C)
+                                .withValues(alpha: 0.25),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: const Icon(
                         Icons.refresh_rounded,
-                        color: AppColors.softRose,
-                        size: 16,
+                        color: Colors.white,
+                        size: 14,
                       ),
                     ),
                     padding: EdgeInsets.zero,

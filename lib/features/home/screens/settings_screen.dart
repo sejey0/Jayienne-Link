@@ -110,7 +110,7 @@ class SettingsScreen extends StatelessWidget {
               children: [
                 _buildSettingsTile(
                   icon: Icons.favorite_rounded,
-                  iconColor: const Color(0xFFFF758C),
+                  gradientColors: const [Color(0xFFEC407A), Color(0xFF8E24AA)],
                   title: 'Anniversary Date',
                   subtitle: couple == null
                       ? 'Link with your partner to set one'
@@ -159,9 +159,9 @@ class SettingsScreen extends StatelessWidget {
                   icon: themeProvider.isDarkMode
                       ? Icons.dark_mode_rounded
                       : Icons.light_mode_rounded,
-                  iconColor: themeProvider.isDarkMode
-                      ? AppColors.lavender
-                      : const Color(0xFFFFB74D),
+                  gradientColors: themeProvider.isDarkMode
+                      ? const [Color(0xFFBA68C8), Color(0xFF7B1FA2)]
+                      : const [Color(0xFFFFB74D), Color(0xFFFF8A65)],
                   title: 'Dark Mode',
                   subtitle: themeProvider.isDarkMode
                       ? 'Dark romantic theme active'
@@ -209,16 +209,31 @@ class SettingsScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: (enabled ? const Color(0xFF4CAF50) : Colors.grey)
-                                .withValues(alpha: 0.15),
+                            gradient: LinearGradient(
+                              colors: enabled
+                                  ? const [Color(0xFF66BB6A), Color(0xFF2E7D32)]
+                                  : const [Color(0xFFC2185B), Color(0xFF512DA8)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                             borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: (enabled
+                                        ? const Color(0xFF66BB6A)
+                                        : const Color(0xFFC2185B))
+                                    .withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
                           child: Icon(
                             enabled
-                                ? Icons.lock_outline_rounded
+                                ? Icons.lock_rounded
                                 : Icons.lock_open_rounded,
-                            color: enabled ? const Color(0xFF4CAF50) : Colors.grey,
-                            size: 22,
+                            color: Colors.white,
+                            size: 20,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -369,7 +384,7 @@ class SettingsScreen extends StatelessWidget {
               children: [
                 _buildSettingsTile(
                   icon: Icons.logout_rounded,
-                  iconColor: AppColors.error,
+                  gradientColors: const [Color(0xFFFF5252), Color(0xFFD81B60)],
                   title: 'Sign Out',
                   subtitle: 'Log out of your Jayienne Link account',
                   trailing: const Icon(
@@ -611,7 +626,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Crafted with love for couples 💕',
+                  'Crafted with love for couples',
                   style: TextStyle(
                     fontSize: 11,
                     color: isDark ? Colors.white38 : Colors.grey.shade400,
@@ -719,13 +734,26 @@ class SettingsScreen extends StatelessWidget {
                         .withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
-                    couple != null ? '💕 Coupled' : 'Single',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.bold,
-                      color: couple != null ? const Color(0xFFFF758C) : Colors.grey,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (couple != null) ...[
+                        const Icon(
+                          Icons.favorite_rounded,
+                          size: 10.5,
+                          color: Color(0xFFFF758C),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        couple != null ? 'Coupled' : 'Single',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: couple != null ? const Color(0xFFFF758C) : Colors.grey,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -739,10 +767,21 @@ class SettingsScreen extends StatelessWidget {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.softRose.withValues(alpha: 0.15),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: const Icon(Icons.edit_rounded, color: AppColors.softRose, size: 18),
+              child: const Icon(Icons.edit_rounded, color: Colors.white, size: 16),
             ),
           ),
         ],
@@ -914,7 +953,7 @@ class SettingsScreen extends StatelessWidget {
   // --- REUSABLE SETTINGS TILE ---
   Widget _buildSettingsTile({
     required IconData icon,
-    required Color iconColor,
+    required List<Color> gradientColors,
     required String title,
     required String subtitle,
     required Widget trailing,
@@ -937,10 +976,21 @@ class SettingsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.12),
+                  gradient: LinearGradient(
+                    colors: gradientColors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: gradientColors.first.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-                child: Icon(icon, color: iconColor, size: 22),
+                child: Icon(icon, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -976,7 +1026,7 @@ class SettingsScreen extends StatelessWidget {
   // --- REUSABLE SWITCH TILE ---
   Widget _buildSwitchTile({
     required IconData icon,
-    required Color iconColor,
+    required List<Color> gradientColors,
     required String title,
     required String subtitle,
     required bool value,
@@ -989,10 +1039,21 @@ class SettingsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.12),
+              gradient: LinearGradient(
+                colors: gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: gradientColors.first.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            child: Icon(icon, color: iconColor, size: 22),
+            child: Icon(icon, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -1853,10 +1914,10 @@ class SettingsScreen extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
-              Text('✅ Images work regardless of setup'),
-              Text('✅ Automatic service selection and fallbacks'),
-              Text('✅ Display on map markers for you and your partner'),
-              Text('✅ Automatic optimization for best performance'),
+              Text('• Images work regardless of setup'),
+              Text('• Automatic service selection and fallbacks'),
+              Text('• Display on map markers for you and your partner'),
+              Text('• Automatic optimization for best performance'),
             ],
           ),
         ),
@@ -1917,8 +1978,8 @@ class SettingsScreen extends StatelessWidget {
                 children: [
                   Text(
                     isConnected
-                        ? '✅ Connection: SUCCESS'
-                        : '❌ Connection: FAILED',
+                        ? 'Connection: SUCCESS'
+                        : 'Connection: FAILED',
                     style: TextStyle(
                       color: isConnected ? Colors.green : Colors.red,
                       fontWeight: FontWeight.bold,
@@ -1926,8 +1987,8 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   Text(
                     isInitialized
-                        ? '✅ Storage Bucket: READY'
-                        : '❌ Storage Bucket: SETUP NEEDED',
+                        ? 'Storage Bucket: READY'
+                        : 'Storage Bucket: SETUP NEEDED',
                     style: TextStyle(
                       color: isInitialized ? Colors.green : Colors.red,
                       fontWeight: FontWeight.bold,

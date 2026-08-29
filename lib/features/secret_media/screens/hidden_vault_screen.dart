@@ -101,7 +101,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
     context.read<SecretMediaProvider>().refresh();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('🔓 Vault bypassed (Debug Mode)'),
+        content: Text('Vault bypassed (Debug Mode)'),
         duration: Duration(seconds: 1),
       ),
     );
@@ -122,31 +122,24 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
             child: Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.softRose.withValues(alpha: 0.2),
-                    AppColors.lavender.withValues(alpha: 0.25),
-                  ],
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFC2185B), Color(0xFF512DA8)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.softRose.withValues(alpha: 0.4),
-                  width: 2,
-                ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.softRose.withValues(alpha: 0.2),
-                    blurRadius: 16,
+                    color: const Color(0xFFC2185B).withValues(alpha: 0.4),
+                    blurRadius: 18,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: const Icon(
-                Icons.lock_outline_rounded,
-                size: 42,
-                color: Color(0xFFFF5252),
+                Icons.lock_rounded,
+                size: 38,
+                color: Colors.white,
               ),
             ),
           ),

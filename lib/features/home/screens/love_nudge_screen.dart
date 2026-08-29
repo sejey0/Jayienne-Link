@@ -10,7 +10,6 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_love_nudge_service.dart';
-import '../../../widgets/common/love_nudge_logo_widget.dart';
 import '../../../widgets/common/love_nudge_overlay_listener.dart';
 
 /// Senior Love Nudge Screen supporting custom photo uploads for Kiss & Hug and live real-time visual screen effects

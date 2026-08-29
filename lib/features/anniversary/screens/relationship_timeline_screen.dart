@@ -167,31 +167,31 @@ class _RelationshipTimelineScreenState
             children: [
               _buildStatMetricItem(
                 context,
-                icon: Icons.auto_awesome_rounded,
+                icon: Icons.auto_stories_rounded,
                 value: '${provider.milestones.length}',
                 label: 'Memories',
-                color: AppColors.softRose,
+                gradientColors: const [Color(0xFFEC407A), Color(0xFF8E24AA)],
               ),
               _buildStatMetricItem(
                 context,
                 icon: Icons.favorite_rounded,
                 value: '${stats.totalTouches}',
                 label: 'Touches Sent',
-                color: AppColors.lavender,
+                gradientColors: const [Color(0xFFFF5252), Color(0xFFD81B60)],
               ),
               _buildStatMetricItem(
                 context,
                 icon: Icons.photo_library_rounded,
                 value: '${stats.photosShared}',
                 label: 'Photos Shared',
-                color: Colors.amber.shade700,
+                gradientColors: const [Color(0xFFF06292), Color(0xFF9C27B0)],
               ),
               _buildStatMetricItem(
                 context,
-                icon: Icons.map_rounded,
+                icon: Icons.location_on_rounded,
                 value: '${stats.distanceTraveledKm}',
                 label: 'km Traveled',
-                color: Colors.teal,
+                gradientColors: const [Color(0xFFFF4081), Color(0xFFAB47BC)],
               ),
             ],
           ),
@@ -205,7 +205,7 @@ class _RelationshipTimelineScreenState
     required IconData icon,
     required String value,
     required String label,
-    required Color color,
+    required List<Color> gradientColors,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -213,10 +213,21 @@ class _RelationshipTimelineScreenState
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
+            gradient: LinearGradient(
+              colors: gradientColors,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: gradientColors.first.withValues(alpha: 0.35),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: Icon(icon, color: color, size: 20),
+          child: Icon(icon, color: Colors.white, size: 18),
         ),
         const SizedBox(height: 6),
         Text(

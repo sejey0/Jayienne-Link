@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -106,6 +105,7 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
 
   @override
   Widget build(BuildContext context) {
+    final coupleProvider = context.watch<CoupleProvider>();
     final partner = coupleProvider.partner;
     final couple = coupleProvider.couple;
     final userProvider = context.watch<UserProvider>();
@@ -146,11 +146,11 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Card Header Row
-            Row(
+            const Row(
               children: [
-                const LoveNudgeLogoWidget(size: 42),
-                const SizedBox(width: 12),
-                const Expanded(
+                LoveNudgeLogoWidget(size: 42),
+                SizedBox(width: 12),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

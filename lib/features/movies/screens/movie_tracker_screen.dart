@@ -233,7 +233,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
           await showCenterAlertDialog(
             context: context,
             title: 'Added to Watchlist!',
-            message: '"$title" has been added to your watchlist 💕',
+            message: '"$title" has been added to your watchlist',
             icon: Icons.bookmark_added_rounded,
             iconColor: const Color(0xFFFF758C),
           );
@@ -241,7 +241,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
           await showCenterAlertDialog(
             context: context,
             title: 'Saved to Watched Diary!',
-            message: '"$title" has been recorded in your cinema diary 💕',
+            message: '"$title" has been recorded in your cinema diary',
             icon: Icons.movie_filter_rounded,
             iconColor: const Color(0xFFFF758C),
           );
@@ -249,7 +249,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
           await showCenterAlertDialog(
             context: context,
             title: 'Movie Updated!',
-            message: 'Details for "$title" have been updated successfully 💕',
+            message: 'Details for "$title" have been updated successfully',
             icon: Icons.check_circle_rounded,
             iconColor: const Color(0xFFFF758C),
           );
@@ -276,7 +276,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       await showCenterAlertDialog(
         context: context,
         title: 'Movie Updated!',
-        message: 'Details for "$title" have been updated successfully 💕',
+        message: 'Details for "$title" have been updated successfully',
         icon: Icons.check_circle_rounded,
         iconColor: const Color(0xFFFF758C),
       );
@@ -306,7 +306,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       await showCenterAlertDialog(
         context: context,
         title: 'Rating Updated!',
-        message: 'Your review for "$title" has been updated successfully 💕',
+        message: 'Your review for "$title" has been updated successfully',
         icon: Icons.favorite_rounded,
         iconColor: const Color(0xFFFF4081),
       );
@@ -338,7 +338,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
           await showCenterAlertDialog(
             context: context,
             title: 'Moved to Watchlist!',
-            message: '"$title" is ready for a rewatch 💕',
+            message: '"$title" is ready for a rewatch',
             icon: Icons.replay_rounded,
             iconColor: const Color(0xFFFF758C),
           );
@@ -347,10 +347,10 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
           final count = res['count'] ?? 1;
           await showCenterAlertDialog(
             context: context,
-            title: 'Memories Saved! 📸',
+            title: 'Memories Saved!',
             message: count == 1
-                ? 'Successfully added 1 photo memory to "$title" 💕'
-                : 'Successfully added $count photo memories to "$title" 💕',
+                ? 'Successfully added 1 photo memory to "$title"'
+                : 'Successfully added $count photo memories to "$title"',
             icon: Icons.check_circle_rounded,
             iconColor: const Color(0xFFFF758C),
           );

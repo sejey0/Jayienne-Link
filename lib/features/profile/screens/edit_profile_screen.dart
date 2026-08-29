@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -204,7 +205,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return LoadingOverlay(
       isLoading: userProvider.isLoading,
       child: Scaffold(
-        appBar: AppBar(title: const Text(AppStrings.editProfile)),
+        appBar: AppBar(
+          title: const Text(
+            AppStrings.editProfile,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          centerTitle: true,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.softRose, AppColors.lavender],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.pop(context);
+            },
+          ),
+        ),
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppDimensions.spacingLg),
@@ -215,16 +241,48 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: AppDimensions.spacingLg),
                   GestureDetector(
                     onTap: _pickPhoto,
-                    child: CircleAvatar(
-                      radius: AppDimensions.avatarSizeLarge / 2,
-                      backgroundColor: AppColors.peach.withOpacity(0.3),
-                      backgroundImage: _selectedPhoto != null
-                          ? FileImage(_selectedPhoto!)
-                          : _getProfileImageProvider(user?.photoUrl),
-                      child: (_selectedPhoto == null && user?.photoUrl == null)
-                          ? const Icon(Icons.camera_alt,
-                              size: 36, color: AppColors.softRose)
-                          : null,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: AppDimensions.avatarSizeLarge / 2,
+                          backgroundColor: AppColors.peach.withValues(alpha: 0.3),
+                          backgroundImage: _selectedPhoto != null
+                              ? FileImage(_selectedPhoto!)
+                              : _getProfileImageProvider(user?.photoUrl),
+                          child: (_selectedPhoto == null && user?.photoUrl == null)
+                              ? const Icon(Icons.person_rounded,
+                                  size: 48, color: AppColors.softRose)
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFF758C)
+                                      .withValues(alpha: 0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt_rounded,
+                              size: 18,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: AppDimensions.spacingXl),

@@ -17,29 +17,29 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
   final Random _random = Random();
   int _selectedCategoryIndex = 0; // 0: Food, 1: Activities
   bool _isSpinning = false;
-  String _currentDisplayResult = 'Tap Spin to Decide! 🎲';
+  String _currentDisplayResult = 'Tap Spin to Decide!';
   Timer? _spinTimer;
 
   static const List<String> _foodOptions = [
-    'Samgyupsal 🥓',
-    'Coffee Date ☕',
-    'Fast Food 🍔',
-    'Cook Together 🍳',
-    'Milk Tea 🧋',
-    'Dessert / Ice Cream 🍦',
-    'Ramen & Sushi 🍜',
-    'Pizza & Pasta 🍕',
+    'Samgyupsal',
+    'Coffee Date',
+    'Fast Food',
+    'Cook Together',
+    'Milk Tea',
+    'Dessert & Ice Cream',
+    'Ramen & Sushi',
+    'Pizza & Pasta',
   ];
 
   static const List<String> _activityOptions = [
-    'Movie Night 🍿',
-    'Walk in the Park 🌳',
-    'Gaming Together 🎮',
-    'Karaoke 🎤',
-    'Long Drive 🚗',
-    'Stargazing 🌟',
-    'Board Games & Cards 🃏',
-    'Shopping & Arcade 🕹️',
+    'Movie Night',
+    'Walk in the Park',
+    'Gaming Together',
+    'Karaoke',
+    'Long Drive',
+    'Stargazing',
+    'Board Games & Cards',
+    'Shopping & Arcade',
   ];
 
   List<String> get _currentOptions =>
@@ -99,7 +99,7 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
         title: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('🎉', style: TextStyle(fontSize: 26)),
+            Icon(Icons.celebration_rounded, color: AppColors.softRose, size: 24),
             SizedBox(width: 8),
             Text(
               'Decision Made!',
@@ -109,7 +109,7 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
               ),
             ),
             SizedBox(width: 8),
-            Text('🎉', style: TextStyle(fontSize: 26)),
+            Icon(Icons.celebration_rounded, color: AppColors.softRose, size: 24),
           ],
         ),
         content: Column(
@@ -157,7 +157,7 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             ),
-            child: const Text('Let\'s Do It! ❤️', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Let\'s Do It!', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -215,7 +215,7 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Date & Food Picker 🎲',
+                        'Date & Food Picker',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -237,7 +237,7 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
             ),
             const SizedBox(height: 16),
 
-            // Toggle Tabs: Food 🍔 vs Activities 🎬
+            // Toggle Tabs: Food vs Activities
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
@@ -249,13 +249,13 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
                   Expanded(
                     child: _buildCategoryTab(
                       index: 0,
-                      label: 'Food 🍔',
+                      label: 'Food',
                     ),
                   ),
                   Expanded(
                     child: _buildCategoryTab(
                       index: 1,
-                      label: 'Activities 🎬',
+                      label: 'Activities',
                     ),
                   ),
                 ],
@@ -311,7 +311,7 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
                   child: const Icon(Icons.casino_rounded, size: 22),
                 ),
                 label: Text(
-                  _isSpinning ? 'Spinning Roulette...' : 'Spin the Wheel 🎲',
+                  _isSpinning ? 'Spinning Roulette...' : 'Spin the Wheel',
                   style: const TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 15,
@@ -334,7 +334,7 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
         HapticFeedback.lightImpact();
         setState(() {
           _selectedCategoryIndex = index;
-          _currentDisplayResult = 'Tap Spin to Decide! 🎲';
+          _currentDisplayResult = 'Tap Spin to Decide!';
         });
       },
       child: AnimatedContainer(

@@ -133,7 +133,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     onTap: _pickPhoto,
                     child: CircleAvatar(
                       radius: AppDimensions.avatarSizeLarge / 2,
-                      backgroundColor: AppColors.peach.withOpacity(0.3),
+                      backgroundColor: AppColors.peach.withValues(alpha: 0.3),
                       backgroundImage: _selectedPhoto != null
                           ? FileImage(_selectedPhoto!)
                           : null,

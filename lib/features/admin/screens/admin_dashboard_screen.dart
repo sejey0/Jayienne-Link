@@ -197,7 +197,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 title: 'Total Users',
                 value: provider.totalUsersCount.toString(),
                 icon: Icons.groups_rounded,
-                color: AppColors.softRose,
+                gradientColors: const [Color(0xFFFF4081), Color(0xFFAB47BC)],
                 isDark: isDark,
               ),
             ),
@@ -208,7 +208,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 title: 'Active Users',
                 value: provider.activeUsersCount.toString(),
                 icon: Icons.check_circle_rounded,
-                color: const Color(0xFF4CAF50),
+                gradientColors: const [Color(0xFF66BB6A), Color(0xFF2E7D32)],
                 isDark: isDark,
               ),
             ),
@@ -223,7 +223,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 title: 'Deactivated',
                 value: provider.deactivatedUsersCount.toString(),
                 icon: Icons.block_rounded,
-                color: AppColors.error,
+                gradientColors: const [Color(0xFFFF5252), Color(0xFFD81B60)],
                 isDark: isDark,
               ),
             ),
@@ -234,7 +234,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 title: 'Admins',
                 value: provider.adminUsersCount.toString(),
                 icon: Icons.security_rounded,
-                color: AppColors.lavender,
+                gradientColors: const [Color(0xFFFF758C), Color(0xFFA18CD1)],
                 isDark: isDark,
               ),
             ),
@@ -278,18 +278,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.softRose.withValues(alpha: 0.2),
-                      AppColors.lavender.withValues(alpha: 0.25),
-                    ],
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFC2185B), Color(0xFF512DA8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFC2185B).withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: const Icon(
                   Icons.restore_from_trash_rounded,
-                  color: Color(0xFFFF758C),
-                  size: 24,
+                  color: Colors.white,
+                  size: 22,
                 ),
               ),
               const SizedBox(width: 14),
@@ -298,20 +304,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hidden Vault Recovery Sync',
+                      'Restore Hidden Vault',
                       style: GoogleFonts.poppins(
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : AppColors.deepCharcoal,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Restore soft-deleted private photos & videos for you & your partner in Hidden Vault only.',
+                      'Restore private vault photos & videos (including partner)',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? Colors.white60 : Colors.grey.shade600,
-                        height: 1.3,
+                        color: isDark ? Colors.white70 : Colors.grey.shade600,
                       ),
                     ),
                   ],
@@ -319,42 +324,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
+          const SizedBox(height: 14),
+          SizedBox(
             width: double.infinity,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
+            height: 44,
             child: ElevatedButton.icon(
               onPressed: () => _handleRestoreAllMedia(context),
-              icon: const Icon(Icons.sync_rounded, size: 20),
+              icon: const Icon(Icons.sync_rounded, size: 18),
               label: const Text(
                 'Sync & Restore Hidden Vault',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13.5,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 0.3,
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
+                backgroundColor: const Color(0xFFFF758C),
                 foregroundColor: Colors.white,
-                shadowColor: Colors.transparent,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),
@@ -524,7 +513,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required String title,
     required String value,
     required IconData icon,
-    required Color color,
+    required List<Color> gradientColors,
     required bool isDark,
   }) {
     final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
@@ -534,12 +523,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         color: cardBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: color.withValues(alpha: 0.25),
+          color: gradientColors.first.withValues(alpha: 0.25),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.06),
+            color: gradientColors.first.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -550,10 +539,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
+              gradient: LinearGradient(
+                colors: gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: gradientColors.first.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            child: Icon(icon, color: color, size: 22),
+            child: Icon(icon, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(

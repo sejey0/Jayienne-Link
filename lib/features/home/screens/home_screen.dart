@@ -22,21 +22,27 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   /// Dynamic Time-of-Day Romantic Greeting Header Formula
+  IconData _getGreetingIcon() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      return Icons.wb_sunny_rounded;
+    } else if (hour >= 12 && hour < 18) {
+      return Icons.wb_cloudy_rounded;
+    } else {
+      return Icons.nights_stay_rounded;
+    }
+  }
+
   String _getDynamicGreeting(UserModel? user, CoupleProvider coupleProvider) {
-    final now = DateTime.now();
-    final hour = now.hour;
+    final hour = DateTime.now().hour;
 
     String timeGreeting;
-    String emoji;
     if (hour >= 5 && hour < 12) {
       timeGreeting = 'Good morning';
-      emoji = '☀️';
     } else if (hour >= 12 && hour < 18) {
       timeGreeting = 'Good afternoon';
-      emoji = '🌤️';
     } else {
       timeGreeting = 'Good evening';
-      emoji = '🌙';
     }
 
     final partner = coupleProvider.partner;
@@ -52,9 +58,9 @@ class HomeScreen extends StatelessWidget {
             : 'Partner');
 
     if (coupleProvider.isLinked || partner != null) {
-      return '$timeGreeting, $myName & $partnerName $emoji';
+      return '$timeGreeting, $myName & $partnerName';
     } else {
-      return '$timeGreeting, $myName $emoji';
+      return '$timeGreeting, $myName';
     }
   }
 
@@ -73,20 +79,31 @@ class HomeScreen extends StatelessWidget {
         appBar: AppBar(
           title: FittedBox(
             fit: BoxFit.scaleDown,
-            child: ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [AppColors.softRose, AppColors.lavender],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ).createShader(bounds),
-              child: Text(
-                greetingText,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Colors.white,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _getGreetingIcon(),
+                  color: AppColors.softRose,
+                  size: 20,
                 ),
-              ),
+                const SizedBox(width: 8),
+                ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [AppColors.softRose, AppColors.lavender],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ).createShader(bounds),
+                  child: Text(
+                    greetingText,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           actions: [

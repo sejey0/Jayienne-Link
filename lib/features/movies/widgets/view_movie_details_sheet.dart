@@ -226,10 +226,10 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
 
       showCenterAlertDialog(
         context: context,
-        title: 'Memories Saved! 📸',
+        title: 'Memories Saved!',
         message: pickedList.length == 1
-            ? 'Successfully added 1 photo memory 💕'
-            : 'Successfully added ${pickedList.length} photo memories 💕',
+            ? 'Successfully added 1 photo memory'
+            : 'Successfully added ${pickedList.length} photo memories',
         icon: Icons.check_circle_rounded,
         iconColor: const Color(0xFFFF758C),
       );
@@ -318,8 +318,8 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
 
       showCenterAlertDialog(
         context: context,
-        title: 'Snapshot Saved! 📸',
-        message: 'Successfully added snapshot memory 💕',
+        title: 'Snapshot Saved!',
+        message: 'Successfully added snapshot memory',
         icon: Icons.check_circle_rounded,
         iconColor: const Color(0xFFFF758C),
       );
@@ -455,7 +455,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
       showCenterAlertDialog(
         context: context,
         title: 'Photo Removed',
-        message: 'Memory photo has been deleted 💕',
+        message: 'Memory photo has been deleted',
         icon: Icons.delete_sweep_rounded,
         iconColor: const Color(0xFFFF758C),
       );

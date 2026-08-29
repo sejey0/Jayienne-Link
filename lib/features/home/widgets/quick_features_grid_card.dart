@@ -42,12 +42,23 @@ class QuickFeaturesGridCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.softRose.withValues(alpha: 0.15),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                     borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: const Icon(
-                    Icons.auto_awesome,
-                    color: AppColors.softRose,
+                    Icons.auto_awesome_rounded,
+                    color: Colors.white,
                     size: 20,
                   ),
                 ),
@@ -89,7 +100,7 @@ class QuickFeaturesGridCard extends StatelessWidget {
                         subtitle: 'Track Partner',
                         icon: Icons.location_on_rounded,
                         gradientColors: const [
-                          Color(0xFFEC407A),
+                          Color(0xFFFF4081),
                           Color(0xFFAB47BC),
                         ],
                         onTap: () => context.push(RouteNames.location),
@@ -103,7 +114,7 @@ class QuickFeaturesGridCard extends StatelessWidget {
                         icon: Icons.favorite_rounded,
                         gradientColors: const [
                           Color(0xFFFF5252),
-                          Color(0xFFE53935),
+                          Color(0xFFD81B60),
                         ],
                         onTap: () => context.push(RouteNames.heartbeat),
                       ),
@@ -119,8 +130,8 @@ class QuickFeaturesGridCard extends StatelessWidget {
                         subtitle: 'Our Milestones',
                         icon: Icons.auto_stories_rounded,
                         gradientColors: const [
-                          Color(0xFFFFB74D),
-                          Color(0xFFF57C00),
+                          Color(0xFFEC407A),
+                          Color(0xFF8E24AA),
                         ],
                         onTap: () =>
                             context.push(RouteNames.relationshipTimeline),
@@ -133,8 +144,8 @@ class QuickFeaturesGridCard extends StatelessWidget {
                         subtitle: 'Partner status',
                         icon: Icons.mood_rounded,
                         gradientColors: const [
-                          Color(0xFF26A69A),
-                          Color(0xFF4CAF50),
+                          Color(0xFFE91E63),
+                          Color(0xFF7B1FA2),
                         ],
                         onTap: () => context.push(RouteNames.mood),
                       ),

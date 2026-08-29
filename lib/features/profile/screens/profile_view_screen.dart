@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -27,11 +28,37 @@ class ProfileViewScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.profile),
+        title: const Text(
+          AppStrings.profile,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.softRose, AppColors.lavender],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.pop(context);
+          },
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () => context.push(RouteNames.editProfile),
+            icon: const Icon(Icons.edit_rounded, color: Colors.white),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              context.push(RouteNames.editProfile);
+            },
           ),
         ],
       ),
@@ -45,8 +72,20 @@ class ProfileViewScreen extends StatelessWidget {
               backgroundColor: AppColors.peach.withValues(alpha: 0.3),
               backgroundImage: _getProfileImageProvider(user.photoUrl),
               child: user.photoUrl == null
-                  ? const Icon(Icons.person,
-                      size: 48, color: AppColors.softRose)
+                  ? Container(
+                      width: double.infinity,
+                      height: double.infinity,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: const Icon(Icons.person_rounded,
+                          size: 48, color: Colors.white),
+                    )
                   : null,
             ),
             const SizedBox(height: AppDimensions.spacingLg),

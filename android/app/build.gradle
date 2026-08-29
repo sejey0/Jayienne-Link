@@ -46,16 +46,18 @@ android {
         }
     }
 
-    // ABI splits disabled - Flutter tooling requires standard APK naming
-    // If you need smaller APKs, use: flutter build apk --split-per-abi
-    // splits {
-    //     abi {
-    //         enable gradle.startParameter.taskNames.any { it.contains("Debug") }
-    //         reset()
-    //         include "arm64-v8a"
-    //         universalApk false
-    //     }
-    // }
+    // Custom Output APK Naming (e.g. Jayienne_Link_v1.0.0.apk)
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def version = variant.versionName ?: "1.0.0"
+            def buildType = variant.buildType.name
+            if (buildType == "release") {
+                outputFileName = "Jayienne_Link_v${version}.apk"
+            } else {
+                outputFileName = "Jayienne_Link_${buildType}.apk"
+            }
+        }
+    }
 }
 
 flutter {

@@ -14,8 +14,7 @@ import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/love_nudge_overlay_listener.dart';
-import '../../anniversary/widgets/anniversary_card_widget.dart';
-import '../widgets/couple_profile_card.dart';
+import '../widgets/couple_hero_card.dart';
 import '../widgets/daily_quote_card.dart';
 import '../widgets/open_features_card.dart';
 
@@ -117,32 +116,40 @@ class HomeScreen extends StatelessWidget {
             ),
           ],
         ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppDimensions.spacingLg),
-        child: Column(
-          children: [
-            // Embedded Glassmorphism Anniversary & Live Love Counter Card
-            const AnniversaryCardWidget(),
-            const SizedBox(height: AppDimensions.spacingMd),
-            // Link with partner card (shown when skipped)
-            if (user != null && user.hasSkippedCoupleLink)
-              _buildLinkPartnerCard(context, user),
-            if (couple != null && incomingAnniversary.isNotEmpty)
-              _buildAnniversaryRequestCard(
-                context,
-                incomingAnniversary.first,
-              ),
-            // Couple header (shown when linked)
-            if (couple != null && user != null && user.hasRealPartner)
-              const CoupleProfileCard(),
-            const DailyQuoteCard(),
-            const OpenFeaturesCard(),
-          ],
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimensions.spacingSm,
+            vertical: AppDimensions.spacingMd,
+          ),
+          child: Column(
+            children: [
+              // Unified Masterpiece Couple Hero Card (Love Counter + Avatars + Names + Vitals)
+              const CoupleHeroCard(),
+              const SizedBox(height: 6),
+
+              // Link with partner card (shown when skipped)
+              if (user != null && user.hasSkippedCoupleLink)
+                _buildLinkPartnerCard(context, user),
+
+              // Incoming Anniversary Request Card
+              if (couple != null && incomingAnniversary.isNotEmpty)
+                _buildAnniversaryRequestCard(
+                  context,
+                  incomingAnniversary.first,
+                ),
+
+              // Sweet Daily Romantic Notes Card
+              const DailyQuoteCard(),
+              const SizedBox(height: 4),
+
+              // Features Launcher Button Card
+              const OpenFeaturesCard(),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildLinkPartnerCard(BuildContext context, UserModel user) {
     return Padding(

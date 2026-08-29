@@ -10,11 +10,12 @@ import '../../../models/heartbeat_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/heartbeat_provider.dart';
 import '../../../providers/user_provider.dart';
-import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/heartbeat_canvas_painter.dart';
 import '../../../widgets/common/live_time_text.dart';
 import '../../../widgets/smart_profile_image.dart';
 
+/// Redesigned Touch Canvas with Signature Romantic Gradient,
+/// Real-time Interactive Touch Glows, Heart Particles, and Modern Glassmorphism Dock
 class HeartbeatScreen extends StatefulWidget {
   const HeartbeatScreen({super.key});
 
@@ -136,6 +137,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
   Future<void> _handleSendHeart(HeartbeatProvider heartbeatProvider) async {
     if (!heartbeatProvider.canSend || heartbeatProvider.isSending) return;
 
+    HapticFeedback.mediumImpact();
     final didSend = await heartbeatProvider.sendHeartbeat();
     if (didSend) {
       _messageFocusNode.unfocus();
@@ -144,6 +146,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
 
   Future<void> _handleRefresh(HeartbeatProvider heartbeatProvider) async {
     if (heartbeatProvider.isRefreshing) return;
+    HapticFeedback.lightImpact();
     await heartbeatProvider.refreshNow();
   }
 
@@ -157,6 +160,12 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1E162B)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (context) {
         final selectedKey = user.bubbleTheme;
         return SafeArea(
@@ -170,11 +179,29 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Chat bubble style',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        ),
+                        shape: BoxShape.circle,
                       ),
+                      child: const Icon(Icons.palette_rounded,
+                          color: Colors.white, size: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Chat Bubble Style',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                          ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppDimensions.spacingMd),
                 ...ChatBubbleThemes.all.map(
@@ -183,6 +210,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                     theme: theme,
                     isSelected: theme.key == selectedKey,
                     onTap: () async {
+                      HapticFeedback.lightImpact();
                       await userProvider.updateBubbleTheme(theme.key);
                       if (context.mounted) Navigator.of(context).pop();
                     },
@@ -207,7 +235,14 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
     final partner = coupleProvider.partner;
     final heartbeats = heartbeatProvider.heartbeats;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final partnerName = couple != null && user != null
+        ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
+        : (partner?.displayName ?? 'Partner');
+
     return Scaffold(
+      backgroundColor:
+          isDark ? const Color(0xFF120E19) : const Color(0xFFFFF7F9),
       appBar: AppBar(
         title: const Text(
           'Touch Canvas',
@@ -220,7 +255,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [AppColors.softRose, AppColors.lavender],
+              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -255,13 +290,10 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.refresh, color: Colors.white),
+                : const Icon(Icons.refresh_rounded, color: Colors.white),
             onPressed: heartbeatProvider.isRefreshing
                 ? null
-                : () {
-                    HapticFeedback.lightImpact();
-                    _handleRefresh(heartbeatProvider);
-                  },
+                : () => _handleRefresh(heartbeatProvider),
           ),
         ],
         elevation: 0,
@@ -269,7 +301,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
       body: user == null || couple == null
           ? Padding(
               padding: const EdgeInsets.all(AppDimensions.spacingLg),
-              child: _buildNotLinkedState(context),
+              child: _buildNotLinkedState(context, isDark),
             )
           : LayoutBuilder(
               builder: (context, constraints) {
@@ -277,24 +309,28 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                 return Listener(
                   onPointerDown: (event) {
                     if (!mounted) return;
-                    heartbeatProvider.sendLocalTouch(event.localPosition, 'down', screenSize: _canvasSize);
+                    heartbeatProvider.sendLocalTouch(event.localPosition, 'down',
+                        screenSize: _canvasSize);
                   },
                   onPointerMove: (event) {
                     if (!mounted) return;
-                    heartbeatProvider.sendLocalTouch(event.localPosition, 'move', screenSize: _canvasSize);
+                    heartbeatProvider.sendLocalTouch(event.localPosition, 'move',
+                        screenSize: _canvasSize);
                   },
                   onPointerUp: (event) {
                     if (!mounted) return;
-                    heartbeatProvider.sendLocalTouch(event.localPosition, 'up', screenSize: _canvasSize);
+                    heartbeatProvider.sendLocalTouch(event.localPosition, 'up',
+                        screenSize: _canvasSize);
                   },
                   onPointerCancel: (event) {
                     if (!mounted) return;
-                    heartbeatProvider.sendLocalTouch(event.localPosition, 'up', screenSize: _canvasSize);
+                    heartbeatProvider.sendLocalTouch(event.localPosition, 'up',
+                        screenSize: _canvasSize);
                   },
                   behavior: HitTestBehavior.translucent,
                   child: Stack(
                     children: [
-                      // Realtime Touch Canvas Overlay
+                      // 1. Realtime Touch Canvas Painter Overlay
                       Positioned.fill(
                         child: CustomPaint(
                           painter: HeartbeatCanvasPainter(
@@ -307,310 +343,504 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                             particles: heartbeatProvider.collisionParticles,
                             isColliding: heartbeatProvider.isColliding,
                             collisionPoint: heartbeatProvider.collisionPoint,
-                            collisionRippleRadius: heartbeatProvider.collisionRippleRadius,
+                            collisionRippleRadius:
+                                heartbeatProvider.collisionRippleRadius,
                           ),
                         ),
                       ),
+
+                      // 2. Main Scrollable Message Feed & Floating Radar Bar
                       Column(
                         children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            AppDimensions.spacingLg,
-                            AppDimensions.spacingLg,
-                            AppDimensions.spacingLg,
-                            0,
+                          // Floating Presence & Touch Radar Banner
+                          _buildTouchRadarBanner(
+                            context,
+                            heartbeatProvider: heartbeatProvider,
+                            partnerName: partnerName,
+                            isDark: isDark,
                           ),
-                          child: Column(
-                            children: [
-                              if (heartbeatProvider.error != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    bottom: AppDimensions.spacingSm,
-                                  ),
-                                  child: Text(
-                                    heartbeatProvider.error!,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: AppColors.error,
-                                        ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              Expanded(
-                                child: heartbeats.isEmpty
-                                    ? _buildEmptyState(context)
-                                    : ListView.separated(
-                                        reverse: true,
-                                        padding: const EdgeInsets.only(
-                                          bottom: AppDimensions.spacingSm,
-                                        ),
-                                        itemCount: heartbeats.length,
-                                        separatorBuilder: (_, __) => const SizedBox(
-                                            height: AppDimensions.spacingSm),
-                                        itemBuilder: (context, index) {
-                                          final current = heartbeats[index];
-                                          final older = (index + 1 < heartbeats.length) ? heartbeats[index + 1] : null;
-                                          final currentDate = current.createdAt ?? current.sentAt;
-                                          final olderDate = older != null ? (older.createdAt ?? older.sentAt) : null;
-                                          final showHeader = _isDifferentDay(currentDate, olderDate);
 
-                                          final tile = _buildHeartbeatTile(
-                                            context,
-                                            heartbeat: current,
-                                            heartbeatProvider: heartbeatProvider,
-                                            userId: user.id,
-                                            userPhotoUrl: user.photoUrl,
-                                            partnerPhotoUrl: partner?.photoUrl,
-                                            userBubbleTheme: user.bubbleTheme,
-                                            partnerBubbleTheme: partner?.bubbleTheme,
-                                          );
-
-                                          if (showHeader) {
-                                            return Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                                              children: [
-                                                _buildDateHeaderChip(context, _formatDateHeader(currentDate)),
-                                                tile,
-                                              ],
-                                            );
-                                          }
-
-                                          return tile;
-                                        },
-                                      ),
+                          // Heartbeats and Messages List
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                AppDimensions.spacingMd,
+                                4,
+                                AppDimensions.spacingMd,
+                                0,
                               ),
-                            ],
+                              child: Column(
+                                children: [
+                                  if (heartbeatProvider.error != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: AppDimensions.spacingSm,
+                                      ),
+                                      child: Text(
+                                        heartbeatProvider.error!,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppColors.error,
+                                            ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: heartbeats.isEmpty
+                                        ? _buildEmptyState(
+                                            context, partnerName, isDark)
+                                        : ListView.separated(
+                                            reverse: true,
+                                            padding: const EdgeInsets.only(
+                                              bottom: AppDimensions.spacingSm,
+                                            ),
+                                            itemCount: heartbeats.length,
+                                            separatorBuilder: (_, __) =>
+                                                const SizedBox(height: 8),
+                                            itemBuilder: (context, index) {
+                                              final current = heartbeats[index];
+                                              final older = (index + 1 <
+                                                      heartbeats.length)
+                                                  ? heartbeats[index + 1]
+                                                  : null;
+                                              final currentDate =
+                                                  current.createdAt ??
+                                                      current.sentAt;
+                                              final olderDate = older != null
+                                                  ? (older.createdAt ??
+                                                      older.sentAt)
+                                                  : null;
+                                              final showHeader = _isDifferentDay(
+                                                  currentDate, olderDate);
+
+                                              final tile = _buildHeartbeatTile(
+                                                context,
+                                                heartbeat: current,
+                                                heartbeatProvider:
+                                                    heartbeatProvider,
+                                                userId: user.id,
+                                                userPhotoUrl: user.photoUrl,
+                                                partnerPhotoUrl:
+                                                    partner?.photoUrl,
+                                                userBubbleTheme:
+                                                    user.bubbleTheme,
+                                                partnerBubbleTheme:
+                                                    partner?.bubbleTheme,
+                                                isDark: isDark,
+                                              );
+
+                                              if (showHeader) {
+                                                return Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.stretch,
+                                                  children: [
+                                                    _buildDateHeaderChip(
+                                                      context,
+                                                      _formatDateHeader(
+                                                          currentDate),
+                                                    ),
+                                                    tile,
+                                                  ],
+                                                );
+                                              }
+
+                                              return tile;
+                                            },
+                                          ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: heartbeatProvider.isPartnerTyping
-                            ? Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  AppDimensions.spacingLg,
-                                  0,
-                                  AppDimensions.spacingLg,
-                                  AppDimensions.spacingSm,
-                                ),
-                                child: _buildTypingRow(
-                                  context,
-                                  partnerPhotoUrl: partner?.photoUrl,
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppDimensions.spacingLg,
-                          AppDimensions.spacingSm,
-                          AppDimensions.spacingLg,
-                          AppDimensions.spacingLg,
-                        ),
-                        child: _buildSendCard(
-                          context,
-                          heartbeatProvider: heartbeatProvider,
-                          messageController: _messageController,
-                          messageFocusNode: _messageFocusNode,
-                          onSendMessage: () => _handleSendMessage(heartbeatProvider),
-                          onSendHeart: () => _handleSendHeart(heartbeatProvider),
-                        ),
+
+                          // Partner Typing Row
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: heartbeatProvider.isPartnerTyping
+                                ? Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      AppDimensions.spacingMd,
+                                      0,
+                                      AppDimensions.spacingMd,
+                                      AppDimensions.spacingSm,
+                                    ),
+                                    child: _buildTypingRow(
+                                      context,
+                                      partnerPhotoUrl: partner?.photoUrl,
+                                      isDark: isDark,
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+
+                          // Modern Floating Send Bar
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppDimensions.spacingMd,
+                              AppDimensions.spacingXs,
+                              AppDimensions.spacingMd,
+                              AppDimensions.spacingMd,
+                            ),
+                            child: _buildSendDock(
+                              context,
+                              heartbeatProvider: heartbeatProvider,
+                              messageController: _messageController,
+                              messageFocusNode: _messageFocusNode,
+                              onSendMessage: () =>
+                                  _handleSendMessage(heartbeatProvider),
+                              onSendHeart: () =>
+                                  _handleSendHeart(heartbeatProvider),
+                              isDark: isDark,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
-            );
-          },
-        ),
+                );
+              },
+            ),
     );
   }
 
-  Widget _buildSendCard(
+  /// Floating Real-time Touch Presence & Collision Banner
+  Widget _buildTouchRadarBanner(
+    BuildContext context, {
+    required HeartbeatProvider heartbeatProvider,
+    required String partnerName,
+    required bool isDark,
+  }) {
+    String statusText;
+    IconData statusIcon;
+    List<Color> gradientColors;
+
+    if (heartbeatProvider.isColliding) {
+      statusText = 'Hearts Touching! ✨ Sparkles exploding';
+      statusIcon = Icons.favorite_rounded;
+      gradientColors = const [Color(0xFFFF1744), Color(0xFFFF4081)];
+    } else if (heartbeatProvider.isPartnerTouching) {
+      statusText = '$partnerName is touching screen 💖';
+      statusIcon = Icons.fingerprint_rounded;
+      gradientColors = const [Color(0xFFFF758C), Color(0xFFA18CD1)];
+    } else if (heartbeatProvider.isLocalTouching) {
+      statusText = 'Feeling for $partnerName... 👆';
+      statusIcon = Icons.touch_app_rounded;
+      gradientColors = const [Color(0xFFA18CD1), Color(0xFF7E57C2)];
+    } else {
+      statusText = 'Touch & hold anywhere to feel each other';
+      statusIcon = Icons.auto_awesome_rounded;
+      gradientColors = [
+        const Color(0xFFFF758C).withValues(alpha: isDark ? 0.35 : 0.2),
+        const Color(0xFFA18CD1).withValues(alpha: isDark ? 0.35 : 0.2),
+      ];
+    }
+
+    final isLiveEvent = heartbeatProvider.isColliding ||
+        heartbeatProvider.isPartnerTouching ||
+        heartbeatProvider.isLocalTouching;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: isLiveEvent
+            ? LinearGradient(
+                colors: gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
+        color: isLiveEvent
+            ? null
+            : (isDark
+                ? const Color(0xFF1E162B).withValues(alpha: 0.85)
+                : Colors.white.withValues(alpha: 0.9)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isLiveEvent
+              ? Colors.white.withValues(alpha: 0.4)
+              : const Color(0xFFFF758C).withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF758C).withValues(alpha: isLiveEvent ? 0.35 : 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            statusIcon,
+            size: 16,
+            color: isLiveEvent
+                ? Colors.white
+                : const Color(0xFFFF758C),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              statusText,
+              style: TextStyle(
+                color: isLiveEvent
+                    ? Colors.white
+                    : (isDark ? Colors.white70 : AppColors.deepCharcoal),
+                fontWeight: FontWeight.bold,
+                fontSize: 12.5,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Modern Floating Send Dock Card
+  Widget _buildSendDock(
     BuildContext context, {
     required HeartbeatProvider heartbeatProvider,
     required TextEditingController messageController,
     required FocusNode messageFocusNode,
     required VoidCallback onSendMessage,
     required VoidCallback onSendHeart,
+    required bool isDark,
   }) {
     final canSend = heartbeatProvider.canSend && !heartbeatProvider.isSending;
 
-    return AppCard(
-      child: Column(
-        children: [
-          Text(
-            'Heartbeat & Messages',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-            textAlign: TextAlign.center,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1E162B).withValues(alpha: 0.95)
+            : Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(
+          color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF758C).withValues(alpha: 0.16),
+            blurRadius: 18,
+            offset: const Offset(0, 4),
           ),
-          const SizedBox(height: AppDimensions.spacingMd),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: messageController,
-            builder: (context, value, _) {
-              final hasMessage = value.text.trim().isNotEmpty;
-              final canSendMessage = canSend && hasMessage;
+        ],
+      ),
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: messageController,
+        builder: (context, value, _) {
+          final hasMessage = value.text.trim().isNotEmpty;
+          final canSendMessage = canSend && hasMessage;
 
-              return Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: messageController,
-                      focusNode: messageFocusNode,
-                      enabled: canSend,
-                      minLines: 1,
-                      maxLines: 3,
-                      textInputAction: TextInputAction.send,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.deepCharcoal,
-                          ),
-                      cursorColor: AppColors.softRose,
-                      onChanged: heartbeatProvider.handleTypingChanged,
-                      onSubmitted: (text) => onSendMessage(),
-                      decoration: InputDecoration(
-                        hintText: 'Type a message',
-                        hintStyle:
-                            Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey.shade600,
-                                ),
-                        filled: true,
-                        fillColor: Colors.grey.shade100,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: AppDimensions.spacingMd,
-                          vertical: AppDimensions.spacingSm,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppDimensions.borderRadiusMedium,
-                          ),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppDimensions.borderRadiusMedium,
-                          ),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppDimensions.borderRadiusMedium,
-                          ),
-                          borderSide:
-                              const BorderSide(color: AppColors.softRose),
-                        ),
-                      ),
+          return Row(
+            children: [
+              // Message Text Input
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.grey.shade200,
                     ),
                   ),
-                  const SizedBox(width: AppDimensions.spacingSm),
-                  _buildActionButton(
-                    icon: Icons.favorite,
-                    backgroundColor:
-                        canSend ? AppColors.softRose : Colors.grey.shade300,
-                    iconColor: canSend ? Colors.white : Colors.grey.shade600,
-                    onPressed: canSend ? onSendHeart : null,
-                    tooltip: 'Send heartbeat',
+                  child: TextField(
+                    controller: messageController,
+                    focusNode: messageFocusNode,
+                    enabled: canSend,
+                    minLines: 1,
+                    maxLines: 3,
+                    textInputAction: TextInputAction.send,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : AppColors.deepCharcoal,
+                      fontSize: 14,
+                    ),
+                    cursorColor: const Color(0xFFFF758C),
+                    onChanged: heartbeatProvider.handleTypingChanged,
+                    onSubmitted: (_) => onSendMessage(),
+                    decoration: InputDecoration(
+                      hintText: 'Type sweet message...',
+                      hintStyle: TextStyle(
+                        color: isDark ? Colors.white38 : Colors.grey.shade500,
+                        fontSize: 13,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 10),
+                    ),
                   ),
-                  const SizedBox(width: AppDimensions.spacingXs),
-                  _buildActionButton(
-                    icon: Icons.send_rounded,
-                    backgroundColor: canSendMessage
-                        ? AppColors.lavender
-                        : Colors.grey.shade300,
-                    iconColor:
-                        canSendMessage ? Colors.white : Colors.grey.shade600,
-                    onPressed: canSendMessage ? onSendMessage : null,
-                    tooltip: 'Send message',
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Send Heart Pulse Button (Quick Heartbeat)
+              _buildGradientActionButton(
+                icon: Icons.favorite_rounded,
+                tooltip: 'Send heartbeat',
+                gradientColors: const [Color(0xFFFF4081), Color(0xFFD81B60)],
+                onPressed: canSend ? onSendHeart : null,
+              ),
+
+              if (hasMessage) ...[
+                const SizedBox(width: 6),
+                // Send Message Button
+                _buildGradientActionButton(
+                  icon: Icons.send_rounded,
+                  tooltip: 'Send message',
+                  gradientColors: const [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  onPressed: canSendMessage ? onSendMessage : null,
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildNotLinkedState(BuildContext context) {
-    return AppCard(
-      child: Column(
-        children: [
-          const Icon(
-            Icons.favorite_border,
-            color: AppColors.softRose,
-            size: 48,
-          ),
-          const SizedBox(height: AppDimensions.spacingMd),
-          Text(
-            'Link with your partner to use Heartbeat',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppDimensions.spacingXs),
-          Text(
-            'Once linked, you can send heartbeats instantly.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey,
-                ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
+  Widget _buildGradientActionButton({
     required IconData icon,
-    required Color backgroundColor,
-    required Color iconColor,
-    required VoidCallback? onPressed,
     required String tooltip,
+    required List<Color> gradientColors,
+    required VoidCallback? onPressed,
   }) {
+    final isEnabled = onPressed != null;
+
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: backgroundColor,
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onPressed,
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 20,
-            ),
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            gradient: isEnabled
+                ? LinearGradient(
+                    colors: gradientColors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: isEnabled ? null : Colors.grey.shade300,
+            shape: BoxShape.circle,
+            boxShadow: isEnabled
+                ? [
+                    BoxShadow(
+                      color: gradientColors.first.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Icon(
+            icon,
+            color: isEnabled ? Colors.white : Colors.grey.shade500,
+            size: 20,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildNotLinkedState(BuildContext context, bool isDark) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E162B) : Colors.white,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(
+            color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.favorite_border_rounded,
+              color: Color(0xFFFF758C),
+              size: 48,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Link with your partner to use Touch Canvas',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Once linked, you can touch the screen together in real-time and send heartbeats.',
+              style: TextStyle(
+                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                fontSize: 13,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(
+      BuildContext context, String partnerName, bool isDark) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.favorite_outline,
-            size: 48,
-            color: AppColors.lavender,
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFFF758C).withValues(alpha: 0.2),
+                  const Color(0xFFA18CD1).withValues(alpha: 0.2),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.touch_app_rounded,
+              size: 44,
+              color: Color(0xFFFF758C),
+            ),
           ),
-          const SizedBox(height: AppDimensions.spacingSm),
+          const SizedBox(height: 14),
           Text(
-            'No messages yet',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Colors.grey,
-                ),
+            'Touch Anywhere on Screen',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? Colors.white : AppColors.deepCharcoal,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Hold your finger down to send live pulses to $partnerName',
+            style: TextStyle(
+              fontSize: 12.5,
+              color: isDark ? Colors.white60 : Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -626,6 +856,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
     required String? partnerPhotoUrl,
     required String? userBubbleTheme,
     required String? partnerBubbleTheme,
+    required bool isDark,
   }) {
     final isMine = heartbeat.senderId == userId;
     final message = heartbeat.message?.trim();
@@ -644,69 +875,72 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
     final hasSeen = heartbeatId != null &&
         isMine &&
         heartbeatProvider.isSeenByPartner(heartbeatId);
+
     final bubbleRadius = BorderRadius.only(
-      topLeft: const Radius.circular(AppDimensions.borderRadiusMedium),
-      topRight: const Radius.circular(AppDimensions.borderRadiusMedium),
-      bottomLeft: Radius.circular(
-        isMine ? AppDimensions.borderRadiusMedium : 6,
-      ),
-      bottomRight: Radius.circular(
-        isMine ? 6 : AppDimensions.borderRadiusMedium,
-      ),
+      topLeft: const Radius.circular(18),
+      topRight: const Radius.circular(18),
+      bottomLeft: Radius.circular(isMine ? 18 : 4),
+      bottomRight: Radius.circular(isMine ? 4 : 18),
     );
-    const reactionColor = AppColors.lavender;
-    final reactionTextStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: reactionColor,
-          fontWeight: FontWeight.w600,
-        );
-    final seenTextStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Colors.grey.shade600,
-          fontWeight: FontWeight.w600,
-        );
+
+    const reactionColor = Color(0xFFFF758C);
+    final seenTextStyle = TextStyle(
+      color: isDark ? Colors.white54 : Colors.grey.shade600,
+      fontWeight: FontWeight.w600,
+      fontSize: 10,
+    );
 
     Widget bubbleContent = hasMessage
         ? Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.spacingMd,
-              vertical: AppDimensions.spacingSm,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: bubbleColor,
               borderRadius: bubbleRadius,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 6,
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Text(
               message,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: bubbleTextColor,
-                  ),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: bubbleTextColor,
+                fontSize: 13.5,
+              ),
             ),
           )
         : Container(
-            width: 34,
-            height: 34,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: heartColor.withValues(alpha: 0.18),
-              border: Border.all(color: heartColor, width: 1.2),
+              gradient: LinearGradient(
+                colors: [
+                  heartColor.withValues(alpha: 0.25),
+                  heartColor.withValues(alpha: 0.12),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: heartColor, width: 1.5),
             ),
             child: Icon(
-              Icons.favorite,
+              Icons.favorite_rounded,
               color: heartColor,
-              size: 18,
+              size: 20,
             ),
           );
 
     if (heartbeatId != null) {
       bubbleContent = GestureDetector(
-        onDoubleTap: () => heartbeatProvider.toggleReaction(heartbeatId),
+        onDoubleTap: () {
+          HapticFeedback.lightImpact();
+          heartbeatProvider.toggleReaction(heartbeatId);
+        },
         child: bubbleContent,
       );
     }
@@ -715,7 +949,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.72,
+          maxWidth: MediaQuery.of(context).size.width * 0.74,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -724,10 +958,10 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
             if (!isMine) ...[
               _buildAvatar(
                 photoUrl: partnerPhotoUrl,
-                accentColor: AppColors.softRose,
-                fallbackIcon: Icons.favorite,
+                accentColor: const Color(0xFFFF758C),
+                fallbackIcon: Icons.favorite_rounded,
               ),
-              const SizedBox(width: AppDimensions.spacingSm),
+              const SizedBox(width: 8),
             ],
             Flexible(
               child: Column(
@@ -745,7 +979,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                             : MainAxisAlignment.start,
                         children: [
                           const Icon(
-                            Icons.favorite,
+                            Icons.favorite_rounded,
                             size: 14,
                             color: reactionColor,
                           ),
@@ -753,7 +987,11 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                             const SizedBox(width: 4),
                             Text(
                               reactionCount.toString(),
-                              style: reactionTextStyle,
+                              style: const TextStyle(
+                                color: reactionColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         ],
@@ -768,9 +1006,12 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                     children: [
                       LiveTimeText(
                         textBuilder: () => heartbeat.formattedTime,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Colors.grey.shade700,
-                            ),
+                        style: TextStyle(
+                          color: isDark
+                              ? Colors.white54
+                              : Colors.grey.shade600,
+                          fontSize: 10,
+                        ),
                       ),
                       if (hasSeen) ...[
                         const SizedBox(width: 6),
@@ -782,11 +1023,11 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
               ),
             ),
             if (isMine) ...[
-              const SizedBox(width: AppDimensions.spacingSm),
+              const SizedBox(width: 8),
               _buildAvatar(
                 photoUrl: userPhotoUrl,
-                accentColor: AppColors.lavender,
-                fallbackIcon: Icons.person,
+                accentColor: const Color(0xFFA18CD1),
+                fallbackIcon: Icons.person_rounded,
               ),
             ],
           ],
@@ -832,7 +1073,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
       color: accentColor.withValues(alpha: 0.15),
       child: Icon(
         icon,
-        size: 18,
+        size: 16,
         color: accentColor,
       ),
     );
@@ -841,16 +1082,17 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
   Widget _buildTypingRow(
     BuildContext context, {
     required String? partnerPhotoUrl,
+    required bool isDark,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bubbleColor =
-        isDark ? AppColors.softRose.withValues(alpha: 0.25) : AppColors.softRoseLight;
-    final dotColor = isDark ? AppColors.darkText : AppColors.deepCharcoal;
+    final bubbleColor = isDark
+        ? const Color(0xFFFF758C).withValues(alpha: 0.2)
+        : const Color(0xFFFF758C).withValues(alpha: 0.12);
+    final dotColor = isDark ? Colors.white70 : AppColors.deepCharcoal;
     const bubbleRadius = BorderRadius.only(
-      topLeft: Radius.circular(AppDimensions.borderRadiusMedium),
-      topRight: Radius.circular(AppDimensions.borderRadiusMedium),
-      bottomLeft: Radius.circular(6),
-      bottomRight: Radius.circular(AppDimensions.borderRadiusMedium),
+      topLeft: Radius.circular(16),
+      topRight: Radius.circular(16),
+      bottomLeft: Radius.circular(4),
+      bottomRight: Radius.circular(16),
     );
 
     return Align(
@@ -861,15 +1103,12 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
         children: [
           _buildAvatar(
             photoUrl: partnerPhotoUrl,
-            accentColor: AppColors.softRose,
-            fallbackIcon: Icons.favorite,
+            accentColor: const Color(0xFFFF758C),
+            fallbackIcon: Icons.favorite_rounded,
           ),
-          const SizedBox(width: AppDimensions.spacingSm),
+          const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.spacingMd,
-              vertical: AppDimensions.spacingSm,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: bubbleColor,
               borderRadius: bubbleRadius,
@@ -900,41 +1139,34 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
       padding: const EdgeInsets.only(bottom: AppDimensions.spacingSm),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimensions.spacingMd,
-            vertical: AppDimensions.spacingSm,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius:
-                BorderRadius.circular(AppDimensions.borderRadiusMedium),
-            border: Border.all(color: borderColor),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor, width: isSelected ? 1.8 : 1.0),
           ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimensions.spacingMd,
-                  vertical: AppDimensions.spacingSm,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: bubbleColor,
-                  borderRadius:
-                      BorderRadius.circular(AppDimensions.borderRadiusMedium),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   theme.label,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: textColor,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
               ),
               const Spacer(),
               if (isSelected)
                 Icon(
-                  Icons.check_circle,
+                  Icons.check_circle_rounded,
                   color: theme.accentColor,
                 ),
             ],
@@ -955,9 +1187,9 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
     } else if (messageDate == yesterday) {
       return 'Yesterday';
     } else if (now.year == date.year) {
-      return DateFormat('EEEE, MMM d').format(date); // e.g. "Monday, Aug 20"
+      return DateFormat('EEEE, MMM d').format(date);
     } else {
-      return DateFormat('MMM d, yyyy').format(date); // e.g. "Aug 20, 2025"
+      return DateFormat('MMM d, yyyy').format(date);
     }
   }
 
@@ -974,25 +1206,23 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
         padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 4.0),
         decoration: BoxDecoration(
           color: isDark
-              ? Colors.white.withValues(alpha: 0.12)
-              : Colors.black.withValues(alpha: 0.06),
+              ? Colors.white.withValues(alpha: 0.1)
+              : const Color(0xFFFF758C).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.04),
+            color: const Color(0xFFFF758C).withValues(alpha: 0.2),
           ),
         ),
         child: Text(
           title,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                fontSize: 11.5,
-                letterSpacing: 0.3,
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.8)
-                    : Colors.grey.shade700,
-              ),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 11.5,
+            letterSpacing: 0.3,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.8)
+                : const Color(0xFFC2185B),
+          ),
         ),
       ),
     );

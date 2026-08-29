@@ -16,20 +16,20 @@ class DecisionSpinnerCard extends StatefulWidget {
 
 class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
   final Random _random = Random();
-  int _selectedCategoryIndex = 0; // 0: Food, 1: Activities, 2: Movies
+  int _selectedCategoryIndex = 0; // 0: Food, 1: Activities
   bool _isSpinning = false;
   String _currentDisplayResult = 'Tap Spin to Decide!';
   Timer? _spinTimer;
 
   static const List<String> _foodOptions = [
-    'Sinigang na Baboy',
-    'Crispy Pork Sisig',
-    'Beef Pares & Mami',
-    'Chicken Inasal',
-    'Lechon Kawali',
-    'Jollibee Chickenjoy',
     'Samgyupsal / K-BBQ',
-    'Halo-Halo & Ice Cream',
+    'Coffee Date & Pastry',
+    'Jollibee Chickenjoy',
+    'Cook Dinner Together',
+    'Milk Tea & Boba',
+    'Dessert & Ice Cream',
+    'Ramen & Bento Box',
+    'Pizza & Pasta Date',
   ];
 
   static const List<String> _activityOptions = [
@@ -43,25 +43,8 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
     'Shopping & Arcade',
   ];
 
-  static const List<String> _movieOptions = [
-    'Romantic Comedy',
-    'K-Drama Marathon',
-    'Studio Ghibli Film',
-    'Psychological Thriller',
-    'Horror Movie Night',
-    'Action Comedy Movie',
-  ];
-
-  List<String> get _currentOptions {
-    switch (_selectedCategoryIndex) {
-      case 0:
-        return _foodOptions;
-      case 1:
-        return _activityOptions;
-      default:
-        return _movieOptions;
-    }
-  }
+  List<String> get _currentOptions =>
+      _selectedCategoryIndex == 0 ? _foodOptions : _activityOptions;
 
   @override
   void dispose() {
@@ -330,7 +313,7 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
             ),
             const SizedBox(height: 16),
 
-            // Toggle Tabs: Food vs Activities vs Movies
+            // Toggle Tabs: Food vs Activities
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
@@ -354,14 +337,6 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
                       index: 1,
                       label: 'Activities',
                       icon: Icons.local_activity_rounded,
-                      isDark: isDark,
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildCategoryTab(
-                      index: 2,
-                      label: 'Movies',
-                      icon: Icons.movie_filter_rounded,
                       isDark: isDark,
                     ),
                   ),

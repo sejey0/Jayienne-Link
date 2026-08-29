@@ -6,13 +6,14 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
+import '../../../models/movie_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_data_service.dart';
 import '../../../services/supabase_movie_service.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
 
-/// Date, Food & Movie Decision Spinner Screen with Interactive Visual Wheel, Watchlist Integration & Anti-Duplicate Guarantee
+/// Date, Food & Movie Decision Spinner Screen with Real-Time Movie Diary Link, Online Sync & Anti-Duplicate Guarantee
 class DecisionSpinnerScreen extends StatefulWidget {
   const DecisionSpinnerScreen({super.key});
 
@@ -25,10 +26,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   final Random _random = Random();
   final SupabaseMovieService _movieService = SupabaseMovieService();
 
-  int _selectedCategoryIndex = 0; // 0: Filipino Food, 1: Date Activities, 2: Movie Watchlist
+  int _selectedCategoryIndex = 0; // 0: Food, 1: Date Activities, 2: Movie Watchlist
   int _spinnerModeIndex = 0; // 0: Spin Wheel, 1: Quick Roulette
   bool _isSpinning = false;
-  bool _isLoadingOnline = false;
   String _currentDisplayResult = 'Tap Spin to Decide!';
 
   // Wheel Physics Animation
@@ -36,59 +36,17 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   late Animation<double> _wheelAnimation;
   double _currentWheelAngle = 0.0;
   Timer? _quickSlotTimer;
+  StreamSubscription<List<MovieModel>>? _moviesSubscription;
 
   // History tracking to prevent duplicates / repeating results
   final List<String> _foodHistory = [];
   final List<String> _activityHistory = [];
   final List<String> _watchHistory = [];
 
-  // Authentic Filipino Food Favorites
-  final List<String> _foodOptions = [
-    'Sinigang na Baboy',
-    'Crispy Pork Sisig',
-    'Beef Pares & Mami',
-    'Chicken & Pork Adobo',
-    'Kare-Kare with Bagoong',
-    'Chicken Inasal with Garlic Rice',
-    'Lechon Kawali & Mang Tomas',
-    'Hot Beef Bulalo Soup',
-    'Spicy Bicol Express',
-    'Jollibee Chickenjoy Feast',
-    'Samgyupsal / Unlimited K-BBQ',
-    'Halo-Halo & Ice Cream Date',
-    'Street Food Night (Kwek-Kwek & Isaw)',
-  ];
-
-  // Dynamic Couple Dates & Activities (starts empty or fetched online/custom)
+  // Options are populated purely by Custom Additions (synced online) & Movie Watchlist
+  final List<String> _foodOptions = [];
   final List<String> _activityOptions = [];
-
-  // Online curated suggestions pack for date activities
-  static const List<String> _curatedDateActivities = [
-    'Cinema Movie Night & Popcorn',
-    'Sunset Walk in the Park',
-    'Videoke & Karaoke Singing',
-    'Arcade & Basketball Shootout',
-    'Night Drive & Convenience Store',
-    'Park Picnic & Photo Shoot',
-    'Night Market Food Park Trip',
-    'Coffee Shop & Board Games',
-    'Co-op Mobile Gaming Session',
-    'Supermarket & Grocery Date',
-    'Bowling & Billiards Match',
-    'Cook a New Recipe Together',
-  ];
-
-  // Movies & Series (Synced with Movie Diary Watchlist)
-  final List<String> _watchOptions = [
-    'Romantic Comedy Movie',
-    'K-Drama Series Marathon',
-    'Studio Ghibli Animated Film',
-    'Psychological Thriller',
-    'Horror Movie & Blanket Night',
-    'Sci-Fi Adventure Film',
-    'Nostalgic Childhood Classic',
-    'Action Comedy Movie',
-  ];
+  final List<String> _watchOptions = [];
 
   List<String> get _currentOptions {
     switch (_selectedCategoryIndex) {
@@ -126,12 +84,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchOnlineIdeas();
+      _fetchOnlineSyncedData();
+      _initMovieDiaryStream();
     });
   }
 
   @override
   void dispose() {
+    _moviesSubscription?.cancel();
     _wheelController.dispose();
     _quickSlotTimer?.cancel();
     super.dispose();
@@ -148,54 +108,86 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
   }
 
-  /// Connect to Supabase to fetch dynamic date ideas and Movie Diary Watchlist
-  Future<void> _fetchOnlineIdeas() async {
-    setState(() => _isLoadingOnline = true);
+  /// Real-time live stream from Movie Diary (Cinema Diary)
+  void _initMovieDiaryStream() {
+    final coupleId = _getCoupleId();
+    if (coupleId.isEmpty) return;
+
+    _moviesSubscription?.cancel();
+    _moviesSubscription = _movieService.streamMovies(coupleId).listen(
+      (movies) {
+        if (!mounted) return;
+        // Strictly filter for unwatched movies on the couple's watchlist
+        final unWatchedTitles = movies
+            .where((m) =>
+                !m.isWatched &&
+                m.status.toLowerCase() != 'watched' &&
+                m.status.toLowerCase() != 'already watched')
+            .map((m) => m.title.trim())
+            .where((t) => t.isNotEmpty)
+            .toList();
+
+        setState(() {
+          _watchOptions.clear();
+          _watchOptions.addAll(unWatchedTitles);
+        });
+      },
+      onError: (e) {
+        debugPrint('Error streaming Movie Diary in spinner: $e');
+      },
+    );
+  }
+
+  /// Automatically fetch saved couple decision options from Supabase
+  Future<void> _fetchOnlineSyncedData() async {
     try {
-      // 1. Fetch from decision_ideas table if available
-      final response = await SupabaseDataService.client
-          .from('decision_ideas')
-          .select()
-          .limit(30);
+      final coupleId = _getCoupleId();
+
+      // 1. Fetch saved food and activity options
+      dynamic response;
+      if (coupleId.isNotEmpty) {
+        response = await SupabaseDataService.client
+            .from('decision_ideas')
+            .select()
+            .or('couple_id.eq.$coupleId,couple_id.is.null');
+      } else {
+        response = await SupabaseDataService.client
+            .from('decision_ideas')
+            .select();
+      }
 
       final records = List<Map<String, dynamic>>.from(response);
 
-      final onlineFood = <String>[];
-      final onlineActivities = <String>[];
-
       if (records.isNotEmpty) {
+        final onlineFood = <String>[];
+        final onlineActivities = <String>[];
+
         for (final row in records) {
           final category = row['category']?.toString().toLowerCase() ?? '';
-          final title = row['title']?.toString() ?? '';
+          final title = row['title']?.toString().trim() ?? '';
           if (title.isNotEmpty) {
-            if (category == 'food' && !_foodOptions.contains(title)) {
+            if (category == 'food' && !onlineFood.contains(title)) {
               onlineFood.add(title);
             } else if (category == 'activity' &&
-                !_activityOptions.contains(title)) {
+                !onlineActivities.contains(title)) {
               onlineActivities.add(title);
             }
           }
         }
-      }
 
-      // If online activities are empty, load curated suggestions pack
-      if (onlineActivities.isEmpty && _activityOptions.isEmpty) {
-        onlineActivities.addAll(_curatedDateActivities);
-      }
-
-      if (mounted) {
-        setState(() {
-          _foodOptions.addAll(onlineFood);
-          for (final act in onlineActivities) {
-            if (!_activityOptions.contains(act)) {
-              _activityOptions.add(act);
+        if (mounted) {
+          setState(() {
+            for (final f in onlineFood) {
+              if (!_foodOptions.contains(f)) _foodOptions.add(f);
             }
-          }
-        });
+            for (final a in onlineActivities) {
+              if (!_activityOptions.contains(a)) _activityOptions.add(a);
+            }
+          });
+        }
       }
 
-      // 2. Fetch movies directly from couple's Watchlist in Movie Diary (EXCLUDING watched movies)
-      final coupleId = _getCoupleId();
+      // 2. Fetch movies directly from couple's Watchlist in Movie Diary (one-time fetch)
       if (coupleId.isNotEmpty) {
         final movies = await _movieService.fetchMovies(coupleId);
         if (movies.isNotEmpty) {
@@ -208,7 +200,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               .where((t) => t.isNotEmpty)
               .toList();
 
-          if (unWatchedTitles.isNotEmpty && mounted) {
+          if (mounted) {
             setState(() {
               _watchOptions.clear();
               _watchOptions.addAll(unWatchedTitles);
@@ -217,16 +209,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         }
       }
     } catch (_) {
-      // Fallback: If network is offline and activities are empty, load curated activity pack
-      if (mounted && _activityOptions.isEmpty) {
-        setState(() {
-          _activityOptions.addAll(_curatedDateActivities);
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingOnline = false);
-      }
+      // Offline fallback handling
     }
   }
 
@@ -237,7 +220,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       HapticFeedback.vibrate();
       SnackbarHelper.showError(
         context,
-        'Please add or fetch at least 2 options to spin the wheel!',
+        _selectedCategoryIndex == 2
+            ? 'Please add at least 2 unwatched movies in Movie Diary to spin!'
+            : 'Please add at least 2 options to spin the wheel!',
       );
       return;
     }
@@ -476,72 +461,96 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           actions: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            _onSpinPressed();
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                              color: Color(0xFFFF758C),
+                              width: 1.2,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: const Text(
+                            'Spin Again',
+                            style: TextStyle(
+                              color: Color(0xFFFF758C),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF758C)
+                                    .withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              'Let\'s Do It!',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_selectedCategoryIndex == 2) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
                       onPressed: () {
                         Navigator.pop(dialogContext);
-                        _onSpinPressed();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MovieTrackerScreen(),
+                          ),
+                        );
                       },
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                          color: Color(0xFFFF758C),
-                          width: 1.2,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text(
-                        'Spin Again',
-                        style: TextStyle(
-                          color: Color(0xFFFF758C),
-                          fontWeight: FontWeight.bold,
-                        ),
+                      icon: const Icon(Icons.movie_rounded, size: 16),
+                      label: const Text('Open in Movie Diary'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFFF758C),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF758C)
-                                .withValues(alpha: 0.35),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(dialogContext),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: const Text(
-                          'Let\'s Do It!',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -551,7 +560,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  /// Dialog to add custom choice for food or activities
+  /// Add custom option and sync it online directly to Supabase
   void _showAddCustomOptionDialog() {
     final controller = TextEditingController();
     showDialog(
@@ -559,7 +568,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: Text(
-          'Add Custom ${_getCategoryName(_selectedCategoryIndex)}',
+          'Add ${_selectedCategoryIndex == 0 ? "Food" : "Activity"} Option',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         content: TextField(
@@ -571,7 +580,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 : AppColors.deepCharcoal,
           ),
           decoration: InputDecoration(
-            hintText: 'Enter custom option...',
+            hintText: _selectedCategoryIndex == 0
+                ? 'e.g. Samgyupsal, Ramen, Sisig...'
+                : 'e.g. Cinema Date, Night Drive...',
             filled: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
@@ -614,21 +625,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final text = controller.text.trim();
                         if (text.isNotEmpty) {
-                          setState(() {
-                            if (_selectedCategoryIndex == 0) {
-                              _foodOptions.insert(0, text);
-                            } else if (_selectedCategoryIndex == 1) {
-                              _activityOptions.insert(0, text);
-                            }
-                          });
                           Navigator.pop(ctx);
-                          SnackbarHelper.showSuccess(
-                            context,
-                            'Added "$text" to options!',
-                          );
+                          await _saveCustomOption(text);
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -655,7 +656,37 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  void _removeOption(String option) {
+  /// Save option to local wheel and online Supabase database
+  Future<void> _saveCustomOption(String text) async {
+    final category = _selectedCategoryIndex == 0 ? 'food' : 'activity';
+
+    setState(() {
+      if (_selectedCategoryIndex == 0) {
+        if (!_foodOptions.contains(text)) _foodOptions.insert(0, text);
+      } else {
+        if (!_activityOptions.contains(text)) _activityOptions.insert(0, text);
+      }
+    });
+
+    SnackbarHelper.showSuccess(
+      context,
+      'Added "$text" to wheel options!',
+    );
+
+    try {
+      final coupleId = _getCoupleId();
+      await SupabaseDataService.client.from('decision_ideas').insert({
+        if (coupleId.isNotEmpty) 'couple_id': coupleId,
+        'category': category,
+        'title': text,
+      });
+    } catch (_) {
+      // Local state is safely preserved
+    }
+  }
+
+  /// Delete option from wheel and online Supabase database
+  Future<void> _removeOption(String option) async {
     HapticFeedback.lightImpact();
     setState(() {
       if (_selectedCategoryIndex == 0) {
@@ -667,17 +698,25 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       }
       _currentHistory.remove(option);
     });
-    SnackbarHelper.showInfo(context, 'Removed "$option"');
-  }
 
-  String _getCategoryName(int index) {
-    switch (index) {
-      case 0:
-        return 'Filipino Food';
-      case 1:
-        return 'Date Activity';
-      default:
-        return 'Movie';
+    try {
+      final coupleId = _getCoupleId();
+      if (coupleId.isNotEmpty) {
+        await SupabaseDataService.client
+            .from('decision_ideas')
+            .delete()
+            .eq('title', option)
+            .eq('couple_id', coupleId);
+      } else {
+        await SupabaseDataService.client
+            .from('decision_ideas')
+            .delete()
+            .eq('title', option);
+      }
+    } catch (_) {}
+
+    if (mounted) {
+      SnackbarHelper.showInfo(context, 'Removed "$option"');
     }
   }
 
@@ -714,22 +753,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             Navigator.pop(context);
           },
         ),
-        actions: [
-          IconButton(
-            icon: _isLoadingOnline
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.refresh_rounded, color: Colors.white),
-            tooltip: 'Sync Ideas & Watchlist',
-            onPressed: _isLoadingOnline ? null : _fetchOnlineIdeas,
-          ),
-        ],
         elevation: 0,
       ),
       body: SafeArea(
@@ -769,14 +792,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ),
               const SizedBox(height: 14),
 
-              // Categories Header Chips
+              // Categories Header Chips (Food vs Activities vs Movie Watchlist)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
                     _buildCategoryBadge(
                       index: 0,
-                      label: 'Filipino Food',
+                      label: 'Food & Dining',
                       icon: Icons.restaurant_rounded,
                       isDark: isDark,
                     ),
@@ -904,7 +927,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
               const SizedBox(height: 18),
 
-              // Active Wheel Options List & Reset Excluded Control
+              // Active Wheel Options List & Actions
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -935,48 +958,34 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                 : AppColors.deepCharcoal,
                           ),
                         ),
-                        Row(
-                          children: [
-                            if (_selectedCategoryIndex == 1)
-                              TextButton.icon(
-                                onPressed: _isLoadingOnline ? null : _fetchOnlineIdeas,
-                                icon: const Icon(Icons.cloud_download_rounded, size: 15),
-                                label: const Text('Fetch Ideas'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: const Color(0xFFFF758C),
-                                  padding: const EdgeInsets.only(right: 8),
+                        if (_selectedCategoryIndex != 2)
+                          TextButton.icon(
+                            onPressed: _showAddCustomOptionDialog,
+                            icon: const Icon(Icons.add_rounded, size: 16),
+                            label: const Text('Add Custom'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFFFF758C),
+                              padding: EdgeInsets.zero,
+                            ),
+                          )
+                        else
+                          TextButton.icon(
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const MovieTrackerScreen(),
                                 ),
-                              ),
-                            if (_selectedCategoryIndex != 2)
-                              TextButton.icon(
-                                onPressed: _showAddCustomOptionDialog,
-                                icon: const Icon(Icons.add_rounded, size: 16),
-                                label: const Text('Add Custom'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: const Color(0xFFFF758C),
-                                  padding: EdgeInsets.zero,
-                                ),
-                              )
-                            else
-                              TextButton.icon(
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const MovieTrackerScreen(),
-                                    ),
-                                  ).then((_) => _fetchOnlineIdeas());
-                                },
-                                icon: const Icon(Icons.movie_rounded, size: 15),
-                                label: const Text('Movie Diary'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: const Color(0xFFFF758C),
-                                  padding: EdgeInsets.zero,
-                                ),
-                              ),
-                          ],
-                        ),
+                              ).then((_) => _fetchOnlineSyncedData());
+                            },
+                            icon: const Icon(Icons.movie_rounded, size: 15),
+                            label: const Text('Open Movie Diary'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFFFF758C),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
                       ],
                     ),
 
@@ -1051,7 +1060,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
                     const SizedBox(height: 10),
 
-                    // Empty State if no options
+                    // Empty State
                     if (_currentOptions.isEmpty)
                       Container(
                         width: double.infinity,
@@ -1060,18 +1069,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         child: Column(
                           children: [
                             Icon(
-                              _selectedCategoryIndex == 1
-                                  ? Icons.local_activity_outlined
-                                  : Icons.restaurant_outlined,
+                              _selectedCategoryIndex == 0
+                                  ? Icons.restaurant_outlined
+                                  : _selectedCategoryIndex == 1
+                                      ? Icons.local_activity_outlined
+                                      : Icons.movie_outlined,
                               size: 38,
                               color: const Color(0xFFFF758C)
                                   .withValues(alpha: 0.5),
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              _selectedCategoryIndex == 1
-                                  ? 'No activity options in wheel'
-                                  : 'No food options in wheel',
+                              _selectedCategoryIndex == 0
+                                  ? 'No food options yet'
+                                  : _selectedCategoryIndex == 1
+                                      ? 'No activity options yet'
+                                      : 'No unwatched movies in Watchlist',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -1082,7 +1095,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Add your own custom dates or fetch suggestions online.',
+                              _selectedCategoryIndex != 2
+                                  ? 'Add your custom choices to populate the wheel.'
+                                  : 'Add movies to your Watchlist in Movie Diary.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 12,
@@ -1092,39 +1107,47 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                               ),
                             ),
                             const SizedBox(height: 14),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                OutlinedButton.icon(
-                                  onPressed: _showAddCustomOptionDialog,
-                                  icon: const Icon(Icons.add_rounded, size: 16),
-                                  label: const Text('Add Custom'),
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(
-                                        color: Color(0xFFFF758C)),
-                                    foregroundColor: const Color(0xFFFF758C),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                            if (_selectedCategoryIndex != 2)
+                              OutlinedButton.icon(
+                                onPressed: _showAddCustomOptionDialog,
+                                icon: const Icon(Icons.add_rounded, size: 16),
+                                label: const Text('Add Custom Option'),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                      color: Color(0xFFFF758C)),
+                                  foregroundColor: const Color(0xFFFF758C),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 10),
                                 ),
-                                const SizedBox(width: 10),
-                                ElevatedButton.icon(
-                                  onPressed: _fetchOnlineIdeas,
-                                  icon: const Icon(
-                                      Icons.cloud_download_rounded,
-                                      size: 16),
-                                  label: const Text('Fetch Online'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFFF758C),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                              )
+                            else
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  HapticFeedback.lightImpact();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const MovieTrackerScreen(),
                                     ),
+                                  ).then((_) => _fetchOnlineSyncedData());
+                                },
+                                icon: const Icon(Icons.movie_rounded,
+                                    size: 16),
+                                label: const Text('Open Movie Diary'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFF758C),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 10),
                                 ),
-                              ],
-                            ),
+                              ),
                           ],
                         ),
                       )

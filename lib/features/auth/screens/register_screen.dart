@@ -59,7 +59,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return LoadingOverlay(
       isLoading: auth.isLoading,
       child: Scaffold(
-        appBar: AppBar(title: const Text(AppStrings.createAccount)),
+        appBar: AppBar(
+          title: const Text(
+            AppStrings.createAccount,
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          centerTitle: true,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          elevation: 0,
+        ),
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppDimensions.spacingLg),

@@ -20,6 +20,9 @@ import '../../../providers/user_provider.dart';
 import '../../../services/supabase_storage_service.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../admin/screens/admin_dashboard_screen.dart';
+import '../../auth/screens/auth_screen.dart';
+import '../../auth/screens/login_screen.dart';
+import '../../auth/screens/register_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -481,6 +484,97 @@ class SettingsScreen extends StatelessWidget {
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: AppColors.lavender),
                             foregroundColor: AppColors.lavender,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Preview Welcome / First Install Screen
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AuthScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.favorite_rounded, color: Color(0xFFFF758C), size: 16),
+                      label: const Text(
+                        'Preview Welcome Screen (First Install)',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFFF758C), width: 1.5),
+                        foregroundColor: const Color(0xFFFF758C),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Preview Login & Register screens row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const LoginScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.login_rounded, size: 15),
+                          label: const Text(
+                            'Login Page',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.lavender),
+                            foregroundColor: AppColors.lavender,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RegisterScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.person_add_rounded, size: 15),
+                          label: const Text(
+                            'Register Page',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.lavender),
+                            foregroundColor: AppColors.lavender,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),

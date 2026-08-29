@@ -57,8 +57,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: Row(
-            children: const [
+          title: const Row(
+            children: [
               Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
               SizedBox(width: 10),
               Text('Password Reset Sent!'),
@@ -95,8 +95,25 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       isLoading: auth.isLoading,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Change Password'),
+          title: const Text(
+            'Change Password',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
           centerTitle: true,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          elevation: 0,
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -111,10 +128,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(AppDimensions.spacingLg),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.12),
+                        color: AppColors.primary.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.lock_reset_rounded,
                         size: 48,
                         color: AppColors.primary,

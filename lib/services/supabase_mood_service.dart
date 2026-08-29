@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../models/mood_message_model.dart';
 import '../models/mood_read_model.dart';
 import 'supabase_data_service.dart';
@@ -148,50 +149,58 @@ class SupabaseMoodService {
     }, context: 'Upsert mood read for $moodMessageId');
   }
 
-  Future<void> deleteMoodMessage({
+  Future<bool> deleteMoodMessage({
     required String moodMessageId,
     required String coupleId,
   }) async {
-    await SupabaseDataService.safeExecute(() async {
-      // 1. Delete associated read receipts first to prevent foreign key constraints
+    final deleted = await SupabaseDataService.safeExecute(() async {
+      // 1. Delete associated read receipts first
       try {
         await SupabaseDataService.client
             .from(_readTableName)
             .delete()
             .eq('mood_message_id', moodMessageId);
-      } catch (e) {
-        // Log note if reads deletion is optional/cascaded
-      }
+      } catch (_) {}
 
       // 2. Delete the mood message permanently from Supabase
-      await SupabaseDataService.client
+      final response = await SupabaseDataService.client
           .from(_tableName)
           .delete()
-          .eq('id', moodMessageId);
+          .eq('id', moodMessageId)
+          .select();
+      return List<Map<String, dynamic>>.from(response);
     }, context: 'Delete mood message $moodMessageId');
+
+    final isSuccess = deleted != null && deleted.isNotEmpty;
+    debugPrint('🗑️ Supabase deleteMoodMessage ($moodMessageId) -> deleted count: ${deleted?.length}');
+    return isSuccess;
   }
 
-  Future<void> deleteMoodMessages({
+  Future<bool> deleteMoodMessages({
     required List<String> moodMessageIds,
     required String coupleId,
   }) async {
-    if (moodMessageIds.isEmpty) return;
-    await SupabaseDataService.safeExecute(() async {
+    if (moodMessageIds.isEmpty) return true;
+    final deleted = await SupabaseDataService.safeExecute(() async {
       // 1. Delete associated read receipts first
       try {
         await SupabaseDataService.client
             .from(_readTableName)
             .delete()
             .inFilter('mood_message_id', moodMessageIds);
-      } catch (e) {
-        // Log note if reads deletion is optional/cascaded
-      }
+      } catch (_) {}
 
       // 2. Delete mood messages permanently using inFilter
-      await SupabaseDataService.client
+      final response = await SupabaseDataService.client
           .from(_tableName)
           .delete()
-          .inFilter('id', moodMessageIds);
+          .inFilter('id', moodMessageIds)
+          .select();
+      return List<Map<String, dynamic>>.from(response);
     }, context: 'Delete bulk mood messages');
+
+    final isSuccess = deleted != null && deleted.isNotEmpty;
+    debugPrint('🗑️ Supabase deleteMoodMessages (${moodMessageIds.length} items) -> deleted count: ${deleted?.length}');
+    return isSuccess;
   }
 }

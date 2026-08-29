@@ -264,14 +264,21 @@ class MoodProvider extends ChangeNotifier {
   Future<bool> deleteMood(String moodMessageId) async {
     if (_coupleId == null) return false;
     try {
-      await _service.deleteMoodMessage(
+      final success = await _service.deleteMoodMessage(
         moodMessageId: moodMessageId,
         coupleId: _coupleId!,
       );
-      _moods.removeWhere((m) => m.id == moodMessageId);
-      _readsByMood.remove(moodMessageId);
-      notifyListeners();
-      return true;
+      if (success) {
+        _moods.removeWhere((m) => m.id == moodMessageId);
+        _readsByMood.remove(moodMessageId);
+        notifyListeners();
+        return true;
+      } else {
+        _error = 'Database deletion returned 0 rows. Please apply RLS DELETE policy.';
+        debugPrint('⚠️ $_error');
+        notifyListeners();
+        return false;
+      }
     } catch (e) {
       _error = 'Failed to delete mood: $e';
       debugPrint(_error);
@@ -283,16 +290,23 @@ class MoodProvider extends ChangeNotifier {
   Future<bool> deleteMoods(List<String> moodMessageIds) async {
     if (_coupleId == null || moodMessageIds.isEmpty) return false;
     try {
-      await _service.deleteMoodMessages(
+      final success = await _service.deleteMoodMessages(
         moodMessageIds: moodMessageIds,
         coupleId: _coupleId!,
       );
-      _moods.removeWhere((m) => m.id != null && moodMessageIds.contains(m.id));
-      for (final id in moodMessageIds) {
-        _readsByMood.remove(id);
+      if (success) {
+        _moods.removeWhere((m) => m.id != null && moodMessageIds.contains(m.id));
+        for (final id in moodMessageIds) {
+          _readsByMood.remove(id);
+        }
+        notifyListeners();
+        return true;
+      } else {
+        _error = 'Database deletion returned 0 rows. Please apply RLS DELETE policy.';
+        debugPrint('⚠️ $_error');
+        notifyListeners();
+        return false;
       }
-      notifyListeners();
-      return true;
     } catch (e) {
       _error = 'Failed to delete moods: $e';
       debugPrint(_error);

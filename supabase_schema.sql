@@ -572,6 +572,19 @@ CREATE POLICY "Users can read couple mood messages" ON mood_messages
 CREATE POLICY "Users can send mood messages" ON mood_messages
     FOR INSERT WITH CHECK (sender_id = auth.uid());
 
+CREATE POLICY "Users can update mood messages" ON mood_messages
+    FOR UPDATE USING (sender_id = auth.uid())
+    WITH CHECK (sender_id = auth.uid());
+
+CREATE POLICY "Users can delete mood messages" ON mood_messages
+    FOR DELETE USING (
+        sender_id = auth.uid() OR
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE couple_id = mood_messages.couple_id AND id = auth.uid()
+        )
+    );
+
 -- Mood message reads policies
 CREATE POLICY "Users can read couple mood reads" ON mood_message_reads
     FOR SELECT USING (
@@ -587,6 +600,15 @@ CREATE POLICY "Users can insert own mood reads" ON mood_message_reads
 CREATE POLICY "Users can update own mood reads" ON mood_message_reads
     FOR UPDATE USING (reader_id = auth.uid())
     WITH CHECK (reader_id = auth.uid());
+
+CREATE POLICY "Users can delete mood message reads" ON mood_message_reads
+    FOR DELETE USING (
+        reader_id = auth.uid() OR
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE couple_id = mood_message_reads.couple_id AND id = auth.uid()
+        )
+    );
 
 -- Photo message reads policies
 CREATE POLICY "Users can read couple photo reads" ON photo_message_reads

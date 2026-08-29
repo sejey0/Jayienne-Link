@@ -9,7 +9,6 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/couple_provider.dart';
-import '../../admin/screens/admin_dashboard_screen.dart';
 
 class ProfileViewScreen extends StatelessWidget {
   const ProfileViewScreen({super.key});
@@ -43,7 +42,7 @@ class ProfileViewScreen extends StatelessWidget {
             const SizedBox(height: AppDimensions.spacingLg),
             CircleAvatar(
               radius: AppDimensions.avatarSizeLarge / 2,
-              backgroundColor: AppColors.peach.withOpacity(0.3),
+              backgroundColor: AppColors.peach.withValues(alpha: 0.3),
               backgroundImage: _getProfileImageProvider(user.photoUrl),
               child: user.photoUrl == null
                   ? const Icon(Icons.person,
@@ -185,51 +184,6 @@ class ProfileViewScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
-              ),
-            ],
-            if (user.isAdmin) ...[
-              const SizedBox(height: AppDimensions.spacingLg),
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                    color: Colors.purple.withValues(alpha: 0.3),
-                    width: 1.5,
-                  ),
-                ),
-                color: Colors.purple.withValues(alpha: 0.08),
-                child: ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.purple.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.admin_panel_settings_rounded,
-                      color: Colors.purple,
-                      size: 22,
-                    ),
-                  ),
-                  title: const Text(
-                    'Admin Dashboard',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: const Text(
-                    'Manage app sync, data recovery, and couple settings',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AdminDashboardScreen(),
-                      ),
-                    );
-                  },
-                ),
               ),
             ],
           ],

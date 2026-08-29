@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/couple_model.dart';
@@ -16,6 +18,7 @@ import '../../../providers/debug_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_storage_service.dart';
+import '../../../widgets/smart_profile_image.dart';
 import '../../admin/screens/admin_dashboard_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -28,188 +31,903 @@ class SettingsScreen extends StatelessWidget {
     final coupleProvider = context.watch<CoupleProvider>();
     final user = userProvider.user;
     final couple = coupleProvider.couple;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final pendingAnniversary =
         coupleProvider.outgoingAnniversaryRequests.isNotEmpty
             ? coupleProvider.outgoingAnniversaryRequests.first
             : null;
 
+    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
+
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.settings)),
+      appBar: AppBar(
+        title: const Text(
+          'Settings',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.softRose, AppColors.lavender],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.pop(context);
+          },
+        ),
+        elevation: 0,
+      ),
       body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
         children: [
-          ListTile(
-            title: const Text('Edit Profile'),
-            subtitle: const Text('View or edit your profile'),
-            onTap: null,
-            trailing: IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => context.push(RouteNames.profile),
-            ),
-          ),
-          if (user != null && user.isAdmin) ...[
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.admin_panel_settings_rounded,
-                  color: Colors.purple),
-              title: const Text('Admin Dashboard',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text(
-                  'Manage app sync, data recovery, and couple settings'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AdminDashboardScreen(),
-                  ),
-                );
-              },
-            ),
-          ],
+          // 1. Profile Overview Header Card
           if (user != null) ...[
-            ListTile(
-              title: const Text('Update Anniversary'),
-              subtitle: Text(
-                couple == null
-                    ? 'Link with your partner to set one'
-                    : pendingAnniversary != null
-                        ? 'Request pending for ${_formatAnniversary(pendingAnniversary.proposedDate)}'
-                        : couple.anniversary != null
-                            ? 'Current: ${_formatAnniversary(couple.anniversary!)}'
-                            : 'Not set',
-              ),
-              onTap: null,
-              trailing: IconButton(
-                icon: Icon(
-                  Icons.edit_outlined,
-                  color: couple == null ? Colors.grey.shade400 : null,
-                ),
-                onPressed: couple == null
-                    ? null
-                    : () => _requestAnniversary(context, user, couple),
-              ),
-            ),
+            _buildProfileSummaryCard(context, user, couple, isDark, cardBg),
+            const SizedBox(height: 16),
           ],
-          SwitchListTile(
-            title: const Text(AppStrings.darkMode),
-            secondary: Icon(
-              themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+
+          // 2. VIP Admin Dashboard Hero Card
+          if (user != null && user.isAdmin) ...[
+            _buildAdminHeroCard(context, isDark),
+            const SizedBox(height: 20),
+          ],
+
+          // 3. Section: Relationship
+          _buildSectionHeader('RELATIONSHIP', isDark),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.grey.shade200,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            value: themeProvider.isDarkMode,
-            onChanged: (_) => themeProvider.toggleTheme(),
+            child: Column(
+              children: [
+                _buildSettingsTile(
+                  icon: Icons.favorite_rounded,
+                  iconColor: const Color(0xFFFF758C),
+                  title: 'Anniversary Date',
+                  subtitle: couple == null
+                      ? 'Link with your partner to set one'
+                      : pendingAnniversary != null
+                          ? 'Request pending for ${_formatAnniversary(pendingAnniversary.proposedDate)}'
+                          : couple.anniversary != null
+                              ? 'Current: ${_formatAnniversary(couple.anniversary!)}'
+                              : 'Not set yet',
+                  trailing: Icon(
+                    Icons.edit_calendar_rounded,
+                    color: couple == null ? Colors.grey.shade400 : AppColors.softRose,
+                    size: 22,
+                  ),
+                  onTap: couple == null
+                      ? null
+                      : () => _requestAnniversary(context, user!, couple),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(height: 20),
+
+          // 4. Section: Preferences & Appearance
+          _buildSectionHeader('PREFERENCES', isDark),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.grey.shade200,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _buildSwitchTile(
+                  icon: themeProvider.isDarkMode
+                      ? Icons.dark_mode_rounded
+                      : Icons.light_mode_rounded,
+                  iconColor: themeProvider.isDarkMode
+                      ? AppColors.lavender
+                      : const Color(0xFFFFB74D),
+                  title: 'Dark Mode',
+                  subtitle: themeProvider.isDarkMode
+                      ? 'Dark romantic theme active'
+                      : 'Light romantic theme active',
+                  value: themeProvider.isDarkMode,
+                  onChanged: (_) {
+                    HapticFeedback.selectionClick();
+                    themeProvider.toggleTheme();
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 5. Section: Security & Privacy
+          _buildSectionHeader('SECURITY & PRIVACY', isDark),
+          const SizedBox(height: 8),
           Consumer<AppLockProvider>(
             builder: (context, appLockProvider, _) {
               final enabled = appLockProvider.isEnabled;
-              return Column(
-                children: [
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.lock_outline),
-                    title: const Text('App Lock'),
-                    subtitle: Text(
-                      enabled
-                          ? 'Password required after login until you unlock the app.'
-                          : 'Add a password to lock the app after login.',
-                    ),
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.grey.shade200,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimensions.spacingLg,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
-                    child: Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        ElevatedButton(
-                          onPressed: () =>
-                              _showPinDialog(context, appLockProvider),
-                          child: Text(
-                              enabled ? 'Change Password' : 'Set Password'),
-                        ),
-                        if (enabled)
-                          OutlinedButton(
-                            onPressed: () =>
-                                _showDisablePinDialog(context, appLockProvider),
-                            child: const Text('Disable Password'),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: (enabled ? const Color(0xFF4CAF50) : Colors.grey)
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(14),
                           ),
+                          child: Icon(
+                            enabled
+                                ? Icons.lock_outline_rounded
+                                : Icons.lock_open_rounded,
+                            color: enabled ? const Color(0xFF4CAF50) : Colors.grey,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'App Passcode Lock',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                enabled
+                                    ? 'Passcode is active on startup'
+                                    : 'Protect app with custom passcode',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (enabled
+                                    ? const Color(0xFF4CAF50)
+                                    : Colors.grey.shade600)
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            enabled ? 'ACTIVE' : 'OFF',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: enabled
+                                  ? const Color(0xFF4CAF50)
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 42,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                HapticFeedback.lightImpact();
+                                _showPinDialog(context, appLockProvider);
+                              },
+                              icon: Icon(
+                                enabled ? Icons.edit_rounded : Icons.add_rounded,
+                                size: 16,
+                              ),
+                              label: Text(
+                                enabled ? 'Change Passcode' : 'Set Passcode',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (enabled) ...[
+                          const SizedBox(width: 8),
+                          OutlinedButton(
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              _showDisablePinDialog(context, appLockProvider);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppColors.error),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 10),
+                            ),
+                            child: const Text(
+                              'Disable',
+                              style: TextStyle(
+                                color: AppColors.error,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
               );
             },
           ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text(AppStrings.signOut),
-            onTap: () => _confirmSignOut(context),
-          ),
-          // Debug section (only visible in debug mode)
-          if (kDebugMode) ...[
-            const Divider(),
-            const ListTile(
-              leading: Icon(Icons.bug_report),
-              title: Text('Debug Tools'),
-              subtitle: Text('Development only'),
+          const SizedBox(height: 20),
+
+          // 6. Section: Account Actions
+          _buildSectionHeader('ACCOUNT', isDark),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.grey.shade200,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimensions.spacingLg),
+            child: Column(
+              children: [
+                _buildSettingsTile(
+                  icon: Icons.logout_rounded,
+                  iconColor: AppColors.error,
+                  title: 'Sign Out',
+                  subtitle: 'Log out of your Jayienne Link account',
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.grey,
+                    size: 22,
+                  ),
+                  onTap: () => _confirmSignOut(context),
+                ),
+              ],
+            ),
+          ),
+
+          // 7. Developer Diagnostics (Debug Mode Only)
+          if (kDebugMode) ...[
+            const SizedBox(height: 20),
+            _buildSectionHeader('DEVELOPER DIAGNOSTICS', isDark),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.lavender.withValues(alpha: 0.4),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.lavender.withValues(alpha: 0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Offline Mode Test Toggle
                   Consumer<DebugProvider>(
-                    builder: (context, debugProvider, _) => SwitchListTile(
-                      title: const Text('Simulate Offline Mode'),
-                      subtitle: Text(
-                        debugProvider.forceOfflineMode
-                            ? 'Offline mode ON - Test offline features'
-                            : 'Online mode - Normal operation',
-                      ),
-                      value: debugProvider.forceOfflineMode,
-                      onChanged: (_) {
-                        debugProvider.toggleOfflineMode();
-                        ScaffoldMessenger.of(context)
-                          ..hideCurrentSnackBar()
-                          ..showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                debugProvider.forceOfflineMode
-                                    ? 'Offline mode enabled - WiFi will not be used'
-                                    : 'Offline mode disabled - Normal operation',
+                    builder: (context, debugProvider, _) => Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Simulate Offline Mode',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                ),
                               ),
-                            ),
-                          );
-                      },
+                              Text(
+                                debugProvider.forceOfflineMode
+                                    ? 'Offline simulation active'
+                                    : 'Normal online operation',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: debugProvider.forceOfflineMode,
+                          activeThumbColor: AppColors.lavender,
+                          activeTrackColor: AppColors.lavender.withValues(alpha: 0.35),
+                          onChanged: (_) {
+                            debugProvider.toggleOfflineMode();
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    debugProvider.forceOfflineMode
+                                        ? 'Offline mode enabled'
+                                        : 'Offline mode disabled',
+                                  ),
+                                ),
+                              );
+                          },
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: AppDimensions.spacingSm),
-                  ElevatedButton(
-                    onPressed: () => _testSupabaseStorage(context),
-                    child: const Text('Test Supabase Storage'),
-                  ),
-                  const SizedBox(height: AppDimensions.spacingSm),
-                  ElevatedButton(
-                    onPressed: () => _showStorageInfo(context),
-                    child: const Text('Storage Information'),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _testSupabaseStorage(context),
+                          icon: const Icon(Icons.cloud_sync_rounded, size: 16),
+                          label: const Text('Test Storage', style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.lavender),
+                            foregroundColor: AppColors.lavender,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showStorageInfo(context),
+                          icon: const Icon(Icons.info_outline_rounded, size: 16),
+                          label: const Text('Storage Info', style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.lavender),
+                            foregroundColor: AppColors.lavender,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ],
-          const Divider(),
-          Padding(
-            padding: const EdgeInsets.all(AppDimensions.spacingLg),
-            child: Text(
-              '${AppStrings.appVersion} 1.0.0',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: Colors.grey),
-              textAlign: TextAlign.center,
+
+          const SizedBox(height: 28),
+
+          // 8. Footer Info
+          Center(
+            child: Column(
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.favorite, size: 14, color: Color(0xFFFF758C)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Jayienne Link v1.0.0',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Crafted with love for couples 💕',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? Colors.white38 : Colors.grey.shade400,
+                  ),
+                ),
+              ],
             ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  // --- PROFILE HEADER CARD ---
+  Widget _buildProfileSummaryCard(
+    BuildContext context,
+    UserModel user,
+    CoupleModel? couple,
+    bool isDark,
+    Color cardBg,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.grey.shade200,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFFF758C), width: 2),
+            ),
+            child: ClipOval(
+              child: SmartProfileImage(
+                imageUrl: user.photoUrl,
+                width: 58,
+                height: 58,
+                placeholder: Container(
+                  color: AppColors.softRose.withValues(alpha: 0.15),
+                  child: Center(
+                    child: Text(
+                      user.displayName.isNotEmpty
+                          ? user.displayName[0].toUpperCase()
+                          : 'U',
+                      style: const TextStyle(
+                        color: AppColors.softRose,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                      ),
+                    ),
+                  ),
+                ),
+                errorWidget: Container(
+                  color: AppColors.softRose.withValues(alpha: 0.15),
+                  child: const Icon(Icons.person, color: AppColors.softRose, size: 28),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.displayName.isNotEmpty ? user.displayName : 'Unnamed User',
+                  style: GoogleFonts.poppins(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  user.email,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (couple != null ? const Color(0xFFFF758C) : Colors.grey)
+                        .withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    couple != null ? '💕 Coupled' : 'Single',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: couple != null ? const Color(0xFFFF758C) : Colors.grey,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              context.push(RouteNames.profile);
+            },
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.softRose.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.edit_rounded, color: AppColors.softRose, size: 18),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- VIP ADMIN HERO CARD ---
+  Widget _buildAdminHeroCard(BuildContext context, bool isDark) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AdminDashboardScreen(),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isDark
+                ? [
+                    const Color(0xFF2A1B3D),
+                    const Color(0xFF1E142B),
+                  ]
+                : [
+                    const Color(0xFFFDF0F6),
+                    const Color(0xFFF3EDFD),
+                  ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: const Color(0xFFA18CD1).withValues(alpha: 0.5),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFA18CD1).withValues(alpha: 0.15),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Admin Shield Badge
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.admin_panel_settings_rounded,
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Title & Subtitle
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Admin Dashboard',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : AppColors.deepCharcoal,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.lavender.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.lavender.withValues(alpha: 0.5),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          'VIP',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.lavender,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'User management, active toggles & media sync',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white70 : Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Arrow circle
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: AppColors.lavender,
+                size: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- SECTION HEADER ---
+  Widget _buildSectionHeader(String title, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.0,
+          color: isDark ? Colors.white38 : Colors.grey.shade500,
+        ),
+      ),
+    );
+  }
+
+  // --- REUSABLE SETTINGS TILE ---
+  Widget _buildSettingsTile({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required Widget trailing,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap != null
+            ? () {
+                HapticFeedback.lightImpact();
+                onTap();
+              }
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              trailing,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- REUSABLE SWITCH TILE ---
+  Widget _buildSwitchTile({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            activeThumbColor: const Color(0xFFFF758C),
+            activeTrackColor: const Color(0xFFFF758C).withValues(alpha: 0.35),
+            onChanged: onChanged,
           ),
         ],
       ),
@@ -228,7 +946,7 @@ class SettingsScreen extends StatelessWidget {
       keyboardType: TextInputType.visiblePassword,
       decoration: InputDecoration(
         labelText: label,
-        border: const OutlineInputBorder(),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         suffixIcon: onToggleObscure != null
             ? IconButton(
                 icon: Icon(
@@ -262,9 +980,14 @@ class SettingsScreen extends StatelessWidget {
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) {
+          final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
           return AlertDialog(
-            title:
-                Text(isChanging ? 'Change Passcode' : 'Set Passcode'),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
+            title: Text(
+              isChanging ? 'Change Passcode' : 'Set Passcode',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -377,11 +1100,16 @@ class SettingsScreen extends StatelessWidget {
                           });
                         }
                       },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF758C),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 child: isSaving
                     ? const SizedBox(
                         height: 18,
                         width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
                     : const Text('Save'),
               ),
@@ -424,8 +1152,11 @@ class SettingsScreen extends StatelessWidget {
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) {
+          final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
           return AlertDialog(
-            title: const Text('Disable App Passcode'),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
+            title: const Text('Disable App Passcode', style: TextStyle(fontWeight: FontWeight.bold)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -490,11 +1221,16 @@ class SettingsScreen extends StatelessWidget {
                           });
                         }
                       },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 child: isSaving
                     ? const SizedBox(
                         height: 18,
                         width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
                     : const Text('Disable'),
               ),
@@ -522,21 +1258,30 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _confirmSignOut(BuildContext context) {
+    HapticFeedback.selectionClick();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text(AppStrings.signOut),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
+        title: const Text(AppStrings.signOut, style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text(AppStrings.signOutConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text(AppStrings.cancel),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               context.read<AuthProvider>().signOut();
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             child: const Text(AppStrings.signOut),
           ),
         ],
@@ -553,6 +1298,7 @@ class SettingsScreen extends StatelessWidget {
     UserModel user,
     CoupleModel couple,
   ) async {
+    HapticFeedback.lightImpact();
     if (couple.id == null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -605,10 +1351,14 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _showStorageInfo(BuildContext context) {
+    HapticFeedback.lightImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Profile Image Storage'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
+        title: const Text('Profile Image Storage', style: TextStyle(fontWeight: FontWeight.bold)),
         content: const SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -633,21 +1383,6 @@ class SettingsScreen extends StatelessWidget {
               Text('✅ Automatic service selection and fallbacks'),
               Text('✅ Display on map markers for you and your partner'),
               Text('✅ Automatic optimization for best performance'),
-              SizedBox(height: 16),
-              Text(
-                'To setup Supabase (recommended):',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 8),
-              Text('1. Create a Supabase project at supabase.com'),
-              Text('2. Create a "profile-photos" storage bucket'),
-              Text('3. Configure your .env file with project credentials'),
-              Text('4. Run storage tests to verify setup'),
-              SizedBox(height: 16),
-              Text(
-                'Note: The app works perfectly without any setup!',
-                style: TextStyle(fontStyle: FontStyle.italic),
-              ),
             ],
           ),
         ),
@@ -662,16 +1397,21 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _testSupabaseStorage(BuildContext context) async {
+    HapticFeedback.lightImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        title: Text('Testing Supabase Storage'),
-        content: Column(
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
+        title: const Text('Testing Supabase Storage', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
+            CircularProgressIndicator(color: Color(0xFFFF758C)),
             SizedBox(height: 16),
             Text('Checking Supabase connectivity...'),
           ],
@@ -693,7 +1433,9 @@ class SettingsScreen extends StatelessWidget {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Supabase Storage Test Results'),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
+            title: const Text('Storage Test Results', style: TextStyle(fontWeight: FontWeight.bold)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -727,16 +1469,6 @@ class SettingsScreen extends StatelessWidget {
                     Text('Bucket: ${stats['bucket_name'] ?? 'N/A'}'),
                   ] else
                     Text('Error: ${stats['error']}'),
-                  if (!isConnected || !isInitialized) ...[
-                    const SizedBox(height: 16),
-                    const Text('Setup Instructions:',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    const Text('1. Create Supabase project'),
-                    const Text('2. Create "profile-photos" bucket'),
-                    const Text('3. Update .env file with credentials'),
-                    const Text('4. Restart the app'),
-                  ],
                 ],
               ),
             ),
@@ -750,10 +1482,7 @@ class SettingsScreen extends StatelessWidget {
         );
       }
     } catch (e) {
-      // Close loading dialog
       if (context.mounted) Navigator.of(context).pop();
-
-      // Show error
       if (context.mounted) {
         SnackbarHelper.showError(context, 'Supabase test failed: $e');
       }

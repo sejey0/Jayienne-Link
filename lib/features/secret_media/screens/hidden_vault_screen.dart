@@ -20,7 +20,8 @@ class HiddenVaultScreen extends StatefulWidget {
   State<HiddenVaultScreen> createState() => _HiddenVaultScreenState();
 }
 
-class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
+class _HiddenVaultScreenState extends State<HiddenVaultScreen>
+    with WidgetsBindingObserver {
   static const List<String> _vaultLocks = [
     'purpink',
     '0122',
@@ -38,10 +39,12 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _lockControllers =
         List.generate(_vaultLocks.length, (_) => TextEditingController());
     _obscureLocks = List.generate(_vaultLocks.length, (_) => true);
-    _isUnlocked = false; // Always show lock screen so it can be designed and tested
+    // Always start at the lock gate screen for privacy
+    _isUnlocked = false;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = context.read<AuthProvider>();
@@ -61,7 +64,18 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached) {
+      // Re-lock only when app is fully closed/detached
+      if (mounted) {
+        context.read<SecretMediaProvider>().lockVaultSession();
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     for (final controller in _lockControllers) {
       controller.dispose();
     }
@@ -81,6 +95,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
     });
 
     if (isValid) {
+      context.read<SecretMediaProvider>().unlockVaultSession();
       setState(() {
         _isUnlocked = true;
       });
@@ -102,6 +117,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
 
   void _bypassLockDebug() {
     HapticFeedback.lightImpact();
+    context.read<SecretMediaProvider>().unlockVaultSession();
     setState(() {
       _isUnlocked = true;
     });
@@ -109,8 +125,204 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
     SnackbarHelper.showInfo(context, 'Vault bypassed (Debug Mode)');
   }
 
-  Widget _buildLockGate() {
+  Widget _buildLockGate(bool isSessionUnlocked) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (isSessionUnlocked) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 16),
+
+            // Glowing Shield/Lock Emblem (Emerald/Purple gradient)
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00B09B), Color(0xFF96C93D)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00B09B).withValues(alpha: 0.4),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.lock_open_rounded,
+                  size: 42,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Title & Description
+            Text(
+              'Vault Decrypted',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : const Color(0xFF2D4059),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You already unlocked your private vault during this login session.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.white70 : Colors.grey.shade700,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Status Card
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E142B) : Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: const Color(0xFF00B09B).withValues(alpha: 0.3),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00B09B).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.verified_user_rounded,
+                      color: Color(0xFF00B09B),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Session Access Active',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppColors.deepCharcoal,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Tap below to view your media or lock the vault.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: isDark ? Colors.white60 : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Primary Enter Button
+            Container(
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  setState(() {
+                    _isUnlocked = true;
+                  });
+                  context.read<SecretMediaProvider>().refresh();
+                },
+                icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                label: const Text(
+                  'Enter Vault',
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Option to Re-Lock
+            OutlinedButton.icon(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                context.read<SecretMediaProvider>().lockVaultSession();
+                SnackbarHelper.showInfo(context, 'Vault locked');
+              },
+              icon: const Icon(Icons.lock_rounded, size: 18, color: Colors.grey),
+              label: const Text(
+                'Lock Vault Now',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13.5,
+                  color: Colors.grey,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -396,37 +608,54 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Hidden Vault',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        centerTitle: true,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.softRose, AppColors.lavender],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return PopScope(
+      canPop: !_isUnlocked,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_isUnlocked) {
+          setState(() {
+            _isUnlocked = false;
+          });
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'Hidden Vault',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
           ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            Navigator.pop(context);
-          },
-        ),
+          centerTitle: true,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.softRose, AppColors.lavender],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              if (_isUnlocked) {
+                setState(() {
+                  _isUnlocked = false;
+                });
+              } else {
+                Navigator.pop(context);
+              }
+            },
+          ),
         elevation: 0,
         actions: _isUnlocked
             ? [
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.white),
+                  tooltip: 'Refresh',
                   onPressed: () async {
                     HapticFeedback.lightImpact();
                     final provider = context.read<SecretMediaProvider>();
@@ -437,6 +666,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.add, color: Colors.white),
+                  tooltip: 'Add Media',
                   onPressed: () {
                     HapticFeedback.lightImpact();
                     Navigator.push(
@@ -448,18 +678,12 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
                   },
                 ),
               ]
-            : (kDebugMode
-                ? [
-                    IconButton(
-                      icon: const Icon(Icons.lock_open_rounded, color: Colors.white),
-                      tooltip: 'Bypass (Debug)',
-                      onPressed: _bypassLockDebug,
-                    ),
-                  ]
-                : null),
+            : null,
       ),
       body: !_isUnlocked
-          ? _buildLockGate()
+          ? _buildLockGate(
+              context.watch<SecretMediaProvider>().isVaultUnlockedSession,
+            )
           : Consumer<SecretMediaProvider>(
               builder: (context, provider, _) {
                 final imageCount = provider.hiddenMedia
@@ -598,6 +822,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
                 );
               },
             ),
+      ),
     );
   }
 

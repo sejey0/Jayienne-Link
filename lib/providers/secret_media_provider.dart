@@ -26,6 +26,7 @@ class SecretMediaProvider extends ChangeNotifier {
   bool _isUploading = false;
   String? _error;
   bool _showHiddenVault = false;
+  bool _isVaultUnlockedSession = false;
 
   // Getters
   List<SecretMediaModel> get sharedMedia => List.unmodifiable(_sharedMedia);
@@ -38,6 +39,17 @@ class SecretMediaProvider extends ChangeNotifier {
   bool get isUploading => _isUploading;
   String? get error => _error;
   bool get showHiddenVault => _showHiddenVault;
+  bool get isVaultUnlockedSession => _isVaultUnlockedSession;
+
+  void unlockVaultSession() {
+    _isVaultUnlockedSession = true;
+    notifyListeners();
+  }
+
+  void lockVaultSession() {
+    _isVaultUnlockedSession = false;
+    notifyListeners();
+  }
 
   int get totalMediaCount => _sharedMedia.length + _hiddenMedia.length;
   int get sharedMediaCount => _sharedMedia.length;

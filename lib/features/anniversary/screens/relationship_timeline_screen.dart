@@ -274,16 +274,21 @@ class _RelationshipTimelineScreenState
                     color: isFirst ? Colors.transparent : AppColors.softRose.withValues(alpha: 0.3),
                   ),
                 ),
-                // Category Icon Node Circle
+                // Category Icon Node Big Circle Dot
                 Container(
-                  width: 38,
-                  height: 38,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: cat.color,
                     shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: cat.gradientColors,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: cat.color.withValues(alpha: 0.4),
+                        color: cat.gradientColors.first.withValues(alpha: 0.45),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -336,18 +341,44 @@ class _RelationshipTimelineScreenState
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: cat.color.withValues(alpha: 0.15),
+                          color: cat.gradientColors.first.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(
-                          DateFormat('MMM d, yyyy').format(item.eventDate),
-                          style: TextStyle(
-                            color: cat.color,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(cat.icon, size: 12, color: cat.gradientColors.first),
+                            const SizedBox(width: 4),
+                            Text(
+                              item.displayCategoryLabel,
+                              style: TextStyle(
+                                color: cat.gradientColors.first,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      if (item.eventDate != null) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            DateFormat('MMM d, yyyy').format(item.eventDate!),
+                            style: TextStyle(
+                              color: Colors.grey.shade700,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(width: 4),
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.more_vert_rounded, size: 18, color: Colors.grey),
                         onSelected: (val) {
@@ -464,7 +495,8 @@ class _RelationshipTimelineScreenState
   ) async {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
-    DateTime selectedDate = DateTime.now();
+    final customCategoryController = TextEditingController();
+    DateTime? selectedDate;
     MilestoneCategory selectedCategory = MilestoneCategory.specialMoment;
     File? selectedImageFile;
 
@@ -517,73 +549,256 @@ class _RelationshipTimelineScreenState
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
 
-                    // Category Selection Chips
-                    Text(
-                      'Category',
-                      style: Theme.of(modalCtx).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
+                    // Category Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Category',
+                          style: Theme.of(modalCtx).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        if (selectedCategory == MilestoneCategory.custom)
+                          const Text(
+                            'Custom Category',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.coral,
+                            ),
                           ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: MilestoneCategory.values.map((cat) {
-                        final isSelected = selectedCategory == cat;
-                        final textColor = isSelected
-                            ? Colors.white
-                            : (Theme.of(modalCtx).brightness == Brightness.dark
-                                ? Colors.white70
-                                : Colors.black87);
+                    const SizedBox(height: 10),
 
-                        return ChoiceChip(
-                          avatar: Icon(cat.icon, size: 16, color: isSelected ? Colors.white : cat.color),
-                          label: Text(cat.label),
-                          selected: isSelected,
-                          selectedColor: cat.color,
-                          backgroundColor: Theme.of(modalCtx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          labelStyle: TextStyle(
-                            color: textColor,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                          onSelected: (val) {
-                            setModalState(() {
-                              selectedCategory = cat;
-                            });
-                          },
-                        );
-                      }).toList(),
+                    // Big Circle Dot Category Selector
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: MilestoneCategory.values.map((cat) {
+                          final isSelected = selectedCategory == cat;
+
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: GestureDetector(
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                setModalState(() {
+                                  selectedCategory = cat;
+                                });
+                              },
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      AnimatedContainer(
+                                        duration: const Duration(milliseconds: 200),
+                                        width: 52,
+                                        height: 52,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          gradient: LinearGradient(
+                                            colors: isSelected
+                                                ? cat.gradientColors
+                                                : [
+                                                    cat.gradientColors.first.withValues(alpha: 0.2),
+                                                    cat.gradientColors.last.withValues(alpha: 0.2),
+                                                  ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          border: Border.all(
+                                            color: isSelected ? cat.gradientColors.first : cat.gradientColors.first.withValues(alpha: 0.35),
+                                            width: isSelected ? 2.5 : 1.2,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: cat.gradientColors.first.withValues(alpha: isSelected ? 0.5 : 0.15),
+                                              blurRadius: isSelected ? 10 : 4,
+                                              spreadRadius: isSelected ? 1 : 0,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Center(
+                                          child: Icon(
+                                            cat.icon,
+                                            size: 24,
+                                            color: isSelected ? Colors.white : cat.gradientColors.first,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        Positioned(
+                                          right: -1,
+                                          bottom: -1,
+                                          child: Container(
+                                            width: 16,
+                                            height: 16,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: cat.gradientColors.first,
+                                              border: Border.all(color: Colors.white, width: 2),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: cat.gradientColors.first.withValues(alpha: 0.6),
+                                                  blurRadius: 4,
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Icon(
+                                              Icons.check,
+                                              color: Colors.white,
+                                              size: 10,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  SizedBox(
+                                    width: 66,
+                                    child: Text(
+                                      cat.label,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                                        color: isSelected ? cat.gradientColors.first : null,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
+
+                    // Custom Category Name Input Field (Appears when Custom is selected)
+                    if (selectedCategory == MilestoneCategory.custom) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: customCategoryController,
+                        decoration: InputDecoration(
+                          labelText: 'Custom Category Name *',
+                          hintText: 'e.g. Cooking Together, First Movie, Road Trip...',
+                          prefixIcon: const Icon(Icons.edit_note_rounded, color: AppColors.coral),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          filled: true,
+                          fillColor: AppColors.coral.withValues(alpha: 0.06),
+                        ),
+                        onChanged: (_) => setModalState(() {}),
+                      ),
+                    ],
+
                     const SizedBox(height: 16),
 
-                    // Date Picker Trigger
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_today_rounded, color: AppColors.softRose),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Date: ${DateFormat('MMMM d, yyyy').format(selectedDate)}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                    // Optional Date Picker Container
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(modalCtx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: selectedDate != null
+                              ? AppColors.softRose.withValues(alpha: 0.6)
+                              : Theme.of(modalCtx).dividerColor.withValues(alpha: 0.5),
                         ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () async {
-                            final d = await showDatePicker(
-                              context: modalCtx,
-                              initialDate: selectedDate,
-                              firstDate: DateTime(1980),
-                              lastDate: DateTime.now(),
-                            );
-                            if (d != null) {
-                              setModalState(() {
-                                selectedDate = d;
-                              });
-                            }
-                          },
-                          child: const Text('Change Date'),
-                        ),
-                      ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            selectedDate != null
+                                ? Icons.calendar_today_rounded
+                                : Icons.calendar_today_outlined,
+                            color: selectedDate != null ? AppColors.softRose : Colors.grey,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  selectedDate != null
+                                      ? 'Date: ${DateFormat('MMMM d, yyyy').format(selectedDate!)}'
+                                      : 'Date (Optional)',
+                                  style: TextStyle(
+                                    fontWeight: selectedDate != null ? FontWeight.w600 : FontWeight.w500,
+                                    color: selectedDate != null ? null : Colors.grey.shade600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                if (selectedDate == null)
+                                  Text(
+                                    'No specific date selected',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (selectedDate != null) ...[
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
+                              tooltip: 'Clear Date',
+                              onPressed: () {
+                                HapticFeedback.lightImpact();
+                                setModalState(() {
+                                  selectedDate = null;
+                                });
+                              },
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                final d = await showDatePicker(
+                                  context: modalCtx,
+                                  initialDate: selectedDate ?? DateTime.now(),
+                                  firstDate: DateTime(1980),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (d != null) {
+                                  setModalState(() {
+                                    selectedDate = d;
+                                  });
+                                }
+                              },
+                              child: const Text('Change'),
+                            ),
+                          ] else ...[
+                            TextButton.icon(
+                              onPressed: () async {
+                                final d = await showDatePicker(
+                                  context: modalCtx,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime(1980),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (d != null) {
+                                  setModalState(() {
+                                    selectedDate = d;
+                                  });
+                                }
+                              },
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: const Text('Add Date'),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
 
@@ -665,11 +880,23 @@ class _RelationshipTimelineScreenState
                                        return;
                                      }
 
+                                     final customName = selectedCategory == MilestoneCategory.custom
+                                         ? customCategoryController.text.trim()
+                                         : null;
+                                     if (selectedCategory == MilestoneCategory.custom && (customName == null || customName.isEmpty)) {
+                                       SnackbarHelper.showError(
+                                         modalCtx,
+                                         'Please enter a name for your custom category.',
+                                       );
+                                       return;
+                                     }
+
                                      try {
                                        final success = await annProvider.addMilestone(
                                          title: title,
                                          description: descriptionController.text.trim(),
                                          category: selectedCategory,
+                                         customCategoryName: customName,
                                          eventDate: selectedDate,
                                          imageFile: selectedImageFile,
                                        );

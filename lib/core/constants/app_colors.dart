@@ -9,6 +9,10 @@ class AppColors {
   static const Color peach = Color(0xFFFFD1B5);
   static const Color warmWhite = Color(0xFFFDF8F5);
   static const Color deepCharcoal = Color(0xFF2D4059);
+  static const Color roseGold = Color(0xFFE8A598);
+  static const Color skyBlue = Color(0xFFA8DADC);
+  static const Color mintGreen = Color(0xFF98D8C8);
+  static const Color coral = Color(0xFFFF6B6B);
 
   // Dark theme
   static const Color darkBackground = Color(0xFF1A1A2E);

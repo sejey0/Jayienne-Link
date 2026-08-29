@@ -226,7 +226,8 @@ class AnniversaryProvider extends ChangeNotifier {
     required String title,
     String? description,
     required MilestoneCategory category,
-    required DateTime eventDate,
+    String? customCategoryName,
+    DateTime? eventDate,
     File? imageFile,
   }) async {
     if (_coupleId == null || _userId == null) {
@@ -243,6 +244,7 @@ class AnniversaryProvider extends ChangeNotifier {
         title: title,
         description: description,
         category: category,
+        customCategoryName: customCategoryName,
         eventDate: eventDate,
       );
 
@@ -253,7 +255,7 @@ class AnniversaryProvider extends ChangeNotifier {
 
       if (created != null) {
         _milestones.insert(0, created);
-        _milestones.sort((a, b) => b.eventDate.compareTo(a.eventDate));
+        _milestones.sort((a, b) => b.effectiveDate.compareTo(a.effectiveDate));
         _isSaving = false;
         notifyListeners();
         return true;

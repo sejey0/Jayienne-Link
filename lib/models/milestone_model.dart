@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 
 /// Milestone categories for relationship memories
 enum MilestoneCategory {
-  firstDate,
+  dateTogether,
   anniversary,
   trip,
   specialMoment,
   milestone,
+  custom,
   other;
 
   String get value {
     switch (this) {
-      case MilestoneCategory.firstDate:
-        return 'first_date';
+      case MilestoneCategory.dateTogether:
+        return 'date_together';
       case MilestoneCategory.anniversary:
         return 'anniversary';
       case MilestoneCategory.trip:
@@ -21,6 +22,8 @@ enum MilestoneCategory {
         return 'special_moment';
       case MilestoneCategory.milestone:
         return 'milestone';
+      case MilestoneCategory.custom:
+        return 'custom';
       case MilestoneCategory.other:
         return 'other';
     }
@@ -28,8 +31,8 @@ enum MilestoneCategory {
 
   String get label {
     switch (this) {
-      case MilestoneCategory.firstDate:
-        return 'First Date';
+      case MilestoneCategory.dateTogether:
+        return 'Date Together';
       case MilestoneCategory.anniversary:
         return 'Anniversary';
       case MilestoneCategory.trip:
@@ -38,6 +41,8 @@ enum MilestoneCategory {
         return 'Special Moment';
       case MilestoneCategory.milestone:
         return 'Milestone';
+      case MilestoneCategory.custom:
+        return 'Custom';
       case MilestoneCategory.other:
         return 'Memory';
     }
@@ -45,7 +50,7 @@ enum MilestoneCategory {
 
   IconData get icon {
     switch (this) {
-      case MilestoneCategory.firstDate:
+      case MilestoneCategory.dateTogether:
         return Icons.favorite_rounded;
       case MilestoneCategory.anniversary:
         return Icons.cake_rounded;
@@ -55,32 +60,42 @@ enum MilestoneCategory {
         return Icons.star_rounded;
       case MilestoneCategory.milestone:
         return Icons.emoji_events_rounded;
+      case MilestoneCategory.custom:
+        return Icons.auto_awesome_rounded;
       case MilestoneCategory.other:
         return Icons.photo_library_rounded;
     }
   }
 
-  Color get color {
+  List<Color> get gradientColors {
     switch (this) {
-      case MilestoneCategory.firstDate:
-        return const Color(0xFFFF4B72); // Soft Rose / Magenta
+      case MilestoneCategory.dateTogether:
+        return const [Color(0xFFFF5252), Color(0xFFD81B60)];
       case MilestoneCategory.anniversary:
-        return const Color(0xFFFF9F43); // Warm Gold / Amber
+        return const [Color(0xFFFF4081), Color(0xFFAB47BC)];
       case MilestoneCategory.trip:
-        return const Color(0xFF54A0FF); // Sky Blue
+        return const [Color(0xFF536DFE), Color(0xFF7C4DFF)];
       case MilestoneCategory.specialMoment:
-        return const Color(0xFF9C88FF); // Lavender / Purple
+        return const [Color(0xFFEC407A), Color(0xFF8E24AA)];
       case MilestoneCategory.milestone:
-        return const Color(0xFF1DD1A1); // Emerald Teal
+        return const [Color(0xFFE91E63), Color(0xFF7B1FA2)];
+      case MilestoneCategory.custom:
+        return const [Color(0xFFFF758C), Color(0xFFA18CD1)];
       case MilestoneCategory.other:
-        return const Color(0xFF8395A7); // Slate Grey
+        return const [Color(0xFFF06292), Color(0xFF9C27B0)];
     }
   }
 
+  Color get color => gradientColors.first;
+
   static MilestoneCategory fromString(String? val) {
+    if (val != null && val.startsWith('custom:')) {
+      return MilestoneCategory.custom;
+    }
     switch (val) {
+      case 'date_together':
       case 'first_date':
-        return MilestoneCategory.firstDate;
+        return MilestoneCategory.dateTogether;
       case 'anniversary':
         return MilestoneCategory.anniversary;
       case 'trip':
@@ -89,6 +104,8 @@ enum MilestoneCategory {
         return MilestoneCategory.specialMoment;
       case 'milestone':
         return MilestoneCategory.milestone;
+      case 'custom':
+        return MilestoneCategory.custom;
       default:
         return MilestoneCategory.other;
     }
@@ -103,7 +120,8 @@ class MilestoneModel {
   final String title;
   final String? description;
   final MilestoneCategory category;
-  final DateTime eventDate;
+  final String? customCategoryName;
+  final DateTime? eventDate;
   final String? photoUrl;
   final DateTime createdAt;
 
@@ -114,22 +132,42 @@ class MilestoneModel {
     required this.title,
     this.description,
     this.category = MilestoneCategory.specialMoment,
-    required this.eventDate,
+    this.customCategoryName,
+    this.eventDate,
     this.photoUrl,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
+  /// Effective date for timeline ordering and chronological sorting
+  DateTime get effectiveDate => eventDate ?? createdAt;
+
+  String get displayCategoryLabel {
+    if (category == MilestoneCategory.custom &&
+        customCategoryName != null &&
+        customCategoryName!.trim().isNotEmpty) {
+      return customCategoryName!.trim();
+    }
+    return category.label;
+  }
+
   factory MilestoneModel.fromJson(Map<String, dynamic> json) {
+    final rawCategory = json['category'] as String?;
+    final isCustom = rawCategory != null && rawCategory.startsWith('custom:');
+    final customName = isCustom
+        ? rawCategory.substring(7)
+        : (json['custom_category'] as String? ?? json['custom_category_name'] as String?);
+
     return MilestoneModel(
       id: json['id'] as String?,
       coupleId: json['couple_id'] as String? ?? '',
       createdById: json['created_by'] as String? ?? json['created_by_id'] as String? ?? '',
       title: json['title'] as String? ?? 'Special Memory',
       description: json['description'] as String?,
-      category: MilestoneCategory.fromString(json['category'] as String?),
+      category: MilestoneCategory.fromString(rawCategory),
+      customCategoryName: customName,
       eventDate: json['event_date'] != null
-          ? DateTime.parse(json['event_date'] as String)
-          : DateTime.now(),
+          ? DateTime.tryParse(json['event_date'] as String)
+          : null,
       photoUrl: json['photo_url'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
@@ -138,6 +176,12 @@ class MilestoneModel {
   }
 
   Map<String, dynamic> toJson() {
+    final categoryStr = category == MilestoneCategory.custom &&
+            customCategoryName != null &&
+            customCategoryName!.trim().isNotEmpty
+        ? 'custom:${customCategoryName!.trim()}'
+        : category.value;
+
     return {
       if (id != null) 'id': id,
       'couple_id': coupleId,
@@ -145,22 +189,29 @@ class MilestoneModel {
       'created_by_id': createdById,
       'title': title,
       if (description != null) 'description': description,
-      'category': category.value,
-      'event_date': eventDate.toIso8601String(),
+      'category': categoryStr,
+      if (customCategoryName != null) 'custom_category': customCategoryName,
+      if (eventDate != null) 'event_date': eventDate!.toIso8601String(),
       if (photoUrl != null) 'photo_url': photoUrl,
       'created_at': createdAt.toIso8601String(),
     };
   }
 
   Map<String, dynamic> toInsertJson() {
+    final categoryStr = category == MilestoneCategory.custom &&
+            customCategoryName != null &&
+            customCategoryName!.trim().isNotEmpty
+        ? 'custom:${customCategoryName!.trim()}'
+        : category.value;
+
     return {
       'couple_id': coupleId,
       'created_by': createdById,
       'title': title,
       if (description != null && description!.trim().isNotEmpty)
         'description': description!.trim(),
-      'category': category.value,
-      'event_date': eventDate.toIso8601String(),
+      'category': categoryStr,
+      'event_date': (eventDate ?? createdAt).toIso8601String(),
       if (photoUrl != null) 'photo_url': photoUrl,
     };
   }
@@ -172,6 +223,7 @@ class MilestoneModel {
     String? title,
     String? description,
     MilestoneCategory? category,
+    String? customCategoryName,
     DateTime? eventDate,
     String? photoUrl,
     DateTime? createdAt,
@@ -183,6 +235,7 @@ class MilestoneModel {
       title: title ?? this.title,
       description: description ?? this.description,
       category: category ?? this.category,
+      customCategoryName: customCategoryName ?? this.customCategoryName,
       eventDate: eventDate ?? this.eventDate,
       photoUrl: photoUrl ?? this.photoUrl,
       createdAt: createdAt ?? this.createdAt,

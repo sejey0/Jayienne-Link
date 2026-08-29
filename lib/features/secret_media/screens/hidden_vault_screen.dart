@@ -38,7 +38,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
     super.initState();
     _lockControllers =
         List.generate(_vaultLocks.length, (_) => TextEditingController());
-    _isUnlocked = kDebugMode;
+    _isUnlocked = false; // Always show lock screen so it can be designed and tested
   }
 
   @override
@@ -54,6 +54,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
   }
 
   void _tryUnlockVault() {
+    HapticFeedback.mediumImpact();
     final isValid = _lockControllers.asMap().entries.every((entry) {
       final index = entry.key;
       final value = entry.value.text;
@@ -73,59 +74,259 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
     });
   }
 
+  void _bypassLockDebug() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _isUnlocked = true;
+      _lockError = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🔓 Vault bypassed (Debug Mode)'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
   Widget _buildLockGate() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 12),
-          Icon(
-            Icons.lock,
-            size: 56,
-            color: Colors.red.shade700,
+          const SizedBox(height: 8),
+
+          // Glowing Shield/Lock Emblem
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.softRose.withValues(alpha: 0.2),
+                    AppColors.lavender.withValues(alpha: 0.25),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.softRose.withValues(alpha: 0.4),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.softRose.withValues(alpha: 0.2),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.lock_outline_rounded,
+                size: 42,
+                color: Color(0xFFFF5252),
+              ),
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+
+          // Title & Description
           Text(
-            'Enter 6 Locks to Open Vault',
+            'Private Vault Locked',
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : const Color(0xFF2D4059),
             ),
           ),
-          const SizedBox(height: 20),
-          ...List.generate(_vaultLocks.length, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: TextField(
-                controller: _lockControllers[index],
-                decoration: InputDecoration(
-                  labelText: 'Lock ${index + 1}',
-                  border: const OutlineInputBorder(),
-                ),
+          const SizedBox(height: 6),
+          Text(
+            'Enter all 6 security keys to decrypt and reveal your private couple media.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12.5,
+              color: isDark ? Colors.white60 : Colors.grey.shade600,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Lock Input Fields Card
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E142B) : Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.grey.shade200,
               ),
-            );
-          }),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: List.generate(_vaultLocks.length, (index) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index == _vaultLocks.length - 1 ? 0 : 12,
+                  ),
+                  child: TextField(
+                    controller: _lockControllers[index],
+                    obscureText: true,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Security Key ${index + 1}',
+                      labelStyle: TextStyle(
+                        fontSize: 12.5,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.key_rounded,
+                        size: 18,
+                        color: isDark ? Colors.white38 : Colors.grey.shade400,
+                      ),
+                      filled: true,
+                      fillColor: isDark
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : Colors.grey.shade50,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.white12 : Colors.grey.shade300,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.white12 : Colors.grey.shade200,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(
+                          color: Color(0xFFFF758C),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           if (_lockError != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                _lockError!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red),
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 18, color: AppColors.error),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _lockError!,
+                        style: const TextStyle(
+                          color: AppColors.error,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ElevatedButton.icon(
-            onPressed: _tryUnlockVault,
-            icon: const Icon(Icons.lock_open),
-            label: const Text('Unlock Vault'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+
+          // Primary Unlock Button
+          Container(
+            height: 50,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: _tryUnlockVault,
+              icon: const Icon(Icons.lock_open_rounded, size: 20),
+              label: const Text(
+                'Unlock Vault',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
             ),
           ),
+
+          // Debug Mode Bypass Button
+          if (kDebugMode) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _bypassLockDebug,
+              icon: const Icon(Icons.developer_mode_rounded, size: 18, color: AppColors.lavender),
+              label: const Text(
+                'Bypass Lock (Debug Mode)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: AppColors.lavender,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.lavender, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -193,7 +394,15 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
                   },
                 ),
               ]
-            : null,
+            : (kDebugMode
+                ? [
+                    IconButton(
+                      icon: const Icon(Icons.lock_open_rounded, color: Colors.white),
+                      tooltip: 'Bypass (Debug)',
+                      onPressed: _bypassLockDebug,
+                    ),
+                  ]
+                : null),
       ),
       body: !_isUnlocked
           ? _buildLockGate()

@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/location_provider.dart';
 import '../../../services/offline_location_service.dart';
@@ -29,27 +28,27 @@ class LocationShareToggle extends StatelessWidget {
       onTap: () => _handleTap(context, provider, permissionStatus),
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppDimensions.spacingLg,
-          vertical: AppDimensions.spacingMd,
+          horizontal: 16,
+          vertical: 12,
         ),
         decoration: BoxDecoration(
           color: isSharing
-              ? AppColors.softRose.withOpacity(0.15)
-              : Colors.grey.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+              ? AppColors.softRose.withValues(alpha: 0.16)
+              : const Color(0xFFF4F2F7),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSharing
-                ? AppColors.softRose.withOpacity(0.3)
-                : Colors.grey.withOpacity(0.2),
-            width: 1.5,
+                ? AppColors.softRose.withValues(alpha: 0.5)
+                : const Color(0xFFE2DEEA),
+            width: 1.2,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildHeartIcon(context, isSharing, canShare),
-            const SizedBox(width: AppDimensions.spacingSm),
-            _buildStatusText(context, isSharing, canShare, provider),
+            const SizedBox(width: 12),
+            Expanded(child: _buildStatusText(context, isSharing, canShare, provider)),
           ],
         ),
       ),
@@ -59,8 +58,8 @@ class LocationShareToggle extends StatelessWidget {
   Widget _buildHeartIcon(BuildContext context, bool isSharing, bool canShare) {
     final icon = Icon(
       isSharing ? Icons.favorite : Icons.favorite_border,
-      color: isSharing ? AppColors.softRose : Colors.grey,
-      size: 28,
+      color: isSharing ? AppColors.softRose : Colors.grey.shade400,
+      size: 26,
     );
 
     if (isSharing) {
@@ -85,23 +84,17 @@ class LocationShareToggle extends StatelessWidget {
     LocationProvider provider,
   ) {
     String text;
-    Color textColor;
 
     if (!provider.isOnline) {
       text = 'Offline only';
-      textColor = AppColors.warning;
     } else if (!provider.hasPartner) {
       text = 'Link with your person first';
-      textColor = Colors.grey;
     } else if (!provider.permissionStatus.canTrack) {
       text = 'Enable location access';
-      textColor = AppColors.warning;
     } else if (isSharing) {
       text = 'Sharing location';
-      textColor = AppColors.softRose;
     } else {
       text = 'Location paused';
-      textColor = Colors.grey;
     }
 
     return Column(
@@ -110,24 +103,27 @@ class LocationShareToggle extends StatelessWidget {
       children: [
         Text(
           text,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: textColor,
-                fontWeight: FontWeight.w600,
-              ),
+          style: const TextStyle(
+            color: Color(0xFF1E142B),
+            fontWeight: FontWeight.w700,
+            fontSize: 13.5,
+          ),
         ),
         if (isSharing && provider.isOnline)
           Text(
             'Your person can see where you are',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: textColor.withOpacity(0.7),
-                ),
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 11.5,
+            ),
           ),
         if (isSharing && !provider.isOnline)
-          Text(
+          const Text(
             'Saving offline - will sync later',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.warning,
-                ),
+            style: TextStyle(
+              color: AppColors.warning,
+              fontSize: 11.5,
+            ),
           ),
       ],
     );

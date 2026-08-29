@@ -336,6 +336,16 @@ class LocationProvider extends ChangeNotifier {
         _startPartnerLocationListening();
       }
 
+      // Auto-start sharing location if phone location is enabled and permission is granted
+      if (_userId != null && _permissionStatus.canTrack && hasPartner) {
+        if (!_settings.sharingEnabled) {
+          _settings = _settings.copyWith(sharingEnabled: true);
+          await _updateSettings(_settings);
+        }
+        await startTracking();
+        await startForegroundRecording();
+      }
+
       if (_syncService.isOnline && _pendingSyncCount > 0 && _coupleId != null) {
         syncLocations();
       }
@@ -689,6 +699,16 @@ class LocationProvider extends ChangeNotifier {
     final permission = await _locationService.requestPermission();
     _permissionStatus = await _locationService.getPermissionStatus();
     _startBatterySmartLocationStream();
+
+    if (_userId != null && _permissionStatus.canTrack && hasPartner) {
+      if (!_settings.sharingEnabled) {
+        _settings = _settings.copyWith(sharingEnabled: true);
+        await _updateSettings(_settings);
+      }
+      await startTracking();
+      await startForegroundRecording();
+    }
+
     notifyListeners();
     return permission != LocationPermission.denied && permission != LocationPermission.deniedForever;
   }

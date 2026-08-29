@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
-import '../../../core/utils/validators.dart';
 import '../../../core/utils/snackbar_helper.dart';
+import '../../../core/utils/validators.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/user_provider.dart';
-import '../../../widgets/common/app_button.dart';
-import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/loading_overlay.dart';
 import 'deactivated_screen.dart';
 
+/// Redesigned Romantic Login Screen matching the App Design Theme
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -35,6 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
+    HapticFeedback.lightImpact();
 
     final auth = context.read<AuthProvider>();
     final success = await auth.signIn(
@@ -86,20 +87,27 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _forgotPassword() {
+    HapticFeedback.lightImpact();
     context.push(RouteNames.resetPassword);
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return LoadingOverlay(
       isLoading: auth.isLoading,
       child: Scaffold(
+        backgroundColor:
+            isDark ? const Color(0xFF140E1B) : const Color(0xFFFFF7F9),
         appBar: AppBar(
           title: const Text(
-            AppStrings.signIn,
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            'Sign In',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           centerTitle: true,
           flexibleSpace: Container(
@@ -113,60 +121,279 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.pop(context);
+            },
           ),
           elevation: 0,
         ),
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppDimensions.spacingLg),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: AppDimensions.spacingXl),
-                  AppTextField(
+                  const SizedBox(height: 10),
+
+                  // Welcome Header Card
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFFFF758C).withValues(alpha: isDark ? 0.2 : 0.15),
+                            const Color(0xFFA18CD1).withValues(alpha: isDark ? 0.2 : 0.15),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.favorite_rounded,
+                        color: Color(0xFFFF758C),
+                        size: 40,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Text(
+                    'Welcome Back, Love',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppColors.deepCharcoal,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Sign in to reconnect with your favorite person.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Email Field
+                  _buildInputLabel('EMAIL ADDRESS', isDark),
+                  const SizedBox(height: 6),
+                  _buildTextField(
                     controller: _emailController,
-                    hintText: AppStrings.email,
+                    hintText: 'Enter your email',
                     prefixIcon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress,
                     validator: Validators.validateEmail,
+                    isDark: isDark,
                   ),
-                  const SizedBox(height: AppDimensions.spacingMd),
-                  AppTextField(
+
+                  const SizedBox(height: 18),
+
+                  // Password Field
+                  _buildInputLabel('PASSWORD', isDark),
+                  const SizedBox(height: 6),
+                  _buildTextField(
                     controller: _passwordController,
-                    hintText: AppStrings.password,
-                    prefixIcon: Icons.lock_outlined,
+                    hintText: 'Enter your password',
+                    prefixIcon: Icons.lock_outline_rounded,
                     obscureText: _obscurePassword,
                     textInputAction: TextInputAction.done,
+                    isDark: isDark,
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: const Color(0xFFFF758C),
+                        size: 20,
                       ),
-                      onPressed: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
+                      onPressed: () {
+                        setState(() => _obscurePassword = !_obscurePassword);
+                      },
                     ),
                   ),
+
+                  // Forgot Password Button
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: _forgotPassword,
-                      child: const Text(AppStrings.forgotPassword),
+                      child: const Text(
+                        AppStrings.forgotPassword,
+                        style: TextStyle(
+                          color: Color(0xFFFF758C),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: AppDimensions.spacingLg),
-                  AppButton(
-                    label: AppStrings.signIn,
-                    onPressed: _login,
-                    isLoading: auth.isLoading,
+
+                  const SizedBox(height: 16),
+
+                  // Sign In Primary Button
+                  InkWell(
+                    onTap: auth.isLoading ? null : _login,
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      width: double.infinity,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: auth.isLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.login_rounded, color: Colors.white, size: 20),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    AppStrings.signIn,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Bottom Switch to Register
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Don't have an account? ",
+                        style: TextStyle(
+                          color: isDark ? Colors.white60 : Colors.grey.shade600,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          context.pushReplacement(RouteNames.register);
+                        },
+                        child: const Text(
+                          'Create Account',
+                          style: TextStyle(
+                            color: Color(0xFFFF758C),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputLabel(String text, bool isDark) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.8,
+        color: isDark ? Colors.white54 : Colors.grey.shade600,
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData prefixIcon,
+    required bool isDark,
+    bool obscureText = false,
+    TextInputType keyboardType = TextInputType.text,
+    TextInputAction textInputAction = TextInputAction.next,
+    String? Function(String?)? validator,
+    Widget? suffixIcon,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E162B) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextFormField(
+        controller: controller,
+        obscureText: obscureText,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        validator: validator,
+        style: TextStyle(
+          color: isDark ? Colors.white : AppColors.deepCharcoal,
+          fontSize: 14,
+        ),
+        cursorColor: const Color(0xFFFF758C),
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: TextStyle(
+            color: isDark ? Colors.white38 : Colors.grey.shade500,
+            fontSize: 13.5,
+          ),
+          prefixIcon: Icon(
+            prefixIcon,
+            color: const Color(0xFFFF758C),
+            size: 20,
+          ),
+          suffixIcon: suffixIcon,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );

@@ -518,19 +518,19 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
     List<Color> gradientColors;
 
     if (heartbeatProvider.isColliding) {
-      statusText = 'Hearts Touching! ✨ Sparkles exploding';
+      statusText = 'Hearts touching and colliding!';
       statusIcon = Icons.favorite_rounded;
       gradientColors = const [Color(0xFFFF1744), Color(0xFFFF4081)];
     } else if (heartbeatProvider.isPartnerTouching) {
-      statusText = '$partnerName is touching screen 💖';
+      statusText = '$partnerName is touching screen';
       statusIcon = Icons.fingerprint_rounded;
       gradientColors = const [Color(0xFFFF758C), Color(0xFFA18CD1)];
     } else if (heartbeatProvider.isLocalTouching) {
-      statusText = 'Feeling for $partnerName... 👆';
+      statusText = 'Feeling for $partnerName...';
       statusIcon = Icons.touch_app_rounded;
       gradientColors = const [Color(0xFFA18CD1), Color(0xFF7E57C2)];
     } else {
-      statusText = 'Touch & hold anywhere to feel each other';
+      statusText = 'Touch and hold anywhere to feel each other';
       statusIcon = Icons.auto_awesome_rounded;
       gradientColors = [
         const Color(0xFFFF758C).withValues(alpha: isDark ? 0.35 : 0.2),

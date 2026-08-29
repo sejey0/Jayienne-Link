@@ -91,7 +91,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      SnackbarHelper.showError(
+        context,
+        'Please enter your display name to continue.',
+        title: 'Name Required',
+      );
+      return;
+    }
 
     final auth = context.read<AuthProvider>();
     final userProvider = context.read<UserProvider>();
@@ -110,6 +117,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     if (!success && userProvider.error != null) {
       SnackbarHelper.showError(context, userProvider.error!);
+    } else if (!success) {
+      SnackbarHelper.showError(
+        context,
+        'Failed to set up profile. Please try again.',
+      );
     }
   }
 

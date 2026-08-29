@@ -34,7 +34,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      SnackbarHelper.showError(
+        context,
+        'Please enter a valid email and password.',
+        title: 'Missing Information',
+      );
+      return;
+    }
 
     final auth = context.read<AuthProvider>();
     final success = await auth.signIn(
@@ -54,8 +61,10 @@ class _LoginScreenState extends State<LoginScreen> {
       final isDeactivated = errorText.contains('deactivated');
       final isInvalidCredentials =
           errorText.contains('invalid email or password') ||
-              errorText.contains('invalid login credentials');
-      final isUserNotFound = errorText.contains('no account found');
+              errorText.contains('invalid login credentials') ||
+              errorText.contains('invalid credentials');
+      final isUserNotFound = errorText.contains('no account found') ||
+          errorText.contains('user not found');
 
       if (isDeactivated) {
         DeactivatedScreen.showDeactivatedDialog(context);
@@ -64,25 +73,22 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         SnackbarHelper.showError(context, auth.error!);
       }
+    } else {
+      SnackbarHelper.showError(
+        context,
+        'Login failed. Please check your credentials.',
+      );
     }
   }
 
   void _showAccountNotFoundDialog() {
-    showDialog(
+    SnackbarHelper.showCustom(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Account not found'),
-        content: const Text(
-          'We could not find an account with these credentials. '
-          'Please sign up first or check your password.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+      title: 'Account Not Found',
+      message:
+          'We could not find an account with these credentials. Please sign up first or check your password.',
+      icon: Icons.person_off_rounded,
+      gradientColors: const [Color(0xFFFF5252), Color(0xFFD81B60)],
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/providers/auth_provider.dart';
 import 'package:jayienne_link/providers/user_provider.dart';
@@ -488,9 +489,9 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                             'This media will only be visible to you.',
                             () {
                               provider.moveToHiddenVault(media.id!);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Moved to hidden vault')),
+                              SnackbarHelper.showSuccess(
+                                context,
+                                'Moved to hidden vault',
                               );
                             },
                           );
@@ -506,9 +507,9 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                               'This action cannot be undone.',
                               () {
                                 provider.deleteSecretMedia(media.id!);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Media deleted')),
+                                SnackbarHelper.showSuccess(
+                                  context,
+                                  'Media deleted',
                                 );
                               },
                             );

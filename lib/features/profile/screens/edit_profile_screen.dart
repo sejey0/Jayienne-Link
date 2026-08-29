@@ -72,7 +72,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      SnackbarHelper.showError(
+        context,
+        'Please enter your display name.',
+        title: 'Validation Error',
+      );
+      return;
+    }
 
     final userProvider = context.read<UserProvider>();
     final auth = context.read<AuthProvider>();
@@ -139,39 +146,135 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _showStorageErrorDialog(BuildContext context, String error) {
+    HapticFeedback.heavyImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Upload Failed'),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(error),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF5252).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.cloud_off_rounded, color: Colors.white, size: 32),
+            ),
             const SizedBox(height: 16),
-            const Text('Troubleshooting steps:',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              'Upload Failed',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
             const SizedBox(height: 8),
-            const Text('• Check your internet connection'),
-            const Text('• Try selecting a different photo'),
-            const Text('• Make sure the photo file is not corrupted'),
-            const Text('• Try again in a few moments'),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Troubleshooting steps:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: isDark ? Colors.white : AppColors.deepCharcoal,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '• Check your internet connection\n• Try selecting a different photo\n• Make sure the photo is under 10MB',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      height: 1.4,
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _save();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Try Again',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Retry upload
-              _save();
-            },
-            child: const Text('Try Again'),
-          ),
-        ],
       ),
     );
   }

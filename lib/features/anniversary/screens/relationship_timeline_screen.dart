@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/milestone_model.dart';
 import '../../../providers/anniversary_provider.dart';
 
@@ -655,44 +656,40 @@ class _RelationshipTimelineScreenState
                             onPressed: annProvider.isSaving
                                 ? null
                                 : () async {
-                                    final title = titleController.text.trim();
-                                    if (title.isEmpty) {
-                                      ScaffoldMessenger.of(modalCtx).showSnackBar(
-                                        const SnackBar(content: Text('Please enter a memory title.')),
-                                      );
-                                      return;
-                                    }
+                                     final title = titleController.text.trim();
+                                     if (title.isEmpty) {
+                                       SnackbarHelper.showError(
+                                         modalCtx,
+                                         'Please enter a memory title.',
+                                       );
+                                       return;
+                                     }
 
-                                    try {
-                                      final success = await annProvider.addMilestone(
-                                        title: title,
-                                        description: descriptionController.text.trim(),
-                                        category: selectedCategory,
-                                        eventDate: selectedDate,
-                                        imageFile: selectedImageFile,
-                                      );
+                                     try {
+                                       final success = await annProvider.addMilestone(
+                                         title: title,
+                                         description: descriptionController.text.trim(),
+                                         category: selectedCategory,
+                                         eventDate: selectedDate,
+                                         imageFile: selectedImageFile,
+                                       );
 
-                                      if (modalCtx.mounted && success) {
-                                        Navigator.pop(modalCtx);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('Memory saved successfully!'),
-                                            backgroundColor: Colors.green,
-                                          ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (modalCtx.mounted) {
-                                        ScaffoldMessenger.of(modalCtx).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Failed to save memory: ${e.toString().replaceAll('Exception: ', '')}'),
-                                            backgroundColor: Colors.red.shade700,
-                                            duration: const Duration(seconds: 4),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
+                                       if (modalCtx.mounted && success) {
+                                         Navigator.pop(modalCtx);
+                                         SnackbarHelper.showSuccess(
+                                           context,
+                                           'Memory saved successfully!',
+                                         );
+                                       }
+                                     } catch (e) {
+                                       if (modalCtx.mounted) {
+                                         SnackbarHelper.showError(
+                                           modalCtx,
+                                           'Failed to save memory: ${e.toString().replaceAll('Exception: ', '')}',
+                                         );
+                                       }
+                                     }
+                                   },
                             child: annProvider.isSaving
                                 ? const SizedBox(
                                     height: 22,
@@ -752,27 +749,108 @@ class _RelationshipTimelineScreenState
     AnniversaryProvider provider,
     MilestoneModel item,
   ) {
+    HapticFeedback.heavyImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Memory?'),
-        content: Text('Are you sure you want to delete "${item.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              if (item.id != null) {
-                await provider.deleteMilestone(item.id!);
-              }
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF5252).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 32),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Delete Memory?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Are you sure you want to delete "${item.title}"? This cannot be undone.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        if (item.id != null) {
+                          await provider.deleteMilestone(item.id!);
+                          if (context.mounted) {
+                            SnackbarHelper.showSuccess(context, 'Memory deleted');
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

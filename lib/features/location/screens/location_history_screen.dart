@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
 import '../../../widgets/common/app_card.dart';
@@ -916,8 +917,9 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     if (confirmed == true) {
       await provider.deleteAllHistory();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location history deleted')),
+        SnackbarHelper.showSuccess(
+          context,
+          'Location history deleted',
         );
       }
     }

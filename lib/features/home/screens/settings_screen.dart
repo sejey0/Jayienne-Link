@@ -457,17 +457,12 @@ class SettingsScreen extends StatelessWidget {
                           activeTrackColor: AppColors.lavender.withValues(alpha: 0.35),
                           onChanged: (_) {
                             debugProvider.toggleOfflineMode();
-                            ScaffoldMessenger.of(context)
-                              ..hideCurrentSnackBar()
-                              ..showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    debugProvider.forceOfflineMode
-                                        ? 'Offline mode enabled'
-                                        : 'Offline mode disabled',
-                                  ),
-                                ),
-                              );
+                            SnackbarHelper.showInfo(
+                              context,
+                              debugProvider.forceOfflineMode
+                                  ? 'Offline mode enabled'
+                                  : 'Offline mode disabled',
+                            );
                           },
                         ),
                       ],
@@ -1516,25 +1511,10 @@ class SettingsScreen extends StatelessWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await appLockProvider.load();
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle_rounded,
-                      color: Colors.white, size: 20),
-                  SizedBox(width: 10),
-                  Text('App Passcode updated successfully!'),
-                ],
-              ),
-              backgroundColor: Color(0xFF4CAF50),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(14)),
-              ),
-            ),
-          );
+        SnackbarHelper.showSuccess(
+          context,
+          'App Passcode updated successfully!',
+        );
       });
     }
   }
@@ -1769,25 +1749,10 @@ class SettingsScreen extends StatelessWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await appLockProvider.load();
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle_rounded,
-                      color: Colors.white, size: 20),
-                  SizedBox(width: 10),
-                  Text('App Passcode disabled'),
-                ],
-              ),
-              backgroundColor: Color(0xFF1E142B),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(14)),
-              ),
-            ),
-          );
+        SnackbarHelper.showInfo(
+          context,
+          'App Passcode disabled',
+        );
       });
     }
   }
@@ -1835,11 +1800,7 @@ class SettingsScreen extends StatelessWidget {
   ) async {
     HapticFeedback.lightImpact();
     if (couple.id == null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Couple not ready. Try again.')),
-        );
+      SnackbarHelper.showError(context, 'Couple not ready. Try again.');
       return;
     }
 
@@ -1856,11 +1817,7 @@ class SettingsScreen extends StatelessWidget {
     final coupleProvider = context.read<CoupleProvider>();
     final partnerId = couple.getPartnerId(user.id);
     if (partnerId.isEmpty) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Partner not found.')),
-        );
+      SnackbarHelper.showError(context, 'Partner not found.');
       return;
     }
     final success = await coupleProvider.sendAnniversaryRequest(
@@ -1873,15 +1830,9 @@ class SettingsScreen extends StatelessWidget {
     if (!context.mounted) return;
 
     if (success) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Anniversary request sent')),
-        );
+      SnackbarHelper.showSuccess(context, 'Anniversary request sent');
     } else if (coupleProvider.error != null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(coupleProvider.error!)));
+      SnackbarHelper.showError(context, coupleProvider.error!);
     }
   }
 

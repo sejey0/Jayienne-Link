@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:jayienne_link/providers/auth_provider.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/models/secret_media_model.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import 'package:video_player/video_player.dart';
 
 class SecretMediaDetailScreen extends StatefulWidget {
@@ -138,9 +139,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
         if (success) {
           _currentCaption = newCaption.isEmpty ? null : newCaption;
           _isEditingCaption = false;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Caption updated')),
-          );
+          SnackbarHelper.showSuccess(context, 'Caption updated');
         }
       });
     }
@@ -174,9 +173,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                             .deleteSecretMedia(widget.media.id!);
                         Navigator.pop(context);
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Media deleted')),
-                        );
+                        SnackbarHelper.showSuccess(context, 'Media deleted');
                       },
                     );
                   },

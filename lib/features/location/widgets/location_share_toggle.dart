@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/location_provider.dart';
 import '../../../services/offline_location_service.dart';
 
@@ -138,22 +139,20 @@ class LocationShareToggle extends StatelessWidget {
   ) async {
     // Offline notice
     if (!provider.isOnline) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Offline only'),
-          backgroundColor: AppColors.warning,
-        ),
+      SnackbarHelper.showInfo(
+        context,
+        'Offline only. Connect to the internet to share location.',
+        title: 'Offline Notice',
       );
       return;
     }
 
     // Check if partner is linked
     if (!provider.hasPartner) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Link with your person first to share location'),
-          backgroundColor: AppColors.warning,
-        ),
+      SnackbarHelper.showInfo(
+        context,
+        'Link with your person first to share location.',
+        title: 'Partner Link Required',
       );
       return;
     }

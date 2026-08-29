@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/providers/auth_provider.dart';
 import 'package:jayienne_link/providers/user_provider.dart';
@@ -99,12 +100,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
       _lockError = null;
     });
     context.read<SecretMediaProvider>().refresh();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Vault bypassed (Debug Mode)'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+    SnackbarHelper.showInfo(context, 'Vault bypassed (Debug Mode)');
   }
 
   Widget _buildLockGate() {
@@ -388,9 +384,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
                     final provider = context.read<SecretMediaProvider>();
                     await provider.refresh();
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Vault refreshed')),
-                    );
+                    SnackbarHelper.showSuccess(context, 'Vault refreshed');
                   },
                 ),
                 IconButton(
@@ -745,9 +739,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
                               'This action cannot be undone.',
                               () {
                                 provider.deleteSecretMedia(media.id!);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Media deleted')),
-                                );
+                                SnackbarHelper.showSuccess(context, 'Media deleted');
                               },
                             );
                           },

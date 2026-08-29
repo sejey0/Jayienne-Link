@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../core/router/route_names.dart';
 import '../../../models/anniversary_request_model.dart';
 import '../../../models/user_model.dart';
@@ -227,13 +228,10 @@ class HomeScreen extends StatelessWidget {
                           .acceptAnniversaryRequest(request);
                       if (!context.mounted) return;
                       if (success) {
-                        ScaffoldMessenger.of(context)
-                          ..hideCurrentSnackBar()
-                          ..showSnackBar(
-                            const SnackBar(
-                              content: Text('Anniversary updated'),
-                            ),
-                          );
+                        SnackbarHelper.showSuccess(
+                          context,
+                          'Anniversary updated',
+                        );
                       }
                     },
                   ),

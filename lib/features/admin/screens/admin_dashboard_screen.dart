@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/admin_provider.dart';
 import '../../../providers/user_provider.dart';
@@ -472,37 +473,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
       if (context.mounted) {
         Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    restoredCount > 0
-                        ? 'Successfully restored $restoredCount hidden vault items (including partner media)!'
-                        : 'All hidden vault photos & videos are active and synced!',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor:
-                restoredCount > 0 ? const Color(0xFF4CAF50) : const Color(0xFF1E142B),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-        );
+        if (restoredCount > 0) {
+          SnackbarHelper.showSuccess(
+            context,
+            'Successfully restored $restoredCount hidden vault items (including partner media)!',
+            title: 'Vault Restored',
+          );
+        } else {
+          SnackbarHelper.showInfo(
+            context,
+            'All hidden vault photos & videos are active and synced!',
+            title: 'Vault Status',
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) {
         Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to restore hidden vault media: $e'),
-            backgroundColor: AppColors.error,
-          ),
+        SnackbarHelper.showError(
+          context,
+          'Failed to restore hidden vault media: $e',
         );
       }
     }
@@ -1055,20 +1045,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               final success = await provider.toggleUserActiveStatus(targetUser);
               if (context.mounted) {
                 if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        willDeactivate
-                            ? 'Account deactivated successfully.'
-                            : 'Account activated successfully.',
-                      ),
-                      backgroundColor: willDeactivate ? AppColors.error : const Color(0xFF4CAF50),
-                    ),
+                  SnackbarHelper.showSuccess(
+                    context,
+                    willDeactivate
+                        ? 'Account deactivated successfully.'
+                        : 'Account activated successfully.',
                   );
                 } else if (provider.error != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(provider.error!)),
-                  );
+                  SnackbarHelper.showError(context, provider.error!);
                 }
               }
             },
@@ -1113,20 +1097,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               final success = await provider.toggleUserRole(targetUser);
               if (context.mounted) {
                 if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        willBeAdmin
-                            ? '${targetUser.displayName} is now an Admin.'
-                            : '${targetUser.displayName} is now a standard User.',
-                      ),
-                      backgroundColor: AppColors.softRose,
-                    ),
+                  SnackbarHelper.showSuccess(
+                    context,
+                    willBeAdmin
+                        ? '${targetUser.displayName} is now an Admin.'
+                        : '${targetUser.displayName} is now a standard User.',
                   );
                 } else if (provider.error != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(provider.error!)),
-                  );
+                  SnackbarHelper.showError(context, provider.error!);
                 }
               }
             },

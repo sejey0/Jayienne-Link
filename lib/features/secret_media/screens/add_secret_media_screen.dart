@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/providers/auth_provider.dart';
@@ -143,21 +144,11 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    SnackbarHelper.showError(context, message);
   }
 
   void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-      ),
-    );
+    SnackbarHelper.showSuccess(context, message);
   }
 
   @override

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/mood_message_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/mood_provider.dart';
@@ -190,11 +191,7 @@ class _MoodScreenState extends State<MoodScreen> {
 
     if (callSign.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Callsign cannot be empty.')),
-        );
+      SnackbarHelper.showError(context, 'Callsign cannot be empty.');
       return;
     }
 
@@ -205,13 +202,11 @@ class _MoodScreenState extends State<MoodScreen> {
     );
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(success ? 'Mood updated' : 'Failed to update mood'),
-        ),
-      );
+    if (success) {
+      SnackbarHelper.showSuccess(context, 'Mood updated');
+    } else {
+      SnackbarHelper.showError(context, 'Failed to update mood');
+    }
   }
 
   @override
@@ -231,9 +226,7 @@ class _MoodScreenState extends State<MoodScreen> {
       _lastError = errorMessage;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(errorMessage)));
+        SnackbarHelper.showError(context, errorMessage);
       });
     }
 

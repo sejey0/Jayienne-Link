@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../core/router/route_names.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/app_lock_provider.dart';
 import '../../../providers/auth_provider.dart';
 
@@ -151,11 +152,9 @@ class _AppLockScreenState extends State<AppLockScreen>
         });
 
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Alphanumeric passcode set successfully!'),
-              backgroundColor: Colors.green,
-            ),
+          SnackbarHelper.showSuccess(
+            context,
+            'Alphanumeric passcode set successfully!',
           );
           if (Navigator.canPop(context)) {
             Navigator.pop(context, true);

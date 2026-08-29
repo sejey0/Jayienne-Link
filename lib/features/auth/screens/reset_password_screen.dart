@@ -50,34 +50,99 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     if (!mounted) return;
 
     if (success) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (dialogCtx) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Row(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+          contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
-              SizedBox(width: 10),
-              Text('Password Reset Sent!'),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF66BB6A), Color(0xFF2E7D32)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF66BB6A).withValues(alpha: 0.35),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 32),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Password Reset Sent!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppColors.deepCharcoal,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'A password reset request has been processed for $email. If you are signed in, your password has been updated. Otherwise, please check your inbox to confirm.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.4,
+                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: () {
+                    auth.clearPasswordRecovery();
+                    Navigator.pop(dialogCtx);
+                    context.go(RouteNames.login);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Back to Login',
+                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
             ],
           ),
-          content: Text(
-            'A password reset request has been processed for $email. '
-            'If you are signed in, your password has been updated. Otherwise, please check your inbox to confirm.',
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                auth.clearPasswordRecovery();
-                Navigator.pop(dialogCtx);
-                context.go(RouteNames.login);
-              },
-              child: const Text('Back to Login'),
-            ),
-          ],
         ),
       );
     } else if (auth.error != null) {

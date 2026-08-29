@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_love_nudge_service.dart';
@@ -146,17 +147,12 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
         }
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isKiss ? 'Custom Kiss photo saved' : 'Custom Hug photo saved',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          backgroundColor: isKiss ? AppColors.softRose : const Color(0xFF8E24AA),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
+      SnackbarHelper.showSuccess(
+        context,
+        isKiss
+            ? 'Custom Kiss photo has been saved!'
+            : 'Custom Hug photo has been saved!',
+        title: 'Photo Saved',
       );
     } catch (e) {
       if (!mounted) return;
@@ -164,11 +160,9 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
         _isUploadingKissPhoto = false;
         _isUploadingHugPhoto = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to upload photo: $e'),
-          backgroundColor: AppColors.error,
-        ),
+      SnackbarHelper.showError(
+        context,
+        'Failed to upload photo: $e',
       );
     }
   }
@@ -365,20 +359,13 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
         }
       });
 
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              '$photoType custom photo deleted',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          ),
-        );
+      SnackbarHelper.showCustom(
+        context: context,
+        title: 'Photo Deleted',
+        message: 'Your $photoType custom photo has been removed.',
+        icon: Icons.delete_outline_rounded,
+        gradientColors: const [Color(0xFFFF5252), Color(0xFFD81B60)],
+      );
     }
   }
 
@@ -424,35 +411,15 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
 
     final actionText = isKiss ? 'Virtual Kiss' : 'Virtual Hug';
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              isKiss
-                  ? const Icon(Icons.favorite_rounded, color: Colors.white, size: 22)
-                  : const Icon(Icons.volunteer_activism_rounded, color: Colors.white, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  '$actionText sent to $partnerName!',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: isKiss ? AppColors.softRose : const Color(0xFF8E24AA),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      );
+    SnackbarHelper.showCustom(
+      context: context,
+      title: '$actionText Sent!',
+      message: 'Successfully sent a $actionText to $partnerName',
+      icon: isKiss ? Icons.favorite_rounded : Icons.volunteer_activism_rounded,
+      gradientColors: isKiss
+          ? const [Color(0xFFFF4081), Color(0xFFD81B60)]
+          : const [Color(0xFFBA68C8), Color(0xFF7B1FA2)],
+    );
   }
 
   Widget _buildPhotoThumbnail(String photoUrl) {
@@ -664,20 +631,11 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
                                           FocusScope.of(context).unfocus();
                                           final textToSave = _messageController.text;
                                           _saveMessageTemplate(textToSave);
-                                          ScaffoldMessenger.of(context)
-                                            ..hideCurrentSnackBar()
-                                            ..showSnackBar(
-                                              SnackBar(
-                                                content: const Text(
-                                                  'Template saved!',
-                                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                                                ),
-                                                backgroundColor: const Color(0xFFFF758C),
-                                                duration: const Duration(seconds: 1),
-                                                behavior: SnackBarBehavior.floating,
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                              ),
-                                            );
+                                          SnackbarHelper.showSuccess(
+                                            context,
+                                            'Message template saved for future love nudges!',
+                                            title: 'Template Saved',
+                                          );
                                         },
                                         borderRadius: BorderRadius.circular(8),
                                         child: Container(

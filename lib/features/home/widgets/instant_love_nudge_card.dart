@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_love_nudge_service.dart';
@@ -72,35 +73,15 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
 
     final actionText = isKiss ? 'Virtual Kiss' : 'Virtual Hug';
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              isKiss
-                  ? const Icon(Icons.favorite_rounded, size: 20, color: Colors.white)
-                  : const Icon(Icons.volunteer_activism_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '$actionText sent to $partnerName!',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: isKiss ? AppColors.softRose : const Color(0xFF8E24AA),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      );
+    SnackbarHelper.showCustom(
+      context: context,
+      title: '$actionText Sent!',
+      message: 'Successfully sent a $actionText to $partnerName',
+      icon: isKiss ? Icons.favorite_rounded : Icons.volunteer_activism_rounded,
+      gradientColors: isKiss
+          ? const [Color(0xFFFF4081), Color(0xFFD81B60)]
+          : const [Color(0xFFBA68C8), Color(0xFF7B1FA2)],
+    );
   }
 
   @override

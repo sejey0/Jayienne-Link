@@ -29,7 +29,14 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   }
 
   Future<void> _sendCode() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      SnackbarHelper.showError(
+        context,
+        'Please enter a valid phone number with country code.',
+        title: 'Invalid Phone',
+      );
+      return;
+    }
 
     final auth = context.read<AuthProvider>();
     await auth.verifyPhone(_phoneController.text.trim());
@@ -40,6 +47,11 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       context.push(RouteNames.otpVerification);
     } else if (auth.error != null) {
       SnackbarHelper.showError(context, auth.error!);
+    } else {
+      SnackbarHelper.showError(
+        context,
+        'Failed to send verification code. Please check the number and try again.',
+      );
     }
   }
 

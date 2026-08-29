@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/photo_message_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/photo_message_provider.dart';
@@ -88,15 +89,11 @@ class _PhotosScreenState extends State<PhotosScreen> {
       _isSaving = true;
     });
 
-    final messenger = ScaffoldMessenger.of(context);
-
     try {
       final hasPermission = await _ensureGalleryPermission();
       if (!mounted) return;
       if (!hasPermission) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Gallery permission is required.')),
-        );
+        SnackbarHelper.showError(context, 'Gallery permission is required.');
         return;
       }
 
@@ -115,18 +112,14 @@ class _PhotosScreenState extends State<PhotosScreen> {
       final success = result is Map &&
           ((result['isSuccess'] == true) || (result['success'] == true));
 
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            success ? 'Saved to gallery.' : 'Save failed. Please try again.',
-          ),
-        ),
-      );
+      if (success) {
+        SnackbarHelper.showSuccess(context, 'Saved to gallery.');
+      } else {
+        SnackbarHelper.showError(context, 'Save failed. Please try again.');
+      }
     } catch (e) {
       if (mounted) {
-        messenger.showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
-        );
+        SnackbarHelper.showError(context, 'Save failed: $e');
       }
     } finally {
       // ignore: control_flow_in_finally
@@ -868,12 +861,9 @@ class _PhotosScreenState extends State<PhotosScreen> {
       caption: updatedCaption,
     );
     if (!updated && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            provider.error ?? 'Unable to update caption.',
-          ),
-        ),
+      SnackbarHelper.showError(
+        context,
+        provider.error ?? 'Unable to update caption.',
       );
     }
   }
@@ -888,7 +878,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
           context: context,
           builder: (dialogContext) {
             return const _DeletePhotoDialog(
-              confirmationPhrase: _editConfirmationPhrase,
+               confirmationPhrase: _editConfirmationPhrase,
             );
           },
         ) ??
@@ -897,12 +887,9 @@ class _PhotosScreenState extends State<PhotosScreen> {
     if (!confirmed) return;
     final deleted = await provider.deleteMessage(message.id!);
     if (!deleted && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            provider.error ?? 'Unable to delete photo.',
-          ),
-        ),
+      SnackbarHelper.showError(
+        context,
+        provider.error ?? 'Unable to delete photo.',
       );
     }
   }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../services/supabase_data_service.dart';
 
 /// Senior Date & Food Decision Spinner Screen with Online Sync & Anti-Duplicate Guarantee
@@ -285,8 +286,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen> {
                   }
                 });
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Added "$text" to options!')),
+                SnackbarHelper.showSuccess(
+                  context,
+                  'Added "$text" to options!',
                 );
               }
             },

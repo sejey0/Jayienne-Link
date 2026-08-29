@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/providers/auth_provider.dart';
+import 'package:jayienne_link/providers/user_provider.dart';
 import 'package:jayienne_link/models/secret_media_model.dart';
 import 'add_secret_media_screen.dart';
 import 'secret_media_detail_screen.dart';
@@ -39,6 +40,22 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
     _lockControllers =
         List.generate(_vaultLocks.length, (_) => TextEditingController());
     _isUnlocked = false; // Always show lock screen so it can be designed and tested
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = context.read<AuthProvider>();
+      final user = context.read<UserProvider>();
+      final coupleId = user.user?.coupleId ?? user.coupleId;
+      final userId = auth.currentUserId ?? user.user?.id;
+      if (coupleId != null &&
+          coupleId.isNotEmpty &&
+          userId != null &&
+          userId.isNotEmpty) {
+        context.read<SecretMediaProvider>().initialize(
+              userId: userId,
+              coupleId: coupleId,
+            );
+      }
+    });
   }
 
   @override
@@ -66,6 +83,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
         _isUnlocked = true;
         _lockError = null;
       });
+      context.read<SecretMediaProvider>().refresh();
       return;
     }
 
@@ -80,6 +98,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
       _isUnlocked = true;
       _lockError = null;
     });
+    context.read<SecretMediaProvider>().refresh();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('🔓 Vault bypassed (Debug Mode)'),

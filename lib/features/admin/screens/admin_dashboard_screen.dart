@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -43,34 +45,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.softRose.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.admin_panel_settings_rounded,
-                color: AppColors.softRose,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'Admin Dashboard',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        title: const Text(
+          'Admin Dashboard',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.softRose, AppColors.lavender],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.pop(context);
+          },
+        ),
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'Refresh Users',
-            onPressed: () => adminProvider.loadUsers(),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              adminProvider.loadUsers();
+            },
           ),
         ],
       ),
@@ -233,32 +240,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _buildAdminToolsSection(context, isDark),
       ],
     );
   }
 
-  // --- ADMIN TOOLS SECTION ---
+  // --- ADMIN TOOLS / HIDDEN VAULT RECOVERY SECTION ---
   Widget _buildAdminToolsSection(
     BuildContext context,
     bool isDark,
   ) {
-    final theme = Theme.of(context);
+    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(20),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.purple.withValues(alpha: 0.3),
+          color: const Color(0xFFFF758C).withValues(alpha: 0.35),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.withValues(alpha: 0.08),
-            blurRadius: 10,
-            spreadRadius: 1,
+            color: const Color(0xFFFF758C).withValues(alpha: 0.08),
+            blurRadius: 14,
             offset: const Offset(0, 4),
           ),
         ],
@@ -269,35 +276,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.purple.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.softRose.withValues(alpha: 0.2),
+                      AppColors.lavender.withValues(alpha: 0.25),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
                   Icons.restore_from_trash_rounded,
-                  color: Colors.purple,
-                  size: 22,
+                  color: Color(0xFFFF758C),
+                  size: 24,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Media Recovery Sync',
-                      style: TextStyle(
-                        fontSize: 14,
+                      'Hidden Vault Recovery Sync',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : AppColors.deepCharcoal,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      'Restore soft-deleted secret photos & videos',
+                      'Restore soft-deleted private photos & videos for you & your partner in Hidden Vault only.',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: isDark ? Colors.white60 : Colors.grey.shade600,
+                        height: 1.3,
                       ),
                     ),
                   ],
@@ -305,25 +319,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => _handleRestoreAllMedia(context),
-                  icon: const Icon(Icons.sync_rounded, size: 18),
-                  label: const Text('Sync & Restore Media'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: () => _handleRestoreAllMedia(context),
+              icon: const Icon(Icons.sync_rounded, size: 20),
+              label: const Text(
+                'Sync & Restore Hidden Vault',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.3,
                 ),
               ),
-            ],
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -331,18 +365,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _handleRestoreAllMedia(BuildContext context) async {
+    HapticFeedback.mediumImpact();
     final user = context.read<UserProvider>().user;
     final coupleId = user?.coupleId;
-
-    if (coupleId == null || coupleId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No active couple found for media restoration.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -352,56 +377,85 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+          backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
           contentPadding: const EdgeInsets.all(24),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Icon Badge
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.softRose.withValues(alpha: 0.15),
+                      AppColors.lavender.withValues(alpha: 0.2),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.restore_from_trash_rounded,
+                  color: Color(0xFFFF758C),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
-                'Restore All Deleted Media?',
+                'Restore Hidden Vault Media?',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : const Color(0xFF2D4059),
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
               Text(
-                'This will restore all soft-deleted secret photos and videos back to the active gallery status.',
+                'This will restore all deleted private photos and videos uploaded by you and your partner back to the Hidden Vault.',
                 style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? Colors.white70 : Colors.black87,
+                  fontSize: 13,
+                  height: 1.4,
+                  color: isDark ? Colors.white70 : Colors.grey.shade700,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              // Center-aligned Cancel Button
-              Center(
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.pinkAccent,
-                  ),
-                  child: const Text('Cancel'),
-                ),
-              ),
-              const SizedBox(height: 8),
               // Restore Button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                height: 48,
+                child: ElevatedButton.icon(
                   onPressed: () => Navigator.pop(ctx, true),
+                  icon: const Icon(Icons.sync_rounded, size: 20),
+                  label: const Text(
+                    'Sync & Restore Vault',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF9C27B0), // Purple color
+                    backgroundColor: const Color(0xFFFF758C),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text('Restore', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Center Cancel Button
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -411,31 +465,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
 
     if (confirmed != true) return;
+    if (!context.mounted) return;
+
+    final secretMediaProvider = context.read<SecretMediaProvider>();
 
     try {
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (_) => const Center(
-          child: CircularProgressIndicator(color: Colors.purple),
+          child: CircularProgressIndicator(color: Color(0xFFFF758C)),
         ),
       );
 
-      final restoredCount = await context
-          .read<SecretMediaProvider>()
-          .restoreAllDeletedMedia();
+      final restoredCount = await secretMediaProvider
+          .restoreHiddenVaultMedia(targetCoupleId: coupleId);
 
       if (context.mounted) {
         Navigator.pop(context); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              restoredCount > 0
-                  ? 'Successfully restored $restoredCount secret media items!'
-                  : 'No deleted secret media items found to restore.',
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    restoredCount > 0
+                        ? 'Successfully restored $restoredCount hidden vault items (including partner media)!'
+                        : 'All hidden vault photos & videos are active and synced!',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
             ),
             backgroundColor:
-                restoredCount > 0 ? Colors.green : Colors.grey.shade800,
+                restoredCount > 0 ? const Color(0xFF4CAF50) : const Color(0xFF1E142B),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         );
       }
@@ -444,8 +511,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         Navigator.pop(context); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to restore media: $e'),
-            backgroundColor: Colors.red,
+            content: Text('Failed to restore hidden vault media: $e'),
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -460,21 +527,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required Color color,
     required bool isDark,
   }) {
-    final theme = Theme.of(context);
+    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: cardBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: color.withValues(alpha: 0.3),
+          color: color.withValues(alpha: 0.25),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.08),
+            color: color.withValues(alpha: 0.06),
             blurRadius: 10,
-            spreadRadius: 1,
             offset: const Offset(0, 4),
           ),
         ],
@@ -496,7 +562,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 Text(
                   value,
-                  style: TextStyle(
+                  style: GoogleFonts.poppins(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : AppColors.deepCharcoal,
@@ -523,7 +589,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     AdminProvider provider,
     bool isDark,
   ) {
-    final theme = Theme.of(context);
+    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
     return TextField(
       controller: _searchController,
       onChanged: (val) => provider.setSearchQuery(val),
@@ -547,25 +613,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               )
             : null,
         filled: true,
-        fillColor: theme.cardColor,
+        fillColor: cardBg,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(
-            color: AppColors.softRose.withValues(alpha: 0.3),
+            color: isDark ? Colors.white12 : Colors.grey.shade300,
           ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.1)
-                : Colors.grey.shade300,
+            color: isDark ? Colors.white12 : Colors.grey.shade200,
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(color: AppColors.softRose, width: 2),
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0xFFFF758C), width: 1.8),
         ),
       ),
     );
@@ -600,12 +664,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     bool isDark,
   ) {
     final isSelected = provider.selectedFilter == filter;
+    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
+
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
-      onSelected: (_) => provider.setFilter(filter),
+      onSelected: (_) {
+        HapticFeedback.selectionClick();
+        provider.setFilter(filter);
+      },
       selectedColor: AppColors.softRose.withValues(alpha: 0.2),
-      backgroundColor: Theme.of(context).cardColor,
+      backgroundColor: cardBg,
       labelStyle: TextStyle(
         color: isSelected
             ? AppColors.softRose
@@ -631,11 +700,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     AdminProvider provider,
     bool isDark,
   ) {
-    final theme = Theme.of(context);
+    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: cardBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: user.isDeactivated
@@ -644,7 +713,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ? AppColors.softRose.withValues(alpha: 0.4)
                   : (isDark
                       ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.grey.shade300)),
+                      : Colors.grey.shade200)),
           width: 1.5,
         ),
         boxShadow: [
@@ -905,7 +974,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           scale: 0.8,
                           child: Switch(
                             value: user.isActive,
-                            activeColor: const Color(0xFF4CAF50),
+                            activeThumbColor: const Color(0xFF4CAF50),
+                            activeTrackColor: const Color(0xFF4CAF50).withValues(alpha: 0.35),
                             inactiveTrackColor: AppColors.error.withValues(alpha: 0.2),
                             inactiveThumbColor: AppColors.error,
                             onChanged: (_) =>
@@ -1074,12 +1144,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // --- USER DETAILS MODAL ---
   void _showUserDetailsModal(BuildContext context, UserModel user, bool isDark) {
     final dateFormat = DateFormat('MMM dd, yyyy - hh:mm a');
-    final theme = Theme.of(context);
+    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: theme.cardColor,
+      backgroundColor: cardBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1183,6 +1253,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text(

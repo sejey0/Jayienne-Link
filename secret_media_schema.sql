@@ -165,3 +165,37 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION restore_secret_media(UUID) TO authenticated;
+
+-- Function to safely restore all hidden vault media for a couple (bypasses RLS to restore partner uploads)
+CREATE OR REPLACE FUNCTION restore_all_hidden_vault_media(target_couple_id UUID DEFAULT NULL)
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  restored_count INT;
+BEGIN
+  IF target_couple_id IS NOT NULL THEN
+    UPDATE secret_media
+    SET deleted_at = NULL,
+        is_hidden = TRUE,
+        updated_at = NOW()
+    WHERE couple_id = target_couple_id
+      AND is_hidden = TRUE
+      AND deleted_at IS NOT NULL;
+  ELSE
+    UPDATE secret_media
+    SET deleted_at = NULL,
+        is_hidden = TRUE,
+        updated_at = NOW()
+    WHERE is_hidden = TRUE
+      AND deleted_at IS NOT NULL;
+  END IF;
+
+  GET DIAGNOSTICS restored_count = ROW_COUNT;
+  RETURN restored_count;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION restore_all_hidden_vault_media(UUID) TO authenticated;
+

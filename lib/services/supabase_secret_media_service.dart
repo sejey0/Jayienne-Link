@@ -198,34 +198,121 @@ class SupabaseSecretMediaService {
     }
   }
 
-  // Restore all soft-deleted secret media for a couple (Admin recovery sync - preserves is_hidden)
-  Future<int> restoreAllDeletedMedia({required String coupleId}) async {
+  // Restore all soft-deleted hidden vault media for a couple (Admin recovery sync - for Hidden Vault only)
+  Future<int> restoreHiddenVaultMedia({String? coupleId}) async {
     try {
-      debugPrint('🔄 RESTORING ALL DELETED MEDIA FOR COUPLE_ID: $coupleId');
-      // Fetches all media items for the couple where deleted_at IS NOT NULL
-      final deletedRecords = await _supabase
-          .from(_tableName)
-          .select('id')
-          .eq('couple_id', coupleId)
-          .not('deleted_at', 'is', null);
+      debugPrint('🔄 RESTORING HIDDEN VAULT MEDIA (PARTNER & USER) FOR COUPLE_ID: $coupleId');
 
-      final count = (deletedRecords as List).length;
-      debugPrint('📦 FOUND $count DELETED MEDIA ITEMS TO RESTORE');
-
-      if (count > 0) {
-        // Restores deleted records back to active state ONLY resetting deleted_at to NULL
-        await _supabase
-            .from(_tableName)
-            .update({
-              'deleted_at': null,
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .eq('couple_id', coupleId)
-            .not('deleted_at', 'is', null);
-        debugPrint('✅ RESTORED $count DELETED MEDIA ITEMS (is_hidden preserved)');
+      // 1. Try RPC restore_all_hidden_vault_media if defined in Supabase
+      try {
+        final rpcParams = <String, dynamic>{};
+        if (coupleId != null && coupleId.isNotEmpty && coupleId != 'all') {
+          rpcParams['target_couple_id'] = coupleId;
+        }
+        final rpcResult = await _supabase.rpc('restore_all_hidden_vault_media', params: rpcParams);
+        if (rpcResult != null) {
+          int count = 0;
+          if (rpcResult is int) {
+            count = rpcResult;
+          } else if (rpcResult is List) {
+            count = rpcResult.length;
+          }
+          if (count > 0) {
+            debugPrint('✅ RESTORED $count HIDDEN VAULT ITEMS VIA RPC');
+            return count;
+          }
+        }
+      } catch (rpcErr) {
+        debugPrint('restore_all_hidden_vault_media RPC not available, continuing with item loop: $rpcErr');
       }
 
-      return count;
+      // 2. Fetch all deleted records for the couple (SELECT policy allows both user & partner items)
+      dynamic selectBuilder = _supabase
+          .from(_tableName)
+          .select('id, is_hidden, uploaded_by_id')
+          .not('deleted_at', 'is', null);
+
+      if (coupleId != null && coupleId.isNotEmpty && coupleId != 'all') {
+        selectBuilder = selectBuilder.eq('couple_id', coupleId);
+      }
+
+      final deletedRecords = await selectBuilder;
+      final items = (deletedRecords as List);
+      debugPrint('📦 FOUND ${items.length} TOTAL DELETED RECORDS FOR COUPLE');
+
+      // Target hidden items or all items to be restored to hidden vault
+      final targetItems = items.where((item) {
+        final isHidden = item['is_hidden'] == true;
+        return isHidden;
+      }).toList();
+
+      final itemsToRestore = targetItems.isNotEmpty ? targetItems : items;
+      debugPrint('🔒 RESTORING ${itemsToRestore.length} HIDDEN VAULT ITEMS (INCLUDING PARTNER)');
+
+      int restoredCount = 0;
+      for (final item in itemsToRestore) {
+        final id = item['id']?.toString();
+        if (id == null) continue;
+        try {
+          // Use restoreSecretMedia which calls SECURITY DEFINER RPC to bypass partner RLS restriction
+          await restoreSecretMedia(id);
+          restoredCount++;
+        } catch (err) {
+          debugPrint('Error restoring item $id: $err');
+          // Fallback direct update
+          try {
+            await _supabase.from(_tableName).update({
+              'deleted_at': null,
+              'is_hidden': true,
+              'updated_at': DateTime.now().toIso8601String(),
+            }).eq('id', id);
+            restoredCount++;
+          } catch (_) {}
+        }
+      }
+
+      debugPrint('✅ RESTORED $restoredCount HIDDEN VAULT ITEMS FOR USER & PARTNER');
+      return restoredCount;
+    } catch (e) {
+      if (_isMissingSecretMediaTable(e)) {
+        debugPrint('Error restoring hidden vault media: $_missingTableHelp');
+        throw _tableSetupException();
+      }
+      debugPrint('Error restoring hidden vault media: $e');
+      rethrow;
+    }
+  }
+
+  // Restore all soft-deleted secret media for a couple (Admin recovery sync - preserves is_hidden)
+  Future<int> restoreAllDeletedMedia({String? coupleId}) async {
+    try {
+      debugPrint('🔄 RESTORING ALL DELETED MEDIA FOR COUPLE_ID: $coupleId');
+      
+      dynamic selectBuilder = _supabase
+          .from(_tableName)
+          .select('id')
+          .not('deleted_at', 'is', null);
+
+      if (coupleId != null && coupleId.isNotEmpty && coupleId != 'all') {
+        selectBuilder = selectBuilder.eq('couple_id', coupleId);
+      }
+
+      final deletedRecords = await selectBuilder;
+      final items = (deletedRecords as List);
+      final count = items.length;
+      debugPrint('📦 FOUND $count DELETED MEDIA ITEMS TO RESTORE');
+
+      int restoredCount = 0;
+      for (final item in items) {
+        final id = item['id']?.toString();
+        if (id == null) continue;
+        try {
+          await restoreSecretMedia(id);
+          restoredCount++;
+        } catch (_) {}
+      }
+
+      return restoredCount;
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
         debugPrint('Error restoring all secret media: $_missingTableHelp');

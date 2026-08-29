@@ -218,13 +218,9 @@ class SecretMediaProvider extends ChangeNotifier {
     }
   }
 
-  /// Restore all deleted media (Admin recovery)
-  Future<int> restoreAllDeletedMedia() async {
-    if (_coupleId == null) {
-      _error = 'Couple ID not initialized';
-      notifyListeners();
-      return 0;
-    }
+  /// Restore deleted media for Hidden Vault only (Admin recovery - restores all user & partner media in hidden vault)
+  Future<int> restoreHiddenVaultMedia({String? targetCoupleId}) async {
+    final coupleIdToUse = targetCoupleId ?? _coupleId;
 
     _isLoading = true;
     _error = null;
@@ -232,8 +228,33 @@ class SecretMediaProvider extends ChangeNotifier {
 
     try {
       final restoredCount =
-          await _service.restoreAllDeletedMedia(coupleId: _coupleId!);
-      if (restoredCount > 0) {
+          await _service.restoreHiddenVaultMedia(coupleId: coupleIdToUse);
+      if (_coupleId != null) {
+        await _loadInitial();
+      }
+      return restoredCount;
+    } catch (e) {
+      _error = 'Failed to restore hidden vault media: $e';
+      debugPrint(_error);
+      return 0;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Restore all deleted media (Admin recovery - restores all user & partner media including hidden vault)
+  Future<int> restoreAllDeletedMedia({String? targetCoupleId}) async {
+    final coupleIdToUse = targetCoupleId ?? _coupleId;
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final restoredCount =
+          await _service.restoreAllDeletedMedia(coupleId: coupleIdToUse);
+      if (restoredCount > 0 && _coupleId != null) {
         await _loadInitial();
       }
       return restoredCount;

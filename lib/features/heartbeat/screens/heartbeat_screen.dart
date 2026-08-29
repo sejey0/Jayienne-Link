@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -208,14 +209,40 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Heartbeat & Messages'),
+        title: const Text(
+          'Touch Canvas',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.softRose, AppColors.lavender],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.pop(context);
+          },
+        ),
         actions: [
           IconButton(
             tooltip: 'Chat bubble style',
-            icon: const Icon(Icons.palette_outlined),
+            icon: const Icon(Icons.palette_outlined, color: Colors.white),
             onPressed: user == null
                 ? null
-                : () => _showBubbleThemeSheet(context, userProvider),
+                : () {
+                    HapticFeedback.lightImpact();
+                    _showBubbleThemeSheet(context, userProvider);
+                  },
           ),
           IconButton(
             tooltip: 'Refresh',
@@ -228,12 +255,16 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.refresh),
+                : const Icon(Icons.refresh, color: Colors.white),
             onPressed: heartbeatProvider.isRefreshing
                 ? null
-                : () => _handleRefresh(heartbeatProvider),
+                : () {
+                    HapticFeedback.lightImpact();
+                    _handleRefresh(heartbeatProvider);
+                  },
           ),
         ],
+        elevation: 0,
       ),
       body: user == null || couple == null
           ? Padding(

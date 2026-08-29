@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -191,12 +192,29 @@ class _PhotosScreenState extends State<PhotosScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const SizedBox(
-          width: 150,
-          child: Text(
-            'Photo Messages',
-            overflow: TextOverflow.ellipsis,
+        title: const Text(
+          'Shared Photo Feed',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
+        ),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.softRose, AppColors.lavender],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.pop(context);
+          },
         ),
         actions: [
           IconButton(
@@ -210,12 +228,16 @@ class _PhotosScreenState extends State<PhotosScreen> {
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.refresh),
+                : const Icon(Icons.refresh, color: Colors.white),
             onPressed: photoProvider.isRefreshing
                 ? null
-                : () => _handleRefresh(photoProvider),
+                : () {
+                    HapticFeedback.lightImpact();
+                    _handleRefresh(photoProvider);
+                  },
           ),
         ],
+        elevation: 0,
       ),
       body: user == null || couple == null
           ? Padding(

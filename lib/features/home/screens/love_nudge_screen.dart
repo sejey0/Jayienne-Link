@@ -535,55 +535,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 8),
-
-                // Hero Banner Card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(22.0),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.softRose.withValues(alpha: 0.92),
-                        AppColors.lavender.withValues(alpha: 0.95),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(26),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.softRose.withValues(alpha: 0.35),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Send a Touch to $partnerName',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 21,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Upload your photo to send a personalized virtual kiss or warm hug that pops up in real time on both screens!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12.5,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 4),
 
                 // CARD 1: VIRTUAL KISS
                 _buildNudgeCard(

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -36,19 +37,49 @@ class _RelationshipTimelineScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Relationship Timeline'),
+        title: const Text(
+          'Relationship Timeline',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.softRose, AppColors.lavender],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.pop(context);
+          },
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => provider.refreshAll(),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              provider.refreshAll();
+            },
             tooltip: 'Refresh timeline',
           ),
           IconButton(
-            icon: const Icon(Icons.calendar_month_rounded),
-            onPressed: () => _showEditAnniversaryDialog(context, provider),
+            icon: const Icon(Icons.calendar_month_rounded, color: Colors.white),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              _showEditAnniversaryDialog(context, provider);
+            },
             tooltip: 'Edit anniversary date',
           ),
         ],
+        elevation: 0,
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddMemoryBottomSheet(context, provider),

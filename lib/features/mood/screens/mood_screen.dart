@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
@@ -238,7 +239,30 @@ class _MoodScreenState extends State<MoodScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mood'),
+        title: const Text(
+          'Mood Board',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.softRose, AppColors.lavender],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.pop(context);
+          },
+        ),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -251,12 +275,16 @@ class _MoodScreenState extends State<MoodScreen> {
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.refresh),
+                : const Icon(Icons.refresh, color: Colors.white),
             onPressed: moodProvider.isRefreshing
                 ? null
-                : () => _handleRefresh(moodProvider),
+                : () {
+                    HapticFeedback.lightImpact();
+                    _handleRefresh(moodProvider);
+                  },
           ),
         ],
+        elevation: 0,
       ),
       body: user == null || couple == null
           ? Padding(

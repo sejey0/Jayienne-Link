@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/constants/app_colors.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/providers/auth_provider.dart';
 import 'package:jayienne_link/models/secret_media_model.dart';
@@ -138,21 +140,37 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Hidden Vault 🔐',
-          style: GoogleFonts.poppins(
-            fontSize: 20,
+        title: const Text(
+          'Hidden Vault',
+          style: TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
-        backgroundColor: Colors.red.shade700,
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.softRose, AppColors.lavender],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.pop(context);
+          },
+        ),
         elevation: 0,
         actions: _isUnlocked
             ? [
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.white),
                   onPressed: () async {
+                    HapticFeedback.lightImpact();
                     final provider = context.read<SecretMediaProvider>();
                     await provider.refresh();
                     if (!context.mounted) return;
@@ -164,6 +182,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
                 IconButton(
                   icon: const Icon(Icons.add, color: Colors.white),
                   onPressed: () {
+                    HapticFeedback.lightImpact();
                     Navigator.push(
                       context,
                       MaterialPageRoute(

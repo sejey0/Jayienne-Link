@@ -1,5 +1,6 @@
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
@@ -207,7 +208,30 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
       appBar: isFullscreen
           ? null
           : AppBar(
-              title: Text(isHistoryMode ? 'Route History' : 'Live Location Map'),
+              title: Text(
+                isHistoryMode ? 'Route History' : 'Live Location',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              centerTitle: true,
+              flexibleSpace: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.softRose, AppColors.lavender],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.pop(context);
+                },
+              ),
               actions: [
                 if (!isHistoryMode) const OfflineStatusIndicator(),
                 const SizedBox(width: AppDimensions.spacingSm),
@@ -215,19 +239,24 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                 IconButton(
                   icon: Icon(
                     isHistoryMode ? Icons.map_rounded : Icons.route_rounded,
-                    color: isHistoryMode ? AppColors.softRose : null,
+                    color: Colors.white,
                   ),
                   onPressed: () {
+                    HapticFeedback.lightImpact();
                     locationProvider.toggleHistoryMode(!isHistoryMode);
                   },
                   tooltip: isHistoryMode ? 'Back to Live Map' : 'Route History Playback',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.history),
-                  onPressed: () => context.push(RouteNames.locationHistory),
+                  icon: const Icon(Icons.history, color: Colors.white),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    context.push(RouteNames.locationHistory);
+                  },
                   tooltip: 'Location history list',
                 ),
               ],
+              elevation: 0,
             ),
       body: Stack(
         children: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -60,16 +61,43 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Location History'),
+        title: const Text(
+          'Location History',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.softRose, AppColors.lavender],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.pop(context);
+          },
+        ),
         actions: [
           const OfflineStatusIndicator(),
           const SizedBox(width: AppDimensions.spacingSm),
           IconButton(
-            icon: const Icon(Icons.calendar_today),
-            onPressed: () => _selectDate(context),
+            icon: const Icon(Icons.calendar_today, color: Colors.white),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              _selectDate(context);
+            },
             tooltip: 'Select date',
           ),
           PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
             onSelected: (value) {
               if (value == 'delete') {
                 _confirmDeleteHistory(context, provider);
@@ -91,11 +119,15 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
           tabs: const [
             Tab(text: 'My Locations'),
             Tab(text: 'Your Person'),
           ],
         ),
+        elevation: 0,
       ),
       body: Column(
         children: [

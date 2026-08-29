@@ -306,11 +306,17 @@ class _RelationshipTimelineScreenState
               ],
             ),
           ),
-          // Horizontal connector line: node → card (no gap)
-          Container(
-            width: 16,
-            height: 2.5,
-            color: AppColors.softRose.withValues(alpha: 0.4),
+          // Horizontal connector line: node → card (matches vertical timeline line)
+          Align(
+            alignment: Alignment.center,
+            child: Container(
+              width: 16,
+              height: 2.5,
+              decoration: BoxDecoration(
+                color: AppColors.softRose.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
           ),
 
           // Right Card Container

@@ -843,24 +843,50 @@ class _MoodScreenState extends State<MoodScreen> {
                       ),
                     ),
                     const SizedBox(height: AppDimensions.spacingMd),
-                    Wrap(
-                      spacing: AppDimensions.spacingSm,
-                      runSpacing: AppDimensions.spacingSm,
-                      children: _moodOptions.map((option) {
-                        final selected = selectedMood == option.key;
-                        return ChoiceChip(
-                          label: Text(option.label),
-                          selected: selected,
-                          selectedColor: const Color(0xFFFF758C).withValues(alpha: 0.25),
-                          onSelected: (_) {
-                            setDialogState(() {
-                              selectedMood = option.key;
-                            });
-                          },
-                        );
-                      }).toList(),
+                    Text(
+                      'Select Mood',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: isDark ? Colors.white70 : AppColors.deepCharcoal,
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ..._moodOptions.map((option) {
+                          final selected = selectedMood == option.key;
+                          return _MoodButton(
+                            option: option,
+                            enabled: true,
+                            isSelected: selected,
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              setDialogState(() {
+                                selectedMood = option.key;
+                              });
+                            },
+                          );
+                        }),
+                        ..._customMoods.map((option) {
+                          final selected = selectedMood == option.key;
+                          return _MoodButton(
+                            option: option,
+                            enabled: true,
+                            isSelected: selected,
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              setDialogState(() {
+                                selectedMood = option.key;
+                              });
+                            },
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
                     Row(
                       children: [
                         Expanded(

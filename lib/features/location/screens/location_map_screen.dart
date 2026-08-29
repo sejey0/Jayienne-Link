@@ -47,6 +47,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   bool _isSatelliteView = true;
   bool _isFullscreen = false;
   bool _isCardHidden = false;
+  bool _isBothSelected = false;
 
   /// Generates a smooth, graceful geodesic curved arc between two points
   List<LatLng> _generateGeodesicArc(LatLng start, LatLng end, {int segments = 24}) {
@@ -135,6 +136,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   }
 
   void _fitBoth(LocationProvider provider) {
+    setState(() {
+      _isMeSelected = false;
+      _isPartnerSelected = false;
+      _isBothSelected = true;
+    });
     final bounds = provider.coupleBounds;
     if (bounds != null) {
       _mapController.fitCamera(
@@ -149,6 +155,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   }
 
   void _centerMe(LocationProvider provider) {
+    setState(() {
+      _isMeSelected = true;
+      _isPartnerSelected = false;
+      _isBothSelected = false;
+    });
     final pos = provider.myLatLng;
     if (pos != null) {
       _mapController.move(pos, 15.5);
@@ -156,6 +167,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   }
 
   void _centerPartner(LocationProvider provider) {
+    setState(() {
+      _isMeSelected = false;
+      _isPartnerSelected = true;
+      _isBothSelected = false;
+    });
     final pos = provider.partnerLatLng;
     if (pos != null) {
       _mapController.move(pos, 15.5);
@@ -311,6 +327,15 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all,
               ),
+              onPositionChanged: (camera, hasGesture) {
+                if (hasGesture && (_isMeSelected || _isPartnerSelected || _isBothSelected)) {
+                  setState(() {
+                    _isMeSelected = false;
+                    _isPartnerSelected = false;
+                    _isBothSelected = false;
+                  });
+                }
+              },
             ),
             children: [
               // Base Map Layer (OpenStreetMap / Satellite Imagery)
@@ -649,13 +674,16 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Satellite View Toggle Button
+                // Satellite / Standard Map View Toggle Button
                 _buildFloatingControlButton(
-                  icon: isSatelliteView ? Icons.map_rounded : Icons.satellite_alt_rounded,
-                  tooltip: isSatelliteView ? 'Switch to Standard Map' : 'Switch to Satellite View',
+                  icon: isSatelliteView ? Icons.satellite_alt_rounded : Icons.map_rounded,
+                  tooltip: isSatelliteView ? 'Satellite Map (Tap for Standard)' : 'Standard Map (Tap for Satellite)',
                   color: isSatelliteView ? AppColors.softRose : Colors.white,
-                  iconColor: isSatelliteView ? Colors.white : AppColors.deepCharcoal,
+                  iconColor: isSatelliteView ? Colors.white : const Color(0xFF1E142B),
+                  isSelected: true,
+                  selectedBorderColor: isSatelliteView ? AppColors.softRose : const Color(0xFF7C4DFF),
                   onPressed: () {
+                    HapticFeedback.lightImpact();
                     setState(() {
                       _isSatelliteView = !isSatelliteView;
                     });
@@ -668,8 +696,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   icon: isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
                   tooltip: isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Map',
                   color: isFullscreen ? AppColors.softRose : Colors.white,
-                  iconColor: isFullscreen ? Colors.white : AppColors.deepCharcoal,
+                  iconColor: isFullscreen ? Colors.white : const Color(0xFF1E142B),
+                  isSelected: isFullscreen,
+                  selectedBorderColor: AppColors.softRose,
                   onPressed: () {
+                    HapticFeedback.lightImpact();
                     setState(() {
                       _isFullscreen = !isFullscreen;
                     });
@@ -677,13 +708,18 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                 ),
                 const SizedBox(height: 10),
 
-                // Fit Both Button (Pink Button with people icon)
+                // Fit Both Button (People Icon)
                 _buildFloatingControlButton(
                   icon: Icons.people_alt_rounded,
                   tooltip: 'Fit Both in View',
-                  color: AppColors.softRose,
-                  iconColor: Colors.white,
-                  onPressed: () => _fitBoth(locationProvider),
+                  color: _isBothSelected ? AppColors.softRose : Colors.white,
+                  iconColor: _isBothSelected ? Colors.white : AppColors.softRose,
+                  isSelected: _isBothSelected,
+                  selectedBorderColor: AppColors.softRose,
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _fitBoth(locationProvider);
+                  },
                 ),
                 const SizedBox(height: 10),
 
@@ -694,7 +730,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                     tooltip: 'Center ${partnerUser?.displayName ?? "Partner"}',
                     borderColor: AppColors.lavender,
                     fallbackIcon: Icons.favorite_rounded,
-                    onPressed: () => _centerPartner(locationProvider),
+                    isSelected: _isPartnerSelected,
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      _centerPartner(locationProvider);
+                    },
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -705,7 +745,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   tooltip: 'Center Me',
                   borderColor: AppColors.softRose,
                   fallbackIcon: Icons.my_location_rounded,
-                  onPressed: () => _centerMe(locationProvider),
+                  isSelected: _isMeSelected,
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _centerMe(locationProvider);
+                  },
                 ),
                 const SizedBox(height: 10),
 
@@ -715,8 +759,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   isLoading: isRefreshing,
                   tooltip: 'Refresh Location',
                   color: Colors.white,
-                  iconColor: AppColors.deepCharcoal,
-                  onPressed: _refreshLocations,
+                  iconColor: const Color(0xFF1E142B),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _refreshLocations();
+                  },
                 ),
               ],
             ),
@@ -922,45 +969,84 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     required Color borderColor,
     required IconData fallbackIcon,
     required VoidCallback onPressed,
+    bool isSelected = false,
   }) {
     return Tooltip(
       message: tooltip,
-      child: Container(
-        width: 46,
-        height: 46,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: borderColor, width: 2.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? borderColor : Colors.white,
+                width: isSelected ? 3.0 : 2.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isSelected
+                      ? borderColor.withValues(alpha: 0.6)
+                      : Colors.black.withValues(alpha: 0.22),
+                  blurRadius: isSelected ? 10 : 6,
+                  spreadRadius: isSelected ? 2 : 0,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Material(
-          color: Colors.white,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onPressed,
-            child: photoUrl != null && photoUrl.isNotEmpty
-                ? Image.network(
-                    photoUrl,
-                    width: 46,
-                    height: 46,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Center(
-                      child: Icon(fallbackIcon, color: borderColor, size: 20),
-                    ),
-                  )
-                : Center(
-                    child: Icon(fallbackIcon, color: borderColor, size: 20),
-                  ),
+            child: Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onPressed,
+                child: photoUrl != null && photoUrl.isNotEmpty
+                    ? Image.network(
+                        photoUrl,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Center(
+                          child: Icon(fallbackIcon, color: borderColor, size: 22),
+                        ),
+                      )
+                    : Center(
+                        child: Icon(fallbackIcon, color: borderColor, size: 22),
+                      ),
+              ),
+            ),
           ),
-        ),
+          // Selected Active Indicator Dot
+          if (isSelected)
+            Positioned(
+              right: -1,
+              bottom: -1,
+              child: Container(
+                width: 15,
+                height: 15,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: borderColor,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: borderColor.withValues(alpha: 0.7),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 9,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -972,37 +1058,89 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     required Color iconColor,
     required VoidCallback onPressed,
     bool isLoading = false,
+    bool isSelected = false,
+    Color? selectedBorderColor,
   }) {
+    final activeBorder = selectedBorderColor ?? AppColors.softRose;
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: color,
-        shape: const CircleBorder(),
-        elevation: 4,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: isLoading ? null : onPressed,
-          child: SizedBox(
-            width: 46,
-            height: 46,
-            child: Center(
-              child: isLoading
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        color: iconColor,
-                      ),
-                    )
-                  : Icon(
-                      icon,
-                      color: iconColor,
-                      size: 22,
-                    ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: isSelected
+                  ? Border.all(color: activeBorder, width: 2.5)
+                  : Border.all(color: Colors.white, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: isSelected
+                      ? activeBorder.withValues(alpha: 0.55)
+                      : Colors.black.withValues(alpha: 0.18),
+                  blurRadius: isSelected ? 10 : 6,
+                  spreadRadius: isSelected ? 2 : 0,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Material(
+              color: color,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: isLoading ? null : onPressed,
+                child: SizedBox(
+                  width: 46,
+                  height: 46,
+                  child: Center(
+                    child: isLoading
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: iconColor,
+                            ),
+                          )
+                        : Icon(
+                            icon,
+                            color: iconColor,
+                            size: 22,
+                          ),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
+          // Selected Active Indicator Dot
+          if (isSelected)
+            Positioned(
+              right: -1,
+              bottom: -1,
+              child: Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: activeBorder,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: activeBorder.withValues(alpha: 0.7),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 8,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

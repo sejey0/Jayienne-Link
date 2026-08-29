@@ -269,6 +269,7 @@ class MoodProvider extends ChangeNotifier {
         coupleId: _coupleId!,
       );
       _moods.removeWhere((m) => m.id == moodMessageId);
+      _readsByMood.remove(moodMessageId);
       notifyListeners();
       return true;
     } catch (e) {
@@ -287,6 +288,9 @@ class MoodProvider extends ChangeNotifier {
         coupleId: _coupleId!,
       );
       _moods.removeWhere((m) => m.id != null && moodMessageIds.contains(m.id));
+      for (final id in moodMessageIds) {
+        _readsByMood.remove(id);
+      }
       notifyListeners();
       return true;
     } catch (e) {

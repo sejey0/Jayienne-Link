@@ -153,11 +153,21 @@ class SupabaseMoodService {
     required String coupleId,
   }) async {
     await SupabaseDataService.safeExecute(() async {
+      // 1. Delete associated read receipts first to prevent foreign key constraints
+      try {
+        await SupabaseDataService.client
+            .from(_readTableName)
+            .delete()
+            .eq('mood_message_id', moodMessageId);
+      } catch (e) {
+        // Log note if reads deletion is optional/cascaded
+      }
+
+      // 2. Delete the mood message permanently from Supabase
       await SupabaseDataService.client
           .from(_tableName)
           .delete()
-          .eq('id', moodMessageId)
-          .eq('couple_id', coupleId);
+          .eq('id', moodMessageId);
     }, context: 'Delete mood message $moodMessageId');
   }
 
@@ -167,11 +177,21 @@ class SupabaseMoodService {
   }) async {
     if (moodMessageIds.isEmpty) return;
     await SupabaseDataService.safeExecute(() async {
+      // 1. Delete associated read receipts first
+      try {
+        await SupabaseDataService.client
+            .from(_readTableName)
+            .delete()
+            .inFilter('mood_message_id', moodMessageIds);
+      } catch (e) {
+        // Log note if reads deletion is optional/cascaded
+      }
+
+      // 2. Delete mood messages permanently using inFilter
       await SupabaseDataService.client
           .from(_tableName)
           .delete()
-          .eq('couple_id', coupleId)
-          .filter('id', 'in', '(${moodMessageIds.map((id) => '"$id"').join(',')})');
+          .inFilter('id', moodMessageIds);
     }, context: 'Delete bulk mood messages');
   }
 }

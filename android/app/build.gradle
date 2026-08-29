@@ -57,6 +57,22 @@ android {
             }
         }
     }
+
+    // Auto-create named 'Jayienne Link.apk' on assembleRelease
+    tasks.configureEach { task ->
+        if (task.name == "assembleRelease") {
+            task.doLast {
+                def outDir = new File(project.buildDir, "outputs/flutter-apk")
+                if (outDir.exists()) {
+                    def src = new File(outDir, "app-release.apk")
+                    def dest = new File(outDir, "Jayienne Link.apk")
+                    if (src.exists()) {
+                        dest.bytes = src.bytes
+                    }
+                }
+            }
+        }
+    }
 }
 
 flutter {

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,6 +46,38 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   bool _isRefreshing = false;
   bool _isSatelliteView = true;
   bool _isFullscreen = false;
+
+  /// Generates a smooth, graceful geodesic curved arc between two points
+  List<LatLng> _generateGeodesicArc(LatLng start, LatLng end, {int segments = 24}) {
+    final latDiff = end.latitude - start.latitude;
+    final lngDiff = end.longitude - start.longitude;
+    final distance = math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+
+    // Subtle curvature amplitude proportional to distance
+    final archFactor = (distance * 0.08).clamp(0.0001, 0.018);
+
+    // Normal vector perpendicular to the line connecting start and end
+    final normalLat = -lngDiff;
+    final normalLng = latDiff;
+    final normalLen = math.sqrt(normalLat * normalLat + normalLng * normalLng);
+
+    final unitNormalLat = normalLen > 0 ? (normalLat / normalLen) * archFactor : 0.0;
+    final unitNormalLng = normalLen > 0 ? (normalLng / normalLen) * archFactor : 0.0;
+
+    final points = <LatLng>[];
+    for (int i = 0; i <= segments; i++) {
+      final t = i / segments;
+      final baseLat = start.latitude + latDiff * t;
+      final baseLng = start.longitude + lngDiff * t;
+      // Parabolic offset peaks smoothly at the midpoint (t = 0.5)
+      final offset = 4.0 * t * (1.0 - t);
+      points.add(LatLng(
+        baseLat + unitNormalLat * offset,
+        baseLng + unitNormalLng * offset,
+      ));
+    }
+    return points;
+  }
 
   @override
   void initState() {
@@ -232,7 +265,13 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                 },
               ),
               actions: [
-                if (!isHistoryMode) const OfflineStatusIndicator(),
+                if (!isHistoryMode)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: OfflineStatusIndicator(),
+                    ),
+                  ),
                 const SizedBox(width: AppDimensions.spacingSm),
                 // Toggle History Mode Button
                 IconButton(
@@ -288,6 +327,41 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   maxZoom: 19,
                 ),
 
+              // Aura Radar Ripple Circles (Live Mode)
+              if (!isHistoryMode && (myPos != null || partnerPos != null))
+                CircleLayer(
+                  circles: [
+                    if (myPos != null) ...[
+                      CircleMarker(
+                        point: myPos,
+                        radius: 36,
+                        color: AppColors.softRose.withValues(alpha: 0.16),
+                        borderColor: AppColors.softRose.withValues(alpha: 0.38),
+                        borderStrokeWidth: 1.5,
+                      ),
+                      CircleMarker(
+                        point: myPos,
+                        radius: 14,
+                        color: AppColors.softRose.withValues(alpha: 0.35),
+                      ),
+                    ],
+                    if (partnerPos != null) ...[
+                      CircleMarker(
+                        point: partnerPos,
+                        radius: 36,
+                        color: AppColors.lavender.withValues(alpha: 0.16),
+                        borderColor: AppColors.lavender.withValues(alpha: 0.38),
+                        borderStrokeWidth: 1.5,
+                      ),
+                      CircleMarker(
+                        point: partnerPos,
+                        radius: 14,
+                        color: AppColors.lavender.withValues(alpha: 0.35),
+                      ),
+                    ],
+                  ],
+                ),
+
               // Polyline Layer for History Mode OR Live connection line
               if (isHistoryMode && historyPoints.isNotEmpty)
                 PolylineLayer(
@@ -301,16 +375,29 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                     ),
                   ],
                 )
-              else if (!isHistoryMode && myPos != null && partnerPos != null)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: [myPos, partnerPos],
-                      strokeWidth: 3.5,
-                      color: AppColors.softRose,
-                    ),
-                  ],
-                ),
+              else if (!isHistoryMode && myPos != null && partnerPos != null) ...[
+                () {
+                  final arcPoints = _generateGeodesicArc(myPos, partnerPos);
+                  return PolylineLayer(
+                    polylines: [
+                      // Layer 1: Outer Soft Glow Romantic Aura
+                      Polyline(
+                        points: arcPoints,
+                        strokeWidth: 8.5,
+                        color: AppColors.softRose.withValues(alpha: 0.28),
+                      ),
+                      // Layer 2: Main Vivid Neon Romantic Core with crisp border
+                      Polyline(
+                        points: arcPoints,
+                        strokeWidth: 3.8,
+                        color: AppColors.softRose,
+                        borderColor: Colors.white.withValues(alpha: 0.95),
+                        borderStrokeWidth: 1.2,
+                      ),
+                    ],
+                  );
+                }(),
+              ],
 
               // Marker Layer
               MarkerLayer(
@@ -381,35 +468,100 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                         ),
                       ),
                   ] else ...[
-                    // Live Mode: Midpoint Heart Badge
-                    if (myPos != null && partnerPos != null)
-                      Marker(
-                        point: LatLng(
-                          (myPos.latitude + partnerPos.latitude) / 2,
-                          (myPos.longitude + partnerPos.longitude) / 2,
-                        ),
-                        width: 32,
-                        height: 32,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white,
-                            border: Border.all(color: AppColors.softRose, width: 2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.softRose.withValues(alpha: 0.4),
-                                blurRadius: 6,
-                                spreadRadius: 1,
+                    // Live Mode: Midpoint Interactive Romance & Distance Badge
+                    if (myPos != null && partnerPos != null) ...[
+                      () {
+                        final arc = _generateGeodesicArc(myPos, partnerPos);
+                        final midIndex = arc.length ~/ 2;
+                        final mid = arc[midIndex];
+                        final compactDistance = locationProvider.distanceInMeters <= 0.0
+                            ? '--'
+                            : locationProvider.distanceInMeters < 1000
+                                ? '${locationProvider.distanceInMeters.round()}m'
+                                : '${(locationProvider.distanceInMeters / 1000).toStringAsFixed(1)}km';
+
+                        // Calculate tangent angle along the geodesic line
+                        final p1 = arc[math.max(0, midIndex - 1)];
+                        final p2 = arc[math.min(arc.length - 1, midIndex + 1)];
+                        final latRad = mid.latitude * math.pi / 180.0;
+                        final dy = -(p2.latitude - p1.latitude);
+                        final dx = (p2.longitude - p1.longitude) * math.cos(latRad);
+                        final lineAngle = math.atan2(dy, dx);
+                        final heartRotation = lineAngle + (math.pi / 2);
+
+                        return Marker(
+                          point: mid,
+                          width: 74,
+                          height: 74,
+                          alignment: Alignment.center,
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              _fitBoth(locationProvider);
+                            },
+                            child: Transform.rotate(
+                              angle: heartRotation,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Glowing Aura matching the line
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppColors.softRose.withValues(alpha: 0.6),
+                                          blurRadius: 10,
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Aligned Crisp White Border Heart
+                                  const Icon(
+                                    Icons.favorite,
+                                    color: Colors.white,
+                                    size: 60,
+                                  ),
+                                  // Inner SoftRose Heart (matching polyline color)
+                                  const Icon(
+                                    Icons.favorite,
+                                    color: AppColors.softRose,
+                                    size: 54,
+                                  ),
+                                  // Distance Text Aligned to Heart Orientation & Matched to Heart
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4, left: 6, right: 6),
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        compactDistance,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.2,
+                                          shadows: [
+                                            Shadow(
+                                              color: Color(0xFF7A1D32),
+                                              blurRadius: 3,
+                                              offset: Offset(0, 1),
+                                            ),
+                                          ],
+                                        ),
+                                        maxLines: 1,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.favorite,
-                            color: AppColors.softRose,
-                            size: 16,
-                          ),
-                        ),
-                      ),
+                        );
+                      }(),
+                    ],
 
                     // My Location Profile Marker
                     if (myPos != null)
@@ -627,36 +779,32 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                                       ),
                                 ),
                                 const SizedBox(height: 2),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.directions_walk_rounded,
-                                      size: 14,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      locationProvider.partnerActivityStatus,
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                            color: Colors.grey.shade700,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                    ),
-                                    if (partnerLoc != null) ...[
-                                      Text(
-                                        ' · ',
-                                        style: TextStyle(color: Colors.grey.shade400),
-                                      ),
-                                      LiveTimeText(
-                                        textBuilder: () => partnerLoc.timeAgo,
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                              color: isOnline ? AppColors.success : AppColors.warning,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                                 if (partnerLoc != null)
+                                   Row(
+                                     children: [
+                                       Icon(
+                                         Icons.access_time_rounded,
+                                         size: 13,
+                                         color: Colors.grey.shade600,
+                                       ),
+                                       const SizedBox(width: 4),
+                                       LiveTimeText(
+                                         textBuilder: () => 'Updated ${partnerLoc.timeAgo}',
+                                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                               color: isOnline ? AppColors.success : AppColors.warning,
+                                               fontWeight: FontWeight.w500,
+                                             ),
+                                       ),
+                                     ],
+                                   )
+                                 else
+                                   Text(
+                                     isOnline ? 'Online' : 'Offline',
+                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                           color: isOnline ? AppColors.success : Colors.grey,
+                                           fontWeight: FontWeight.w500,
+                                         ),
+                                   ),
                               ],
                             ),
                           ),

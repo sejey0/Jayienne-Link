@@ -44,33 +44,64 @@ class OfflineStatusIndicator extends StatelessWidget {
       isOnline,
     );
 
-    Widget chip = GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppDimensions.spacingSm,
-          vertical: AppDimensions.spacingXs,
-        ),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
-          border: Border.all(
-            color: color.withOpacity(0.3),
+    Widget chip = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 5,
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w500,
-                  ),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white,
+              width: 1.2,
             ),
-          ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Glowing Status Dot
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color,
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.7),
+                      blurRadius: 5,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFF1E142B),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11.5,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -78,7 +109,7 @@ class OfflineStatusIndicator extends StatelessWidget {
     if (showAnimation && status == SyncStatus.syncing) {
       return chip.animate(onPlay: (c) => c.repeat()).shimmer(
             duration: const Duration(milliseconds: 1500),
-            color: color.withOpacity(0.3),
+            color: color.withValues(alpha: 0.3),
           );
     }
 
@@ -124,7 +155,7 @@ class OfflineStatusIndicator extends StatelessWidget {
           horizontal: AppDimensions.spacingMd,
           vertical: AppDimensions.spacingSm,
         ),
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         child: Row(
           children: [
             Icon(icon, size: 18, color: color),

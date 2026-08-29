@@ -27,12 +27,6 @@ class LocationHistorySheet extends StatelessWidget {
     return DateFormat('EEE, MMM d, yyyy').format(date);
   }
 
-  String _getActivity(double? speed) {
-    if (speed == null || speed < 0.5) return 'Stationary';
-    if (speed < 2.0) return 'Walking';
-    if (speed < 6.0) return 'Running / Cycling';
-    return 'Driving';
-  }
 
   String _getHeadingDirection(double? heading) {
     if (heading == null) return '';
@@ -327,7 +321,7 @@ class LocationHistorySheet extends StatelessWidget {
                           ),
                         ],
                       ),
-                      // Activity / Speed
+                      // Speed
                       Row(
                         children: [
                           const Icon(Icons.speed_rounded, size: 14, color: AppColors.lavender),
@@ -335,7 +329,7 @@ class LocationHistorySheet extends StatelessWidget {
                           Text(
                             currentPoint.speed != null && currentPoint.speed! > 0
                                 ? '${(currentPoint.speed! * 3.6).toStringAsFixed(1)} km/h'
-                                : _getActivity(currentPoint.speed),
+                                : '0.0 km/h',
                             style: const TextStyle(color: Colors.white, fontSize: 12),
                           ),
                         ],

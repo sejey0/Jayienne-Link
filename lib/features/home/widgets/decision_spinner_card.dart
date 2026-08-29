@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../screens/decision_spinner_screen.dart';
 
-/// Senior Date & Food Decision Spinner Card Widget with Slot-Machine Shuffle Animation
+/// Senior Date & Food Decision Spinner Card Widget with Slot-Machine Shuffle Animation & Full Wheel Navigation
 class DecisionSpinnerCard extends StatefulWidget {
   const DecisionSpinnerCard({super.key});
 
@@ -15,35 +16,52 @@ class DecisionSpinnerCard extends StatefulWidget {
 
 class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
   final Random _random = Random();
-  int _selectedCategoryIndex = 0; // 0: Food, 1: Activities
+  int _selectedCategoryIndex = 0; // 0: Food, 1: Activities, 2: Movies
   bool _isSpinning = false;
   String _currentDisplayResult = 'Tap Spin to Decide!';
   Timer? _spinTimer;
 
   static const List<String> _foodOptions = [
-    'Samgyupsal',
-    'Coffee Date',
-    'Fast Food',
-    'Cook Together',
-    'Milk Tea',
-    'Dessert & Ice Cream',
-    'Ramen & Sushi',
-    'Pizza & Pasta',
+    'Sinigang na Baboy',
+    'Crispy Pork Sisig',
+    'Beef Pares & Mami',
+    'Chicken Inasal',
+    'Lechon Kawali',
+    'Jollibee Chickenjoy',
+    'Samgyupsal / K-BBQ',
+    'Halo-Halo & Ice Cream',
   ];
 
   static const List<String> _activityOptions = [
-    'Movie Night',
-    'Walk in the Park',
-    'Gaming Together',
-    'Karaoke',
-    'Long Drive',
-    'Stargazing',
-    'Board Games & Cards',
+    'Cinema Movie Night',
+    'Sunset Walk in Park',
+    'Co-op Gaming Session',
+    'Videoke / Karaoke',
+    'Night Drive & Snacks',
+    'Park Picnic & Photos',
+    'Board Games Match',
     'Shopping & Arcade',
   ];
 
-  List<String> get _currentOptions =>
-      _selectedCategoryIndex == 0 ? _foodOptions : _activityOptions;
+  static const List<String> _movieOptions = [
+    'Romantic Comedy',
+    'K-Drama Marathon',
+    'Studio Ghibli Film',
+    'Psychological Thriller',
+    'Horror Movie Night',
+    'Action Comedy Movie',
+  ];
+
+  List<String> get _currentOptions {
+    switch (_selectedCategoryIndex) {
+      case 0:
+        return _foodOptions;
+      case 1:
+        return _activityOptions;
+      default:
+        return _movieOptions;
+    }
+  }
 
   @override
   void dispose() {
@@ -89,83 +107,134 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF1E1E2C)
-            : Colors.white,
-        title: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.celebration_rounded, color: AppColors.softRose, size: 24),
-            SizedBox(width: 8),
-            Text(
-              'Decision Made!',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppColors.softRose,
-              ),
-            ),
-            SizedBox(width: 8),
-            Icon(Icons.celebration_rounded, color: AppColors.softRose, size: 24),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'The roulette has spoken:',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.softRose.withValues(alpha: 0.18),
-                    AppColors.lavender.withValues(alpha: 0.28),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: AppColors.softRose.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Text(
-                winner,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          backgroundColor:
+              isDark ? const Color(0xFF1E162B) : Colors.white,
+          title: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.celebration_rounded,
+                  color: Color(0xFFFF758C), size: 24),
+              SizedBox(width: 8),
+              Text(
+                'Decision Made!',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
                   fontSize: 20,
                 ),
               ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'The roulette has spoken:',
+                style: TextStyle(
+                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFFF758C).withValues(alpha: 0.2),
+                      const Color(0xFFA18CD1).withValues(alpha: 0.2),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Text(
+                  winner,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                            color: Color(0xFFFF758C), width: 1.2),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'Close',
+                        style: TextStyle(
+                          color: Color(0xFFFF758C),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'Let\'s Do It!',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.softRose,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-            ),
-            child: const Text('Let\'s Do It!', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       margin: const EdgeInsets.symmetric(
         horizontal: AppDimensions.spacingMd,
@@ -174,19 +243,18 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
       child: Container(
         padding: const EdgeInsets.all(18.0),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.softRose.withValues(alpha: 0.88),
-              AppColors.lavender.withValues(alpha: 0.92),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: isDark ? const Color(0xFF1E162B) : Colors.white,
           borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isDark
+                ? const Color(0xFFFF758C).withValues(alpha: 0.25)
+                : const Color(0xFFFF758C).withValues(alpha: 0.2),
+            width: 1.2,
+          ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.softRose.withValues(alpha: 0.32),
-              blurRadius: 18,
+              color: const Color(0xFFFF758C).withValues(alpha: 0.12),
+              blurRadius: 16,
               offset: const Offset(0, 6),
             ),
           ],
@@ -194,55 +262,82 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Card Header Row
+            // Card Header Row with Squircle icon and Open Wheel action
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: const Icon(
                     Icons.casino_rounded,
                     color: Colors.white,
-                    size: 22,
+                    size: 20,
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Decision Spinner',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: isDark ? Colors.white : AppColors.deepCharcoal,
                           fontWeight: FontWeight.bold,
-                          fontSize: 17,
+                          fontSize: 16,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        'Date & food picker',
+                        'Date & food picker roulette',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: isDark ? Colors.white60 : Colors.grey.shade600,
                           fontSize: 12,
                         ),
                       ),
                     ],
                   ),
                 ),
+                IconButton(
+                  tooltip: 'Open Interactive Wheel',
+                  icon: const Icon(Icons.open_in_new_rounded, size: 20),
+                  color: const Color(0xFFFF758C),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DecisionSpinnerScreen(),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 16),
 
-            // Toggle Tabs: Food vs Activities
+            // Toggle Tabs: Food vs Activities vs Movies
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(16),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
                 children: [
@@ -250,28 +345,43 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
                     child: _buildCategoryTab(
                       index: 0,
                       label: 'Food',
+                      icon: Icons.restaurant_rounded,
+                      isDark: isDark,
                     ),
                   ),
                   Expanded(
                     child: _buildCategoryTab(
                       index: 1,
                       label: 'Activities',
+                      icon: Icons.local_activity_rounded,
+                      isDark: isDark,
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildCategoryTab(
+                      index: 2,
+                      label: 'Movies',
+                      icon: Icons.movie_filter_rounded,
+                      isDark: isDark,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Slot-Machine Display Window
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(18),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.04)
+                    : const Color(0xFFFF758C).withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.25),
                 ),
               ),
               child: AnimatedSwitcher(
@@ -280,10 +390,10 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
                   _currentDisplayResult,
                   key: ValueKey<String>(_currentDisplayResult),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
                     fontWeight: FontWeight.w900,
-                    fontSize: 18,
+                    fontSize: 17,
                     letterSpacing: 0.3,
                   ),
                 ),
@@ -292,29 +402,53 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
             const SizedBox(height: 14),
 
             // Spin Roulette Button
-            SizedBox(
+            Container(
               width: double.infinity,
+              height: 46,
+              decoration: BoxDecoration(
+                gradient: _isSpinning
+                    ? null
+                    : const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                color: _isSpinning
+                    ? (isDark ? Colors.grey.shade800 : Colors.grey.shade300)
+                    : null,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: _isSpinning
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+              ),
               child: ElevatedButton.icon(
                 onPressed: _isSpinning ? null : _startRouletteSpin,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.softRose,
-                  elevation: 2,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor:
+                      isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                  shadowColor: Colors.transparent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 icon: AnimatedRotation(
                   turns: _isSpinning ? 2.0 : 0.0,
                   duration: const Duration(milliseconds: 1200),
-                  child: const Icon(Icons.casino_rounded, size: 22),
+                  child: const Icon(Icons.casino_rounded, size: 20),
                 ),
                 label: Text(
-                  _isSpinning ? 'Spinning Roulette...' : 'Spin the Wheel',
+                  _isSpinning ? 'Spinning Roulette...' : 'Spin Roulette',
                   style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
               ),
@@ -325,7 +459,12 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
     );
   }
 
-  Widget _buildCategoryTab({required int index, required String label}) {
+  Widget _buildCategoryTab({
+    required int index,
+    required String label,
+    required IconData icon,
+    required bool isDark,
+  }) {
     final isSelected = _selectedCategoryIndex == index;
 
     return GestureDetector(
@@ -341,25 +480,48 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          gradient: isSelected
+              ? const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.3),
                     blurRadius: 6,
+                    offset: const Offset(0, 2),
                   )
                 ]
               : null,
         ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? AppColors.softRose : Colors.white70,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-            fontSize: 13,
-          ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected
+                  ? Colors.white
+                  : (isDark ? Colors.white60 : Colors.grey.shade700),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? Colors.white60 : Colors.grey.shade700),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ],
         ),
       ),
     );

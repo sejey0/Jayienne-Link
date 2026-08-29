@@ -30,6 +30,7 @@ class _MoodScreenState extends State<MoodScreen> {
   String? _lastError;
   bool _isSelectionMode = false;
   final Set<String> _selectedMoodIds = {};
+  bool _isComposerHidden = false;
 
   @override
   void initState() {
@@ -1220,15 +1221,84 @@ class _MoodScreenState extends State<MoodScreen> {
       isKeyboardOpen ? AppDimensions.spacingSm : AppDimensions.cardPadding,
     );
 
+    if (_isComposerHidden) {
+      return GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() => _isComposerHidden = false);
+        },
+        child: AppCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.favorite_rounded,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Send a mood',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.keyboard_arrow_up_rounded,
+                size: 20,
+                color: isDark ? Colors.white70 : Colors.grey.shade600,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final composerBody = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          'Send a mood',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
+        Row(
+          children: [
+            const SizedBox(width: 32),
+            Expanded(
+              child: Text(
+                'Send a mood',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                textAlign: TextAlign.center,
               ),
-          textAlign: TextAlign.center,
+            ),
+            IconButton(
+              tooltip: 'Hide',
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 22,
+                color: isDark ? Colors.white70 : Colors.grey.shade600,
+              ),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _callSignFocusNode.unfocus();
+                FocusScope.of(context).unfocus();
+                setState(() => _isComposerHidden = true);
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+          ],
         ),
         SizedBox(height: verticalSpacing),
         ValueListenableBuilder<TextEditingValue>(

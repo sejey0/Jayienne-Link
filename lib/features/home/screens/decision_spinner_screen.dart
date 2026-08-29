@@ -28,7 +28,8 @@ class _WheelSliceItem {
   });
 }
 
-/// Pure Custom & Online Decision Spinner Screen with Ultra-Visible Precision Needle Picker
+/// Pure Custom & Online Decision Spinner Screen with Swapped Positions:
+/// 0: Movie Watchlist (Front) | 1: Dates & Activities | 2: Food & Drinks
 class DecisionSpinnerScreen extends StatefulWidget {
   const DecisionSpinnerScreen({super.key});
 
@@ -42,7 +43,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   final SupabaseMovieService _movieService = SupabaseMovieService();
   final GlobalKey<_WheelPointerWidgetState> _pointerKey = GlobalKey();
 
-  int _selectedCategoryIndex = 0; // 0: Food & Drinks, 1: Dates & Activities, 2: Movie Watchlist
+  int _selectedCategoryIndex = 0; // 0: Movie Watchlist (Front), 1: Dates & Activities, 2: Food & Drinks
   int _spinnerModeIndex = 0; // 0: Spin Wheel, 1: Quick Roulette
   bool _isSpinning = false;
   String _currentDisplayResult = 'Tap Spin to Decide!';
@@ -57,9 +58,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   StreamSubscription<List<MovieModel>>? _moviesSubscription;
 
   // Persistent History tracking across navigations to prevent auto-resetting
-  final List<String> _foodHistory = [];
-  final List<String> _activityHistory = [];
   final List<String> _watchHistory = [];
+  final List<String> _activityHistory = [];
+  final List<String> _foodHistory = [];
 
   // Filter out any previous auto-seeded defaults from DB
   static const List<String> _defaultFilterOutList = [
@@ -146,37 +147,37 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   ];
 
   // Active Options Lists (Strictly Custom Added Choices Synced Online in Supabase & SharedPreferences)
-  final List<String> _foodOptions = [];
-  final List<String> _activityOptions = [];
   final List<String> _watchOptions = [];
   final List<MovieModel> _watchMovies = [];
+  final List<String> _activityOptions = [];
+  final List<String> _foodOptions = [];
 
   List<String> get _currentOptions {
     switch (_selectedCategoryIndex) {
       case 0:
-        return _foodOptions;
+        return _watchOptions;
       case 1:
         return _activityOptions;
       default:
-        return _watchOptions;
+        return _foodOptions;
     }
   }
 
   List<String> get _currentHistory {
     switch (_selectedCategoryIndex) {
       case 0:
-        return _foodHistory;
+        return _watchHistory;
       case 1:
         return _activityHistory;
       default:
-        return _watchHistory;
+        return _foodHistory;
     }
   }
 
   /// Merged wheel slices: Custom options + Online icon slices together on the wheel!
   List<_WheelSliceItem> get _wheelDisplaySlices {
-    if (_selectedCategoryIndex == 2) {
-      // Movie Watchlist
+    if (_selectedCategoryIndex == 0) {
+      // Movie Watchlist (Front tab)
       return _watchOptions
           .map((title) => _WheelSliceItem(
                 label: title,
@@ -445,10 +446,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   }
 
   /// Weighted winner selection algorithm:
+  /// - If 0 (Movie Watchlist): uniform distribution from watch options
   /// - If custom options exist: 80% chance to pick custom option, 20% to fetch online Filipino suggestion.
   /// - If 0 custom options: 100% online dynamic Filipino suggestion.
   String _pickWinner() {
-    if (_selectedCategoryIndex == 2) {
+    if (_selectedCategoryIndex == 0) {
       // Movie Watchlist: uniform distribution
       final available = _watchOptions
           .where((m) => !_watchHistory.contains(m))
@@ -465,7 +467,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         .where((item) => !_currentHistory.contains(item))
         .toList();
 
-    final onlinePool = (_selectedCategoryIndex == 0
+    final onlinePool = (_selectedCategoryIndex == 2
             ? _onlineFilipinoFood
             : _onlineFilipinoActivities)
         .where((item) => !_currentHistory.contains(item))
@@ -473,7 +475,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
     final activeOnlineList = onlinePool.isNotEmpty
         ? onlinePool
-        : (_selectedCategoryIndex == 0
+        : (_selectedCategoryIndex == 2
             ? _onlineFilipinoFood
             : _onlineFilipinoActivities);
 
@@ -497,7 +499,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     final slices = _wheelDisplaySlices;
     final winner = _pickWinner();
 
-    if (_selectedCategoryIndex == 2) {
+    if (_selectedCategoryIndex == 0) {
       final idx = slices.indexWhere((s) => s.label == winner);
       return (
         winner: winner,
@@ -531,7 +533,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   /// Trigger the appropriate spin mode
   void _onSpinPressed() {
     if (_isSpinning) return;
-    if (_selectedCategoryIndex == 2 && _watchOptions.length < 2) {
+    if (_selectedCategoryIndex == 0 && _watchOptions.length < 2) {
       HapticFeedback.vibrate();
       SnackbarHelper.showError(
         context,
@@ -606,7 +608,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   /// Quick Slot-Machine Carousel Spin
   void _startQuickSlotSpin() {
-    final displayPool = _selectedCategoryIndex == 2
+    final displayPool = _selectedCategoryIndex == 0
         ? _watchOptions
         : (_currentOptions.isNotEmpty
             ? _currentOptions
@@ -657,7 +659,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     _savePersistentData();
 
     MovieModel? winningMovie;
-    if (_selectedCategoryIndex == 2) {
+    if (_selectedCategoryIndex == 0) {
       try {
         winningMovie = _watchMovies.firstWhere(
           (m) => m.title.trim().toLowerCase() == winner.trim().toLowerCase(),
@@ -881,7 +883,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       ),
                     ],
                   ),
-                  if (_selectedCategoryIndex == 2) ...[
+                  if (_selectedCategoryIndex == 0) ...[
                     const SizedBox(height: 8),
                     TextButton.icon(
                       onPressed: () {
@@ -917,7 +919,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: Text(
-          'Add Custom ${_selectedCategoryIndex == 0 ? "Food & Drink" : "Date & Activity"}',
+          'Add Custom ${_selectedCategoryIndex == 2 ? "Food & Drink" : "Date & Activity"}',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         content: TextField(
@@ -929,7 +931,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 : AppColors.deepCharcoal,
           ),
           decoration: InputDecoration(
-            hintText: _selectedCategoryIndex == 0
+            hintText: _selectedCategoryIndex == 2
                 ? 'e.g. Samgyupsal, Crispy Sisig, Milk Tea...'
                 : 'e.g. Sunset in Manila Bay, Arcade Night...',
             filled: true,
@@ -1007,10 +1009,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   /// Save custom option to local cache (SharedPreferences) and online Supabase database
   Future<void> _saveCustomOption(String text) async {
-    final category = _selectedCategoryIndex == 0 ? 'food' : 'activity';
+    final category = _selectedCategoryIndex == 2 ? 'food' : 'activity';
 
     setState(() {
-      if (_selectedCategoryIndex == 0) {
+      if (_selectedCategoryIndex == 2) {
         if (!_foodOptions.contains(text)) _foodOptions.insert(0, text);
       } else {
         if (!_activityOptions.contains(text)) _activityOptions.insert(0, text);
@@ -1042,12 +1044,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     HapticFeedback.lightImpact();
     setState(() {
       if (_selectedCategoryIndex == 0) {
-        _foodOptions.remove(option);
+        _watchOptions.remove(option);
+        _watchMovies.removeWhere((m) => m.title.trim() == option.trim());
       } else if (_selectedCategoryIndex == 1) {
         _activityOptions.remove(option);
       } else {
-        _watchOptions.remove(option);
-        _watchMovies.removeWhere((m) => m.title.trim() == option.trim());
+        _foodOptions.remove(option);
       }
       _currentHistory.remove(option);
     });
@@ -1147,15 +1149,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ),
               const SizedBox(height: 14),
 
-              // Categories Header Chips (Food & Drinks vs Dates & Activities vs Movie Watchlist)
+              // Categories Header Chips (0: Movie Watchlist, 1: Dates & Activities, 2: Food & Drinks)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
                     _buildCategoryBadge(
                       index: 0,
-                      label: 'Food & Drinks',
-                      icon: Icons.restaurant_rounded,
+                      label: 'Movie Watchlist',
+                      icon: Icons.movie_filter_rounded,
                       isDark: isDark,
                     ),
                     const SizedBox(width: 8),
@@ -1168,8 +1170,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     const SizedBox(width: 8),
                     _buildCategoryBadge(
                       index: 2,
-                      label: 'Movie Watchlist',
-                      icon: Icons.movie_filter_rounded,
+                      label: 'Food & Drinks',
+                      icon: Icons.restaurant_rounded,
                       isDark: isDark,
                     ),
                   ],
@@ -1203,7 +1205,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 child: Column(
                   children: [
                     // Online Connection Indicator Badge
-                    if (_selectedCategoryIndex != 2)
+                    if (_selectedCategoryIndex != 0)
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
@@ -1255,7 +1257,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       height: 52,
                       decoration: BoxDecoration(
                         gradient: _isSpinning ||
-                                (_selectedCategoryIndex == 2 &&
+                                (_selectedCategoryIndex == 0 &&
                                     _watchOptions.length < 2)
                             ? null
                             : const LinearGradient(
@@ -1267,7 +1269,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                 end: Alignment.bottomRight,
                               ),
                         color: _isSpinning ||
-                                (_selectedCategoryIndex == 2 &&
+                                (_selectedCategoryIndex == 0 &&
                                     _watchOptions.length < 2)
                             ? (isDark
                                 ? Colors.grey.shade800
@@ -1275,7 +1277,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             : null,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: _isSpinning ||
-                                (_selectedCategoryIndex == 2 &&
+                                (_selectedCategoryIndex == 0 &&
                                     _watchOptions.length < 2)
                             ? null
                             : [
@@ -1351,7 +1353,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         Row(
                           children: [
                             Text(
-                              _selectedCategoryIndex == 2
+                              _selectedCategoryIndex == 0
                                   ? 'Watchlist Movies (${_watchMovies.length})'
                                   : 'Custom Options (${_currentOptions.length})',
                               style: TextStyle(
@@ -1362,7 +1364,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                     : AppColors.deepCharcoal,
                               ),
                             ),
-                            if (_selectedCategoryIndex != 2) ...[
+                            if (_selectedCategoryIndex != 0) ...[
                               const SizedBox(width: 6),
                               const Icon(
                                 Icons.cloud_done_rounded,
@@ -1372,7 +1374,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             ],
                           ],
                         ),
-                        if (_selectedCategoryIndex != 2)
+                        if (_selectedCategoryIndex != 0)
                           TextButton.icon(
                             onPressed: _showAddCustomOptionDialog,
                             icon: const Icon(Icons.add_rounded, size: 16),
@@ -1475,10 +1477,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                           children: [
                             Icon(
                               _selectedCategoryIndex == 0
-                                  ? Icons.restaurant_outlined
+                                  ? Icons.movie_outlined
                                   : _selectedCategoryIndex == 1
                                       ? Icons.local_activity_outlined
-                                      : Icons.movie_outlined,
+                                      : Icons.restaurant_outlined,
                               size: 38,
                               color: const Color(0xFFFF758C)
                                   .withValues(alpha: 0.5),
@@ -1486,10 +1488,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             const SizedBox(height: 10),
                             Text(
                               _selectedCategoryIndex == 0
-                                  ? 'No custom food options added'
+                                  ? 'No unwatched movies in Watchlist'
                                   : _selectedCategoryIndex == 1
                                       ? 'No custom activity options added'
-                                      : 'No unwatched movies in Watchlist',
+                                      : 'No custom food options added',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -1500,7 +1502,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _selectedCategoryIndex != 2
+                              _selectedCategoryIndex != 0
                                   ? 'Spinning suggests dynamic online Filipino ideas. Tap Add Custom to include your own!'
                                   : 'Add movies to your Watchlist in Movie Diary.',
                               textAlign: TextAlign.center,
@@ -1512,7 +1514,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                               ),
                             ),
                             const SizedBox(height: 14),
-                            if (_selectedCategoryIndex != 2)
+                            if (_selectedCategoryIndex != 0)
                               OutlinedButton.icon(
                                 onPressed: _showAddCustomOptionDialog,
                                 icon: const Icon(Icons.add_rounded, size: 16),
@@ -1556,7 +1558,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                           ],
                         ),
                       )
-                    else if (_selectedCategoryIndex == 2 &&
+                    else if (_selectedCategoryIndex == 0 &&
                         _watchMovies.isNotEmpty)
                       // Horizontal Movie Poster Banner Carousel
                       SizedBox(
@@ -1899,7 +1901,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   Widget _buildSlotMachineView(BuildContext context, bool isDark) {
     MovieModel? currentPreviewMovie;
-    if (_selectedCategoryIndex == 2 && _watchMovies.isNotEmpty) {
+    if (_selectedCategoryIndex == 0 && _watchMovies.isNotEmpty) {
       try {
         currentPreviewMovie = _watchMovies.firstWhere(
           (m) =>

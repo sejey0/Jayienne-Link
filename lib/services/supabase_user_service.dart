@@ -331,10 +331,25 @@ class SupabaseUserService {
     }
   }
 
-  /// Set user account active/deactivated status (Admin operation)
+  /// Set user account active/deactivated status (Admin operation - synchronizes auth and database)
   Future<void> setUserActiveStatus(String uid, bool isActive) async {
     try {
       debugPrint('Setting active status for $uid to $isActive');
+      // 1. Try atomic RPC function first (which synchronizes auth.users ban status for all APK versions)
+      try {
+        final rpcResult = await SupabaseDataService.executeProcedure('set_user_active_status', params: {
+          'target_uid': uid,
+          'is_active': isActive,
+        });
+        if (rpcResult.isNotEmpty) {
+          debugPrint('✅ Active status updated via RPC for $uid (synced to auth.users)');
+          return;
+        }
+      } catch (rpcErr) {
+        debugPrint('set_user_active_status RPC not available or failed: $rpcErr');
+      }
+
+      // 2. Direct table update fallback
       final updated = await updateUser(uid, {'isActive': isActive}, includeAdminFields: true);
       if (updated.isEmpty) {
         throw Exception('Database update returned 0 modified rows. Please run Admin RLS policies in Supabase SQL Editor.');

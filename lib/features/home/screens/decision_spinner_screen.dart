@@ -269,35 +269,62 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
-        actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final text = controller.text.trim();
-              if (text.isNotEmpty) {
-                setState(() {
-                  if (_selectedCategoryIndex == 0) {
-                    _foodOptions.insert(0, text);
-                  } else {
-                    _activityOptions.insert(0, text);
-                  }
-                });
-                Navigator.pop(context);
-                SnackbarHelper.showSuccess(
-                  context,
-                  'Added "$text" to options!',
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.softRose,
-              foregroundColor: Colors.white,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: Color(0xFFFF758C),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final text = controller.text.trim();
+                      if (text.isNotEmpty) {
+                        setState(() {
+                          if (_selectedCategoryIndex == 0) {
+                            _foodOptions.insert(0, text);
+                          } else {
+                            _activityOptions.insert(0, text);
+                          }
+                        });
+                        Navigator.pop(context);
+                        SnackbarHelper.showSuccess(
+                          context,
+                          'Added "$text" to options!',
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.softRose,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
             ),
-            child: const Text('Add'),
           ),
         ],
       ),

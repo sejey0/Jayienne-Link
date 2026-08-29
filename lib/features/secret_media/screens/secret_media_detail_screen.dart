@@ -738,12 +738,23 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
             Row(
               children: [
                 Expanded(
-                  child: TextButton(
+                  child: OutlinedButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Cancel'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: Color(0xFFFF758C),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Container(
                     height: 42,

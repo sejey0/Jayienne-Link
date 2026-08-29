@@ -1158,40 +1158,62 @@ class _EditCaptionDialogState extends State<_EditCaptionDialog> {
           ),
         ],
       ),
-      actionsAlignment: MainAxisAlignment.center,
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        Container(
-          height: 38,
-          decoration: BoxDecoration(
-            gradient: _isConfirmed
-                ? const LinearGradient(
-                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: _isConfirmed ? null : Colors.grey.shade400,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ElevatedButton(
-            onPressed: _isConfirmed
-                ? () => Navigator.of(context).pop(_captionController.text)
-                : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              foregroundColor: Colors.white,
-              disabledForegroundColor: Colors.white70,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: Color(0xFFFF758C),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
-              elevation: 0,
-            ),
-            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: _isConfirmed
+                        ? const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    color: _isConfirmed ? null : Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _isConfirmed
+                        ? () => Navigator.of(context).pop(_captionController.text)
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      disabledForegroundColor: Colors.white70,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -1211,12 +1233,11 @@ class _DeletePhotoDialog extends StatefulWidget {
 }
 
 class _DeletePhotoDialogState extends State<_DeletePhotoDialog> {
-  late final TextEditingController _confirmController;
+  final TextEditingController _confirmController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _confirmController = TextEditingController();
     _confirmController.addListener(_onConfirmChanged);
   }
 
@@ -1295,39 +1316,61 @@ class _DeletePhotoDialogState extends State<_DeletePhotoDialog> {
           ),
         ],
       ),
-      actionsAlignment: MainAxisAlignment.center,
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        Container(
-          height: 38,
-          decoration: BoxDecoration(
-            gradient: _isConfirmed
-                ? const LinearGradient(
-                    colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: _isConfirmed ? null : Colors.grey.shade400,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ElevatedButton(
-            onPressed:
-                _isConfirmed ? () => Navigator.of(context).pop(true) : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              foregroundColor: Colors.white,
-              disabledForegroundColor: Colors.white70,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: Color(0xFFFF758C),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
-              elevation: 0,
-            ),
-            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: _isConfirmed
+                        ? const LinearGradient(
+                            colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    color: _isConfirmed ? null : Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ElevatedButton(
+                    onPressed:
+                        _isConfirmed ? () => Navigator.of(context).pop(true) : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      disabledForegroundColor: Colors.white70,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],

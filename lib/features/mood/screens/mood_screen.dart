@@ -451,12 +451,12 @@ class _MoodScreenState extends State<MoodScreen> {
     await provider.sendMood(mood: mood, callSign: trimmedCallSign);
   }
 
-  Future<void> _showCustomMoodDialog() async {
+  Future<String?> _showCustomMoodDialog() async {
     final customController = TextEditingController();
     IconData selectedIcon = Icons.emoji_emotions_outlined;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    await showDialog(
+    return await showDialog<String>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
@@ -649,8 +649,8 @@ class _MoodScreenState extends State<MoodScreen> {
                               SnackbarHelper.showError(context, 'Please enter a mood name');
                               return;
                             }
-                            Navigator.pop(ctx);
                             final key = 'custom:$label';
+                            Navigator.pop(ctx, key);
                             final newOption = _MoodOption(
                               key: key,
                               label: label,
@@ -884,6 +884,72 @@ class _MoodScreenState extends State<MoodScreen> {
                             },
                           );
                         }),
+                        // + Custom Button inside Edit Dialog
+                        InkWell(
+                          onTap: () async {
+                            final newKey = await _showCustomMoodDialog();
+                            if (newKey != null) {
+                              setDialogState(() {
+                                selectedMood = newKey;
+                              });
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.06)
+                                  : AppColors.softRose.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark
+                                    ? AppColors.softRose.withValues(alpha: 0.2)
+                                    : AppColors.softRose.withValues(alpha: 0.25),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.add_reaction_rounded,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '+ Custom',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 18),

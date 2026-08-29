@@ -561,126 +561,98 @@ class _RelationshipTimelineScreenState
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
-                        if (selectedCategory == MilestoneCategory.custom)
-                          const Text(
-                            'Custom Category',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.coral,
+                        // Separated Quick Custom Category Action Pill
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            setModalState(() {
+                              selectedCategory = MilestoneCategory.custom;
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              gradient: selectedCategory == MilestoneCategory.custom
+                                  ? const LinearGradient(
+                                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                  : null,
+                              color: selectedCategory == MilestoneCategory.custom
+                                  ? null
+                                  : AppColors.coral.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: selectedCategory == MilestoneCategory.custom
+                                    ? Colors.transparent
+                                    : AppColors.coral.withValues(alpha: 0.4),
+                                width: 1.2,
+                              ),
+                              boxShadow: selectedCategory == MilestoneCategory.custom
+                                  ? [
+                                      BoxShadow(
+                                        color: const Color(0xFFFF758C).withValues(alpha: 0.4),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.add_circle_rounded,
+                                  size: 15,
+                                  color: selectedCategory == MilestoneCategory.custom
+                                      ? Colors.white
+                                      : AppColors.coral,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  '+ Custom',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: selectedCategory == MilestoneCategory.custom
+                                        ? Colors.white
+                                        : AppColors.coral,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
 
-                    // Big Circle Dot Category Selector
+                    // Big Circle Dot Category Selector (Predefined only — Custom via header pill)
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       physics: const BouncingScrollPhysics(),
                       child: Row(
-                        children: MilestoneCategory.values.map((cat) {
-                          final isSelected = selectedCategory == cat;
-
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: GestureDetector(
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                setModalState(() {
-                                  selectedCategory = cat;
-                                });
-                              },
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      AnimatedContainer(
-                                        duration: const Duration(milliseconds: 200),
-                                        width: 52,
-                                        height: 52,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: LinearGradient(
-                                            colors: isSelected
-                                                ? cat.gradientColors
-                                                : [
-                                                    cat.gradientColors.first.withValues(alpha: 0.2),
-                                                    cat.gradientColors.last.withValues(alpha: 0.2),
-                                                  ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
-                                          border: Border.all(
-                                            color: isSelected ? cat.gradientColors.first : cat.gradientColors.first.withValues(alpha: 0.35),
-                                            width: isSelected ? 2.5 : 1.2,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: cat.gradientColors.first.withValues(alpha: isSelected ? 0.5 : 0.15),
-                                              blurRadius: isSelected ? 10 : 4,
-                                              spreadRadius: isSelected ? 1 : 0,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Center(
-                                          child: Icon(
-                                            cat.icon,
-                                            size: 24,
-                                            color: isSelected ? Colors.white : cat.gradientColors.first,
-                                          ),
-                                        ),
-                                      ),
-                                      if (isSelected)
-                                        Positioned(
-                                          right: -1,
-                                          bottom: -1,
-                                          child: Container(
-                                            width: 16,
-                                            height: 16,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: cat.gradientColors.first,
-                                              border: Border.all(color: Colors.white, width: 2),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: cat.gradientColors.first.withValues(alpha: 0.6),
-                                                  blurRadius: 4,
-                                                ),
-                                              ],
-                                            ),
-                                            child: const Icon(
-                                              Icons.check,
-                                              color: Colors.white,
-                                              size: 10,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  SizedBox(
-                                    width: 66,
-                                    child: Text(
-                                      cat.label,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                                        color: isSelected ? cat.gradientColors.first : null,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                        children: [
+                          // Predefined Category Circle Dots
+                          ...MilestoneCategory.values
+                              .where((cat) => cat != MilestoneCategory.custom)
+                              .map((cat) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: _buildCategoryDotItem(
+                                cat: cat,
+                                isSelected: selectedCategory == cat,
+                                onTap: () {
+                                  setModalState(() {
+                                    selectedCategory = cat;
+                                  });
+                                },
                               ),
-                            ),
-                          );
-                        }).toList(),
+                            );
+                          }),
+                        ],
                       ),
                     ),
 
@@ -689,6 +661,7 @@ class _RelationshipTimelineScreenState
                       const SizedBox(height: 12),
                       TextField(
                         controller: customCategoryController,
+                        autofocus: true,
                         decoration: InputDecoration(
                           labelText: 'Custom Category Name *',
                           hintText: 'e.g. Cooking Together, First Movie, Road Trip...',
@@ -1078,6 +1051,109 @@ class _RelationshipTimelineScreenState
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryDotItem({
+    required MilestoneCategory cat,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: isSelected
+                        ? cat.gradientColors
+                        : [
+                            cat.gradientColors.first.withValues(alpha: 0.2),
+                            cat.gradientColors.last.withValues(alpha: 0.2),
+                          ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(
+                    color: isSelected
+                        ? cat.gradientColors.first
+                        : cat.gradientColors.first.withValues(alpha: 0.35),
+                    width: isSelected ? 2.5 : 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cat.gradientColors.first
+                          .withValues(alpha: isSelected ? 0.5 : 0.15),
+                      blurRadius: isSelected ? 10 : 4,
+                      spreadRadius: isSelected ? 1 : 0,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Icon(
+                    cat.icon,
+                    size: 24,
+                    color: isSelected ? Colors.white : cat.gradientColors.first,
+                  ),
+                ),
+              ),
+              if (isSelected)
+                Positioned(
+                  right: -1,
+                  bottom: -1,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: cat.gradientColors.first,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cat.gradientColors.first.withValues(alpha: 0.6),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 10,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: 66,
+            child: Text(
+              cat.label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                color: isSelected ? cat.gradientColors.first : null,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

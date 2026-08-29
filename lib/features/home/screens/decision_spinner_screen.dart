@@ -15,7 +15,23 @@ import '../../../services/supabase_movie_service.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
 import '../../movies/widgets/movie_poster_widget.dart';
 
-/// Date, Food & Movie Decision Spinner Screen with Persistent History, Movie Posters, Real-Time Sync & Anti-Duplicate Guarantee
+/// Representation of a slice on the merged wheel
+class _WheelSliceItem {
+  final String label;
+  final bool isCustom;
+  final IconData onlineIcon;
+
+  const _WheelSliceItem({
+    required this.label,
+    required this.isCustom,
+    required this.onlineIcon,
+  });
+}
+
+/// Pure Custom & Online Decision Spinner Screen
+/// - Custom options are merged on the wheel alongside online icon slices
+/// - Custom options show their text labels; online suggestion slices show Material online icons
+/// - Dual persistence via SharedPreferences & Supabase so custom options are never lost on back navigation
 class DecisionSpinnerScreen extends StatefulWidget {
   const DecisionSpinnerScreen({super.key});
 
@@ -28,7 +44,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   final Random _random = Random();
   final SupabaseMovieService _movieService = SupabaseMovieService();
 
-  int _selectedCategoryIndex = 0; // 0: Food, 1: Date Activities, 2: Movie Watchlist
+  int _selectedCategoryIndex = 0; // 0: Food & Drinks, 1: Dates & Activities, 2: Movie Watchlist
   int _spinnerModeIndex = 0; // 0: Spin Wheel, 1: Quick Roulette
   bool _isSpinning = false;
   String _currentDisplayResult = 'Tap Spin to Decide!';
@@ -37,6 +53,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   late AnimationController _wheelController;
   late Animation<double> _wheelAnimation;
   double _currentWheelAngle = 0.0;
+  double _startWheelAngle = 0.0;
+  double _targetWheelAngle = 0.0;
   Timer? _quickSlotTimer;
   StreamSubscription<List<MovieModel>>? _moviesSubscription;
 
@@ -45,7 +63,91 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   final List<String> _activityHistory = [];
   final List<String> _watchHistory = [];
 
-  // Options are populated purely by Custom Additions (synced online) & Movie Watchlist
+  // Filter out any previous auto-seeded defaults from DB
+  static const List<String> _defaultFilterOutList = [
+    'Sinigang na Baboy',
+    'Crispy Pork Sisig',
+    'Beef Pares & Mami',
+    'Chicken Inasal',
+    'Kare-Kareng Baka',
+    'Lechon Kawali',
+    'Samgyupsal & K-BBQ',
+    'Samgyupsal / K-BBQ',
+    'Halo-Halo & Ice Cream',
+    'Halo-Halo & Ube Ice Cream',
+    'Milk Tea & Street Food',
+    'Milk Tea & Boba',
+    'Pancit Canton & Dimsum',
+    'Pancit Bihon & Dimsum',
+    'Sunset Walk in Seaside / Baywalk',
+    'Sunset Walk in Park',
+    'Videoke & Karaoke Night',
+    'Videoke / Karaoke',
+    'Night Market & Street Food Crawl',
+    'Intramuros Historic Stroll',
+    'Coffee Date & Pastries',
+    'Coffee Date & Pastry',
+    'BGC / Park Picnic & Photos',
+    'Park Picnic & Photos',
+    'Arcade & Bowling Match',
+    'Shopping & Arcade',
+    'Roadtrip to Tagaytay Overlook',
+    'Night Drive & Snacks',
+    'Board Games & Netflix Marathon',
+    'Board Games Match',
+    'Cinema Movie Night',
+    'Co-op Gaming Session',
+    'Co-op Video Game Session',
+    'Cook Dinner Together',
+    'Ramen & Bento Box',
+    'Pizza & Pasta Date',
+    'Dessert & Ice Cream',
+    'Jollibee Chickenjoy',
+  ];
+
+  // Dynamic Online Filipino Suggestions (picked online dynamically)
+  static const List<String> _onlineFilipinoFood = [
+    'Sinigang na Baboy',
+    'Crispy Pork Sisig',
+    'Beef Pares & Mami',
+    'Chicken Inasal',
+    'Kare-Kareng Baka',
+    'Lechon Kawali',
+    'Samgyupsal & K-BBQ',
+    'Halo-Halo & Ice Cream',
+    'Milk Tea & Street Food',
+    'Pancit Canton & Dimsum',
+    'Ramen & Gyoza Date',
+    'Pizza & Pasta Treat',
+  ];
+
+  static const List<String> _onlineFilipinoActivities = [
+    'Sunset Walk in Seaside / Baywalk',
+    'Videoke & Karaoke Night',
+    'Night Market & Street Food Crawl',
+    'Intramuros Historic Stroll',
+    'Coffee Date & Pastries',
+    'BGC / Park Picnic & Photos',
+    'Arcade & Bowling Match',
+    'Roadtrip to Tagaytay Overlook',
+    'Board Games & Netflix Marathon',
+    'Late Night Drive & Snacks',
+    'Co-op Video Game Session',
+    'Cook Dinner Together',
+  ];
+
+  static const List<IconData> _onlineSliceIcons = [
+    Icons.language_rounded,
+    Icons.cloud_queue_rounded,
+    Icons.wifi_rounded,
+    Icons.public_rounded,
+    Icons.explore_rounded,
+    Icons.hub_rounded,
+    Icons.travel_explore_rounded,
+    Icons.stream_rounded,
+  ];
+
+  // Active Options Lists (Strictly Custom Added Choices Synced Online in Supabase & SharedPreferences)
   final List<String> _foodOptions = [];
   final List<String> _activityOptions = [];
   final List<String> _watchOptions = [];
@@ -73,6 +175,66 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
   }
 
+  /// Merged wheel slices: Custom options + Online icon slices together on the wheel!
+  List<_WheelSliceItem> get _wheelDisplaySlices {
+    if (_selectedCategoryIndex == 2) {
+      // Movie Watchlist
+      return _watchOptions
+          .map((title) => _WheelSliceItem(
+                label: title,
+                isCustom: true,
+                onlineIcon: Icons.movie_rounded,
+              ))
+          .toList();
+    }
+
+    final customList = _currentOptions;
+    if (customList.isEmpty) {
+      // Pure online icon slices (8 slices)
+      return List.generate(
+        8,
+        (i) => _WheelSliceItem(
+          label: '',
+          isCustom: false,
+          onlineIcon: _onlineSliceIcons[i % _onlineSliceIcons.length],
+        ),
+      );
+    }
+
+    // Merged: Custom options (with text labels) + Online suggestion slices (with online icons)
+    final result = <_WheelSliceItem>[];
+    final totalCount = max(8, customList.length * 2);
+    int customIndex = 0;
+
+    for (int i = 0; i < totalCount; i++) {
+      if (i % 2 == 0 && customIndex < customList.length) {
+        result.add(_WheelSliceItem(
+          label: customList[customIndex],
+          isCustom: true,
+          onlineIcon: Icons.star_rounded,
+        ));
+        customIndex++;
+      } else {
+        result.add(_WheelSliceItem(
+          label: '',
+          isCustom: false,
+          onlineIcon: _onlineSliceIcons[i % _onlineSliceIcons.length],
+        ));
+      }
+    }
+
+    while (customIndex < customList.length) {
+      result.add(_WheelSliceItem(
+        label: customList[customIndex],
+        isCustom: true,
+        onlineIcon: Icons.star_rounded,
+      ));
+      customIndex++;
+    }
+
+    return result;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -87,7 +249,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadPersistentHistory();
+      _loadPersistentData();
       _fetchOnlineSyncedData();
       _initMovieDiaryStream();
     });
@@ -101,28 +263,48 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     super.dispose();
   }
 
-  /// Load persistent excluded history from SharedPreferences so it never auto-resets on back
-  Future<void> _loadPersistentHistory() async {
+  /// Load persistent custom options and excluded history from SharedPreferences
+  Future<void> _loadPersistentData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
       setState(() {
+        // Load Custom Options from Local Cache immediately
+        final cachedFood =
+            prefs.getStringList('decision_spinner_custom_food') ?? [];
+        final cachedActivities =
+            prefs.getStringList('decision_spinner_custom_activities') ?? [];
+
+        _foodOptions.clear();
+        _foodOptions.addAll(cachedFood);
+
+        _activityOptions.clear();
+        _activityOptions.addAll(cachedActivities);
+
+        // Load Excluded History
         _foodHistory.clear();
-        _foodHistory.addAll(prefs.getStringList('decision_spinner_food_history') ?? []);
+        _foodHistory
+            .addAll(prefs.getStringList('decision_spinner_food_history') ?? []);
         _activityHistory.clear();
-        _activityHistory.addAll(prefs.getStringList('decision_spinner_activity_history') ?? []);
+        _activityHistory.addAll(
+            prefs.getStringList('decision_spinner_activity_history') ?? []);
         _watchHistory.clear();
-        _watchHistory.addAll(prefs.getStringList('decision_spinner_watch_history') ?? []);
+        _watchHistory
+            .addAll(prefs.getStringList('decision_spinner_watch_history') ?? []);
       });
     } catch (_) {}
   }
 
-  /// Save persistent excluded history to SharedPreferences
-  Future<void> _savePersistentHistory() async {
+  /// Save persistent custom options and excluded history to SharedPreferences
+  Future<void> _savePersistentData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('decision_spinner_custom_food', _foodOptions);
+      await prefs.setStringList(
+          'decision_spinner_custom_activities', _activityOptions);
       await prefs.setStringList('decision_spinner_food_history', _foodHistory);
-      await prefs.setStringList('decision_spinner_activity_history', _activityHistory);
+      await prefs.setStringList(
+          'decision_spinner_activity_history', _activityHistory);
       await prefs.setStringList('decision_spinner_watch_history', _watchHistory);
     } catch (_) {}
   }
@@ -133,7 +315,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     setState(() {
       _currentHistory.clear();
     });
-    await _savePersistentHistory();
+    await _savePersistentData();
     if (mounted) {
       SnackbarHelper.showSuccess(
         context,
@@ -183,56 +365,62 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  /// Automatically fetch saved couple decision options from Supabase
+  /// Fetch user custom ideas from Supabase and merge with local SharedPreferences cache
   Future<void> _fetchOnlineSyncedData() async {
     try {
       final coupleId = _getCoupleId();
 
-      // 1. Fetch saved food and activity options
-      dynamic response;
+      final customFood = <String>[..._foodOptions];
+      final customActivities = <String>[..._activityOptions];
+
       if (coupleId.isNotEmpty) {
-        response = await SupabaseDataService.client
+        final response = await SupabaseDataService.client
             .from('decision_ideas')
             .select()
-            .or('couple_id.eq.$coupleId,couple_id.is.null');
-      } else {
-        response = await SupabaseDataService.client
-            .from('decision_ideas')
-            .select();
-      }
+            .eq('couple_id', coupleId);
 
-      final records = List<Map<String, dynamic>>.from(response);
-
-      if (records.isNotEmpty) {
-        final onlineFood = <String>[];
-        final onlineActivities = <String>[];
+        final records = List<Map<String, dynamic>>.from(response);
 
         for (final row in records) {
           final category = row['category']?.toString().toLowerCase() ?? '';
           final title = row['title']?.toString().trim() ?? '';
+          final isCustomFlag =
+              row['is_custom'] == true || row['is_custom'] == 'true';
+
+          // Clean up previously auto-seeded default items from database
+          if (_defaultFilterOutList.contains(title) && !isCustomFlag) {
+            SupabaseDataService.client
+                .from('decision_ideas')
+                .delete()
+                .eq('title', title)
+                .eq('couple_id', coupleId)
+                .catchError((_) {});
+            continue;
+          }
+
           if (title.isNotEmpty) {
-            if (category == 'food' && !onlineFood.contains(title)) {
-              onlineFood.add(title);
+            if (category == 'food' && !customFood.contains(title)) {
+              customFood.add(title);
             } else if (category == 'activity' &&
-                !onlineActivities.contains(title)) {
-              onlineActivities.add(title);
+                !customActivities.contains(title)) {
+              customActivities.add(title);
             }
           }
         }
-
-        if (mounted) {
-          setState(() {
-            for (final f in onlineFood) {
-              if (!_foodOptions.contains(f)) _foodOptions.add(f);
-            }
-            for (final a in onlineActivities) {
-              if (!_activityOptions.contains(a)) _activityOptions.add(a);
-            }
-          });
-        }
       }
 
-      // 2. Fetch movies directly from couple's Watchlist in Movie Diary (one-time initial fetch)
+      if (mounted) {
+        setState(() {
+          _foodOptions.clear();
+          _foodOptions.addAll(customFood);
+
+          _activityOptions.clear();
+          _activityOptions.addAll(customActivities);
+        });
+        _savePersistentData();
+      }
+
+      // Fetch movies directly from couple's Watchlist in Movie Diary
       if (coupleId.isNotEmpty) {
         final movies = await _movieService.fetchMovies(coupleId);
         if (movies.isNotEmpty) {
@@ -255,21 +443,101 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           }
         }
       }
-    } catch (_) {
-      // Offline fallback handling
+    } catch (_) {}
+  }
+
+  /// Weighted winner selection algorithm:
+  /// - If custom options exist: 80% chance to pick custom option, 20% to fetch online Filipino suggestion.
+  /// - If 0 custom options: 100% online dynamic Filipino suggestion.
+  String _pickWinner() {
+    if (_selectedCategoryIndex == 2) {
+      // Movie Watchlist: uniform distribution
+      final available = _watchOptions
+          .where((m) => !_watchHistory.contains(m))
+          .toList();
+      final pool = available.isNotEmpty ? available : _watchOptions;
+      if (available.isEmpty) {
+        _watchHistory.clear();
+        _savePersistentData();
+      }
+      return pool[_random.nextInt(pool.length)];
+    }
+
+    final availableCustom = _currentOptions
+        .where((item) => !_currentHistory.contains(item))
+        .toList();
+
+    final onlinePool = (_selectedCategoryIndex == 0
+            ? _onlineFilipinoFood
+            : _onlineFilipinoActivities)
+        .where((item) => !_currentHistory.contains(item))
+        .toList();
+
+    final activeOnlineList = onlinePool.isNotEmpty
+        ? onlinePool
+        : (_selectedCategoryIndex == 0
+            ? _onlineFilipinoFood
+            : _onlineFilipinoActivities);
+
+    if (availableCustom.isNotEmpty) {
+      final roll = _random.nextDouble(); // 0.0 to 1.0
+      if (roll < 0.80 || activeOnlineList.isEmpty) {
+        // 80% weighted chance: Pick one of the couple's custom options!
+        return availableCustom[_random.nextInt(availableCustom.length)];
+      } else {
+        // 20% chance: Fetch an online suggestion!
+        return activeOnlineList[_random.nextInt(activeOnlineList.length)];
+      }
+    } else {
+      // 0 custom options: Picks directly from online suggestions
+      return activeOnlineList[_random.nextInt(activeOnlineList.length)];
+    }
+  }
+
+  /// Pick winner and calculate target wedge index on the merged wheel
+  ({String winner, int targetSliceIndex}) _pickWinnerWithTarget() {
+    final slices = _wheelDisplaySlices;
+    final winner = _pickWinner();
+
+    if (_selectedCategoryIndex == 2) {
+      final idx = slices.indexWhere((s) => s.label == winner);
+      return (
+        winner: winner,
+        targetSliceIndex: idx >= 0 ? idx : 0,
+      );
+    }
+
+    if (_currentOptions.contains(winner)) {
+      // Winner is a custom option -> land on its custom slice
+      final idx = slices.indexWhere((s) => s.isCustom && s.label == winner);
+      return (
+        winner: winner,
+        targetSliceIndex: idx >= 0 ? idx : 0,
+      );
+    } else {
+      // Winner is an online suggestion -> land on an online icon slice
+      final onlineIndices = [
+        for (int i = 0; i < slices.length; i++)
+          if (!slices[i].isCustom) i
+      ];
+      final targetIdx = onlineIndices.isNotEmpty
+          ? onlineIndices[_random.nextInt(onlineIndices.length)]
+          : 0;
+      return (
+        winner: winner,
+        targetSliceIndex: targetIdx,
+      );
     }
   }
 
   /// Trigger the appropriate spin mode
   void _onSpinPressed() {
     if (_isSpinning) return;
-    if (_currentOptions.length < 2) {
+    if (_selectedCategoryIndex == 2 && _watchOptions.length < 2) {
       HapticFeedback.vibrate();
       SnackbarHelper.showError(
         context,
-        _selectedCategoryIndex == 2
-            ? 'Please add at least 2 unwatched movies in Movie Diary to spin!'
-            : 'Please add at least 2 options to spin the wheel!',
+        'Please add at least 2 unwatched movies in Movie Diary to spin!',
       );
       return;
     }
@@ -281,32 +549,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
   }
 
-  /// Interactive Visual Wheel Physics Spin
+  /// Interactive Visual Wheel Physics Spin on the merged wheel
   void _startVisualWheelSpin() {
-    final availableOptions = _currentOptions
-        .where((item) => !_currentHistory.contains(item))
-        .toList();
-
-    final poolToUse =
-        availableOptions.isNotEmpty ? availableOptions : _currentOptions;
-    if (availableOptions.isEmpty) {
-      _currentHistory.clear();
-      _savePersistentHistory();
-    }
-
-    if (poolToUse.isEmpty) return;
+    final slices = _wheelDisplaySlices;
+    if (slices.isEmpty) return;
 
     HapticFeedback.mediumImpact();
     setState(() {
       _isSpinning = true;
     });
 
-    final winnerIndex = _random.nextInt(poolToUse.length);
-    final winner = poolToUse[winnerIndex];
+    final decision = _pickWinnerWithTarget();
+    final sliceCount = slices.length;
 
-    // Calculate angle alignment for pointer at the top (-pi/2)
-    final sliceAngle = (2 * pi) / poolToUse.length;
-    final targetWedgeLocalCenter = (winnerIndex + 0.5) * sliceAngle;
+    final sliceAngle = (2 * pi) / sliceCount;
+    final targetWedgeLocalCenter =
+        (decision.targetSliceIndex + 0.5) * sliceAngle;
 
     final targetNormalizedAngle =
         (-pi / 2 - targetWedgeLocalCenter) % (2 * pi);
@@ -318,12 +576,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     final extraTurns = 5 + _random.nextInt(3); // 5 to 7 full rotations
     final finalTargetAngle = _currentWheelAngle + (2 * pi * extraTurns) + diff;
 
-    final startAngle = _currentWheelAngle;
-    final totalDistance = finalTargetAngle - startAngle;
+    _startWheelAngle = _currentWheelAngle;
+    _targetWheelAngle = finalTargetAngle;
+    final totalDistance = _targetWheelAngle - _startWheelAngle;
 
     int lastTickIndex = -1;
     void tickListener() {
-      final currentAngle = startAngle + (totalDistance * _wheelAnimation.value);
+      final currentAngle =
+          _startWheelAngle + (totalDistance * _wheelAnimation.value);
       final normalized = (currentAngle % (2 * pi) + (2 * pi)) % (2 * pi);
       final currentSlice = (normalized / sliceAngle).floor();
       if (currentSlice != lastTickIndex) {
@@ -339,24 +599,24 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     _wheelController.forward().then((_) {
       _wheelController.removeListener(tickListener);
       _currentWheelAngle = finalTargetAngle;
-      _finalizeDecision(winner);
+      _finalizeDecision(decision.winner);
     });
   }
 
   /// Quick Slot-Machine Carousel Spin
   void _startQuickSlotSpin() {
-    final availableOptions = _currentOptions
-        .where((item) => !_currentHistory.contains(item))
-        .toList();
+    final displayPool = _selectedCategoryIndex == 2
+        ? _watchOptions
+        : (_currentOptions.isNotEmpty
+            ? _currentOptions
+            : const [
+                'Deciding Online Selection...',
+                'Spinning Online Suggestions...',
+                'Exploring Online Ideas...',
+                'Selecting Online Choice...'
+              ]);
 
-    final poolToUse =
-        availableOptions.isNotEmpty ? availableOptions : _currentOptions;
-    if (availableOptions.isEmpty) {
-      _currentHistory.clear();
-      _savePersistentHistory();
-    }
-
-    if (poolToUse.isEmpty) return;
+    if (displayPool.isEmpty) return;
 
     HapticFeedback.mediumImpact();
     setState(() {
@@ -371,15 +631,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       ticks++;
       HapticFeedback.selectionClick();
 
-      final randomIndex = _random.nextInt(poolToUse.length);
+      final randomIndex = _random.nextInt(displayPool.length);
       setState(() {
-        _currentDisplayResult = poolToUse[randomIndex];
+        _currentDisplayResult = displayPool[randomIndex];
       });
 
       if (ticks >= totalTicks) {
         timer.cancel();
-        final winnerIndex = _random.nextInt(poolToUse.length);
-        _finalizeDecision(poolToUse[winnerIndex]);
+        final winner = _pickWinner();
+        _finalizeDecision(winner);
       }
     });
   }
@@ -393,7 +653,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       _currentHistory.add(winner);
     });
 
-    _savePersistentHistory();
+    _savePersistentData();
 
     MovieModel? winningMovie;
     if (_selectedCategoryIndex == 2) {
@@ -648,7 +908,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  /// Add custom option and sync it online directly to Supabase
+  /// Add custom option and sync it online directly to Supabase & SharedPreferences
   void _showAddCustomOptionDialog() {
     final controller = TextEditingController();
     showDialog(
@@ -656,7 +916,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: Text(
-          'Add ${_selectedCategoryIndex == 0 ? "Food" : "Activity"} Option',
+          'Add Custom ${_selectedCategoryIndex == 0 ? "Food & Drink" : "Date & Activity"}',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         content: TextField(
@@ -669,8 +929,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ),
           decoration: InputDecoration(
             hintText: _selectedCategoryIndex == 0
-                ? 'e.g. Samgyupsal, Ramen, Sisig...'
-                : 'e.g. Cinema Date, Night Drive...',
+                ? 'e.g. Samgyupsal, Crispy Sisig, Milk Tea...'
+                : 'e.g. Sunset in Manila Bay, Arcade Night...',
             filled: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
@@ -744,7 +1004,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  /// Save option to local wheel and online Supabase database
+  /// Save custom option to local cache (SharedPreferences) and online Supabase database
   Future<void> _saveCustomOption(String text) async {
     final category = _selectedCategoryIndex == 0 ? 'food' : 'activity';
 
@@ -756,10 +1016,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       }
     });
 
-    SnackbarHelper.showSuccess(
-      context,
-      'Added "$text" to wheel options!',
-    );
+    await _savePersistentData();
+
+    if (mounted) {
+      SnackbarHelper.showSuccess(
+        context,
+        'Added "$text" to wheel options!',
+      );
+    }
 
     try {
       final coupleId = _getCoupleId();
@@ -767,13 +1031,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         if (coupleId.isNotEmpty) 'couple_id': coupleId,
         'category': category,
         'title': text,
+        'is_custom': true,
       });
-    } catch (_) {
-      // Local state is safely preserved
-    }
+    } catch (_) {}
   }
 
-  /// Delete option from wheel and online Supabase database
+  /// Delete option from list, local cache (SharedPreferences), and online Supabase database
   Future<void> _removeOption(String option) async {
     HapticFeedback.lightImpact();
     setState(() {
@@ -788,7 +1051,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       _currentHistory.remove(option);
     });
 
-    await _savePersistentHistory();
+    await _savePersistentData();
 
     try {
       final coupleId = _getCoupleId();
@@ -883,14 +1146,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ),
               const SizedBox(height: 14),
 
-              // Categories Header Chips (Food vs Activities vs Movie Watchlist)
+              // Categories Header Chips (Food & Drinks vs Dates & Activities vs Movie Watchlist)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
                     _buildCategoryBadge(
                       index: 0,
-                      label: 'Food & Dining',
+                      label: 'Food & Drinks',
                       icon: Icons.restaurant_rounded,
                       isDark: isDark,
                     ),
@@ -916,7 +1179,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               // Main Spinner Card
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
                 decoration: BoxDecoration(
                   color: isDark
                       ? const Color(0xFF1E162B)
@@ -938,20 +1201,61 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 ),
                 child: Column(
                   children: [
+                    // Online Connection Indicator Badge
+                    if (_selectedCategoryIndex != 2)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(0xFFFF758C)
+                                .withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.wifi_rounded,
+                              size: 13,
+                              color: Color(0xFFFF758C),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Online Suggestion Pool Active',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? Colors.white70
+                                    : AppColors.deepCharcoal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
                     if (_spinnerModeIndex == 0)
                       // Visual Physical Wheel Mode
                       _buildVisualWheel(context, isDark)
                     else
                       // Slot Machine / Carousel Mode
                       _buildSlotMachineView(context, isDark),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
 
                     // Spin Button
                     Container(
                       width: double.infinity,
                       height: 52,
                       decoration: BoxDecoration(
-                        gradient: _isSpinning || _currentOptions.length < 2
+                        gradient: _isSpinning ||
+                                (_selectedCategoryIndex == 2 &&
+                                    _watchOptions.length < 2)
                             ? null
                             : const LinearGradient(
                                 colors: [
@@ -961,13 +1265,17 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
-                        color: _isSpinning || _currentOptions.length < 2
+                        color: _isSpinning ||
+                                (_selectedCategoryIndex == 2 &&
+                                    _watchOptions.length < 2)
                             ? (isDark
                                 ? Colors.grey.shade800
                                 : Colors.grey.shade300)
                             : null,
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: _isSpinning || _currentOptions.length < 2
+                        boxShadow: _isSpinning ||
+                                (_selectedCategoryIndex == 2 &&
+                                    _watchOptions.length < 2)
                             ? null
                             : [
                                 BoxShadow(
@@ -1003,7 +1311,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         ),
                         label: Text(
                           _isSpinning
-                              ? 'Spinning the Wheel...'
+                              ? 'Spinning...'
                               : 'Spin Wheel',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
@@ -1039,17 +1347,29 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          _selectedCategoryIndex == 2
-                              ? 'Watchlist Movies (${_watchMovies.length})'
-                              : 'Options (${_currentOptions.length})',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: isDark
-                                ? Colors.white
-                                : AppColors.deepCharcoal,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              _selectedCategoryIndex == 2
+                                  ? 'Watchlist Movies (${_watchMovies.length})'
+                                  : 'Custom Options (${_currentOptions.length})',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.deepCharcoal,
+                              ),
+                            ),
+                            if (_selectedCategoryIndex != 2) ...[
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Icons.cloud_done_rounded,
+                                size: 15,
+                                color: Color(0xFFFF758C),
+                              ),
+                            ],
+                          ],
                         ),
                         if (_selectedCategoryIndex != 2)
                           TextButton.icon(
@@ -1165,9 +1485,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             const SizedBox(height: 10),
                             Text(
                               _selectedCategoryIndex == 0
-                                  ? 'No food options yet'
+                                  ? 'No custom food options added'
                                   : _selectedCategoryIndex == 1
-                                      ? 'No activity options yet'
+                                      ? 'No custom activity options added'
                                       : 'No unwatched movies in Watchlist',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
@@ -1180,7 +1500,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             const SizedBox(height: 4),
                             Text(
                               _selectedCategoryIndex != 2
-                                  ? 'Add your custom choices to populate the wheel.'
+                                  ? 'Spinning suggests dynamic online Filipino ideas. Tap Add Custom to include your own!'
                                   : 'Add movies to your Watchlist in Movie Diary.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
@@ -1237,7 +1557,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       )
                     else if (_selectedCategoryIndex == 2 &&
                         _watchMovies.isNotEmpty)
-                      // Horizontal Movie Poster Banner Carousel with Vibrant Colors 🎬
+                      // Horizontal Movie Poster Banner Carousel
                       SizedBox(
                         height: 195,
                         child: ListView.separated(
@@ -1430,21 +1750,27 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         children: _currentOptions.map((opt) {
                           final isPickedRecently =
                               _currentHistory.contains(opt);
+
                           return Chip(
+                            avatar: const Icon(
+                              Icons.star_rounded,
+                              color: Color(0xFFFF758C),
+                              size: 16,
+                            ),
                             label: Text(
                               opt,
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: isPickedRecently
                                     ? FontWeight.normal
-                                    : FontWeight.w600,
+                                    : FontWeight.bold,
                                 color: isPickedRecently
                                     ? (isDark
                                         ? Colors.white38
                                         : Colors.grey.shade500)
                                     : (isDark
-                                        ? Colors.white
-                                        : AppColors.deepCharcoal),
+                                        ? const Color(0xFFFF8DA1)
+                                        : const Color(0xFFC2185B)),
                                 decoration: isPickedRecently
                                     ? TextDecoration.lineThrough
                                     : null,
@@ -1455,23 +1781,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                               size: 14,
                             ),
                             deleteIconColor: const Color(0xFFFF758C),
-                            onDeleted: _selectedCategoryIndex != 2
-                                ? () => _removeOption(opt)
-                                : null,
+                            onDeleted: () => _removeOption(opt),
                             backgroundColor: isPickedRecently
                                 ? (isDark
                                     ? Colors.white.withValues(alpha: 0.04)
                                     : Colors.grey.shade100)
                                 : (isDark
                                     ? const Color(0xFFFF758C)
-                                        .withValues(alpha: 0.15)
+                                        .withValues(alpha: 0.25)
                                     : const Color(0xFFFF758C)
-                                        .withValues(alpha: 0.08)),
+                                        .withValues(alpha: 0.16)),
                             side: BorderSide(
                               color: isPickedRecently
                                   ? Colors.transparent
                                   : const Color(0xFFFF758C)
-                                      .withValues(alpha: 0.25),
+                                      .withValues(alpha: 0.6),
+                              width: 1.4,
                             ),
                           );
                         }).toList(),
@@ -1488,6 +1813,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   Widget _buildVisualWheel(BuildContext context, bool isDark) {
     const wheelSize = 280.0;
+    final slices = _wheelDisplaySlices;
 
     return Column(
       children: [
@@ -1498,20 +1824,20 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             alignment: Alignment.center,
             clipBehavior: Clip.none,
             children: [
-              // Spinning Canvas Wheel
+              // Spinning Canvas Wheel with AnimatedBuilder
               AnimatedBuilder(
                 animation: _wheelAnimation,
                 builder: (context, child) {
                   final angle = _wheelController.isAnimating
-                      ? _currentWheelAngle +
-                          ((_wheelController.value) *
-                              (2 * pi * 5))
+                      ? _startWheelAngle +
+                          ((_targetWheelAngle - _startWheelAngle) *
+                              _wheelAnimation.value)
                       : _currentWheelAngle;
 
                   return CustomPaint(
                     size: const Size(wheelSize, wheelSize),
                     painter: _DecisionWheelPainter(
-                      options: _currentOptions,
+                      slices: slices,
                       angle: angle,
                       isDark: isDark,
                     ),
@@ -1630,7 +1956,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.casino_rounded,
+                  Icons.public_rounded,
                   color: Colors.white,
                   size: 22,
                 ),
@@ -1823,14 +2149,16 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   }
 }
 
-/// Custom Painter for the Interactive Visual Decision Wheel
+/// Custom Painter for the Merged Decision Wheel
+/// - Renders custom labels on custom wedges
+/// - Renders Material online icons on online suggestion wedges
 class _DecisionWheelPainter extends CustomPainter {
-  final List<String> options;
+  final List<_WheelSliceItem> slices;
   final double angle;
   final bool isDark;
 
   _DecisionWheelPainter({
-    required this.options,
+    required this.slices,
     required this.angle,
     required this.isDark,
   });
@@ -1849,43 +2177,15 @@ class _DecisionWheelPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = min(size.width, size.height) / 2 - 8;
 
-    if (options.isEmpty) {
-      final paint = Paint()
-        ..color = isDark
-            ? Colors.white.withValues(alpha: 0.06)
-            : Colors.grey.shade200
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(center, radius, paint);
-
-      final rimPaint = Paint()
-        ..color = const Color(0xFFFF758C).withValues(alpha: 0.35)
-        ..strokeWidth = 2.5
-        ..style = PaintingStyle.stroke;
-      canvas.drawCircle(center, radius, rimPaint);
-
-      final textSpan = TextSpan(
-        text: 'Add Options to Spin',
-        style: TextStyle(
-          color: isDark ? Colors.white60 : Colors.grey.shade600,
-          fontSize: 13,
-          fontWeight: FontWeight.bold,
-        ),
-      );
-      final tp = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
-      tp.layout();
-      tp.paint(
-          canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
-      return;
-    }
-
-    final sliceAngle = (2 * pi) / options.length;
+    final count = slices.isNotEmpty ? slices.length : 8;
+    final sliceAngle = (2 * pi) / count;
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
     canvas.rotate(angle);
 
     // Draw Slices
-    for (int i = 0; i < options.length; i++) {
+    for (int i = 0; i < count; i++) {
       final startAngle = i * sliceAngle;
       final sweepAngle = sliceAngle;
 
@@ -1916,42 +2216,82 @@ class _DecisionWheelPainter extends CustomPainter {
       final endY = radius * sin(startAngle);
       canvas.drawLine(Offset.zero, Offset(endX, endY), linePaint);
 
-      // Text along radial slice
+      // Radial slice rendering
       canvas.save();
       final textAngle = startAngle + sweepAngle / 2;
       canvas.rotate(textAngle);
 
-      final label = options[i];
-      final maxChars = options.length > 8 ? 12 : 16;
-      final displayLabel = label.length > maxChars
-          ? '${label.substring(0, maxChars)}...'
-          : label;
+      final slice = i < slices.length
+          ? slices[i]
+          : const _WheelSliceItem(
+              label: '',
+              isCustom: false,
+              onlineIcon: Icons.language_rounded,
+            );
 
-      final textSpan = TextSpan(
-        text: displayLabel,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: options.length > 10 ? 9.5 : 11,
-          fontWeight: FontWeight.bold,
-          shadows: const [
-            Shadow(
-              color: Colors.black45,
-              blurRadius: 4,
-              offset: Offset(0, 1),
-            ),
-          ],
-        ),
-      );
+      if (slice.isCustom && slice.label.isNotEmpty) {
+        // Draw Custom Option / Movie Label
+        final label = slice.label;
+        final maxChars = count > 8 ? 10 : 14;
+        final displayLabel = label.length > maxChars
+            ? '${label.substring(0, maxChars)}...'
+            : label;
 
-      final textPainter = TextPainter(
-        text: textSpan,
-        textDirection: TextDirection.ltr,
-        maxLines: 1,
-      );
-      textPainter.layout(maxWidth: radius * 0.62);
+        final textSpan = TextSpan(
+          text: displayLabel,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: count > 8 ? 9.5 : 11.5,
+            fontWeight: FontWeight.w800,
+            shadows: const [
+              Shadow(
+                color: Colors.black45,
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+        );
 
-      final textOffset = Offset(radius * 0.28, -textPainter.height / 2);
-      textPainter.paint(canvas, textOffset);
+        final textPainter = TextPainter(
+          text: textSpan,
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+        );
+        textPainter.layout(maxWidth: radius * 0.62);
+
+        final textOffset = Offset(radius * 0.28, -textPainter.height / 2);
+        textPainter.paint(canvas, textOffset);
+      } else {
+        // Draw Material Online Icon on slice
+        final iconData = slice.onlineIcon;
+        final textSpan = TextSpan(
+          text: String.fromCharCode(iconData.codePoint),
+          style: TextStyle(
+            fontSize: 16,
+            fontFamily: iconData.fontFamily,
+            package: iconData.fontPackage,
+            color: Colors.white.withValues(alpha: 0.9),
+            shadows: const [
+              Shadow(
+                color: Colors.black38,
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+        );
+        final textPainter = TextPainter(
+          text: textSpan,
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(radius * 0.52 - textPainter.width / 2,
+              -textPainter.height / 2),
+        );
+      }
 
       canvas.restore();
     }
@@ -1979,7 +2319,7 @@ class _DecisionWheelPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _DecisionWheelPainter oldDelegate) {
     return oldDelegate.angle != angle ||
-        oldDelegate.options != options ||
+        oldDelegate.slices != slices ||
         oldDelegate.isDark != isDark;
   }
 }

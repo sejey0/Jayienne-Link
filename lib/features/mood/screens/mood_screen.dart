@@ -39,7 +39,7 @@ class _MoodScreenState extends State<MoodScreen> {
     _moodLookup = {
       for (final option in _moodOptions) option.key: option,
     };
-    _selectedMoodKey = _moodOptions.first.key;
+    _selectedMoodKey = null;
     _loadCustomMoods();
   }
 
@@ -437,19 +437,70 @@ class _MoodScreenState extends State<MoodScreen> {
     ];
   }
 
+  String _extractCallSign(String text) {
+    var raw = text.trim();
+    if (raw.isEmpty) return '';
+
+    // Check if format is "Your <callsign> is <mood/anything>"
+    final regex = RegExp(r'^Your\s+(.+?)\s+is\b.*$', caseSensitive: false);
+    final match = regex.firstMatch(raw);
+    if (match != null && match.group(1) != null) {
+      return match.group(1)!.trim();
+    }
+
+    // Check if format is "Your <callsign>"
+    final prefixRegex = RegExp(r'^Your\s+(.+)$', caseSensitive: false);
+    final prefixMatch = prefixRegex.firstMatch(raw);
+    if (prefixMatch != null && prefixMatch.group(1) != null) {
+      return prefixMatch.group(1)!.trim();
+    }
+
+    return raw;
+  }
+
+  void _onMoodTapped(_MoodOption option) {
+    HapticFeedback.lightImpact();
+    final cleanCallSign = _extractCallSign(_callSignController.text);
+    if (cleanCallSign.isEmpty) {
+      _callSignFocusNode.requestFocus();
+      SnackbarHelper.showError(
+        context,
+        'Please enter your callsign first (e.g., daddy, wife)',
+      );
+      return;
+    }
+
+    setState(() {
+      _selectedMoodKey = option.key;
+    });
+
+    final formattedText = 'Your $cleanCallSign is ${option.label.toLowerCase()}';
+    _callSignController.value = TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
+    );
+  }
+
   Future<void> _sendMood(
     MoodProvider provider,
     String mood,
-    String callSign,
+    String rawText,
   ) async {
     if (!provider.canSend || provider.isSending) return;
-    final trimmedCallSign = callSign.trim();
+    final trimmedCallSign = _extractCallSign(rawText);
     if (trimmedCallSign.isEmpty) {
       _callSignFocusNode.requestFocus();
       SnackbarHelper.showError(context, 'Please enter a callsign to send.');
       return;
     }
-    await provider.sendMood(mood: mood, callSign: trimmedCallSign);
+    final success = await provider.sendMood(mood: mood, callSign: trimmedCallSign);
+    if (success) {
+      _callSignController.clear();
+      _callSignFocusNode.unfocus();
+      setState(() {
+        _selectedMoodKey = null;
+      });
+    }
   }
 
   Future<String?> _showCustomMoodDialog() async {
@@ -665,6 +716,14 @@ class _MoodScreenState extends State<MoodScreen> {
                               _moodLookup[key] = newOption;
                               _selectedMoodKey = key;
                             });
+                            final cleanCallSign = _extractCallSign(_callSignController.text);
+                            if (cleanCallSign.isNotEmpty) {
+                              final formattedText = 'Your $cleanCallSign is ${label.toLowerCase()}';
+                              _callSignController.value = TextEditingValue(
+                                text: formattedText,
+                                selection: TextSelection.collapsed(offset: formattedText.length),
+                              );
+                            }
                             _saveCustomMoods();
                             SnackbarHelper.showSuccess(
                               context,
@@ -1422,12 +1481,9 @@ class _MoodScreenState extends State<MoodScreen> {
                       final isSelected = _selectedMoodKey == option.key;
                       return _MoodButton(
                         option: option,
-                        enabled: canSend,
+                        enabled: canSend && hasCallSign,
                         isSelected: isSelected,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          setState(() => _selectedMoodKey = option.key);
-                        },
+                        onTap: () => _onMoodTapped(option),
                       );
                     }),
                     // Custom Saved Moods
@@ -1435,12 +1491,9 @@ class _MoodScreenState extends State<MoodScreen> {
                       final isSelected = _selectedMoodKey == option.key;
                       return _MoodButton(
                         option: option,
-                        enabled: canSend,
+                        enabled: canSend && hasCallSign,
                         isSelected: isSelected,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          setState(() => _selectedMoodKey = option.key);
-                        },
+                        onTap: () => _onMoodTapped(option),
                         onLongPress: () => _showDeleteCustomMoodDialog(option),
                       );
                     }),
@@ -1905,7 +1958,7 @@ class _MoodButton extends StatelessWidget {
     final gradientColors = option.gradientColors;
 
     return InkWell(
-      onTap: enabled ? onTap : null,
+      onTap: onTap,
       onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(

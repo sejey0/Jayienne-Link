@@ -280,6 +280,7 @@ class _MoodScreenState extends State<MoodScreen> {
           label: label,
           icon: icon,
           color: AppColors.softRose,
+          gradientColors: const [Color(0xFFFF758C), Color(0xFFA18CD1)],
         );
         loaded.add(option);
         _moodLookup[key] = option;
@@ -374,54 +375,63 @@ class _MoodScreenState extends State<MoodScreen> {
         label: 'Like',
         icon: Icons.favorite_rounded,
         color: AppColors.softRose,
+        gradientColors: [Color(0xFFFF5252), Color(0xFFD81B60)],
       ),
       _MoodOption(
         key: 'happy',
         label: 'Happy',
         icon: Icons.sentiment_very_satisfied_rounded,
         color: Color(0xFFFF4081),
+        gradientColors: [Color(0xFFFF4081), Color(0xFFAB47BC)],
       ),
       _MoodOption(
         key: 'excited',
         label: 'Excited',
         icon: Icons.celebration_rounded,
         color: Color(0xFFA18CD1),
+        gradientColors: [Color(0xFFEC407A), Color(0xFF8E24AA)],
       ),
       _MoodOption(
         key: 'sad',
         label: 'Sad',
         icon: Icons.sentiment_dissatisfied_rounded,
         color: Color(0xFF8E24AA),
+        gradientColors: [Color(0xFF9C27B0), Color(0xFF512DA8)],
       ),
       _MoodOption(
         key: 'angry',
         label: 'Angry',
         icon: Icons.sentiment_very_dissatisfied_rounded,
         color: Color(0xFFFF5252),
+        gradientColors: [Color(0xFFFF5252), Color(0xFFC2185B)],
       ),
       _MoodOption(
         key: 'hungry',
         label: 'Hungry',
         icon: Icons.restaurant_rounded,
         color: Color(0xFFEC407A),
+        gradientColors: [Color(0xFFFF6E40), Color(0xFFE91E63)],
       ),
       _MoodOption(
         key: 'sleepy',
         label: 'Sleepy',
         icon: Icons.bedtime_rounded,
         color: Color(0xFF7B1FA2),
+        gradientColors: [Color(0xFF7B1FA2), Color(0xFF4A148C)],
       ),
       _MoodOption(
         key: 'bored',
         label: 'Bored',
         icon: Icons.sentiment_neutral_rounded,
         color: Color(0xFFBA68C8),
+        gradientColors: [Color(0xFFBA68C8), Color(0xFF7B1FA2)],
       ),
       _MoodOption(
         key: 'nervous',
         label: 'Nervous',
         icon: Icons.warning_amber_rounded,
         color: Color(0xFFD81B60),
+        gradientColors: [Color(0xFFF06292), Color(0xFF8E24AA)],
       ),
     ];
   }
@@ -646,6 +656,7 @@ class _MoodScreenState extends State<MoodScreen> {
                               label: label,
                               icon: selectedIcon,
                               color: AppColors.softRose,
+                              gradientColors: const [Color(0xFFFF758C), Color(0xFFA18CD1)],
                             );
                             setState(() {
                               _customMoods.removeWhere((o) => o.key == key);
@@ -1274,40 +1285,55 @@ class _MoodScreenState extends State<MoodScreen> {
                     // + Custom mood button (always enabled to add new moods)
                     InkWell(
                       onTap: () => _showCustomMoodDialog(),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 9,
+                          horizontal: 10,
+                          vertical: 7,
                         ),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : AppColors.softRose.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.softRose.withValues(alpha: 0.2)
+                                : AppColors.softRose.withValues(alpha: 0.25),
+                            width: 1.0,
                           ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF758C).withValues(alpha: 0.4),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
-                              Icons.add_reaction_rounded,
-                              size: 18,
-                              color: Colors.white,
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.add_reaction_rounded,
+                                size: 16,
+                                color: Colors.white,
+                              ),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 8),
                             Text(
                               '+ Custom',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.white,
+                                    color: isDark ? Colors.white : AppColors.deepCharcoal,
                                     fontWeight: FontWeight.bold,
                                   ),
                             ),
@@ -1375,6 +1401,13 @@ class _MoodScreenState extends State<MoodScreen> {
     final moodText = callSign.isEmpty
         ? moodLabel
         : 'Your $callSign is ${moodLabel.toLowerCase()}';
+    final List<Color> gradientColors;
+    if (option != null) {
+      gradientColors = option.gradientColors;
+    } else {
+      gradientColors = const [Color(0xFFFF758C), Color(0xFFA18CD1)];
+    }
+
     final bubbleColor = isDark
         ? (isMine
             ? AppColors.lavender.withValues(alpha: 0.25)
@@ -1474,16 +1507,23 @@ class _MoodScreenState extends State<MoodScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              gradient: LinearGradient(
+                                colors: gradientColors,
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: gradientColors.first.withValues(alpha: 0.35),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
                             ),
-                            child: Icon(icon, size: 16, color: Colors.white),
+                            child: Icon(icon, size: 15, color: Colors.white),
                           ),
                           const SizedBox(width: 8),
                           Flexible(
@@ -1665,12 +1705,14 @@ class _MoodOption {
   final String label;
   final IconData icon;
   final Color color;
+  final List<Color> gradientColors;
 
   const _MoodOption({
     required this.key,
     required this.label,
     required this.icon,
     required this.color,
+    this.gradientColors = const [Color(0xFFFF758C), Color(0xFFA18CD1)],
   });
 }
 
@@ -1698,49 +1740,45 @@ class _MoodButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gradientColors = option.gradientColors;
 
     return InkWell(
       onTap: enabled ? onTap : null,
       onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 9,
+          horizontal: 10,
+          vertical: 7,
         ),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: isSelected
-              ? const LinearGradient(
-                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
+          borderRadius: BorderRadius.circular(16),
           color: isSelected
-              ? null
+              ? (isDark
+                  ? const Color(0xFFFF758C).withValues(alpha: 0.22)
+                  : const Color(0xFFFF758C).withValues(alpha: 0.12))
               : enabled
                   ? (isDark
                       ? Colors.white.withValues(alpha: 0.06)
-                      : AppColors.softRose.withValues(alpha: 0.08))
+                      : AppColors.softRose.withValues(alpha: 0.06))
                   : (isDark ? Colors.grey.shade900 : Colors.grey.shade200),
           border: Border.all(
             color: isSelected
-                ? Colors.transparent
+                ? const Color(0xFFFF758C)
                 : enabled
                     ? (isDark
                         ? AppColors.softRose.withValues(alpha: 0.2)
                         : AppColors.softRose.withValues(alpha: 0.25))
                     : (isDark ? Colors.grey.shade800 : Colors.grey.shade300),
-            width: 1.2,
+            width: isSelected ? 1.8 : 1.0,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFFFF758C).withValues(alpha: 0.4),
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
                     blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    offset: const Offset(0, 2),
                   ),
                 ]
               : null,
@@ -1748,23 +1786,37 @@ class _MoodButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              option.icon,
-              size: 18,
-              color: isSelected
-                  ? Colors.white
-                  : enabled
-                      ? option.color
-                      : (isDark ? Colors.grey.shade600 : Colors.grey),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: gradientColors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: gradientColors.first.withValues(alpha: 0.35),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                option.icon,
+                size: 16,
+                color: Colors.white,
+              ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Text(
               option.label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: isSelected
-                        ? Colors.white
+                        ? (isDark ? Colors.white : AppColors.deepCharcoal)
                         : enabled
-                            ? (isDark ? Colors.white : AppColors.deepCharcoal)
+                            ? (isDark ? AppColors.darkText : AppColors.deepCharcoal)
                             : (isDark ? Colors.grey.shade600 : Colors.grey),
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                   ),

@@ -14,6 +14,7 @@ import '../widgets/mark_watched_sheet.dart';
 import '../widgets/movie_alert_dialog.dart';
 import '../widgets/movie_poster_widget.dart';
 import '../widgets/view_movie_details_sheet.dart';
+import '../../home/screens/decision_spinner_screen.dart';
 import '../../../widgets/smart_profile_image.dart';
 
 /// Senior Couples Movie Tracker & Watchlist Screen ("Cinema Diary")
@@ -678,55 +679,129 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ),
                     const SizedBox(height: 10),
 
-                    // Search Bar
-                    Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF1E162B).withValues(alpha: 0.85)
-                            : Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.12)
-                              : Colors.white,
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (val) => setState(() => _searchQuery = val.trim()),
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                        decoration: InputDecoration(
-                          isDense: true,
-                          hintText: 'Search movies, memories, or reviews...',
-                          hintStyle: TextStyle(
-                            fontSize: 12.5,
-                            color: isDark ? Colors.white38 : Colors.grey.shade500,
+                    // Search Bar & Decision Spinner Shortcut Row
+                    Row(
+                      children: [
+                        // Clean Pill Search Bar
+                        Expanded(
+                          child: Container(
+                            height: 44,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF1E162B).withValues(alpha: 0.95)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.12)
+                                    : const Color(0xFFFF758C).withValues(alpha: 0.2),
+                                width: 1.0,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            alignment: Alignment.centerLeft,
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                              textAlignVertical: TextAlignVertical.center,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                              cursorColor: const Color(0xFFFF758C),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: 'Search movies, memories...',
+                                hintStyle: TextStyle(
+                                  fontSize: 12.5,
+                                  color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.search_rounded,
+                                  color: Color(0xFFFF758C),
+                                  size: 18,
+                                ),
+                                prefixIconConstraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                                suffixIcon: _searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 28,
+                                          minHeight: 28,
+                                        ),
+                                        icon: const Icon(Icons.clear_rounded, size: 16),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          setState(() => _searchQuery = '');
+                                        },
+                                      )
+                                    : null,
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 10,
+                                ),
+                              ),
+                            ),
                           ),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: Color(0xFFFF758C),
-                            size: 18,
-                          ),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded, size: 16),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _searchQuery = '');
-                                  },
-                                )
-                              : null,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Decision Spinner Shortcut Button
+                        Tooltip(
+                          message: 'Decision Spinner',
+                          child: InkWell(
+                            onTap: () async {
+                              HapticFeedback.lightImpact();
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const DecisionSpinnerScreen(),
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(22),
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFBA68C8), Color(0xFF7B1FA2)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF7B1FA2).withValues(alpha: 0.35),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.casino_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                     const SizedBox(height: 10),
 

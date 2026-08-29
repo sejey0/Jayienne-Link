@@ -615,21 +615,23 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
     final canSend = heartbeatProvider.canSend && !heartbeatProvider.isSending;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: isDark
-            ? const Color(0xFF1E162B).withValues(alpha: 0.95)
-            : Colors.white.withValues(alpha: 0.95),
+            ? const Color(0xFF1E162B)
+            : Colors.white,
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
-          color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+          color: isDark
+              ? const Color(0xFFFF758C).withValues(alpha: 0.25)
+              : const Color(0xFFFF758C).withValues(alpha: 0.2),
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF758C).withValues(alpha: 0.16),
-            blurRadius: 18,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -640,46 +642,36 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
           final canSendMessage = canSend && hasMessage;
 
           return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Message Text Input
+              const SizedBox(width: 6),
+              // Message Text Input directly inside dock
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.1)
-                          : Colors.grey.shade200,
-                    ),
+                child: TextField(
+                  controller: messageController,
+                  focusNode: messageFocusNode,
+                  enabled: canSend,
+                  minLines: 1,
+                  maxLines: 3,
+                  textAlignVertical: TextAlignVertical.center,
+                  textInputAction: TextInputAction.send,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                    fontSize: 14.5,
                   ),
-                  child: TextField(
-                    controller: messageController,
-                    focusNode: messageFocusNode,
-                    enabled: canSend,
-                    minLines: 1,
-                    maxLines: 3,
-                    textInputAction: TextInputAction.send,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : AppColors.deepCharcoal,
-                      fontSize: 14,
+                  cursorColor: const Color(0xFFFF758C),
+                  onChanged: heartbeatProvider.handleTypingChanged,
+                  onSubmitted: (_) => onSendMessage(),
+                  decoration: InputDecoration(
+                    hintText: 'Type sweet message...',
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.white38 : Colors.grey.shade500,
+                      fontSize: 13.5,
                     ),
-                    cursorColor: const Color(0xFFFF758C),
-                    onChanged: heartbeatProvider.handleTypingChanged,
-                    onSubmitted: (_) => onSendMessage(),
-                    decoration: InputDecoration(
-                      hintText: 'Type sweet message...',
-                      hintStyle: TextStyle(
-                        color: isDark ? Colors.white38 : Colors.grey.shade500,
-                        fontSize: 13,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding:
-                          const EdgeInsets.symmetric(vertical: 10),
-                    ),
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
                   ),
                 ),
               ),
@@ -723,8 +715,8 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
       child: GestureDetector(
         onTap: onPressed,
         child: Container(
-          width: 42,
-          height: 42,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             gradient: isEnabled
                 ? LinearGradient(
@@ -735,15 +727,6 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                 : null,
             color: isEnabled ? null : Colors.grey.shade300,
             shape: BoxShape.circle,
-            boxShadow: isEnabled
-                ? [
-                    BoxShadow(
-                      color: gradientColors.first.withValues(alpha: 0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
           ),
           child: Icon(
             icon,

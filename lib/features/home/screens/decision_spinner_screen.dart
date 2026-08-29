@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
@@ -12,8 +13,9 @@ import '../../../providers/user_provider.dart';
 import '../../../services/supabase_data_service.dart';
 import '../../../services/supabase_movie_service.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
+import '../../movies/widgets/movie_poster_widget.dart';
 
-/// Date, Food & Movie Decision Spinner Screen with Real-Time Movie Diary Link, Online Sync & Anti-Duplicate Guarantee
+/// Date, Food & Movie Decision Spinner Screen with Persistent History, Movie Posters, Real-Time Sync & Anti-Duplicate Guarantee
 class DecisionSpinnerScreen extends StatefulWidget {
   const DecisionSpinnerScreen({super.key});
 
@@ -38,7 +40,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   Timer? _quickSlotTimer;
   StreamSubscription<List<MovieModel>>? _moviesSubscription;
 
-  // History tracking to prevent duplicates / repeating results
+  // Persistent History tracking across navigations to prevent auto-resetting
   final List<String> _foodHistory = [];
   final List<String> _activityHistory = [];
   final List<String> _watchHistory = [];
@@ -47,6 +49,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   final List<String> _foodOptions = [];
   final List<String> _activityOptions = [];
   final List<String> _watchOptions = [];
+  final List<MovieModel> _watchMovies = [];
 
   List<String> get _currentOptions {
     switch (_selectedCategoryIndex) {
@@ -84,6 +87,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPersistentHistory();
       _fetchOnlineSyncedData();
       _initMovieDiaryStream();
     });
@@ -95,6 +99,47 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     _wheelController.dispose();
     _quickSlotTimer?.cancel();
     super.dispose();
+  }
+
+  /// Load persistent excluded history from SharedPreferences so it never auto-resets on back
+  Future<void> _loadPersistentHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _foodHistory.clear();
+        _foodHistory.addAll(prefs.getStringList('decision_spinner_food_history') ?? []);
+        _activityHistory.clear();
+        _activityHistory.addAll(prefs.getStringList('decision_spinner_activity_history') ?? []);
+        _watchHistory.clear();
+        _watchHistory.addAll(prefs.getStringList('decision_spinner_watch_history') ?? []);
+      });
+    } catch (_) {}
+  }
+
+  /// Save persistent excluded history to SharedPreferences
+  Future<void> _savePersistentHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('decision_spinner_food_history', _foodHistory);
+      await prefs.setStringList('decision_spinner_activity_history', _activityHistory);
+      await prefs.setStringList('decision_spinner_watch_history', _watchHistory);
+    } catch (_) {}
+  }
+
+  /// Reset the excluded history only when the user explicitly triggers it
+  Future<void> _resetCurrentHistory() async {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _currentHistory.clear();
+    });
+    await _savePersistentHistory();
+    if (mounted) {
+      SnackbarHelper.showSuccess(
+        context,
+        'Excluded options reset! All items are ready to spin again.',
+      );
+    }
   }
 
   String _getCoupleId() {
@@ -117,19 +162,19 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     _moviesSubscription = _movieService.streamMovies(coupleId).listen(
       (movies) {
         if (!mounted) return;
-        // Strictly filter for unwatched movies on the couple's watchlist
-        final unWatchedTitles = movies
+        final unWatched = movies
             .where((m) =>
                 !m.isWatched &&
                 m.status.toLowerCase() != 'watched' &&
                 m.status.toLowerCase() != 'already watched')
-            .map((m) => m.title.trim())
-            .where((t) => t.isNotEmpty)
             .toList();
 
         setState(() {
+          _watchMovies.clear();
+          _watchMovies.addAll(unWatched);
+
           _watchOptions.clear();
-          _watchOptions.addAll(unWatchedTitles);
+          _watchOptions.addAll(unWatched.map((m) => m.title.trim()).toList());
         });
       },
       onError: (e) {
@@ -187,23 +232,25 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         }
       }
 
-      // 2. Fetch movies directly from couple's Watchlist in Movie Diary (one-time fetch)
+      // 2. Fetch movies directly from couple's Watchlist in Movie Diary (one-time initial fetch)
       if (coupleId.isNotEmpty) {
         final movies = await _movieService.fetchMovies(coupleId);
         if (movies.isNotEmpty) {
-          final unWatchedTitles = movies
+          final unWatched = movies
               .where((m) =>
                   !m.isWatched &&
                   m.status.toLowerCase() != 'watched' &&
                   m.status.toLowerCase() != 'already watched')
-              .map((m) => m.title.trim())
-              .where((t) => t.isNotEmpty)
               .toList();
 
           if (mounted) {
             setState(() {
+              _watchMovies.clear();
+              _watchMovies.addAll(unWatched);
+
               _watchOptions.clear();
-              _watchOptions.addAll(unWatchedTitles);
+              _watchOptions
+                  .addAll(unWatched.map((m) => m.title.trim()).toList());
             });
           }
         }
@@ -244,6 +291,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         availableOptions.isNotEmpty ? availableOptions : _currentOptions;
     if (availableOptions.isEmpty) {
       _currentHistory.clear();
+      _savePersistentHistory();
     }
 
     if (poolToUse.isEmpty) return;
@@ -305,6 +353,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         availableOptions.isNotEmpty ? availableOptions : _currentOptions;
     if (availableOptions.isEmpty) {
       _currentHistory.clear();
+      _savePersistentHistory();
     }
 
     if (poolToUse.isEmpty) return;
@@ -343,6 +392,17 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       _currentDisplayResult = winner;
       _currentHistory.add(winner);
     });
+
+    _savePersistentHistory();
+
+    MovieModel? winningMovie;
+    if (_selectedCategoryIndex == 2) {
+      try {
+        winningMovie = _watchMovies.firstWhere(
+          (m) => m.title.trim().toLowerCase() == winner.trim().toLowerCase(),
+        );
+      } catch (_) {}
+    }
 
     showDialog(
       context: context,
@@ -394,11 +454,39 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+
+              // Movie Banner Poster Preview if Movie Category
+              if (winningMovie != null &&
+                  winningMovie.posterUrl != null &&
+                  winningMovie.posterUrl!.isNotEmpty) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: MoviePosterWidget(
+                      posterUrl: winningMovie.posterUrl,
+                      width: 120,
+                      height: 170,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               Container(
                 width: double.infinity,
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: isDark
@@ -429,7 +517,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontWeight: FontWeight.w900,
-                    fontSize: 20,
+                    fontSize: 19,
                   ),
                 ),
               ),
@@ -695,9 +783,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _activityOptions.remove(option);
       } else {
         _watchOptions.remove(option);
+        _watchMovies.removeWhere((m) => m.title.trim() == option.trim());
       }
       _currentHistory.remove(option);
     });
+
+    await _savePersistentHistory();
 
     try {
       final coupleId = _getCoupleId();
@@ -927,7 +1018,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
               const SizedBox(height: 18),
 
-              // Active Wheel Options List & Actions
+              // Active Wheel Options List & Movie Banners
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -949,7 +1040,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Options (${_currentOptions.length})',
+                          _selectedCategoryIndex == 2
+                              ? 'Watchlist Movies (${_watchMovies.length})'
+                              : 'Options (${_currentOptions.length})',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
@@ -977,7 +1070,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                 MaterialPageRoute(
                                   builder: (_) => const MovieTrackerScreen(),
                                 ),
-                              ).then((_) => _fetchOnlineSyncedData());
+                              );
                             },
                             icon: const Icon(Icons.movie_rounded, size: 15),
                             label: const Text('Open Movie Diary'),
@@ -989,7 +1082,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       ],
                     ),
 
-                    // Reset Excluded Options Banner
+                    // Persistent Reset Excluded Options Banner
                     if (_currentHistory.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Container(
@@ -1027,16 +1120,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                               ),
                             ),
                             TextButton.icon(
-                              onPressed: () {
-                                HapticFeedback.lightImpact();
-                                setState(() {
-                                  _currentHistory.clear();
-                                });
-                                SnackbarHelper.showSuccess(
-                                  context,
-                                  'Excluded options reset! All items are ready to spin again.',
-                                );
-                              },
+                              onPressed: _resetCurrentHistory,
                               icon: const Icon(Icons.refresh_rounded,
                                   size: 14),
                               label: const Text('Reset Pool'),
@@ -1133,7 +1217,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                       builder: (_) =>
                                           const MovieTrackerScreen(),
                                     ),
-                                  ).then((_) => _fetchOnlineSyncedData());
+                                  );
                                 },
                                 icon: const Icon(Icons.movie_rounded,
                                     size: 16),
@@ -1149,6 +1233,194 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                 ),
                               ),
                           ],
+                        ),
+                      )
+                    else if (_selectedCategoryIndex == 2 &&
+                        _watchMovies.isNotEmpty)
+                      // Horizontal Movie Poster Banner Carousel with Vibrant Colors 🎬
+                      SizedBox(
+                        height: 195,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _watchMovies.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final movie = _watchMovies[index];
+                            final isExcluded =
+                                _watchHistory.contains(movie.title);
+
+                            return Container(
+                              width: 115,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0xFF1E162B)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isExcluded
+                                      ? Colors.transparent
+                                      : const Color(0xFFFF758C)
+                                          .withValues(alpha: 0.45),
+                                  width: 1.5,
+                                ),
+                                boxShadow: isExcluded
+                                    ? null
+                                    : [
+                                        BoxShadow(
+                                          color: const Color(0xFFFF758C)
+                                              .withValues(alpha: 0.22),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Poster with Media Tag Badge & Exclusion Overlay
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius:
+                                          const BorderRadius.vertical(
+                                              top: Radius.circular(14)),
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          MoviePosterWidget(
+                                            posterUrl: movie.posterUrl,
+                                            fit: BoxFit.cover,
+                                            showShadow: false,
+                                          ),
+                                          // Top Corner Colored Badge
+                                          Positioned(
+                                            top: 6,
+                                            left: 6,
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 5,
+                                                      vertical: 2),
+                                              decoration: BoxDecoration(
+                                                gradient:
+                                                    const LinearGradient(
+                                                  colors: [
+                                                    Color(0xFFFF758C),
+                                                    Color(0xFFA18CD1)
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withValues(alpha: 0.4),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 1),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Row(
+                                                mainAxisSize:
+                                                    MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    movie.mediaType ==
+                                                                'series' ||
+                                                            movie.mediaType ==
+                                                                'tv'
+                                                        ? Icons.tv_rounded
+                                                        : Icons.movie_rounded,
+                                                    color: Colors.white,
+                                                    size: 9,
+                                                  ),
+                                                  const SizedBox(width: 3),
+                                                  Text(
+                                                    movie.mediaType ==
+                                                                'series' ||
+                                                            movie.mediaType ==
+                                                                'tv'
+                                                        ? 'Series'
+                                                        : 'Movie',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 8.5,
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          if (isExcluded)
+                                            Container(
+                                              color: Colors.black54,
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.block_rounded,
+                                                  color: Colors.white70,
+                                                  size: 24,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  // Colored Title Ribbon
+                                  Container(
+                                    height: 42,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: isDark
+                                            ? [
+                                                const Color(0xFF2A1B36),
+                                                const Color(0xFF1E1428),
+                                              ]
+                                            : [
+                                                const Color(0xFFFFF0F3),
+                                                const Color(0xFFF6ECF8),
+                                              ],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                      ),
+                                      borderRadius:
+                                          const BorderRadius.vertical(
+                                        bottom: Radius.circular(14),
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      movie.title,
+                                      maxLines: 2,
+                                      textAlign: TextAlign.center,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        height: 1.15,
+                                        color: isExcluded
+                                            ? (isDark
+                                                ? Colors.white38
+                                                : Colors.grey.shade500)
+                                            : (isDark
+                                                ? const Color(0xFFFF8DA1)
+                                                : const Color(0xFFC2185B)),
+                                        decoration: isExcluded
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       )
                     else
@@ -1318,9 +1590,20 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   }
 
   Widget _buildSlotMachineView(BuildContext context, bool isDark) {
+    MovieModel? currentPreviewMovie;
+    if (_selectedCategoryIndex == 2 && _watchMovies.isNotEmpty) {
+      try {
+        currentPreviewMovie = _watchMovies.firstWhere(
+          (m) =>
+              m.title.trim().toLowerCase() ==
+              _currentDisplayResult.trim().toLowerCase(),
+        );
+      } catch (_) {}
+    }
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
         color: isDark
             ? Colors.white.withValues(alpha: 0.05)
@@ -1349,7 +1632,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 child: const Icon(
                   Icons.casino_rounded,
                   color: Colors.white,
-                  size: 24,
+                  size: 22,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1364,7 +1647,24 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
+
+          // Movie Poster banner thumbnail in slot roulette
+          if (currentPreviewMovie != null &&
+              currentPreviewMovie.posterUrl != null &&
+              currentPreviewMovie.posterUrl!.isNotEmpty) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: MoviePosterWidget(
+                posterUrl: currentPreviewMovie.posterUrl,
+                width: 90,
+                height: 125,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 100),
             child: Text(
@@ -1374,7 +1674,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               style: TextStyle(
                 color: isDark ? Colors.white : AppColors.deepCharcoal,
                 fontWeight: FontWeight.w900,
-                fontSize: 20,
+                fontSize: 19,
                 letterSpacing: 0.3,
               ),
             ),

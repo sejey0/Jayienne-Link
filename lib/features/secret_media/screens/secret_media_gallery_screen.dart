@@ -29,7 +29,7 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = context.read<AuthProvider>();
       final user = context.read<UserProvider>();
-      final coupleId = user.user?.coupleId ?? auth.coupleId;
+      final coupleId = user.user?.coupleId ?? user.coupleId;
       final userId = auth.currentUserId ?? user.user?.id;
       if (coupleId != null &&
           coupleId.isNotEmpty &&
@@ -178,7 +178,7 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.deepPurple.withOpacity(0.3),
+                        color: Colors.deepPurple.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -556,7 +556,7 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? Colors.white.withOpacity(0.25)
+                      ? Colors.white.withValues(alpha: 0.25)
                       : Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(10),
                 ),

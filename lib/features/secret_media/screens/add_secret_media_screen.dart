@@ -441,7 +441,7 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
           ),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
-              ? Colors.deepPurple.withOpacity(0.1)
+              ? Colors.deepPurple.withValues(alpha: 0.1)
               : Colors.transparent,
         ),
         child: Column(

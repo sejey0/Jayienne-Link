@@ -215,7 +215,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.3),
+                                    color: Colors.blue.withValues(alpha: 0.3),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -231,7 +231,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.3),
+                                    color: Colors.red.withValues(alpha: 0.3),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Text(
@@ -248,7 +248,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(6),
                                     decoration: BoxDecoration(
-                                      color: Colors.amber.withOpacity(0.3),
+                                      color: Colors.amber.withValues(alpha: 0.3),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: const Icon(

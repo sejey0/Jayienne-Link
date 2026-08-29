@@ -150,7 +150,6 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     final isRefreshing = _isRefreshing == true;
 
     final myId = currentUser?.id ?? locationProvider.userId;
-    final partnerId = partnerUser?.id ?? locationProvider.partnerId;
     final isMyRoute = locationProvider.historyOwnerId == myId;
 
     final activeAvatarUrl = isMyRoute ? currentUser?.photoUrl : partnerUser?.photoUrl;

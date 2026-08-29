@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -352,8 +353,11 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
             : media.displayUrl)
         : media.displayUrl;
 
+    final isVideo = media.mediaType == 'video';
+
     return GestureDetector(
       onTap: () {
+        HapticFeedback.lightImpact();
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -363,137 +367,176 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen> {
       },
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Media image or thumbnail
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: displayImageUrl.isNotEmpty
-                  ? Image.network(
-                      displayImageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey.shade900,
-                          child: const Center(
-                            child: Icon(
-                              Icons.broken_image_rounded,
-                              size: 32,
-                              color: Colors.white54,
-                            ),
-                          ),
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: Colors.grey.shade900,
-                          child: const Center(
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.red,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    )
-                  : Container(
-                      color: Colors.black87,
-                      child: const Center(
-                        child: Icon(
-                          Icons.image_not_supported_outlined,
-                          size: 38,
-                          color: Colors.white70,
-                        ),
-                      ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 1. Blurred background thumbnail / silhouette
+              if (displayImageUrl.isNotEmpty)
+                ImageFiltered(
+                  imageFilter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                  child: Image.network(
+                    displayImageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: const Color(0xFF1E142B),
                     ),
-            ),
-            // Video badge
-            if (media.mediaType == 'video')
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.videocam,
-                    color: Colors.white,
-                    size: 16,
-                  ),
+                )
+              else
+                Container(
+                  color: const Color(0xFF1E142B),
                 ),
-              ),
-            // Hidden badge
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.all(6),
+
+              // 2. Dark frosted gradient privacy mask
+              Container(
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.8),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.lock,
-                  color: Colors.white,
-                  size: 14,
-                ),
-              ),
-            ),
-            if (canDelete)
-              Positioned(
-                top: 8,
-                left: 8,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: PopupMenuButton(
-                    icon: const Icon(
-                      Icons.more_vert,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    itemBuilder: (BuildContext context) => [
-                      PopupMenuItem(
-                        child: const Text('Delete'),
-                        onTap: () {
-                          _showConfirmDialog(
-                            context,
-                            'Delete Media?',
-                            'This action cannot be undone.',
-                            () {
-                              provider.deleteSecretMedia(media.id!);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Media deleted')),
-                              );
-                            },
-                          );
-                        },
-                      ),
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withValues(alpha: 0.55),
+                      Colors.black.withValues(alpha: 0.82),
                     ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
                 ),
               ),
-          ],
+
+              // 3. Center Privacy Lock & Mask Emblem
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        isVideo ? Icons.videocam_rounded : Icons.lock_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isVideo ? 'Private Video' : 'Private Photo',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Tap to Reveal',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // 4. Video Badge (Top Right)
+              if (isVideo)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_arrow_rounded, color: Colors.white, size: 14),
+                        SizedBox(width: 2),
+                        Text(
+                          'VIDEO',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // 5. Delete Action Menu (Top Left)
+              if (canDelete)
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: PopupMenuButton(
+                      icon: const Icon(
+                        Icons.more_vert,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      itemBuilder: (BuildContext context) => [
+                        PopupMenuItem(
+                          child: const Row(
+                            children: [
+                              Icon(Icons.delete_outline, color: AppColors.error, size: 18),
+                              SizedBox(width: 8),
+                              Text('Delete'),
+                            ],
+                          ),
+                          onTap: () {
+                            _showConfirmDialog(
+                              context,
+                              'Delete Media?',
+                              'This action cannot be undone.',
+                              () {
+                                provider.deleteSecretMedia(media.id!);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Media deleted')),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

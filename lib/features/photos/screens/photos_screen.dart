@@ -678,7 +678,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                       borderRadius: bubbleRadius,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -1042,7 +1042,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
     return Container(
       width: size,
       height: size,
-      color: accentColor.withOpacity(0.15),
+      color: accentColor.withValues(alpha: 0.15),
       child: Icon(
         icon,
         size: 18,
@@ -1158,6 +1158,7 @@ class _EditCaptionDialogState extends State<_EditCaptionDialog> {
           ),
         ],
       ),
+      actionsAlignment: MainAxisAlignment.center,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -1294,6 +1295,7 @@ class _DeletePhotoDialogState extends State<_DeletePhotoDialog> {
           ),
         ],
       ),
+      actionsAlignment: MainAxisAlignment.center,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),

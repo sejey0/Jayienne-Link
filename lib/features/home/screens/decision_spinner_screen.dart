@@ -269,6 +269,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

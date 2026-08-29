@@ -317,6 +317,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
             color: isDark ? Colors.white70 : Colors.black87,
           ),
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

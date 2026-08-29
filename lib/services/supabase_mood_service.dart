@@ -147,4 +147,31 @@ class SupabaseMoodService {
           .upsert(payload, onConflict: 'mood_message_id,reader_id');
     }, context: 'Upsert mood read for $moodMessageId');
   }
+
+  Future<void> deleteMoodMessage({
+    required String moodMessageId,
+    required String coupleId,
+  }) async {
+    await SupabaseDataService.safeExecute(() async {
+      await SupabaseDataService.client
+          .from(_tableName)
+          .delete()
+          .eq('id', moodMessageId)
+          .eq('couple_id', coupleId);
+    }, context: 'Delete mood message $moodMessageId');
+  }
+
+  Future<void> deleteMoodMessages({
+    required List<String> moodMessageIds,
+    required String coupleId,
+  }) async {
+    if (moodMessageIds.isEmpty) return;
+    await SupabaseDataService.safeExecute(() async {
+      await SupabaseDataService.client
+          .from(_tableName)
+          .delete()
+          .eq('couple_id', coupleId)
+          .filter('id', 'in', '(${moodMessageIds.map((id) => '"$id"').join(',')})');
+    }, context: 'Delete bulk mood messages');
+  }
 }

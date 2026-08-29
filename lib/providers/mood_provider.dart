@@ -261,6 +261,42 @@ class MoodProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> deleteMood(String moodMessageId) async {
+    if (_coupleId == null) return false;
+    try {
+      await _service.deleteMoodMessage(
+        moodMessageId: moodMessageId,
+        coupleId: _coupleId!,
+      );
+      _moods.removeWhere((m) => m.id == moodMessageId);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to delete mood: $e';
+      debugPrint(_error);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> deleteMoods(List<String> moodMessageIds) async {
+    if (_coupleId == null || moodMessageIds.isEmpty) return false;
+    try {
+      await _service.deleteMoodMessages(
+        moodMessageIds: moodMessageIds,
+        coupleId: _coupleId!,
+      );
+      _moods.removeWhere((m) => m.id != null && moodMessageIds.contains(m.id));
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to delete moods: $e';
+      debugPrint(_error);
+      notifyListeners();
+      return false;
+    }
+  }
+
   void clear() {
     _moodSubscription?.cancel();
     _moodSubscription = null;

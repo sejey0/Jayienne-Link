@@ -1034,6 +1034,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ? 'Are you sure you want to deactivate ${targetUser.displayName} (${targetUser.email})? They will be blocked from accessing the app.'
               : 'Are you sure you want to activate ${targetUser.displayName} (${targetUser.email})? Full access will be restored.',
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -1086,6 +1087,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ? 'Grant admin rights to ${targetUser.displayName}? They will gain full control over user accounts and admin settings.'
               : 'Revoke admin rights from ${targetUser.displayName}?',
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),

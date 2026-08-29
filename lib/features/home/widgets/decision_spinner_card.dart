@@ -215,7 +215,7 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Date & Food Picker',
+                        'Decision Spinner',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -224,7 +224,7 @@ class _DecisionSpinnerCardState extends State<DecisionSpinnerCard> {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Can\'t decide where to eat or what to do? Spin!',
+                        'Date & food picker',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 12,

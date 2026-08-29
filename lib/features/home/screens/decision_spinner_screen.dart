@@ -311,7 +311,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen> {
       backgroundColor: isDark ? const Color(0xFF120E19) : const Color(0xFFFFF7F9),
       appBar: AppBar(
         title: const Text(
-          'Date & Food Picker',
+          'Decision Spinner',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.white,

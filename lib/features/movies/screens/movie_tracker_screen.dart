@@ -573,7 +573,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Cinema Diary',
+                                    'Movie Diary',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 20,
@@ -582,7 +582,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                     ),
                                   ),
                                   Text(
-                                    'Movie nights & reviews',
+                                    'Watchlist & reviews',
                                     style: TextStyle(
                                       color: Colors.white70,
                                       fontSize: 11.5,

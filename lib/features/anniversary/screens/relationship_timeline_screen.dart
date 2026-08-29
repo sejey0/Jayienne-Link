@@ -306,7 +306,12 @@ class _RelationshipTimelineScreenState
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          // Horizontal connector line: node → card (no gap)
+          Container(
+            width: 16,
+            height: 2.5,
+            color: AppColors.softRose.withValues(alpha: 0.4),
+          ),
 
           // Right Card Container
           Expanded(
@@ -316,6 +321,10 @@ class _RelationshipTimelineScreenState
               decoration: BoxDecoration(
                 color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: cat.gradientColors.first.withValues(alpha: 0.25),
+                  width: 1.5,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
@@ -919,10 +928,37 @@ class _RelationshipTimelineScreenState
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
-        child: InteractiveViewer(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.contain),
+        insetPadding: const EdgeInsets.all(16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              // Zoomable image
+              InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 5.0,
+                child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.contain),
+              ),
+
+              // X close button — inside image, top-right
+              Positioned(
+                top: 12,
+                right: 12,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(ctx),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withValues(alpha: 0.55),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
+                    ),
+                    child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -70,18 +70,6 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
 
     // Spawn Realtime Live Screen Overlay locally on sender's device as well
     LoveNudgeOverlayListener.showLocalNudgeEffect(context, payload);
-
-    final actionText = isKiss ? 'Virtual Kiss' : 'Virtual Hug';
-
-    SnackbarHelper.showCustom(
-      context: context,
-      title: '$actionText Sent!',
-      message: 'Successfully sent a $actionText to $partnerName',
-      icon: isKiss ? Icons.favorite_rounded : Icons.volunteer_activism_rounded,
-      gradientColors: isKiss
-          ? const [Color(0xFFFF4081), Color(0xFFD81B60)]
-          : const [Color(0xFFBA68C8), Color(0xFF7B1FA2)],
-    );
   }
 
   @override

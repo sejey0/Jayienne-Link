@@ -32,7 +32,7 @@ class _AppLockScreenState extends State<AppLockScreen>
   final TextEditingController _passcodeController = TextEditingController();
   final FocusNode _passcodeFocusNode = FocusNode();
 
-  late AppLockMode _currentMode;
+  AppLockMode _currentMode = AppLockMode.unlock;
   SetupStep _setupStep = SetupStep.createPasscode;
   String? _candidatePasscode;
 
@@ -47,6 +47,10 @@ class _AppLockScreenState extends State<AppLockScreen>
   void initState() {
     super.initState();
 
+    if (widget.mode != null) {
+      _currentMode = widget.mode!;
+    }
+
     _shakeController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
@@ -58,7 +62,6 @@ class _AppLockScreenState extends State<AppLockScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _initMode();
       _checkAndTriggerBiometrics();
       if (mounted) {
         _passcodeFocusNode.requestFocus();
@@ -66,15 +69,15 @@ class _AppLockScreenState extends State<AppLockScreen>
     });
   }
 
-  void _initMode() {
-    if (!mounted) return;
-    final lockProvider = context.read<AppLockProvider>();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     if (widget.mode != null) {
       _currentMode = widget.mode!;
     } else {
+      final lockProvider = context.read<AppLockProvider>();
       _currentMode = lockProvider.hasPasscode ? AppLockMode.unlock : AppLockMode.setup;
     }
-    if (mounted) setState(() {});
   }
 
   @override
@@ -252,8 +255,7 @@ class _AppLockScreenState extends State<AppLockScreen>
     return 'Jayienne Vault Locked';
   }
 
-  String get _subtitleText {
-    final lockProvider = context.read<AppLockProvider>();
+  String _getSubtitleText(AppLockProvider lockProvider) {
     if (_currentMode == AppLockMode.setup) {
       return _setupStep == SetupStep.createPasscode
           ? 'Enter a passcode (min 8 characters, letters & numbers)'
@@ -341,7 +343,7 @@ class _AppLockScreenState extends State<AppLockScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _subtitleText,
+                        _getSubtitleText(lockProvider),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: isLockedOut

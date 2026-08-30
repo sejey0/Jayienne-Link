@@ -49,6 +49,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   int _spinnerModeIndex = 0; // 0: Spin Wheel, 1: Quick Roulette
   bool _isSpinning = false;
   bool _isInitialized = false;
+  bool _isMoviesLoading = true; // True until Supabase stream delivers first batch
   String _currentDisplayResult = 'Tap Spin to Decide!';
   RealtimeChannel? _spinnerChannel;
   MovieModel? _pickedMovie;
@@ -717,6 +718,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
           _watchOptions.clear();
           _watchOptions.addAll(unWatched.map((m) => m.title.trim()).toList());
+
+          _isMoviesLoading = false; // Stream delivered — stop loading indicator
 
           // If a movie was active, check if it was marked as watched
           if (_pickedMovie != null) {
@@ -1784,11 +1787,18 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         elevation: 0,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppDimensions.spacingMd),
-          child: Column(
-            children: [
-              // Mode Switcher (Visual Wheel vs Quick Slot)
+        child: !_isInitialized
+            ? const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Color(0xFFFF758C),
+                ),
+              )
+            : SingleChildScrollView(
+        padding: const EdgeInsets.all(AppDimensions.spacingMd),
+        child: Column(
+          children: [
+            // Mode Switcher (Visual Wheel vs Quick Slot)
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
@@ -1893,7 +1903,17 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         : Colors.grey.shade200,
                   ),
                 ),
-                child: Column(
+                child: _selectedCategoryIndex == 0 && _isMoviesLoading
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFFFF758C),
+                          ),
+                        ),
+                      )
+                    : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(

@@ -62,7 +62,7 @@ class ForegroundNotificationService {
   /// Show persistent notification for background tracking
   Future<void> showTrackingNotification({
     String title = 'Sharing location',
-    String body = 'Your partner can see your location',
+    String body = 'Your love can see your location',
   }) async {
     if (kIsWeb || _isShowing) return;
 

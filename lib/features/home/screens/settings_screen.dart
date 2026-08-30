@@ -113,7 +113,7 @@ class SettingsScreen extends StatelessWidget {
                   gradientColors: const [Color(0xFFEC407A), Color(0xFF8E24AA)],
                   title: 'Anniversary Date',
                   subtitle: couple == null
-                      ? 'Link with your partner to set one'
+                      ? 'Link with your love to set one'
                       : pendingAnniversary != null
                           ? 'Request pending for ${_formatAnniversary(pendingAnniversary.proposedDate)}'
                           : couple.anniversary != null

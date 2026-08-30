@@ -250,7 +250,7 @@ class _LocationOnboardingScreenState extends State<LocationOnboardingScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Location access is needed to share real-time position with your partner. You can also enable it later in device settings.',
+              'Location access is needed to share real-time position with your love. You can also enable it later in device settings.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13.5,

@@ -174,7 +174,7 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Select a tool to connect with your partner',
+                          'Select a tool to connect with your love',
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall

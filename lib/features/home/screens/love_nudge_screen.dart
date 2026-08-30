@@ -416,7 +416,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
       SupabaseLoveNudgeService().sendLoveNudge(
         coupleId: couple.id!,
         senderId: user.uid,
-        senderName: user.displayName.isNotEmpty ? user.displayName : 'Your Partner',
+        senderName: user.displayName.isNotEmpty ? user.displayName : 'Your Love',
         nudgeType: isKiss ? 'kiss' : 'hug',
         photoUrl: photoUrl,
         message: message.isNotEmpty ? message : null,
@@ -478,7 +478,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
         ? partner.displayName
         : (couple != null && user != null
             ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
-            : 'Partner');
+            : 'wifeyyy');
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF120E19) : const Color(0xFFFFF7F9),

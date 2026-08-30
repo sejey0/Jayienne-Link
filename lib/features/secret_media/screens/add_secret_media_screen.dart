@@ -82,7 +82,7 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
     final user = userProvider.user;
     final coupleId = user?.coupleId;
     if (user == null || coupleId == null || coupleId.isEmpty) {
-      _showErrorSnackBar('Link with your partner first to use Secret Media');
+      _showErrorSnackBar('Link with your love first to use Secret Media');
       return;
     }
 

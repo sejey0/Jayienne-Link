@@ -90,8 +90,8 @@ class PartnerLocationCard extends StatelessWidget {
     final message = !isOnline
         ? 'Offline only'
         : provider.hasPartner
-            ? 'Waiting for your person\'s location'
-            : 'Link with your person to see their location';
+            ? 'Waiting for your love\'s location'
+            : 'Link with your love to see their location';
 
     return AppCard(
       child: Padding(
@@ -230,7 +230,7 @@ class PartnerLocationCard extends StatelessWidget {
                   height: 60,
                   child: PartnerAvatarMarker(
                     photoUrl: partnerUser?.photoUrl,
-                    partnerName: partnerUser?.displayName ?? 'Partner',
+                    partnerName: partnerUser?.displayName ?? 'wifeyyy',
                     batteryLevel: location.batteryLevel,
                     heading: location.heading,
                     speed: location.speed,

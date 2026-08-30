@@ -238,7 +238,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final partnerName = couple != null && user != null
         ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
-        : (partner?.displayName ?? 'Partner');
+        : (partner?.displayName?.isNotEmpty == true ? partner!.displayName : 'wifeyyy');
 
     return Scaffold(
       backgroundColor:
@@ -759,7 +759,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
             ),
             const SizedBox(height: 14),
             Text(
-              'Link with your partner to use Touch Canvas',
+              'Link with your love to use Touch Canvas',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,

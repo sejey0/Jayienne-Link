@@ -1830,7 +1830,7 @@ class _MoodScreenState extends State<MoodScreen> {
           ),
           const SizedBox(height: AppDimensions.spacingMd),
           Text(
-            'Link with your partner to share moods',
+            'Link with your love to share moods',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),

@@ -180,7 +180,7 @@ class MoodProvider extends ChangeNotifier {
   Future<bool> sendMood(
       {required String mood, required String callSign}) async {
     if (!canSend) {
-      _error = 'Link your partner to send moods.';
+      _error = 'Link your love to send moods.';
       notifyListeners();
       return false;
     }

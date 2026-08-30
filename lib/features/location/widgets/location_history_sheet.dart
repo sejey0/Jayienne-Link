@@ -47,7 +47,7 @@ class LocationHistorySheet extends StatelessWidget {
 
     final myId = provider.currentUser?.id ?? provider.userId;
     final partnerId = provider.partnerUser?.id ?? provider.partnerId;
-    final partnerName = provider.partnerUser?.displayName ?? 'Partner';
+    final partnerName = provider.partnerUser?.displayName ?? 'wifeyyy';
     final isViewingPartner = provider.historyOwnerId == partnerId;
 
     final maxIndex = math.max(0, locations.length - 1).toDouble();

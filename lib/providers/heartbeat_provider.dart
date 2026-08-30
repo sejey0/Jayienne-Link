@@ -670,7 +670,7 @@ class HeartbeatProvider extends ChangeNotifier {
 
   Future<bool> sendHeartbeat({String? message}) async {
     if (!canSend) {
-      _error = 'Link your partner to send a heartbeat.';
+      _error = 'Link your love to send a heartbeat.';
       notifyListeners();
       return false;
     }

@@ -46,9 +46,9 @@ class AppStrings {
   static const String tapToChangePhoto = 'Tap to add photo';
 
   // Couple linking
-  static const String linkWithPartner = 'Link with Your Partner';
+  static const String linkWithPartner = 'Link with Your Love';
   static const String yourInviteCode = 'Your Invite Code';
-  static const String enterPartnerCode = 'Enter Partner\'s Code';
+  static const String enterPartnerCode = 'Enter Love\'s Code';
   static const String linkNow = 'Link Now';
   static const String shareCode = 'Share Code';
   static const String copyCode = 'Copy Code';
@@ -65,7 +65,7 @@ class AppStrings {
   static const String errorExpiredCode = 'This code has expired';
   static const String errorOwnCode = 'You cannot use your own code';
   static const String errorAlreadyLinked =
-      'You are already linked with a partner';
+      'You are already linked with your love';
   static const String errorCodeAlreadyUsed = 'This code has already been used';
 
   // Home

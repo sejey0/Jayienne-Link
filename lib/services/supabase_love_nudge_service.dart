@@ -27,7 +27,7 @@ class LoveNudgePayload {
   factory LoveNudgePayload.fromMap(Map<String, dynamic> map) {
     return LoveNudgePayload(
       senderId: map['sender_id'] as String? ?? '',
-      senderName: map['sender_name'] as String? ?? 'Your Partner',
+      senderName: map['sender_name'] as String? ?? 'Your Love',
       nudgeType: map['nudge_type'] as String? ?? 'kiss',
       photoUrl: map['photo_url'] as String?,
       message: map['message'] as String?,

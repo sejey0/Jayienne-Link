@@ -187,7 +187,7 @@ class PhotoMessageProvider extends ChangeNotifier {
     String? caption,
   }) async {
     if (!canSend) {
-      _error = 'Link your partner to send photos.';
+      _error = 'Link your love to send photos.';
       notifyListeners();
       return false;
     }

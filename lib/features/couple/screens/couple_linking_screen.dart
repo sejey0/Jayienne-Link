@@ -158,7 +158,7 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Find your partner by email',
+                  'Find your love by email',
                   style: Theme.of(context).textTheme.titleLarge,
                   textAlign: TextAlign.center,
                 ),

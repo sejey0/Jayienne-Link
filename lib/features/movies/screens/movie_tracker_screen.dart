@@ -90,7 +90,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     if (coupleId.isEmpty) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Link with your partner to start your Cinema Diary';
+        _errorMessage = 'Link with your love to start your Cinema Diary';
       });
       return;
     }
@@ -291,7 +291,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final partner = coupleProvider.partner;
     final partnerName = partner?.displayName.isNotEmpty == true
         ? partner!.displayName
-        : 'Partner';
+        : 'wifeyyy';
 
     final res = await MarkWatchedSheet.show(
       context,
@@ -321,7 +321,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final partner = coupleProvider.partner;
     final partnerName = partner?.displayName.isNotEmpty == true
         ? partner!.displayName
-        : 'Partner';
+        : 'wifeyyy';
 
     final res = await ViewMovieDetailsSheet.show(
       context,
@@ -484,7 +484,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final partner = coupleProvider.partner;
     final partnerName = partner?.displayName.isNotEmpty == true
         ? partner!.displayName
-        : 'Your Partner';
+        : 'wifeyyy';
     final currentUserId = _getCurrentUserId(context);
 
     final watchlistCount = _allMovies.where((m) => m.status == 'watchlist').length;

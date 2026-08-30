@@ -76,7 +76,7 @@ class QuickFeaturesGridCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Quick shortcuts to interact with your partner',
+                        'Quick shortcuts to interact with your love',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.grey,
                               fontSize: 12,

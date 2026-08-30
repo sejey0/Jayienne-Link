@@ -126,7 +126,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
         : 'You';
     final partnerName = couple != null && user != null
         ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
-        : (partner?.displayName ?? 'Partner');
+        : (partner?.displayName?.isNotEmpty == true ? partner!.displayName : 'wifeyyy');
 
     // Distance calculation
     final distanceMeters = locationProvider.distanceInMeters;
@@ -206,6 +206,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                     userPhotoUrl: user?.photoUrl,
                     partnerPhotoUrl: partner?.photoUrl,
                     isPartnerOnline: isPartnerOnline,
+                    partnerName: partnerName,
                   ),
                   const SizedBox(height: 14),
 
@@ -421,6 +422,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     required String? userPhotoUrl,
     required String? partnerPhotoUrl,
     required bool isPartnerOnline,
+    required String partnerName,
   }) {
     return FittedBox(
       fit: BoxFit.scaleDown,
@@ -471,7 +473,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
             photoUrl: partnerPhotoUrl,
             isOnline: isPartnerOnline,
             showStatus: true,
-            label: 'Partner',
+            label: partnerName.isNotEmpty ? partnerName : 'wifeyyy',
           ),
         ],
       ),

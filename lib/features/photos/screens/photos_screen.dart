@@ -905,7 +905,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
           ),
           const SizedBox(height: AppDimensions.spacingMd),
           Text(
-            'Link with your partner to share Photo Feed',
+            'Link with your love to share Photo Feed',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),

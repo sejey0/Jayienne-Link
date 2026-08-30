@@ -44,7 +44,7 @@ class HeartbeatCanvasPainter extends CustomPainter {
     }
 
     if (isPartnerTouching && partnerTouch != null) {
-      _drawGlowPoint(canvas, partnerTouch!, AppColors.lavender, 'Partner');
+      _drawGlowPoint(canvas, partnerTouch!, AppColors.lavender, 'My Love');
     }
 
     // 3. Draw Proximity Collision Ripple Rings

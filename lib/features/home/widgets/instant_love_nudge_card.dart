@@ -62,7 +62,7 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
       SupabaseLoveNudgeService().sendLoveNudge(
         coupleId: couple.id!,
         senderId: user.uid,
-        senderName: user.displayName.isNotEmpty ? user.displayName : 'Your Partner',
+        senderName: user.displayName.isNotEmpty ? user.displayName : 'Your Love',
         nudgeType: isKiss ? 'kiss' : 'hug',
         photoUrl: photoUrl,
       );
@@ -96,7 +96,7 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
         ? partner.displayName
         : (couple != null && user != null
             ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
-            : 'Partner');
+            : 'wifeyyy');
 
     return Container(
       margin: const EdgeInsets.symmetric(

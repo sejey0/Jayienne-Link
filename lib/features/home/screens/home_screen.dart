@@ -55,7 +55,7 @@ class HomeScreen extends StatelessWidget {
         ? partner.displayName
         : (couple != null && user != null
             ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
-            : 'Partner');
+            : 'lovelove');
 
     if (coupleProvider.isLinked || partner != null) {
       return '$timeGreeting, $myName & $partnerName';
@@ -70,6 +70,7 @@ class HomeScreen extends StatelessWidget {
     final coupleProvider = context.watch<CoupleProvider>();
     final user = userProvider.user;
     final couple = coupleProvider.couple;
+    final partner = coupleProvider.partner;
     final incomingAnniversary = coupleProvider.incomingAnniversaryRequests;
 
     final greetingText = _getDynamicGreeting(user, coupleProvider);
@@ -83,25 +84,16 @@ class HomeScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  _getGreetingIcon(),
+                  Icons.favorite,
                   color: AppColors.softRose,
-                  size: 20,
+                  size: AppDimensions.iconSizeSmall,
                 ),
-                const SizedBox(width: 8),
-                ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [AppColors.softRose, AppColors.lavender],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ).createShader(bounds),
-                  child: Text(
-                    greetingText,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.white,
-                    ),
-                  ),
+                const SizedBox(width: AppDimensions.spacingSm),
+                Text(
+                  greetingText,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
               ],
             ),
@@ -109,6 +101,7 @@ class HomeScreen extends StatelessWidget {
           actions: [
             IconButton(
               icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Settings',
               onPressed: () {
                 HapticFeedback.lightImpact();
                 context.push(RouteNames.settings);
@@ -166,14 +159,14 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppDimensions.spacingMd),
               Text(
-                'Link with your partner',
+                'Link with your love',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppColors.softRose,
                     ),
               ),
               const SizedBox(height: AppDimensions.spacingSm),
               Text(
-                'Connect with your partner to unlock all features',
+                'Connect with your love to unlock all features',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.grey,
                     ),
@@ -204,6 +197,10 @@ class HomeScreen extends StatelessWidget {
     AnniversaryRequestModel request,
   ) {
     final coupleProvider = context.read<CoupleProvider>();
+    final partner = coupleProvider.partner;
+    final partnerName = (partner?.displayName.isNotEmpty == true)
+        ? partner!.displayName
+        : 'Your love';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppDimensions.spacingLg),
@@ -218,7 +215,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: AppDimensions.spacingSm),
             Text(
-              'Your partner requested ${_formatAnniversary(request.proposedDate)}',
+              '$partnerName requested ${_formatAnniversary(request.proposedDate)}',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),

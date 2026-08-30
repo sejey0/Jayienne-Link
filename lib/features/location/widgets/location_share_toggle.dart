@@ -218,7 +218,7 @@ class LocationShareToggle extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'To share real-time location with your partner, please enable location access in device settings.',
+              'To share real-time location with your love, please enable location access in device settings.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13.5,

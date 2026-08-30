@@ -3,6 +3,7 @@ setlocal enabledelayedexpansion
 title Jayienne Link - App Runner (Device / Web)
 
 cd /d "%~dp0.."
+set "PROJECT_DIR=%cd%"
 
 if not exist "%JAVA_HOME%\bin\java.exe" (
     if exist "C:\Program Files\Java\jdk-22\bin\java.exe" (
@@ -47,6 +48,7 @@ echo.
 
 :connection_menu
 set "IS_WEB=0"
+set "IS_DUAL_LAUNCH=0"
 set "DEVICE_ID="
 set "SAVED_IP="
 if exist "%IP_FILE%" (
@@ -54,6 +56,9 @@ if exist "%IP_FILE%" (
 )
 
 echo Where do you want to run the app?
+echo.
+echo   DUAL RUN (MOBILE + WEB):
+echo   [D] Dual Run Debug (Mobile Device + Microsoft Edge in 2 Terminals)
 echo.
 echo   STABLE WIRELESS ^& USB:
 echo   [1] Physical Android Device (USB Cable)
@@ -76,8 +81,12 @@ echo   [9] Web - Microsoft Edge
 echo.
 echo   [0] Exit
 echo.
-set /p "CONN_TYPE=Enter choice (1-9, 0): "
+set /p "CONN_TYPE=Enter choice (1-9, D, 0): "
 
+if /i "%CONN_TYPE%"=="D" (
+    set "IS_DUAL_LAUNCH=1"
+    goto dual_debug_entry
+)
 if "%CONN_TYPE%"=="1" goto check_device_usb
 if "%CONN_TYPE%"=="2" goto usb_to_wireless
 if "%CONN_TYPE%"=="3" goto quick_reconnect
@@ -356,16 +365,20 @@ goto connection_menu
 echo.
 echo Checking for USB Android device...
 set "DEVICE_ID="
-for /f "tokens=1" %%d in ('"%ADB%" devices ^| findstr /v "List of" ^| findstr "device"') do (
+"%ADB%" devices > "%~dp0.temp_devices" 2>nul
+if exist "%~dp0.temp_devices" (
+    for /f "tokens=1" %%d in ('findstr /v "List of" "%~dp0.temp_devices" ^| findstr "device"') do (
+        if "!DEVICE_ID!"=="" (
+            echo %%d | findstr ":" >nul
+            if errorlevel 1 set "DEVICE_ID=%%d"
+        )
+    )
     if "!DEVICE_ID!"=="" (
-        echo %%d | findstr ":" >nul
-        if errorlevel 1 set "DEVICE_ID=%%d"
+        for /f "tokens=1" %%d in ('findstr /v "List of" "%~dp0.temp_devices" ^| findstr "device"') do (
+            if "!DEVICE_ID!"=="" set "DEVICE_ID=%%d"
+        )
     )
-)
-if "%DEVICE_ID%"=="" (
-    for /f "tokens=1" %%d in ('"%ADB%" devices ^| findstr /v "List of" ^| findstr "device"') do (
-        if "!DEVICE_ID!"=="" set "DEVICE_ID=%%d"
-    )
+    del "%~dp0.temp_devices" >nul 2>&1
 )
 if "%DEVICE_ID%"=="" (
     echo [ERROR] No Android device found!
@@ -380,6 +393,10 @@ goto check_device_ready
 if "%DEVICE_ID%"=="" (
     echo [ERROR] No device selected.
     goto connection_menu
+)
+
+if "%IS_DUAL_LAUNCH%"=="1" (
+    goto dual_debug_run
 )
 
 echo ----------------------------------------
@@ -400,6 +417,9 @@ echo ----------------------------------------
 echo Target: %DEVICE_ID% (Android)
 echo Select an option:
 echo.
+echo   DUAL RUN (MOBILE + WEB):
+echo   [D] Dual Debug Run (Mobile %DEVICE_ID% + Microsoft Edge in 2 Windows)
+echo.
 echo   QUICK ACTIONS:
 echo   [1] Launch App
 echo   [2] Restart App (force stop + launch)
@@ -416,8 +436,9 @@ echo   [6] Switch Target Device / Reconnect
 echo   [0] Exit
 echo ----------------------------------------
 echo.
-set /p "CHOICE=Enter choice (1-6, 0): "
+set /p "CHOICE=Enter choice (1-6, D, 0): "
 
+if /i "%CHOICE%"=="D" goto dual_debug_run
 if "%CHOICE%"=="1" goto launch
 if "%CHOICE%"=="2" goto restart
 if "%CHOICE%"=="3" goto debugrun
@@ -425,7 +446,7 @@ if "%CHOICE%"=="4" goto releasemenu
 if "%CHOICE%"=="5" goto uninstall
 if "%CHOICE%"=="6" goto disconnect
 if "%CHOICE%"=="0" exit /b 0
-echo Invalid choice. Please enter 1-6 or 0.
+echo Invalid choice. Please enter 1-6, D, or 0.
 echo.
 goto menu
 
@@ -433,6 +454,9 @@ goto menu
 echo ----------------------------------------
 echo Target: %DEVICE_ID% (Web)
 echo Select an option:
+echo.
+echo   DUAL RUN (MOBILE + WEB):
+echo   [D] Dual Debug Run (Web %DEVICE_ID% + Mobile Device in 2 Windows)
 echo.
 echo   RUN / DEBUG:
 echo   [1] Debug Run (Hot Reload / Restart in Browser)
@@ -447,17 +471,109 @@ echo   [5] Switch Target Device / Browser
 echo   [0] Exit
 echo ----------------------------------------
 echo.
-set /p "CHOICE=Enter choice (1-5, 0): "
+set /p "CHOICE=Enter choice (1-5, D, 0): "
 
+if /i "%CHOICE%"=="D" goto dual_debug_entry
 if "%CHOICE%"=="1" goto debugrun
 if "%CHOICE%"=="2" goto buildrun
 if "%CHOICE%"=="3" goto cleanrebuild
 if "%CHOICE%"=="4" goto buildweb
 if "%CHOICE%"=="5" goto disconnect
 if "%CHOICE%"=="0" exit /b 0
-echo Invalid choice. Please enter 1-5 or 0.
+echo Invalid choice. Please enter 1-5, D, or 0.
 echo.
 goto web_menu
+
+:dual_debug_entry
+set "IS_DUAL_LAUNCH=1"
+echo.
+echo ====================================================
+echo   Dual Debug Launcher (Mobile + Microsoft Edge Web)
+echo ====================================================
+echo.
+if not "%DEVICE_ID%"=="" (
+    if not "%IS_WEB%"=="1" (
+        goto dual_debug_run
+    )
+)
+
+REM Auto-detect connected Android device
+set "DEVICE_ID="
+"%ADB%" devices > "%~dp0.temp_devices" 2>nul
+if exist "%~dp0.temp_devices" (
+    for /f "tokens=1" %%d in ('findstr /v "List of" "%~dp0.temp_devices" ^| findstr "device"') do (
+        if "!DEVICE_ID!"=="" (
+            set "DEVICE_ID=%%d"
+        )
+    )
+    del "%~dp0.temp_devices" >nul 2>&1
+)
+
+REM If no active device, attempt reconnect to saved IP
+if "%DEVICE_ID%"=="" (
+    if not "%SAVED_IP%"=="" (
+        echo Attempting to reconnect to saved phone IP %SAVED_IP%:5555...
+        "%ADB%" connect %SAVED_IP%:5555 >nul 2>&1
+        timeout /t 1 /nobreak >nul
+        "%ADB%" -s %SAVED_IP%:5555 get-state >nul 2>&1
+        if not errorlevel 1 (
+            set "DEVICE_ID=%SAVED_IP%:5555"
+        )
+    )
+)
+
+if "%DEVICE_ID%"=="" (
+    echo [NOTICE] No mobile device currently connected.
+    echo Please select how your phone is connected:
+    echo.
+    echo   [1] Physical Android Device (USB Cable)
+    echo   [2] Wireless: USB-to-WiFi Switch (Port 5555)
+    if not "%SAVED_IP%"=="" (
+        echo   [3] Wireless: Quick Reconnect to [%SAVED_IP%:5555]
+    )
+    echo   [4] Wireless: Android 11+ Pairing Code
+    echo   [0] Cancel
+    echo.
+    set /p "D_CHOICE=Enter choice: "
+    if "!D_CHOICE!"=="1" goto check_device_usb
+    if "!D_CHOICE!"=="2" goto usb_to_wireless
+    if "!D_CHOICE!"=="3" goto quick_reconnect
+    if "!D_CHOICE!"=="4" goto wireless_connect
+    if "!D_CHOICE!"=="0" goto connection_menu
+    goto connection_menu
+)
+
+:dual_debug_run
+set "IS_DUAL_LAUNCH=0"
+echo.
+echo ====================================================
+echo   STARTING DUAL DEBUG SESSIONS (2 TERMINALS)
+echo ====================================================
+echo   Window 1 (Mobile) : %DEVICE_ID%
+echo   Window 2 (Web)    : Microsoft Edge (edge)
+echo ====================================================
+echo.
+echo [1/2] Spawning Mobile Debug Window (%DEVICE_ID%)...
+powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k title Jayienne Link - Mobile Debug (%DEVICE_ID%) && echo. && echo ======================================================== && echo   Jayienne Link - MOBILE DEBUG (%DEVICE_ID%) && echo   Hot Reload: press ''r''  ^|  Hot Restart: press ''R''  ^|  Quit: ''q'' && echo ======================================================== && echo. && flutter run -d %DEVICE_ID%' -WorkingDirectory '%PROJECT_DIR%'"
+
+timeout /t 2 /nobreak >nul
+
+echo [2/2] Spawning Web Edge Debug Window...
+powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k title Jayienne Link - Web Edge Debug && echo. && echo ======================================================== && echo   Jayienne Link - WEB EDGE DEBUG (Microsoft Edge) && echo   Hot Reload: press ''r''  ^|  Hot Restart: press ''R''  ^|  Quit: ''q'' && echo ======================================================== && echo. && flutter run -d edge' -WorkingDirectory '%PROJECT_DIR%'"
+
+echo.
+echo ====================================================
+echo   [SUCCESS] Both debug terminals are now active!
+echo.
+echo   - Window 1: Mobile (%DEVICE_ID%)
+echo   - Window 2: Web (Microsoft Edge)
+echo.
+echo   Tip: You can use 'r' (hot reload) and 'R' (hot restart)
+echo   independently in each terminal window!
+echo ====================================================
+echo.
+pause
+goto menu
 
 :launch
 echo.

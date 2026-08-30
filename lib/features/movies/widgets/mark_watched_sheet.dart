@@ -436,20 +436,35 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              const Icon(
-                                Icons.movie_rounded,
+                              Icon(
+                                widget.movie.isSeries
+                                    ? Icons.tv_rounded
+                                    : Icons.movie_rounded,
                                 size: 14,
-                                color: Color(0xFFFF758C),
+                                color: const Color(0xFFFF758C),
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                widget.movie.isWatched ? 'Watched Movie' : 'Watchlist Entry',
+                                widget.movie.isSeries
+                                    ? 'Series'
+                                    : (widget.movie.isWatched ? 'Watched Movie' : 'Watchlist Entry'),
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFFFF758C),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                              if (widget.movie.year != null && widget.movie.year!.isNotEmpty) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  '•  ${widget.movie.year}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ],

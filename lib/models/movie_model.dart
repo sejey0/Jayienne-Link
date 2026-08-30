@@ -13,7 +13,8 @@ class MovieModel {
   final String mediaType; // 'movie' or 'series'
   final int watchCount; // Total times watched (1 for 1st watch, 2 for 2nd watch, etc.)
   final int? rating; // Legacy fallback single rating
-  final String? notes; // Legacy fallback notes
+  final String? notes; // Description / notes / synopsis
+  final String? year; // Release year e.g. "2024"
   final List<String> photoUrls; // Watch memories / photos taken while watching
   final DateTime? watchedDate;
   final DateTime createdAt;
@@ -30,6 +31,7 @@ class MovieModel {
     this.watchCount = 1,
     this.rating,
     this.notes,
+    this.year,
     this.photoUrls = const [],
     this.watchedDate,
     required this.createdAt,
@@ -74,6 +76,11 @@ class MovieModel {
 
   String get formattedCreatedDate {
     return DateFormat('MMM d, yyyy').format(createdAt.toLocal());
+  }
+
+  /// Formatted creation date and time, e.g. "Aug 31, 2026 • 2:45 PM"
+  String get formattedCreatedDateTime {
+    return DateFormat('MMM d, yyyy • h:mm a').format(createdAt.toLocal());
   }
 
   /// Returns all watch photos across this movie and all partner reviews
@@ -235,7 +242,8 @@ class MovieModel {
           ? int.tryParse(json['watch_count'].toString()) ?? 1
           : 1,
       rating: json['rating'] != null ? int.tryParse(json['rating'].toString()) : null,
-      notes: json['notes']?.toString(),
+      notes: json['notes']?.toString() ?? json['description']?.toString(),
+      year: json['year']?.toString(),
       photoUrls: parsePhotos(json['photo_urls'] ?? json['photos']),
       watchedDate: parseNullableDateTime(json['watched_date']),
       createdAt: parseDateTime(json['created_at'], DateTime.now()),
@@ -253,6 +261,8 @@ class MovieModel {
       'status': status,
       'media_type': mediaType,
       'watch_count': watchCount,
+      if (notes != null && notes!.isNotEmpty) 'notes': notes,
+      if (year != null && year!.isNotEmpty) 'year': year,
       'photo_urls': photoUrls,
       'watched_date': watchedDate?.toUtc().toIso8601String(),
       'created_at': createdAt.toUtc().toIso8601String(),
@@ -270,6 +280,7 @@ class MovieModel {
     int? watchCount,
     int? rating,
     String? notes,
+    String? year,
     List<String>? photoUrls,
     DateTime? watchedDate,
     bool clearWatchedDate = false,
@@ -287,6 +298,7 @@ class MovieModel {
       watchCount: watchCount ?? this.watchCount,
       rating: rating ?? this.rating,
       notes: notes ?? this.notes,
+      year: year ?? this.year,
       photoUrls: photoUrls ?? this.photoUrls,
       watchedDate: clearWatchedDate ? null : (watchedDate ?? this.watchedDate),
       createdAt: createdAt ?? this.createdAt,

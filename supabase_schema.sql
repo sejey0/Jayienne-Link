@@ -845,7 +845,14 @@ CREATE POLICY "Users can only insert/update their own rating" ON public.movie_ra
     FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Safe migrations for existing databases:
+ALTER TABLE public.movies ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.movies ADD COLUMN IF NOT EXISTS year TEXT;
+ALTER TABLE public.movies ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'movie';
+ALTER TABLE public.movies ADD COLUMN IF NOT EXISTS watch_count INTEGER DEFAULT 1;
 ALTER TABLE public.movies ADD COLUMN IF NOT EXISTS photo_urls TEXT[] DEFAULT '{}';
+ALTER TABLE public.movies ADD COLUMN IF NOT EXISTS watched_date TIMESTAMPTZ;
+ALTER TABLE public.movies ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.movie_ratings ADD COLUMN IF NOT EXISTS notes TEXT;
 ALTER TABLE public.movie_ratings ADD COLUMN IF NOT EXISTS photo_urls TEXT[] DEFAULT '{}';
 ALTER TABLE public.movie_ratings ADD COLUMN IF NOT EXISTS watch_number INTEGER DEFAULT 1;
 

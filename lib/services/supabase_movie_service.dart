@@ -93,6 +93,91 @@ class SupabaseMovieService {
     }
   }
 
+  /// Executes insert with dynamic schema adaptation (strips missing columns if remote DB lacks them)
+  Future<Map<String, dynamic>> _executeResilientInsert(Map<String, dynamic> initialData) async {
+    final data = Map<String, dynamic>.from(initialData);
+    final optionalCols = ['notes', 'year', 'photo_urls', 'media_type', 'watch_count', 'updated_at', 'watched_date'];
+
+    while (true) {
+      try {
+        final response = await _supabase
+            .from(_tableName)
+            .insert(data)
+            .select()
+            .single();
+        return response;
+      } catch (err) {
+        final errStr = err.toString();
+        debugPrint('Movie insert attempt failed: $errStr');
+
+        // Extract column name if PGRST204: "Could not find the 'xyz' column of 'movies' in the schema cache"
+        final match = RegExp(r"Could not find the '([^']+)' column").firstMatch(errStr);
+        if (match != null) {
+          final missingCol = match.group(1)!;
+          if (data.containsKey(missingCol)) {
+            data.remove(missingCol);
+            continue;
+          }
+        }
+
+        // Progressively remove optional columns
+        bool removed = false;
+        for (final col in optionalCols) {
+          if (data.containsKey(col)) {
+            data.remove(col);
+            removed = true;
+            break;
+          }
+        }
+
+        if (!removed) {
+          rethrow;
+        }
+      }
+    }
+  }
+
+  /// Executes update with dynamic schema adaptation
+  Future<void> _executeResilientUpdate(String id, Map<String, dynamic> initialData) async {
+    final data = Map<String, dynamic>.from(initialData);
+    final optionalCols = ['notes', 'year', 'photo_urls', 'media_type', 'watch_count', 'updated_at', 'watched_date'];
+
+    while (true) {
+      try {
+        await _supabase
+            .from(_tableName)
+            .update(data)
+            .eq('id', id);
+        return;
+      } catch (err) {
+        final errStr = err.toString();
+        debugPrint('Movie update attempt failed: $errStr');
+
+        final match = RegExp(r"Could not find the '([^']+)' column").firstMatch(errStr);
+        if (match != null) {
+          final missingCol = match.group(1)!;
+          if (data.containsKey(missingCol)) {
+            data.remove(missingCol);
+            continue;
+          }
+        }
+
+        bool removed = false;
+        for (final col in optionalCols) {
+          if (data.containsKey(col)) {
+            data.remove(col);
+            removed = true;
+            break;
+          }
+        }
+
+        if (!removed) {
+          rethrow;
+        }
+      }
+    }
+  }
+
   /// Add a new movie to Watchlist or Watched history
   Future<MovieModel?> addMovie(MovieModel movie) async {
     try {
@@ -104,6 +189,10 @@ class SupabaseMovieService {
         'status': movie.status,
         'media_type': movie.mediaType,
         'watch_count': movie.watchCount,
+        if (movie.notes != null && movie.notes!.isNotEmpty)
+          'notes': movie.notes,
+        if (movie.year != null && movie.year!.isNotEmpty)
+          'year': movie.year,
         if (movie.photoUrls.isNotEmpty)
           'photo_urls': movie.photoUrls,
         if (movie.watchedDate != null)
@@ -115,27 +204,8 @@ class SupabaseMovieService {
         data['id'] = movie.id;
       }
 
-      try {
-        final response = await _supabase
-            .from(_tableName)
-            .insert(data)
-            .select()
-            .single();
-
-        return MovieModel.fromJson(response);
-      } catch (insertErr) {
-        // Fallback without photo_urls if column is not yet present
-        if (data.containsKey('photo_urls')) {
-          data.remove('photo_urls');
-          final response = await _supabase
-              .from(_tableName)
-              .insert(data)
-              .select()
-              .single();
-          return MovieModel.fromJson(response);
-        }
-        rethrow;
-      }
+      final response = await _executeResilientInsert(data);
+      return MovieModel.fromJson(response);
     } catch (e) {
       debugPrint('Error adding movie: $e');
       rethrow;
@@ -156,28 +226,38 @@ class SupabaseMovieService {
         'status': movie.status,
         'media_type': movie.mediaType,
         'watch_count': movie.watchCount,
+        if (movie.notes != null) 'notes': movie.notes,
+        if (movie.year != null) 'year': movie.year,
         'photo_urls': movie.photoUrls,
-        'watched_date': movie.watchedDate?.toUtc().toIso8601String(),
+        if (movie.watchedDate != null)
+          'watched_date': movie.watchedDate!.toUtc().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
-      try {
-        await _supabase
-            .from(_tableName)
-            .update({
-              ...data,
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
-            })
-            .eq('id', movie.id!);
-      } catch (colErr) {
-        debugPrint('Updating movie with photo_urls/updated_at failed, retrying without: $colErr');
-        data.remove('photo_urls');
-        await _supabase
-            .from(_tableName)
-            .update(data)
-            .eq('id', movie.id!);
-      }
+      await _executeResilientUpdate(movie.id!, data);
     } catch (e) {
       debugPrint('Error updating movie: $e');
+      rethrow;
+    }
+  }
+
+  /// Mark movie directly as already watched (without requiring immediate rating review)
+  Future<void> setMovieToWatched(MovieModel movie, {DateTime? watchedDate}) async {
+    if (movie.id == null || movie.id!.isEmpty) {
+      throw Exception('Movie ID is required');
+    }
+
+    final date = watchedDate ?? DateTime.now();
+    try {
+      final updateData = <String, dynamic>{
+        'status': 'watched',
+        'watched_date': date.toUtc().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+
+      await _executeResilientUpdate(movie.id!, updateData);
+    } catch (e) {
+      debugPrint('Error setting movie to watched: $e');
       rethrow;
     }
   }
@@ -197,21 +277,7 @@ class SupabaseMovieService {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
-      try {
-        await _supabase
-            .from(_tableName)
-            .update(updateData)
-            .eq('id', movie.id!);
-      } catch (colErr) {
-        debugPrint('Updating with updated_at failed in planRewatch, retrying: $colErr');
-        await _supabase
-            .from(_tableName)
-            .update({
-              'status': 'watchlist',
-              'watch_count': newWatchCount,
-            })
-            .eq('id', movie.id!);
-      }
+      await _executeResilientUpdate(movie.id!, updateData);
     } catch (e) {
       debugPrint('Error planning rewatch: $e');
       rethrow;

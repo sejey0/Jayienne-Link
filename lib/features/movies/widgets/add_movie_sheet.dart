@@ -64,6 +64,8 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
   final ImagePicker _imagePicker = ImagePicker();
 
   late final TextEditingController _titleController;
+  late final TextEditingController _yearController;
+  late final TextEditingController _descriptionController;
   late final TextEditingController _posterUrlController;
   late final TextEditingController _notesController;
 
@@ -88,16 +90,18 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
     final myRating = editMovie?.getRatingForUser(widget.currentUserId);
 
     _titleController = TextEditingController(text: editMovie?.title ?? '');
+    _yearController = TextEditingController(text: editMovie?.year ?? '');
+    _descriptionController = TextEditingController(text: editMovie?.notes ?? '');
     _posterUrlController = TextEditingController(text: editMovie?.posterUrl ?? '');
     _notesController = TextEditingController(text: myRating?.notes ?? '');
     _status = editMovie?.status ?? widget.initialStatus;
     _mediaType = editMovie?.mediaType ?? 'movie';
     _watchedDate = editMovie?.watchedDate;
     _rating = myRating?.rating ?? 5;
-    _existingWatchPhotos = [
+    _existingWatchPhotos = {
       ...?editMovie?.photoUrls,
       ...?myRating?.photoUrls,
-    ].toSet().toList();
+    }.toList();
 
     if (editMovie?.posterUrl != null && editMovie!.posterUrl!.startsWith('http')) {
       _posterInputMode = 1;
@@ -107,6 +111,8 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
   @override
   void dispose() {
     _titleController.dispose();
+    _yearController.dispose();
+    _descriptionController.dispose();
     _posterUrlController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -350,6 +356,8 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
           posterUrl: finalPosterUrl ?? widget.movieToEdit!.posterUrl,
           status: _status,
           mediaType: _mediaType,
+          year: _yearController.text.trim().isNotEmpty ? _yearController.text.trim() : null,
+          notes: _descriptionController.text.trim().isNotEmpty ? _descriptionController.text.trim() : null,
           photoUrls: _status == 'watched' ? allWatchPhotos : widget.movieToEdit!.photoUrls,
           watchedDate: _status == 'watched' ? _watchedDate : null,
           clearWatchedDate: _status != 'watched' || _watchedDate == null,
@@ -385,6 +393,8 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
           posterUrl: finalPosterUrl,
           status: _status,
           mediaType: _mediaType,
+          year: _yearController.text.trim().isNotEmpty ? _yearController.text.trim() : null,
+          notes: _descriptionController.text.trim().isNotEmpty ? _descriptionController.text.trim() : null,
           photoUrls: _status == 'watched' ? allWatchPhotos : const [],
           watchedDate: _status == 'watched' ? _watchedDate : null,
           createdAt: DateTime.now(),
@@ -635,9 +645,154 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                 ),
                 const SizedBox(height: 18),
 
-                // Title Input
+                // Title & Release Year Row
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title Input
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Title *',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : const Color(0xFF2D4059),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _titleController,
+                            textCapitalization: TextCapitalization.words,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: _mediaType == 'series'
+                                  ? 'Stranger Things, Friends...'
+                                  : 'La La Land, Titanic...',
+                              hintStyle: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white38 : Colors.grey.shade400,
+                              ),
+                              prefixIcon: Icon(
+                                _mediaType == 'series'
+                                    ? Icons.tv_rounded
+                                    : Icons.movie_creation_rounded,
+                                color: const Color(0xFFFF758C),
+                                size: 20,
+                              ),
+                              filled: true,
+                              fillColor: isDark
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 14,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.12)
+                                      : Colors.grey.shade300,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFFF758C),
+                                  width: 1.5,
+                                ),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(color: AppColors.error),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter title';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Release Year Input
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Year',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : const Color(0xFF2D4059),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _yearController,
+                            keyboardType: TextInputType.number,
+                            maxLength: 4,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                            decoration: InputDecoration(
+                              counterText: '',
+                              hintText: '2024',
+                              hintStyle: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white38 : Colors.grey.shade400,
+                              ),
+                              filled: true,
+                              fillColor: isDark
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.12)
+                                      : Colors.grey.shade300,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFFF758C),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Description / Synopsis Input (For both Watchlist and Watched)
                 Text(
-                  'Title *',
+                  'Description / Synopsis (Optional)',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -646,35 +801,25 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
-                  controller: _titleController,
-                  textCapitalization: TextCapitalization.words,
+                  controller: _descriptionController,
+                  maxLines: 2,
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
                     color: isDark ? Colors.white : Colors.black87,
                   ),
                   decoration: InputDecoration(
-                    hintText: _mediaType == 'series'
-                        ? 'e.g. Stranger Things, Queen of Tears, Friends...'
-                        : 'e.g. La La Land, Spirited Away, Titanic...',
+                    hintText: 'Brief plot, genre, or notes on why you want to watch this...',
                     hintStyle: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12.5,
                       color: isDark ? Colors.white38 : Colors.grey.shade400,
-                    ),
-                    prefixIcon: Icon(
-                      _mediaType == 'series'
-                          ? Icons.tv_rounded
-                          : Icons.movie_creation_rounded,
-                      color: const Color(0xFFFF758C),
-                      size: 20,
                     ),
                     filled: true,
                     fillColor: isDark
                         ? Colors.white.withValues(alpha: 0.05)
                         : Colors.grey.shade50,
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+                      horizontal: 14,
+                      vertical: 12,
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -691,17 +836,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                         width: 1.5,
                       ),
                     ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(color: AppColors.error),
-                    ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter the title';
-                    }
-                    return null;
-                  },
                 ),
                 const SizedBox(height: 18),
 
@@ -869,7 +1004,7 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                         ),
                         const SizedBox(width: 6),
                         ChoiceChip(
-                          label: const Text('Image URL', style: TextStyle(fontSize: 11)),
+                          label: const Text('Poster URL', style: TextStyle(fontSize: 11)),
                           selected: _posterInputMode == 1,
                           onSelected: (val) {
                             if (val) setState(() => _posterInputMode = 1);
@@ -1009,51 +1144,156 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                       ],
                     ),
                 ] else ...[
-                  // Mode 1: URL Input
-                  TextFormField(
-                    controller: _posterUrlController,
-                    keyboardType: TextInputType.url,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'https://image.tmdb.org/t/p/... or web link',
-                      hintStyle: TextStyle(
-                        fontSize: 13,
-                        color: isDark ? Colors.white38 : Colors.grey.shade400,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.link_rounded,
-                        color: Color(0xFFFF758C),
-                        size: 20,
-                      ),
-                      filled: true,
-                      fillColor: isDark
+                  // Mode 1: Search-Bar Styled URL Input with Live Preview
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDark
                           ? Colors.white.withValues(alpha: 0.05)
                           : Colors.grey.shade50,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.12)
-                              : Colors.grey.shade300,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFFF758C),
-                          width: 1.5,
-                        ),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.12)
+                            : Colors.grey.shade300,
                       ),
                     ),
-                    onChanged: (val) => setState(() {}),
+                    child: Row(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(left: 14, right: 8),
+                          child: Icon(
+                            Icons.search_rounded,
+                            color: Color(0xFFFF758C),
+                            size: 20,
+                          ),
+                        ),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _posterUrlController,
+                            keyboardType: TextInputType.url,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Paste poster image URL or link...',
+                              hintStyle: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white38 : Colors.grey.shade400,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                              ),
+                            ),
+                            onChanged: (val) => setState(() {}),
+                          ),
+                        ),
+                        if (_posterUrlController.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                            color: isDark ? Colors.white54 : Colors.grey.shade500,
+                            onPressed: () {
+                              setState(() => _posterUrlController.clear());
+                            },
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: IconButton(
+                              icon: const Icon(Icons.paste_rounded, size: 18),
+                              color: const Color(0xFFFF758C),
+                              tooltip: 'Paste from clipboard',
+                              onPressed: () async {
+                                final data = await Clipboard.getData('text/plain');
+                                if (data?.text != null && data!.text!.isNotEmpty) {
+                                  HapticFeedback.lightImpact();
+                                  setState(() {
+                                    _posterUrlController.text = data.text!.trim();
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
+
+                  // Real-time Live Poster URL Preview
+                  if (_posterUrlController.text.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Column(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.5),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: CachedNetworkImage(
+                                imageUrl: _posterUrlController.text.trim(),
+                                width: 100,
+                                height: 145,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  width: 100,
+                                  height: 145,
+                                  color: Colors.grey.withValues(alpha: 0.1),
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFFFF758C),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) => Container(
+                                  width: 100,
+                                  height: 145,
+                                  color: Colors.grey.withValues(alpha: 0.15),
+                                  child: const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.broken_image_rounded, color: Colors.grey, size: 24),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Invalid link',
+                                        style: TextStyle(fontSize: 10, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Live Poster Preview',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white60 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
 
                 // Existing/Preview Poster if editing

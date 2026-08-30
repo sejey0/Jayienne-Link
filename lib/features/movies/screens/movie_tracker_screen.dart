@@ -343,6 +343,15 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
             icon: Icons.replay_rounded,
             iconColor: const Color(0xFFFF758C),
           );
+        } else if (res['action'] == 'marked_watched') {
+          final title = res['title'] ?? movie.title;
+          await showCenterAlertDialog(
+            context: context,
+            title: 'Set to Already Watched!',
+            message: '"$title" has been moved to your watched diary',
+            icon: Icons.check_circle_rounded,
+            iconColor: const Color(0xFFFF758C),
+          );
         } else if (res['action'] == 'add_memories') {
           final title = res['title'] ?? movie.title;
           final count = res['count'] ?? 1;
@@ -356,6 +365,33 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
             iconColor: const Color(0xFFFF758C),
           );
         }
+      }
+    }
+  }
+
+  Future<void> _setMovieToWatched(MovieModel movie) async {
+    HapticFeedback.mediumImpact();
+    try {
+      await _movieService.setMovieToWatched(movie);
+      _refreshMovies();
+      if (mounted) {
+        await showCenterAlertDialog(
+          context: context,
+          title: 'Set to Already Watched!',
+          message: '"${movie.title}" has been moved to your watched diary',
+          icon: Icons.check_circle_rounded,
+          iconColor: const Color(0xFFFF758C),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showCenterAlertDialog(
+          context: context,
+          title: 'Error',
+          message: 'Could not mark as watched: $e',
+          icon: Icons.error_outline_rounded,
+          iconColor: AppColors.error,
+        );
       }
     }
   }
@@ -1060,223 +1096,300 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   }
 
   Widget _buildWatchlistCard(MovieModel movie, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E162B) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : const Color(0xFFFF758C).withValues(alpha: 0.2),
-        ),
-        boxShadow: [
-          BoxShadow(
+    return InkWell(
+      onTap: () => _openMovieDetailsModal(movie),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E162B) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
             color: isDark
-                ? Colors.black.withValues(alpha: 0.25)
-                : const Color(0xFFFF758C).withValues(alpha: 0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFFF758C).withValues(alpha: 0.2),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Movie Poster
-            MoviePosterWidget(
-              posterUrl: movie.posterUrl,
-              width: 76,
-              height: 108,
-              borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.25)
+                  : const Color(0xFFFF758C).withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
             ),
-            const SizedBox(width: 14),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Movie Poster
+              MoviePosterWidget(
+                posterUrl: movie.posterUrl,
+                width: 76,
+                height: 108,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              const SizedBox(width: 14),
 
-            // Details & Actions
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title & 3-Dots Menu Row (2 options: Edit Movie Details, Remove Movie)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          movie.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : const Color(0xFF2D4059),
-                          ),
-                        ),
-                      ),
-                      PopupMenuButton<String>(
-                        padding: EdgeInsets.zero,
-                        icon: Icon(
-                          Icons.more_vert_rounded,
-                          size: 18,
-                          color: isDark ? Colors.white54 : Colors.grey.shade500,
-                        ),
-                        onSelected: (val) {
-                          if (val == 'edit') {
-                            _openEditMovieDetails(movie);
-                          } else if (val == 'delete') {
-                            _confirmDeleteMovie(movie);
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.edit_rounded,
-                                  color: isDark ? Colors.white70 : const Color(0xFF2D4059),
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                const Text('Edit Movie Details'),
-                              ],
+              // Details & Actions
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title & 3-Dots Menu Row (2 options: Edit Movie Details, Remove Movie)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            movie.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF2D4059),
                             ),
                           ),
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
-                                SizedBox(width: 8),
-                                Text('Remove Movie', style: TextStyle(color: AppColors.error)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  // Media Type Tag, Rewatch Badge, & Added Date
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: movie.isSeries
-                              ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
-                              : const Color(0xFFFF758C).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              movie.isSeries ? Icons.tv_rounded : Icons.movie_rounded,
-                              size: 11,
-                              color: movie.isSeries
-                                  ? const Color(0xFFA18CD1)
-                                  : const Color(0xFFFF758C),
+                        PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          icon: Icon(
+                            Icons.more_vert_rounded,
+                            size: 18,
+                            color: isDark ? Colors.white54 : Colors.grey.shade500,
+                          ),
+                          onSelected: (val) {
+                            if (val == 'edit') {
+                              _openEditMovieDetails(movie);
+                            } else if (val == 'delete') {
+                              _confirmDeleteMovie(movie);
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.edit_rounded,
+                                    color: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text('Edit Movie Details'),
+                                ],
+                              ),
                             ),
-                            const SizedBox(width: 3),
-                            Text(
-                              movie.isSeries ? 'Series' : 'Movie',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: movie.isSeries
-                                    ? const Color(0xFFA18CD1)
-                                    : const Color(0xFFFF758C),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Remove Movie', style: TextStyle(color: AppColors.error)),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      if (movie.isRewatch) ...[
+                      ],
+                    ),
+
+                    // Media Type Tag, Year, Rewatch Badge, & Added Date with Time
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFF9A8B), Color(0xFFFF6A88)],
-                            ),
+                            color: movie.isSeries
+                                ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
+                                : const Color(0xFFFF758C).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
-                                Icons.replay_rounded,
+                              Icon(
+                                movie.isSeries ? Icons.tv_rounded : Icons.movie_rounded,
                                 size: 11,
-                                color: Colors.white,
+                                color: movie.isSeries
+                                    ? const Color(0xFFA18CD1)
+                                    : const Color(0xFFFF758C),
                               ),
                               const SizedBox(width: 3),
                               Text(
-                                movie.rewatchBadgeLabel,
-                                style: const TextStyle(
+                                movie.isSeries ? 'Series' : 'Movie',
+                                style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: movie.isSeries
+                                      ? const Color(0xFFA18CD1)
+                                      : const Color(0xFFFF758C),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.access_time_rounded,
-                            size: 11,
-                            color: isDark ? Colors.white54 : Colors.grey.shade500,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Added ${movie.formattedCreatedDate}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? Colors.white54 : Colors.grey.shade500,
+                        if (movie.year != null && movie.year!.isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.calendar_today_rounded,
+                                  size: 10,
+                                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  movie.year!,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white70 : Colors.black87,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                        if (movie.isRewatch) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF9A8B), Color(0xFFFF6A88)],
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.replay_rounded,
+                                  size: 11,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  movie.rewatchBadgeLabel,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 11,
+                              color: isDark ? Colors.white54 : Colors.grey.shade500,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Added ${movie.formattedCreatedDateTime}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.white54 : Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
 
-                  // "Mark as Watched" Action Button
-                  SizedBox(
-                    height: 36,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _openRateMovieModal(movie),
-                      icon: Icon(
-                        movie.isRewatch ? Icons.replay_rounded : Icons.check_circle_outline_rounded,
-                        size: 16,
-                      ),
-                      label: Text(
-                        movie.isRewatch ? 'Log ${movie.currentWatchLabel}' : 'Mark as Watched',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: const Color(0xFFFF758C),
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    // Description preview if available
+                    if (movie.notes != null && movie.notes!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        movie.notes!.trim(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: isDark ? Colors.white70 : Colors.grey.shade700,
+                          height: 1.3,
                         ),
                       ),
+                    ],
+                    const SizedBox(height: 10),
+
+                    // Actions Row: "Set to Already Watched" & "View Details"
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 34,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _setMovieToWatched(movie),
+                              icon: Icon(
+                                movie.isRewatch ? Icons.replay_rounded : Icons.check_circle_rounded,
+                                size: 15,
+                              ),
+                              label: Text(
+                                movie.isRewatch ? 'Set Watched (${movie.currentWatchLabel})' : 'Set to Already Watched',
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                backgroundColor: const Color(0xFFFF758C),
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          height: 34,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _openMovieDetailsModal(movie),
+                            icon: const Icon(Icons.info_outline_rounded, size: 14),
+                            label: const Text(
+                              'Details',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                              side: BorderSide(
+                                color: isDark ? Colors.white24 : Colors.grey.shade300,
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1472,7 +1585,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                       ],
                     ),
 
-                    // Media Type Tag, Total Watches, & Watched Date
+                    // Media Type Tag, Year, Total Watches, & Watched Date
                     Wrap(
                       crossAxisAlignment: WrapCrossAlignment.center,
                       spacing: 6,
@@ -1497,6 +1610,34 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             ),
                           ),
                         ),
+                        if (movie.year != null && movie.year!.isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.calendar_today_rounded,
+                                  size: 10,
+                                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  movie.year!,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white70 : Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (movie.watchCount > 1) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1556,7 +1697,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Added ${movie.formattedCreatedDate}',
+                              'Added ${movie.formattedCreatedDateTime}',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: isDark ? Colors.white54 : Colors.grey.shade500,
@@ -1594,6 +1735,21 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         ],
                       ],
                     ),
+
+                    // Description preview if available
+                    if (movie.notes != null && movie.notes!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        movie.notes!.trim(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: isDark ? Colors.white70 : Colors.grey.shade700,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
 
                     // ----------------------------------------------------
@@ -1617,7 +1773,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ),
                     const SizedBox(height: 10),
 
-                    // 3. Single Decluttered Main Action Button: "View Details & Ratings"
+                    // 3. Single Decluttered Main Action Button: "View Movie Details"
                     SizedBox(
                       height: 34,
                       width: double.infinity,
@@ -1625,7 +1781,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         onPressed: () => _openMovieDetailsModal(movie),
                         icon: const Icon(Icons.rate_review_rounded, size: 15),
                         label: const Text(
-                          'View Details & Ratings',
+                          'View Movie Details',
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                         style: ElevatedButton.styleFrom(

@@ -65,6 +65,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
 
   late int _selectedSession;
   bool _isPlanningRewatch = false;
+  bool _isMarkingWatched = false;
   bool _isUploadingQuickPhoto = false;
 
   @override
@@ -488,6 +489,46 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
     }
   }
 
+  Future<void> _handleSetToWatched() async {
+    HapticFeedback.mediumImpact();
+    setState(() => _isMarkingWatched = true);
+    try {
+      await _movieService.setMovieToWatched(_currentMovie);
+      if (!mounted) return;
+
+      try {
+        final coupleId = _currentMovie.coupleId;
+        if (coupleId.isNotEmpty) {
+          SupabaseDataService.client
+              .channel('decision_spinner:$coupleId')
+              .sendBroadcastMessage(
+                event: 'pool_updated',
+                payload: {
+                  'action': 'marked_watched',
+                  'title': _currentMovie.title,
+                },
+              );
+        }
+      } catch (_) {}
+
+      widget.onMovieUpdated?.call();
+      Navigator.pop(context, {
+        'action': 'marked_watched',
+        'title': _currentMovie.title,
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isMarkingWatched = false);
+      showCenterAlertDialog(
+        context: context,
+        title: 'Error',
+        message: 'Could not mark as watched: $e',
+        icon: Icons.error_outline_rounded,
+        iconColor: AppColors.error,
+      );
+    }
+  }
+
   Future<void> _handlePlanRewatch() async {
     HapticFeedback.mediumImpact();
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -701,7 +742,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                         ),
                         const SizedBox(height: 4),
 
-                        // Badges Row (Media Type + Watch Count Badge)
+                        // Badges Row (Media Type + Year + Watch Count Badge)
                         Wrap(
                           spacing: 6,
                           runSpacing: 4,
@@ -740,30 +781,77 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                               ),
                             ),
 
-                            // Total Watch Count Badge
+                            // Release Year Badge
+                            if (movie.year != null && movie.year!.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today_rounded,
+                                      size: 10,
+                                      color: isDark ? Colors.white70 : Colors.grey.shade700,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      movie.year!,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? Colors.white70 : Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            // Watch Count / Watchlist Badge
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: movie.watchCount > 1
-                                    ? const Color(0xFFFF9A8B).withValues(alpha: 0.2)
-                                    : Colors.grey.withValues(alpha: 0.12),
+                                color: movie.isWatchlist
+                                    ? const Color(0xFFFF758C).withValues(alpha: 0.15)
+                                    : (movie.watchCount > 1
+                                        ? const Color(0xFFFF9A8B).withValues(alpha: 0.2)
+                                        : Colors.grey.withValues(alpha: 0.12)),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    movie.watchCount > 1 ? Icons.replay_rounded : Icons.check_circle_outline_rounded,
+                                    movie.isWatchlist
+                                        ? Icons.bookmark_added_rounded
+                                        : (movie.watchCount > 1
+                                            ? Icons.replay_rounded
+                                            : Icons.check_circle_outline_rounded),
                                     size: 11,
-                                    color: movie.watchCount > 1 ? const Color(0xFFFF758C) : Colors.grey.shade600,
+                                    color: movie.isWatchlist
+                                        ? const Color(0xFFFF758C)
+                                        : (movie.watchCount > 1
+                                            ? const Color(0xFFFF758C)
+                                            : Colors.grey.shade600),
                                   ),
                                   const SizedBox(width: 3),
                                   Text(
-                                    movie.watchCount > 1 ? 'Watched ${movie.watchCount}x' : 'Watched 1x',
+                                    movie.isWatchlist
+                                        ? 'Plan to Watch'
+                                        : (movie.watchCount > 1
+                                            ? 'Watched ${movie.watchCount}x'
+                                            : 'Watched 1x'),
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
-                                      color: movie.watchCount > 1 ? const Color(0xFFFF758C) : (isDark ? Colors.white70 : Colors.black87),
+                                      color: movie.isWatchlist
+                                          ? const Color(0xFFFF758C)
+                                          : (movie.watchCount > 1
+                                              ? const Color(0xFFFF758C)
+                                              : (isDark ? Colors.white70 : Colors.black87)),
                                     ),
                                   ),
                                 ],
@@ -773,7 +861,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                         ),
                         const SizedBox(height: 6),
 
-                        // Watched Date & Added Date
+                        // Watched Date & Added Date (with Time)
                         if (movie.watchedDate != null) ...[
                           Row(
                             children: [
@@ -810,7 +898,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                'Added ${movie.formattedCreatedDate}',
+                                'Added ${movie.formattedCreatedDateTime}',
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 11.5,
@@ -822,8 +910,8 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                         ),
                         const SizedBox(height: 6),
 
-                        // Session Average Score Badge
-                        if (sessionAvg != null) ...[
+                        // Session Average Score Badge (if watched)
+                        if (movie.isWatched && sessionAvg != null) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -867,168 +955,396 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
               const SizedBox(height: 18),
 
               // ----------------------------------------------------
-              // WATCH HISTORY SESSION SELECTOR (IF MULTIPLE WATCHES)
+              // MOVIE DESCRIPTION / SYNOPSIS SECTION (IF AVAILABLE)
               // ----------------------------------------------------
-              if (sessions.length > 1) ...[
-                Row(
-                  children: [
-                    const Icon(Icons.history_rounded, size: 16, color: Color(0xFFFF758C)),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Watch History Sessions',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white70 : const Color(0xFF2D4059),
-                      ),
+              if (movie.notes != null && movie.notes!.trim().isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.04)
+                        : const Color(0xFFFF758C).withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.2),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(
-                    children: sessions.map((sNum) {
-                      final isSelected = sNum == _selectedSession;
-                      final label = MovieModel.getSessionLabel(sNum);
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          avatar: Icon(
-                            sNum == 1 ? Icons.local_movies_rounded : Icons.replay_rounded,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.notes_rounded,
                             size: 14,
-                            color: isSelected ? Colors.white : const Color(0xFFFF758C),
+                            color: Color(0xFFFF758C),
                           ),
-                          label: Text(label),
-                          selected: isSelected,
-                          onSelected: (val) {
-                            if (val) {
-                              HapticFeedback.selectionClick();
-                              setState(() => _selectedSession = sNum);
-                            }
-                          },
-                          selectedColor: const Color(0xFFFF758C),
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 12,
+                          const SizedBox(width: 6),
+                          Text(
+                            'About & Synopsis',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        movie.notes!.trim(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: isDark ? Colors.white : Colors.black87,
                         ),
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),
               ],
 
               // ----------------------------------------------------
-              // BOX 1: MY RATING & REVIEW FOR SELECTED SESSION
+              // WATCHLIST MODE: DEDICATED ACTIONS & CARD
               // ----------------------------------------------------
-              // ----------------------------------------------------
-              // BOX 1: MY RATING & REVIEW FOR SELECTED SESSION
-              // ----------------------------------------------------
-              _buildReviewBox(
-                title: sessions.length > 1
-                    ? 'Your Review (${MovieModel.getSessionLabel(_selectedSession)})'
-                    : 'Your Rating & Review',
-                accentColor: const Color(0xFFFF758C),
-                icon: Icons.person_rounded,
-                avatarUrl: myPhotoUrl,
-                isDark: isDark,
-                hasRated: myRating != null,
-                rating: myRating?.rating,
-                notes: myRating?.notes,
-                actionButton: ElevatedButton.icon(
-                  onPressed: () => _openRateSheet(context, _selectedSession),
-                  icon: Icon(
-                    myRating != null ? Icons.edit_note_rounded : Icons.favorite,
-                    size: 16,
-                  ),
-                  label: Text(
-                    myRating != null ? 'Edit My Review' : 'Add My Review',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF758C),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              if (movie.isWatchlist) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isDark
+                          ? [
+                              const Color(0xFFFF758C).withValues(alpha: 0.15),
+                              const Color(0xFFA18CD1).withValues(alpha: 0.15),
+                            ]
+                          : [
+                              const Color(0xFFFFF0F3),
+                              const Color(0xFFF3E5F5),
+                            ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.3),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 14),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.movie_filter_rounded,
+                        size: 32,
+                        color: Color(0xFFFF758C),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'In Your Watchlist',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF2D4059),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Ready for movie night? Set it to watched once you enjoy it together!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white70 : Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
 
-              // ----------------------------------------------------
-              // BOX 2: PARTNER'S RATING & REVIEW FOR SELECTED SESSION
-              // ----------------------------------------------------
-              _buildReviewBox(
-                title: sessions.length > 1
-                    ? "${widget.partnerName}'s Review (${MovieModel.getSessionLabel(_selectedSession)})"
-                    : "${widget.partnerName}'s Rating & Review",
-                accentColor: const Color(0xFFA18CD1),
-                icon: Icons.favorite_rounded,
-                avatarUrl: partnerPhotoUrl,
-                isDark: isDark,
-                hasRated: partnerRating != null,
-                rating: partnerRating?.rating,
-                notes: partnerRating?.notes,
-                emptyMessage: "Partner hasn't reviewed this watch yet",
-              ),
-              const SizedBox(height: 16),
-
-              // ----------------------------------------------------
-              // BOX 3: DEDICATED WATCH MEMORIES & DATE SNAPSHOTS
-              // ----------------------------------------------------
-              _buildWatchMemoriesSection(
-                isDark: isDark,
-                photos: _currentMovie.getWatchPhotosForSession(_selectedSession),
-              ),
-              const SizedBox(height: 20),
-
-              // ----------------------------------------------------
-              // BOTTOM ACTION: "PLAN REWATCH" BUTTON
-              // ----------------------------------------------------
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: _isPlanningRewatch ? null : _handlePlanRewatch,
-                  icon: _isPlanningRewatch
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Color(0xFFFF758C),
+                      // Set to Already Watched Primary Action Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                        )
-                      : const Icon(Icons.replay_rounded, size: 18, color: Color(0xFFFF758C)),
-                  label: Text(
-                    _isPlanningRewatch
-                        ? 'Planning Rewatch...'
-                        : 'Plan Rewatch (${(movie.watchCount < 1 ? 1 : movie.watchCount) + 1}th Watch)',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFFF758C),
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFFF758C), width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    backgroundColor: const Color(0xFFFF758C).withValues(alpha: 0.05),
+                          child: ElevatedButton.icon(
+                            onPressed: _isMarkingWatched ? null : _handleSetToWatched,
+                            icon: _isMarkingWatched
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                            label: Text(
+                              _isMarkingWatched ? 'Setting to Watched...' : 'Set to Already Watched',
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Rate & Review option
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _openRateSheet(context, 1),
+                          icon: const Icon(Icons.star_rate_rounded, size: 18, color: Color(0xFFFF758C)),
+                          label: const Text(
+                            'Rate & Review Now',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFFF758C),
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 10),
+                const SizedBox(height: 10),
+              ] else ...[
+                // ----------------------------------------------------
+                // WATCH HISTORY SESSION SELECTOR (IF MULTIPLE WATCHES)
+                // ----------------------------------------------------
+                if (sessions.length > 1) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.history_rounded, size: 16, color: Color(0xFFFF758C)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Watch History Sessions',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: sessions.map((sNum) {
+                        final isSelected = sNum == _selectedSession;
+                        final label = MovieModel.getSessionLabel(sNum);
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            avatar: Icon(
+                              sNum == 1 ? Icons.local_movies_rounded : Icons.replay_rounded,
+                              size: 14,
+                              color: isSelected ? Colors.white : const Color(0xFFFF758C),
+                            ),
+                            label: Text(label),
+                            selected: isSelected,
+                            onSelected: (val) {
+                              if (val) {
+                                HapticFeedback.selectionClick();
+                                setState(() => _selectedSession = sNum);
+                              }
+                            },
+                            selectedColor: const Color(0xFFFF758C),
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // ----------------------------------------------------
+                // BOX 1: MY RATING & REVIEW FOR SELECTED SESSION
+                // ----------------------------------------------------
+                _buildReviewBox(
+                  title: sessions.length > 1
+                      ? 'Your Review (${MovieModel.getSessionLabel(_selectedSession)})'
+                      : 'Your Rating & Review',
+                  accentColor: const Color(0xFFFF758C),
+                  icon: Icons.person_rounded,
+                  avatarUrl: myPhotoUrl,
+                  isDark: isDark,
+                  hasRated: myRating != null,
+                  rating: myRating?.rating,
+                  notes: myRating?.notes,
+                  actionButton: ElevatedButton.icon(
+                    onPressed: () => _openRateSheet(context, _selectedSession),
+                    icon: Icon(
+                      myRating != null ? Icons.edit_note_rounded : Icons.favorite,
+                      size: 16,
+                    ),
+                    label: Text(
+                      myRating != null ? 'Edit My Review' : 'Add My Review',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF758C),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // ----------------------------------------------------
+                // BOX 2: PARTNER'S RATING & REVIEW FOR SELECTED SESSION
+                // ----------------------------------------------------
+                _buildReviewBox(
+                  title: sessions.length > 1
+                      ? "${widget.partnerName}'s Review (${MovieModel.getSessionLabel(_selectedSession)})"
+                      : "${widget.partnerName}'s Rating & Review",
+                  accentColor: const Color(0xFFA18CD1),
+                  icon: Icons.favorite_rounded,
+                  avatarUrl: partnerPhotoUrl,
+                  isDark: isDark,
+                  hasRated: partnerRating != null,
+                  rating: partnerRating?.rating,
+                  notes: partnerRating?.notes,
+                  emptyMessage: "Partner hasn't reviewed this watch yet",
+                ),
+                const SizedBox(height: 16),
+
+                // ----------------------------------------------------
+                // BOX 3: DEDICATED WATCH MEMORIES & DATE SNAPSHOTS
+                // ----------------------------------------------------
+                _buildWatchMemoriesSection(
+                  isDark: isDark,
+                  photos: _currentMovie.getWatchPhotosForSession(_selectedSession),
+                ),
+                const SizedBox(height: 20),
+
+                // ----------------------------------------------------
+                // BOTTOM ACTION: REDESIGNED "PLAN REWATCH" BUTTON
+                // ----------------------------------------------------
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _isPlanningRewatch ? null : _handlePlanRewatch,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: _isPlanningRewatch
+                        ? const Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.replay_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    'Plan to Rewatch Together',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Move to watchlist for ${(movie.watchCount < 1 ? 1 : movie.watchCount) + 1}th watch',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.85),
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
             ],
           ),
         ),

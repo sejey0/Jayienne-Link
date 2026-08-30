@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
@@ -47,6 +49,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   int _spinnerModeIndex = 0; // 0: Spin Wheel, 1: Quick Roulette
   bool _isSpinning = false;
   String _currentDisplayResult = 'Tap Spin to Decide!';
+  RealtimeChannel? _spinnerChannel;
+  MovieModel? _pickedMovie;
 
   // Wheel Physics Animation
   late AnimationController _wheelController;
@@ -249,6 +253,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadPersistentData();
+      _setupRealtimeChannel();
       _fetchOnlineSyncedData();
       _initMovieDiaryStream();
     });
@@ -256,10 +261,101 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   @override
   void dispose() {
+    if (_spinnerChannel != null) {
+      try {
+        SupabaseDataService.client.removeChannel(_spinnerChannel!);
+      } catch (_) {}
+    }
     _moviesSubscription?.cancel();
     _wheelController.dispose();
     _quickSlotTimer?.cancel();
     super.dispose();
+  }
+
+  /// Setup Real-time Supabase Broadcast Channel for Live Dual Spinner Sync
+  void _setupRealtimeChannel() {
+    final coupleId = _getCoupleId();
+    if (coupleId.isEmpty) return;
+
+    try {
+      _spinnerChannel =
+          SupabaseDataService.client.channel('decision_spinner:$coupleId');
+
+      _spinnerChannel!.onBroadcast(
+        event: 'spin_start',
+        callback: (payload) {
+          if (!mounted) return;
+          final senderId = payload['userId']?.toString();
+          final myUserId =
+              Provider.of<UserProvider>(context, listen: false).user?.uid;
+          if (senderId != null && senderId == myUserId) return;
+
+          final catIndex = payload['categoryIndex'] as int? ?? 0;
+          final modeIndex = payload['modeIndex'] as int? ?? 0;
+
+          setState(() {
+            _selectedCategoryIndex = catIndex;
+            _spinnerModeIndex = modeIndex;
+          });
+
+          if (modeIndex == 0) {
+            _startVisualWheelSpin(fromRemote: true);
+          } else {
+            _startQuickSlotSpin(fromRemote: true);
+          }
+        },
+      );
+
+      _spinnerChannel!.onBroadcast(
+        event: 'decision_made',
+        callback: (payload) {
+          if (!mounted) return;
+          final senderId = payload['userId']?.toString();
+          final myUserId =
+              Provider.of<UserProvider>(context, listen: false).user?.uid;
+          final winner = payload['winner']?.toString() ?? '';
+          final catIndex = payload['categoryIndex'] as int? ?? 0;
+
+          setState(() {
+            _currentDisplayResult = winner;
+            _isSpinning = false;
+          });
+
+          if (catIndex == 0) {
+            _checkAndSetPickedMovie(winner);
+          }
+
+          if (senderId != null && senderId != myUserId && winner.isNotEmpty) {
+            _finalizeDecision(winner, fromRemote: true);
+          }
+        },
+      );
+
+      _spinnerChannel!.onBroadcast(
+        event: 'reset_spinner',
+        callback: (_) {
+          if (!mounted) return;
+          setState(() {
+            _pickedMovie = null;
+            _watchHistory.clear();
+            _currentDisplayResult = 'Tap Spin to Decide!';
+          });
+          _savePersistentData();
+        },
+      );
+
+      _spinnerChannel!.onBroadcast(
+        event: 'pool_updated',
+        callback: (_) {
+          if (!mounted) return;
+          _fetchOnlineSyncedData();
+        },
+      );
+
+      _spinnerChannel!.subscribe();
+    } catch (e) {
+      debugPrint('Error setting up spinner realtime channel: $e');
+    }
   }
 
   /// Load persistent custom options and excluded history from SharedPreferences
@@ -310,6 +406,19 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   /// Reset the excluded history only when the user explicitly triggers it
   Future<void> _resetCurrentHistory() async {
+    if (_selectedCategoryIndex == 0 && _pickedMovie != null) {
+      if (!kDebugMode) {
+        SnackbarHelper.showInfo(
+          context,
+          'Cannot reset pool while a movie is locked in. Mark it as watched in Movie Diary to unlock.',
+        );
+        return;
+      } else {
+        await _forceResetMoviePick();
+        return;
+      }
+    }
+
     HapticFeedback.lightImpact();
     setState(() {
       _currentHistory.clear();
@@ -356,12 +465,109 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
           _watchOptions.clear();
           _watchOptions.addAll(unWatched.map((m) => m.title.trim()).toList());
+
+          // If a movie was active, check if it was marked as watched
+          if (_pickedMovie != null) {
+            final stillUnwatched = unWatched.any(
+              (m) =>
+                  (m.id != null && m.id == _pickedMovie!.id) ||
+                  m.title.trim().toLowerCase() ==
+                      _pickedMovie!.title.trim().toLowerCase(),
+            );
+
+            if (!stillUnwatched) {
+              // Movie was marked watched or removed from watchlist! Clear the pick!
+              _clearActiveMoviePickInDb();
+              _spinnerChannel?.sendBroadcastMessage(
+                event: 'reset_spinner',
+                payload: {},
+              );
+            } else {
+              try {
+                _pickedMovie = unWatched.firstWhere(
+                  (m) =>
+                      (m.id != null && m.id == _pickedMovie!.id) ||
+                      m.title.trim().toLowerCase() ==
+                          _pickedMovie!.title.trim().toLowerCase(),
+                );
+              } catch (_) {}
+            }
+          }
         });
       },
       onError: (e) {
         debugPrint('Error streaming Movie Diary in spinner: $e');
       },
     );
+  }
+
+  /// Helper to check and set active picked movie
+  void _checkAndSetPickedMovie(String title) {
+    if (title.trim().isEmpty) return;
+
+    MovieModel? found;
+    try {
+      found = _watchMovies.firstWhere(
+        (m) => m.title.trim().toLowerCase() == title.trim().toLowerCase(),
+      );
+    } catch (_) {}
+
+    if (found != null && !found.isWatched) {
+      setState(() {
+        _pickedMovie = found;
+        _currentDisplayResult = found!.title;
+        if (!_watchHistory.contains(found!.title)) {
+          _watchHistory.add(found!.title);
+        }
+      });
+      _savePersistentData();
+    } else if (found != null && found.isWatched) {
+      _clearActiveMoviePickInDb();
+    }
+  }
+
+  /// Remove active movie pick from Supabase database
+  Future<void> _clearActiveMoviePickInDb() async {
+    final coupleId = _getCoupleId();
+    if (coupleId.isNotEmpty) {
+      try {
+        await SupabaseDataService.client
+            .from('decision_ideas')
+            .delete()
+            .eq('category', 'active_movie_pick')
+            .eq('couple_id', coupleId);
+      } catch (_) {}
+    }
+    if (mounted) {
+      setState(() {
+        _pickedMovie = null;
+        _watchHistory.clear();
+      });
+      _savePersistentData();
+    }
+  }
+
+  /// Force Reset Movie Pick (Debug Mode Only)
+  Future<void> _forceResetMoviePick() async {
+    HapticFeedback.heavyImpact();
+    await _clearActiveMoviePickInDb();
+
+    _spinnerChannel?.sendBroadcastMessage(
+      event: 'reset_spinner',
+      payload: {},
+    );
+
+    if (mounted) {
+      setState(() {
+        _pickedMovie = null;
+        _watchHistory.clear();
+        _currentDisplayResult = 'Tap Spin to Decide!';
+      });
+      SnackbarHelper.showSuccess(
+        context,
+        'Debug: Spinner pool and picked movie reset successfully.',
+      );
+    }
   }
 
   /// Fetch user custom ideas from Supabase and merge with local SharedPreferences cache
@@ -371,6 +577,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
       final customFood = <String>[..._foodOptions];
       final customActivities = <String>[..._activityOptions];
+      String? activeMovieTitle;
 
       if (coupleId.isNotEmpty) {
         final response = await SupabaseDataService.client
@@ -385,6 +592,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           final title = row['title']?.toString().trim() ?? '';
           final isCustomFlag =
               row['is_custom'] == true || row['is_custom'] == 'true';
+
+          if (category == 'active_movie_pick' && title.isNotEmpty) {
+            activeMovieTitle = title;
+            continue;
+          }
 
           // Clean up previously auto-seeded default items from database
           if (_defaultFilterOutList.contains(title) && !isCustomFlag) {
@@ -439,6 +651,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               _watchOptions
                   .addAll(unWatched.map((m) => m.title.trim()).toList());
             });
+
+            if (activeMovieTitle != null && activeMovieTitle.isNotEmpty) {
+              _checkAndSetPickedMovie(activeMovieTitle);
+            }
           }
         }
       }
@@ -533,13 +749,23 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   /// Trigger the appropriate spin mode
   void _onSpinPressed() {
     if (_isSpinning) return;
-    if (_selectedCategoryIndex == 0 && _watchOptions.length < 2) {
-      HapticFeedback.vibrate();
-      SnackbarHelper.showError(
-        context,
-        'Please add at least 2 unwatched movies in Movie Diary to spin!',
-      );
-      return;
+    if (_selectedCategoryIndex == 0) {
+      if (_pickedMovie != null) {
+        HapticFeedback.vibrate();
+        SnackbarHelper.showInfo(
+          context,
+          'Movie is already locked in! Mark it as watched in Movie Diary to unlock the wheel.',
+        );
+        return;
+      }
+      if (_watchOptions.length < 2) {
+        HapticFeedback.vibrate();
+        SnackbarHelper.showError(
+          context,
+          'Please add at least 2 unwatched movies in Movie Diary to spin!',
+        );
+        return;
+      }
     }
 
     if (_spinnerModeIndex == 0) {
@@ -550,9 +776,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   }
 
   /// Interactive Visual Wheel Physics Spin on the merged wheel
-  void _startVisualWheelSpin() {
+  void _startVisualWheelSpin({bool fromRemote = false}) {
     final slices = _wheelDisplaySlices;
     if (slices.isEmpty) return;
+
+    if (!fromRemote) {
+      final myUserId =
+          Provider.of<UserProvider>(context, listen: false).user?.uid;
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'spin_start',
+        payload: {
+          'categoryIndex': _selectedCategoryIndex,
+          'modeIndex': 0,
+          'userId': myUserId,
+        },
+      );
+    }
 
     HapticFeedback.mediumImpact();
     setState(() {
@@ -602,12 +841,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     _wheelController.forward().then((_) {
       _wheelController.removeListener(tickListener);
       _currentWheelAngle = finalTargetAngle;
-      _finalizeDecision(decision.winner);
+      _finalizeDecision(decision.winner, fromRemote: fromRemote);
     });
   }
 
   /// Quick Slot-Machine Carousel Spin
-  void _startQuickSlotSpin() {
+  void _startQuickSlotSpin({bool fromRemote = false}) {
     final displayPool = _selectedCategoryIndex == 0
         ? _watchOptions
         : (_currentOptions.isNotEmpty
@@ -620,6 +859,19 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ]);
 
     if (displayPool.isEmpty) return;
+
+    if (!fromRemote) {
+      final myUserId =
+          Provider.of<UserProvider>(context, listen: false).user?.uid;
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'spin_start',
+        payload: {
+          'categoryIndex': _selectedCategoryIndex,
+          'modeIndex': 1,
+          'userId': myUserId,
+        },
+      );
+    }
 
     HapticFeedback.mediumImpact();
     setState(() {
@@ -642,21 +894,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       if (ticks >= totalTicks) {
         timer.cancel();
         final winner = _pickWinner();
-        _finalizeDecision(winner);
+        _finalizeDecision(winner, fromRemote: fromRemote);
       }
     });
   }
 
-  void _finalizeDecision(String winner) {
+  void _finalizeDecision(String winner, {bool fromRemote = false}) {
     HapticFeedback.heavyImpact();
-
-    setState(() {
-      _isSpinning = false;
-      _currentDisplayResult = winner;
-      _currentHistory.add(winner);
-    });
-
-    _savePersistentData();
 
     MovieModel? winningMovie;
     if (_selectedCategoryIndex == 0) {
@@ -665,6 +909,45 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           (m) => m.title.trim().toLowerCase() == winner.trim().toLowerCase(),
         );
       } catch (_) {}
+    }
+
+    setState(() {
+      _isSpinning = false;
+      _currentDisplayResult = winner;
+      _currentHistory.add(winner);
+      if (_selectedCategoryIndex == 0 && winningMovie != null) {
+        _pickedMovie = winningMovie;
+      }
+    });
+
+    _savePersistentData();
+
+    if (!fromRemote) {
+      final myUserId =
+          Provider.of<UserProvider>(context, listen: false).user?.uid;
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'decision_made',
+        payload: {
+          'categoryIndex': _selectedCategoryIndex,
+          'winner': winner,
+          'userId': myUserId,
+        },
+      );
+
+      // Persist active movie pick in Supabase so partner sees it even when opening app later
+      if (_selectedCategoryIndex == 0 && winningMovie != null) {
+        final coupleId = _getCoupleId();
+        if (coupleId.isNotEmpty) {
+          SupabaseDataService.client.from('decision_ideas').insert({
+            'couple_id': coupleId,
+            'category': 'active_movie_pick',
+            'title': winner,
+            'is_custom': false,
+          }).catchError((e) {
+            debugPrint('Error saving active movie pick: $e');
+          });
+        }
+      }
     }
 
     showDialog(
@@ -697,9 +980,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 ),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'Decision Made!',
-                style: TextStyle(
+              Text(
+                _selectedCategoryIndex == 0
+                    ? 'Date Night Picked!'
+                    : 'Decision Made!',
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
                 ),
@@ -710,7 +995,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'The wheel has chosen for both of you:',
+                _selectedCategoryIndex == 0
+                    ? 'The wheel has chosen tonight\'s movie for you and your love:'
+                    : 'The wheel has chosen for both of you:',
                 style: TextStyle(
                   color: isDark ? Colors.white60 : Colors.grey.shade600,
                   fontSize: 13,
@@ -795,7 +1082,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Anti-repeat active for next spin',
+                    _selectedCategoryIndex == 0
+                        ? 'Locked in for Date Night'
+                        : 'Anti-repeat active for next spin',
                     style: TextStyle(
                       color: isDark
                           ? const Color(0xFF81C784)
@@ -815,75 +1104,47 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            Navigator.pop(dialogContext);
-                            _onSpinPressed();
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                              color: Color(0xFFFF758C),
-                              width: 1.2,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          child: const Text(
-                            'Spin Again',
-                            style: TextStyle(
-                              color: Color(0xFFFF758C),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFFF758C)
-                                    .withValues(alpha: 0.35),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              foregroundColor: Colors.white,
-                              shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            child: const Text(
-                              'Let\'s Do It!',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                   if (_selectedCategoryIndex == 0) ...[
+                    // Movie Category: Lock in button (No Spin Again / Re-spin)
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C)
+                                .withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton.icon(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(Icons.check_rounded, size: 18),
+                        label: const Text(
+                          'Lock In & Enjoy!',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TextButton.icon(
                       onPressed: () {
@@ -900,6 +1161,91 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFFFF758C),
                       ),
+                    ),
+                    if (kDebugMode) ...[
+                      const SizedBox(height: 4),
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _forceResetMoviePick();
+                        },
+                        icon: const Icon(Icons.restart_alt_rounded, size: 15),
+                        label: const Text('Reset Pick (Debug Mode)'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.amberAccent.shade400,
+                        ),
+                      ),
+                    ],
+                  ] else ...[
+                    // Other categories: Spin Again + Let's Do It
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.pop(dialogContext);
+                              _onSpinPressed();
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: Color(0xFFFF758C),
+                                width: 1.2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              'Spin Again',
+                              style: TextStyle(
+                                color: Color(0xFFFF758C),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFF758C)
+                                      .withValues(alpha: 0.35),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.pop(dialogContext),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: const Text(
+                                'Let\'s Do It!',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],
@@ -1036,6 +1382,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         'title': text,
         'is_custom': true,
       });
+
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'pool_updated',
+        payload: {
+          'category': category,
+          'title': text,
+        },
+      );
     } catch (_) {}
   }
 
@@ -1070,6 +1424,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             .delete()
             .eq('title', option);
       }
+
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'pool_updated',
+        payload: {
+          'removed': option,
+        },
+      );
     } catch (_) {}
 
     if (mounted) {
@@ -1202,129 +1563,131 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     ),
                   ],
                 ),
-                child: Column(
-                  children: [
-                    // Online Connection Indicator Badge
-                    if (_selectedCategoryIndex != 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.05)
-                              : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFFFF758C)
-                                .withValues(alpha: 0.25),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.wifi_rounded,
-                              size: 13,
-                              color: Color(0xFFFF758C),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Online Suggestion Pool Active',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                child: _selectedCategoryIndex == 0 && _pickedMovie != null
+                    ? _buildPickedMovieView(context, isDark)
+                    : Column(
+                        children: [
+                          // Online Connection Indicator Badge
+                          if (_selectedCategoryIndex != 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
                                 color: isDark
-                                    ? Colors.white70
-                                    : AppColors.deepCharcoal,
+                                    ? Colors.white.withValues(alpha: 0.05)
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(0xFFFF758C)
+                                      .withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.wifi_rounded,
+                                    size: 13,
+                                    color: Color(0xFFFF758C),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Online Suggestion Pool Active',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark
+                                          ? Colors.white70
+                                          : AppColors.deepCharcoal,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
 
-                    if (_spinnerModeIndex == 0)
-                      // Visual Physical Wheel Mode
-                      _buildVisualWheel(context, isDark)
-                    else
-                      // Slot Machine / Carousel Mode
-                      _buildSlotMachineView(context, isDark),
-                    const SizedBox(height: 18),
+                          if (_spinnerModeIndex == 0)
+                            // Visual Physical Wheel Mode
+                            _buildVisualWheel(context, isDark)
+                          else
+                            // Slot Machine / Carousel Mode
+                            _buildSlotMachineView(context, isDark),
+                          const SizedBox(height: 18),
 
-                    // Spin Button
-                    Container(
-                      width: double.infinity,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        gradient: _isSpinning ||
-                                (_selectedCategoryIndex == 0 &&
-                                    _watchOptions.length < 2)
-                            ? null
-                            : const LinearGradient(
-                                colors: [
-                                  Color(0xFFFF758C),
-                                  Color(0xFFA18CD1)
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                        color: _isSpinning ||
-                                (_selectedCategoryIndex == 0 &&
-                                    _watchOptions.length < 2)
-                            ? (isDark
-                                ? Colors.grey.shade800
-                                : Colors.grey.shade300)
-                            : null,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: _isSpinning ||
-                                (_selectedCategoryIndex == 0 &&
-                                    _watchOptions.length < 2)
-                            ? null
-                            : [
-                                BoxShadow(
-                                  color: const Color(0xFFFF758C)
-                                      .withValues(alpha: 0.35),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
+                          // Spin Button
+                          Container(
+                            width: double.infinity,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              gradient: _isSpinning ||
+                                      (_selectedCategoryIndex == 0 &&
+                                          _watchOptions.length < 2)
+                                  ? null
+                                  : const LinearGradient(
+                                      colors: [
+                                        Color(0xFFFF758C),
+                                        Color(0xFFA18CD1)
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                              color: _isSpinning ||
+                                      (_selectedCategoryIndex == 0 &&
+                                          _watchOptions.length < 2)
+                                  ? (isDark
+                                      ? Colors.grey.shade800
+                                      : Colors.grey.shade300)
+                                  : null,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: _isSpinning ||
+                                      (_selectedCategoryIndex == 0 &&
+                                          _watchOptions.length < 2)
+                                  ? null
+                                  : [
+                                      BoxShadow(
+                                        color: const Color(0xFFFF758C)
+                                            .withValues(alpha: 0.35),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                            ),
+                            child: ElevatedButton.icon(
+                              onPressed: _isSpinning ? null : _onSpinPressed,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                disabledForegroundColor: isDark
+                                    ? Colors.grey.shade500
+                                    : Colors.grey.shade600,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
-                              ],
+                              ),
+                              icon: AnimatedRotation(
+                                turns: _isSpinning ? 2.0 : 0.0,
+                                duration: const Duration(milliseconds: 1200),
+                                child: Icon(
+                                  _spinnerModeIndex == 0
+                                      ? Icons.rotate_right_rounded
+                                      : Icons.casino_rounded,
+                                  size: 24,
+                                ),
+                              ),
+                              label: Text(
+                                _isSpinning
+                                    ? 'Spinning...'
+                                    : 'Spin Wheel',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      child: ElevatedButton.icon(
-                        onPressed: _isSpinning ? null : _onSpinPressed,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          disabledForegroundColor: isDark
-                              ? Colors.grey.shade500
-                              : Colors.grey.shade600,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        icon: AnimatedRotation(
-                          turns: _isSpinning ? 2.0 : 0.0,
-                          duration: const Duration(milliseconds: 1200),
-                          child: Icon(
-                            _spinnerModeIndex == 0
-                                ? Icons.rotate_right_rounded
-                                : Icons.casino_rounded,
-                            size: 24,
-                          ),
-                        ),
-                        label: Text(
-                          _isSpinning
-                              ? 'Spinning...'
-                              : 'Spin Wheel',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
 
               const SizedBox(height: 18),
@@ -1442,24 +1805,66 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                 ),
                               ),
                             ),
-                            TextButton.icon(
-                              onPressed: _resetCurrentHistory,
-                              icon: const Icon(Icons.refresh_rounded,
-                                  size: 14),
-                              label: const Text('Reset Pool'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFFFF758C),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                minimumSize: Size.zero,
-                                tapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                textStyle: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
+                            if (_selectedCategoryIndex == 0 &&
+                                _pickedMovie != null) ...[
+                              if (kDebugMode)
+                                TextButton.icon(
+                                  onPressed: _forceResetMoviePick,
+                                  icon: const Icon(Icons.restart_alt_rounded,
+                                      size: 14),
+                                  label: const Text('Reset (Debug)'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor:
+                                        Colors.amberAccent.shade400,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    textStyle: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                )
+                              else
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.lock_rounded,
+                                        size: 12, color: Color(0xFFFF758C)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Locked',
+                                      style: TextStyle(
+                                        color: isDark
+                                            ? Colors.white38
+                                            : Colors.grey.shade500,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ] else
+                              TextButton.icon(
+                                onPressed: _resetCurrentHistory,
+                                icon: const Icon(Icons.refresh_rounded,
+                                    size: 14),
+                                label: const Text('Reset Pool'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFFFF758C),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -1811,6 +2216,339 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ),
         ),
       ),
+    );
+  }
+
+  /// Redesigned Centerpiece View when a Movie is Picked
+  Widget _buildPickedMovieView(BuildContext context, bool isDark) {
+    if (_pickedMovie == null) return const SizedBox.shrink();
+
+    final movie = _pickedMovie!;
+
+    return Column(
+      children: [
+        // 1. Romantic Glowing Pill Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF758C).withValues(alpha: 0.4),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.favorite_rounded, color: Colors.white, size: 14),
+              SizedBox(width: 6),
+              Text(
+                'DATE NIGHT MOVIE LOCKED IN',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11.5,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              SizedBox(width: 6),
+              Icon(Icons.movie_filter_rounded, color: Colors.white, size: 14),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 18),
+
+        // 2. Cinematic Glowing Poster Showcase
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            // Ambient Aura Glow behind poster
+            Container(
+              width: 140,
+              height: 200,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.45),
+                    blurRadius: 28,
+                    spreadRadius: 4,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFFA18CD1).withValues(alpha: 0.35),
+                    blurRadius: 24,
+                    spreadRadius: 2,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+            ),
+
+            // Actual Poster Container
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.8),
+                  width: 2.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: movie.posterUrl != null && movie.posterUrl!.isNotEmpty
+                    ? MoviePosterWidget(
+                        posterUrl: movie.posterUrl,
+                        width: 135,
+                        height: 195,
+                        fit: BoxFit.cover,
+                      )
+                    : Container(
+                        width: 135,
+                        height: 195,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isDark
+                                ? [
+                                    const Color(0xFF2E1C38),
+                                    const Color(0xFF1B1124)
+                                  ]
+                                : [
+                                    const Color(0xFFFFE4E8),
+                                    const Color(0xFFF3E7F7)
+                                  ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.movie_creation_rounded,
+                            size: 48,
+                            color: Color(0xFFFF758C),
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // 3. Movie Title & Tags
+        Text(
+          movie.title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: isDark ? Colors.white : AppColors.deepCharcoal,
+            letterSpacing: -0.3,
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    movie.mediaType == 'series' || movie.mediaType == 'tv'
+                        ? Icons.tv_rounded
+                        : Icons.movie_rounded,
+                    size: 11,
+                    color: const Color(0xFFFF758C),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    movie.mediaType == 'series' || movie.mediaType == 'tv'
+                        ? 'TV Series'
+                        : 'Movie',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white70 : AppColors.deepCharcoal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (movie.isRewatch) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  movie.rewatchBadgeLabel,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // Romantic Narrative
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'The Decision Wheel chose this for tonight\'s date night! Grab the popcorn, snuggle up with your love, and enjoy.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.35,
+              color: isDark ? Colors.white60 : Colors.grey.shade600,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 18),
+
+        // Primary Action: Open Movie Diary to Mark as Watched
+        Container(
+          width: double.infinity,
+          height: 50,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ElevatedButton.icon(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const MovieTrackerScreen(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            icon: const Icon(Icons.play_circle_filled_rounded, size: 20),
+            label: const Text(
+              'Open in Movie Diary & Rate',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14.5,
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Notice: Pool is locked until watched
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.04)
+                : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? Colors.white12 : Colors.grey.shade300,
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.lock_rounded,
+                size: 14,
+                color: Color(0xFFFF758C),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Wheel is locked until marked as watched in Movie Diary.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : Colors.grey.shade700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Debug Force Reset Button (Debug Mode Only)
+        if (kDebugMode) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _forceResetMoviePick,
+              icon: const Icon(Icons.restart_alt_rounded, size: 16),
+              label: const Text(
+                'Force Reset Spinner (Debug Mode)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.amberAccent.shade400,
+                side: BorderSide(
+                  color: Colors.amberAccent.shade400.withValues(alpha: 0.7),
+                  width: 1.2,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 

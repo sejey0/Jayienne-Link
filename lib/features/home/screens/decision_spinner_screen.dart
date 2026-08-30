@@ -315,18 +315,30 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               Provider.of<UserProvider>(context, listen: false).user?.uid;
           final winner = payload['winner']?.toString() ?? '';
           final catIndex = payload['categoryIndex'] as int? ?? 0;
+          final posterUrl = payload['posterUrl']?.toString();
+          final mediaType = payload['mediaType']?.toString() ?? 'movie';
 
           setState(() {
+            _selectedCategoryIndex = catIndex;
             _currentDisplayResult = winner;
             _isSpinning = false;
           });
 
-          if (catIndex == 0) {
-            _checkAndSetPickedMovie(winner);
+          if (catIndex == 0 && winner.isNotEmpty) {
+            _checkAndSetPickedMovie(
+              winner,
+              posterUrl: posterUrl,
+              mediaType: mediaType,
+            );
           }
 
           if (senderId != null && senderId != myUserId && winner.isNotEmpty) {
-            _finalizeDecision(winner, fromRemote: true);
+            _finalizeDecision(
+              winner,
+              fromRemote: true,
+              posterUrl: posterUrl,
+              mediaType: mediaType,
+            );
           }
         },
       );
@@ -386,6 +398,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _watchHistory.clear();
         _watchHistory
             .addAll(prefs.getStringList('decision_spinner_watch_history') ?? []);
+
+        // Load Active Picked Movie from Local Cache
+        final cachedMovieTitle =
+            prefs.getString('decision_spinner_picked_movie_title');
+        final cachedMoviePoster =
+            prefs.getString('decision_spinner_picked_movie_poster');
+        if (cachedMovieTitle != null && cachedMovieTitle.isNotEmpty) {
+          _pickedMovie = MovieModel(
+            coupleId: _getCoupleId(),
+            title: cachedMovieTitle,
+            posterUrl: cachedMoviePoster,
+            status: 'watchlist',
+            mediaType: 'movie',
+            createdAt: DateTime.now(),
+          );
+        }
       });
     } catch (_) {}
   }
@@ -401,6 +429,19 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       await prefs.setStringList(
           'decision_spinner_activity_history', _activityHistory);
       await prefs.setStringList('decision_spinner_watch_history', _watchHistory);
+
+      if (_pickedMovie != null) {
+        await prefs.setString(
+            'decision_spinner_picked_movie_title', _pickedMovie!.title);
+        if (_pickedMovie!.posterUrl != null &&
+            _pickedMovie!.posterUrl!.isNotEmpty) {
+          await prefs.setString(
+              'decision_spinner_picked_movie_poster', _pickedMovie!.posterUrl!);
+        }
+      } else {
+        await prefs.remove('decision_spinner_picked_movie_title');
+        await prefs.remove('decision_spinner_picked_movie_poster');
+      }
     } catch (_) {}
   }
 
@@ -468,29 +509,34 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
           // If a movie was active, check if it was marked as watched
           if (_pickedMovie != null) {
-            final stillUnwatched = unWatched.any(
+            final matched = unWatched.where(
               (m) =>
                   (m.id != null && m.id == _pickedMovie!.id) ||
                   m.title.trim().toLowerCase() ==
                       _pickedMovie!.title.trim().toLowerCase(),
-            );
+            ).toList();
 
-            if (!stillUnwatched) {
-              // Movie was marked watched or removed from watchlist! Clear the pick!
-              _clearActiveMoviePickInDb();
-              _spinnerChannel?.sendBroadcastMessage(
-                event: 'reset_spinner',
-                payload: {},
+            if (matched.isEmpty) {
+              final isWatchedInDb = movies.any(
+                (m) =>
+                    ((m.id != null && m.id == _pickedMovie!.id) ||
+                        m.title.trim().toLowerCase() ==
+                            _pickedMovie!.title.trim().toLowerCase()) &&
+                    (m.isWatched ||
+                        m.status.toLowerCase() == 'watched' ||
+                        m.status.toLowerCase() == 'already watched'),
               );
-            } else {
-              try {
-                _pickedMovie = unWatched.firstWhere(
-                  (m) =>
-                      (m.id != null && m.id == _pickedMovie!.id) ||
-                      m.title.trim().toLowerCase() ==
-                          _pickedMovie!.title.trim().toLowerCase(),
+
+              if (isWatchedInDb) {
+                // Movie was marked watched or removed! Clear the pick!
+                _clearActiveMoviePickInDb();
+                _spinnerChannel?.sendBroadcastMessage(
+                  event: 'reset_spinner',
+                  payload: {},
                 );
-              } catch (_) {}
+              }
+            } else {
+              _pickedMovie = matched.first;
             }
           }
         });
@@ -502,7 +548,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   }
 
   /// Helper to check and set active picked movie
-  void _checkAndSetPickedMovie(String title) {
+  void _checkAndSetPickedMovie(
+    String title, {
+    String? posterUrl,
+    String? mediaType,
+  }) {
     if (title.trim().isEmpty) return;
 
     MovieModel? found;
@@ -512,7 +562,21 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       );
     } catch (_) {}
 
-    if (found != null && !found.isWatched) {
+    if (found != null && found.isWatched) {
+      _clearActiveMoviePickInDb();
+      return;
+    }
+
+    found ??= MovieModel(
+      coupleId: _getCoupleId(),
+      title: title,
+      posterUrl: posterUrl,
+      status: 'watchlist',
+      mediaType: mediaType ?? 'movie',
+      createdAt: DateTime.now(),
+    );
+
+    if (mounted) {
       setState(() {
         _pickedMovie = found;
         _currentDisplayResult = found!.title;
@@ -521,8 +585,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         }
       });
       _savePersistentData();
-    } else if (found != null && found.isWatched) {
-      _clearActiveMoviePickInDb();
     }
   }
 
@@ -628,13 +690,18 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           _activityOptions.clear();
           _activityOptions.addAll(customActivities);
         });
+
+        if (activeMovieTitle != null && activeMovieTitle.isNotEmpty) {
+          _checkAndSetPickedMovie(activeMovieTitle);
+        }
+
         _savePersistentData();
       }
 
       // Fetch movies directly from couple's Watchlist in Movie Diary
       if (coupleId.isNotEmpty) {
         final movies = await _movieService.fetchMovies(coupleId);
-        if (movies.isNotEmpty) {
+        if (movies.isNotEmpty && mounted) {
           final unWatched = movies
               .where((m) =>
                   !m.isWatched &&
@@ -642,19 +709,18 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   m.status.toLowerCase() != 'already watched')
               .toList();
 
-          if (mounted) {
-            setState(() {
-              _watchMovies.clear();
-              _watchMovies.addAll(unWatched);
+          setState(() {
+            _watchMovies.clear();
+            _watchMovies.addAll(unWatched);
 
-              _watchOptions.clear();
-              _watchOptions
-                  .addAll(unWatched.map((m) => m.title.trim()).toList());
-            });
+            _watchOptions.clear();
+            _watchOptions
+                .addAll(unWatched.map((m) => m.title.trim()).toList());
+          });
 
-            if (activeMovieTitle != null && activeMovieTitle.isNotEmpty) {
-              _checkAndSetPickedMovie(activeMovieTitle);
-            }
+          final titleToSync = activeMovieTitle ?? _pickedMovie?.title;
+          if (titleToSync != null && titleToSync.isNotEmpty) {
+            _checkAndSetPickedMovie(titleToSync);
           }
         }
       }
@@ -899,7 +965,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     });
   }
 
-  void _finalizeDecision(String winner, {bool fromRemote = false}) {
+  void _finalizeDecision(
+    String winner, {
+    bool fromRemote = false,
+    String? posterUrl,
+    String? mediaType,
+  }) {
     HapticFeedback.heavyImpact();
 
     MovieModel? winningMovie;
@@ -909,14 +980,27 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           (m) => m.title.trim().toLowerCase() == winner.trim().toLowerCase(),
         );
       } catch (_) {}
+
+      winningMovie ??= MovieModel(
+        coupleId: _getCoupleId(),
+        title: winner,
+        posterUrl: posterUrl,
+        status: 'watchlist',
+        mediaType: mediaType ?? 'movie',
+        createdAt: DateTime.now(),
+      );
     }
 
     setState(() {
       _isSpinning = false;
       _currentDisplayResult = winner;
-      _currentHistory.add(winner);
-      if (_selectedCategoryIndex == 0 && winningMovie != null) {
+      if (_selectedCategoryIndex == 0) {
+        if (!_watchHistory.contains(winner)) {
+          _watchHistory.add(winner);
+        }
         _pickedMovie = winningMovie;
+      } else {
+        _currentHistory.add(winner);
       }
     });
 
@@ -930,6 +1014,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         payload: {
           'categoryIndex': _selectedCategoryIndex,
           'winner': winner,
+          'posterUrl': winningMovie?.posterUrl,
+          'mediaType': winningMovie?.mediaType ?? 'movie',
           'userId': myUserId,
         },
       );
@@ -938,14 +1024,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       if (_selectedCategoryIndex == 0 && winningMovie != null) {
         final coupleId = _getCoupleId();
         if (coupleId.isNotEmpty) {
-          SupabaseDataService.client.from('decision_ideas').insert({
-            'couple_id': coupleId,
-            'category': 'active_movie_pick',
-            'title': winner,
-            'is_custom': false,
-          }).catchError((e) {
-            debugPrint('Error saving active movie pick: $e');
-          });
+          // Remove prior active pick row first to ensure only 1 active pick exists
+          SupabaseDataService.client
+              .from('decision_ideas')
+              .delete()
+              .eq('couple_id', coupleId)
+              .eq('category', 'active_movie_pick')
+              .then((_) {
+            SupabaseDataService.client.from('decision_ideas').insert({
+              'couple_id': coupleId,
+              'category': 'active_movie_pick',
+              'title': winner,
+              'is_custom': false,
+            }).catchError((e) {
+              debugPrint('Error saving active movie pick: $e');
+            });
+          }).catchError((_) {});
         }
       }
     }
@@ -1769,7 +1863,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     ),
 
                     // Persistent Reset Excluded Options Banner
-                    if (_currentHistory.isNotEmpty) ...[
+                    if (_currentHistory.isNotEmpty ||
+                        (_selectedCategoryIndex == 0 &&
+                            _pickedMovie != null)) ...[
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -1787,15 +1883,21 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         ),
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.info_outline_rounded,
+                            Icon(
+                              _selectedCategoryIndex == 0 &&
+                                      _pickedMovie != null
+                                  ? Icons.movie_rounded
+                                  : Icons.info_outline_rounded,
                               size: 15,
-                              color: Color(0xFFFF758C),
+                              color: const Color(0xFFFF758C),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                '${_currentHistory.length} excluded from spin',
+                                _selectedCategoryIndex == 0 &&
+                                        _pickedMovie != null
+                                    ? 'Tonight\'s Pick: ${_pickedMovie!.title}'
+                                    : '${_currentHistory.length} excluded from spin',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -1803,6 +1905,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                       ? Colors.white70
                                       : AppColors.deepCharcoal,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             if (_selectedCategoryIndex == 0 &&

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'providers/theme_provider.dart';
-import 'providers/auth_provider.dart';
-import 'providers/app_lock_provider.dart';
-import 'providers/couple_provider.dart';
-import 'providers/user_provider.dart';
-import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
+import 'core/theme/app_theme.dart';
+import 'providers/app_lock_provider.dart';
+import 'providers/auth_provider.dart';
+import 'providers/couple_provider.dart';
+import 'providers/theme_provider.dart';
+import 'providers/user_provider.dart';
 
 class JayienneLinkApp extends StatefulWidget {
   const JayienneLinkApp({super.key});

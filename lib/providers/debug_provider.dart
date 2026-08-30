@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// Debug provider for testing offline mode and other debugging features
+/// Debug provider for testing offline mode and partner status simulation
 class DebugProvider extends ChangeNotifier {
   bool _forceOfflineMode = false;
   bool? _simulatedPartnerOnlineStatus; // null = Auto (Realtime), true = Active Now, false = Offline

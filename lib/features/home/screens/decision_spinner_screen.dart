@@ -51,6 +51,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   String _currentDisplayResult = 'Tap Spin to Decide!';
   RealtimeChannel? _spinnerChannel;
   MovieModel? _pickedMovie;
+  String? _lastActivityResult;
+  String? _lastFoodResult;
 
   // Wheel Physics Animation
   late AnimationController _wheelController;
@@ -347,7 +349,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             _selectedCategoryIndex = catIndex;
             _currentDisplayResult = winner;
             _isSpinning = false;
+            if (catIndex == 1) {
+              _lastActivityResult = winner;
+            } else if (catIndex == 2) {
+              _lastFoodResult = winner;
+            }
           });
+          _savePersistentData();
 
           if (catIndex == 0 && winner.isNotEmpty) {
             _checkAndSetPickedMovie(
@@ -380,6 +388,30 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             _pickedMovie = null;
             _watchHistory.clear();
             _currentDisplayResult = 'Tap Spin to Decide!';
+          });
+          _savePersistentData();
+        },
+      );
+
+      _spinnerChannel!.onBroadcast(
+        event: 'reset_pool',
+        callback: (payload) {
+          if (!mounted) return;
+          final catIndex =
+              payload['categoryIndex'] as int? ?? _selectedCategoryIndex;
+          setState(() {
+            if (catIndex == 1) {
+              _activityHistory.clear();
+              _lastActivityResult = null;
+            } else if (catIndex == 2) {
+              _foodHistory.clear();
+              _lastFoodResult = null;
+            } else {
+              _currentHistory.clear();
+            }
+            if (_selectedCategoryIndex == catIndex) {
+              _currentDisplayResult = 'Tap Spin to Decide!';
+            }
           });
           _savePersistentData();
         },
@@ -428,6 +460,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _watchHistory
             .addAll(prefs.getStringList('decision_spinner_watch_history') ?? []);
 
+        // Load Last Spin Results per category
+        _lastActivityResult =
+            prefs.getString('decision_spinner_last_activity_result');
+        _lastFoodResult =
+            prefs.getString('decision_spinner_last_food_result');
+        _selectedCategoryIndex =
+            prefs.getInt('decision_spinner_last_category_index') ??
+                _selectedCategoryIndex;
+
         // Load Active Picked Movie from Local Cache
         final cachedMovieTitle =
             prefs.getString('decision_spinner_picked_movie_title');
@@ -442,6 +483,16 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             mediaType: 'movie',
             createdAt: DateTime.now(),
           );
+        }
+
+        // Set active display result according to selected category
+        if (_selectedCategoryIndex == 0) {
+          _currentDisplayResult = _pickedMovie?.title ?? 'Tap Spin to Decide!';
+        } else if (_selectedCategoryIndex == 1) {
+          _currentDisplayResult =
+              _lastActivityResult ?? 'Tap Spin to Decide!';
+        } else if (_selectedCategoryIndex == 2) {
+          _currentDisplayResult = _lastFoodResult ?? 'Tap Spin to Decide!';
         }
       });
     } catch (_) {}
@@ -458,6 +509,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       await prefs.setStringList(
           'decision_spinner_activity_history', _activityHistory);
       await prefs.setStringList('decision_spinner_watch_history', _watchHistory);
+      await prefs.setInt(
+          'decision_spinner_last_category_index', _selectedCategoryIndex);
+
+      if (_lastActivityResult != null && _lastActivityResult!.isNotEmpty) {
+        await prefs.setString(
+            'decision_spinner_last_activity_result', _lastActivityResult!);
+      } else {
+        await prefs.remove('decision_spinner_last_activity_result');
+      }
+
+      if (_lastFoodResult != null && _lastFoodResult!.isNotEmpty) {
+        await prefs.setString(
+            'decision_spinner_last_food_result', _lastFoodResult!);
+      } else {
+        await prefs.remove('decision_spinner_last_food_result');
+      }
 
       if (_pickedMovie != null) {
         await prefs.setString(
@@ -489,15 +556,43 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       }
     }
 
-    HapticFeedback.lightImpact();
+    HapticFeedback.mediumImpact();
     setState(() {
       _currentHistory.clear();
+      if (_selectedCategoryIndex == 1) {
+        _lastActivityResult = null;
+      } else if (_selectedCategoryIndex == 2) {
+        _lastFoodResult = null;
+      }
+      _currentDisplayResult = 'Tap Spin to Decide!';
     });
     await _savePersistentData();
+
+    final coupleId = _getCoupleId();
+    if (coupleId.isNotEmpty && _selectedCategoryIndex != 0) {
+      final categoryTag = _selectedCategoryIndex == 1
+          ? 'active_activity_pick'
+          : 'active_food_pick';
+      try {
+        await SupabaseDataService.client
+            .from('decision_ideas')
+            .delete()
+            .eq('couple_id', coupleId)
+            .eq('category', categoryTag);
+      } catch (_) {}
+    }
+
+    _spinnerChannel?.sendBroadcastMessage(
+      event: 'reset_pool',
+      payload: {
+        'categoryIndex': _selectedCategoryIndex,
+      },
+    );
+
     if (mounted) {
       SnackbarHelper.showSuccess(
         context,
-        'Excluded options reset! All items are ready to spin again.',
+        'Pool reset! All options are ready to spin again.',
       );
     }
   }
@@ -818,6 +913,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       final customFood = <String>[..._foodOptions];
       final customActivities = <String>[..._activityOptions];
       String? activeMovieTitle;
+      String? activeActivityTitle;
+      String? activeFoodTitle;
 
       if (coupleId.isNotEmpty) {
         final response = await SupabaseDataService.client
@@ -835,6 +932,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
           if (category == 'active_movie_pick' && title.isNotEmpty) {
             activeMovieTitle = title;
+            continue;
+          }
+          if (category == 'active_activity_pick' && title.isNotEmpty) {
+            activeActivityTitle = title;
+            continue;
+          }
+          if (category == 'active_food_pick' && title.isNotEmpty) {
+            activeFoodTitle = title;
             continue;
           }
 
@@ -867,6 +972,24 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
           _activityOptions.clear();
           _activityOptions.addAll(customActivities);
+
+          if (activeActivityTitle != null && activeActivityTitle.isNotEmpty) {
+            _lastActivityResult = activeActivityTitle;
+          }
+          if (activeFoodTitle != null && activeFoodTitle.isNotEmpty) {
+            _lastFoodResult = activeFoodTitle;
+          }
+
+          if (_selectedCategoryIndex == 0) {
+            _currentDisplayResult =
+                _pickedMovie?.title ?? 'Tap Spin to Decide!';
+          } else if (_selectedCategoryIndex == 1) {
+            _currentDisplayResult =
+                _lastActivityResult ?? 'Tap Spin to Decide!';
+          } else if (_selectedCategoryIndex == 2) {
+            _currentDisplayResult =
+                _lastFoodResult ?? 'Tap Spin to Decide!';
+          }
         });
 
         if (activeMovieTitle != null && activeMovieTitle.isNotEmpty) {
@@ -1294,8 +1417,16 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           _watchHistory.add(winner);
         }
         _pickedMovie = winningMovie;
+      } else if (_selectedCategoryIndex == 1) {
+        _lastActivityResult = winner;
+        if (!_activityHistory.contains(winner)) {
+          _activityHistory.add(winner);
+        }
       } else {
-        _currentHistory.add(winner);
+        _lastFoodResult = winner;
+        if (!_foodHistory.contains(winner)) {
+          _foodHistory.add(winner);
+        }
       }
     });
 
@@ -1317,281 +1448,34 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         },
       );
 
-      // Persist active movie pick in Supabase so partner sees it locked on screen immediately
-      if (_selectedCategoryIndex == 0 && winningMovie != null) {
-        final coupleId = _getCoupleId();
-        if (coupleId.isNotEmpty) {
-          SupabaseDataService.client
-              .from('decision_ideas')
-              .delete()
-              .eq('couple_id', coupleId)
-              .eq('category', 'active_movie_pick')
-              .then((_) {
-            SupabaseDataService.client.from('decision_ideas').insert({
-              'couple_id': coupleId,
-              'category': 'active_movie_pick',
-              'title': winner,
-              'is_custom': false,
-            }).catchError((e) {
-              debugPrint('Error saving active movie pick: $e');
-            });
-          }).catchError((_) {});
-        }
+      // Persist active pick in Supabase so partner sees it locked on screen immediately
+      final coupleId = _getCoupleId();
+      if (coupleId.isNotEmpty) {
+        final categoryTag = _selectedCategoryIndex == 0
+            ? 'active_movie_pick'
+            : (_selectedCategoryIndex == 1
+                ? 'active_activity_pick'
+                : 'active_food_pick');
+
+        SupabaseDataService.client
+            .from('decision_ideas')
+            .delete()
+            .eq('couple_id', coupleId)
+            .eq('category', categoryTag)
+            .then((_) {
+          SupabaseDataService.client.from('decision_ideas').insert({
+            'couple_id': coupleId,
+            'category': categoryTag,
+            'title': winner,
+            'is_custom': false,
+          }).catchError((e) {
+            debugPrint('Error saving active pick: $e');
+          });
+        }).catchError((_) {});
       }
     }
 
-    // Auto-lock for Movie category: Show directly on wheel without popup
-    if (_selectedCategoryIndex == 0) {
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(26),
-          ),
-          backgroundColor:
-              isDark ? const Color(0xFF1E162B) : Colors.white,
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.favorite_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                _selectedCategoryIndex == 0
-                    ? 'Date Night Picked!'
-                    : 'Decision Made!',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _selectedCategoryIndex == 0
-                    ? 'The wheel has chosen tonight\'s movie for you and your love:'
-                    : 'The wheel has chosen for both of you:',
-                style: TextStyle(
-                  color: isDark ? Colors.white60 : Colors.grey.shade600,
-                  fontSize: 13,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 14),
-
-              // Movie Banner Poster Preview if Movie Category
-              if (winningMovie != null &&
-                  winningMovie.posterUrl != null &&
-                  winningMovie.posterUrl!.isNotEmpty) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: MoviePosterWidget(
-                      posterUrl: winningMovie.posterUrl,
-                      width: 120,
-                      height: 170,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? [
-                            const Color(0xFFFF758C).withValues(alpha: 0.25),
-                            const Color(0xFFA18CD1).withValues(alpha: 0.25),
-                          ]
-                        : [
-                            const Color(0xFFFF758C).withValues(alpha: 0.15),
-                            const Color(0xFFA18CD1).withValues(alpha: 0.2),
-                          ],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  winner,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 19,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.check_circle_rounded,
-                    color: Color(0xFF4CAF50),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Anti-repeat active for next spin',
-                    style: TextStyle(
-                      color: isDark
-                          ? const Color(0xFF81C784)
-                          : const Color(0xFF2E7D32),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            Navigator.pop(dialogContext);
-                            _onSpinPressed();
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                              color: Color(0xFFFF758C),
-                              width: 1.2,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          child: const Text(
-                            'Spin Again',
-                            style: TextStyle(
-                              color: Color(0xFFFF758C),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFFF758C)
-                                    .withValues(alpha: 0.35),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              foregroundColor: Colors.white,
-                              shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            child: const Text(
-                              'Let\'s Do It!',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_selectedCategoryIndex == 0) ...[
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.pop(dialogContext);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const MovieTrackerScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.movie_rounded, size: 16),
-                      label: const Text('Open in Movie Diary'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFFF758C),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+    // Auto-show winner on screen for all categories without blocking popups!
   }
 
   /// Add custom option and sync it online directly to Supabase & SharedPreferences
@@ -1949,7 +1833,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                           else
                             // Slot Machine / Carousel Mode
                             _buildSlotMachineView(context, isDark),
-                          const SizedBox(height: 18),
+
+                          // Winner Decision Celebration Card for Dates & Food
+                          _buildDecisionResultCard(context, isDark),
+
+                          const SizedBox(height: 16),
 
                           // Spin Button
                           Container(
@@ -2015,7 +1903,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                               label: Text(
                                 _isSpinning
                                     ? 'Spinning...'
-                                    : 'Spin Wheel',
+                                    : (_currentDisplayResult !=
+                                                'Tap Spin to Decide!' &&
+                                            _currentDisplayResult.isNotEmpty
+                                        ? 'Re-Spin Wheel'
+                                        : 'Spin Wheel'),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
@@ -2146,44 +2038,77 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                            horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF2B1D3A)
-                              : const Color(0xFFFF758C)
-                                  .withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(14),
+                          gradient: LinearGradient(
+                            colors: isDark
+                                ? [
+                                    const Color(0xFF2B1D3A),
+                                    const Color(0xFF1E1528)
+                                  ]
+                                : [
+                                    const Color(0xFFFFEBF0),
+                                    const Color(0xFFF5EBF8)
+                                  ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: const Color(0xFFFF758C)
-                                .withValues(alpha: 0.25),
+                                .withValues(alpha: 0.35),
+                            width: 1.2,
                           ),
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              _selectedCategoryIndex == 0 &&
-                                      _pickedMovie != null
-                                  ? Icons.movie_rounded
-                                  : Icons.info_outline_rounded,
-                              size: 15,
-                              color: const Color(0xFFFF758C),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
+                            Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF758C)
+                                    .withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
                                 _selectedCategoryIndex == 0 &&
                                         _pickedMovie != null
-                                    ? 'Tonight\'s Pick: ${_pickedMovie!.title}'
-                                    : '${_currentHistory.length} excluded from spin',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark
-                                      ? Colors.white70
-                                      : AppColors.deepCharcoal,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                    ? Icons.movie_rounded
+                                    : Icons.history_rounded,
+                                size: 16,
+                                color: const Color(0xFFFF758C),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedCategoryIndex == 0 &&
+                                            _pickedMovie != null
+                                        ? 'Tonight\'s Pick: ${_pickedMovie!.title}'
+                                        : 'Anti-Repeat Exclusion Pool',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark
+                                          ? Colors.white
+                                          : AppColors.deepCharcoal,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (_selectedCategoryIndex != 0)
+                                    Text(
+                                      '${_currentHistory.length} recently picked items temporarily excluded',
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        color: isDark
+                                            ? Colors.white60
+                                            : Colors.grey.shade600,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                             if (_selectedCategoryIndex == 0 &&
@@ -2228,21 +2153,44 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                   ],
                                 ),
                             ] else
-                              TextButton.icon(
-                                onPressed: _resetCurrentHistory,
-                                icon: const Icon(Icons.refresh_rounded,
-                                    size: 14),
-                                label: const Text('Reset Pool'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: const Color(0xFFFF758C),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  textStyle: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFFFF758C),
+                                      Color(0xFFA18CD1)
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFFF758C)
+                                          .withValues(alpha: 0.25),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: ElevatedButton.icon(
+                                  onPressed: _resetCurrentHistory,
+                                  icon: const Icon(Icons.refresh_rounded,
+                                      size: 13, color: Colors.white),
+                                  label: const Text(
+                                    'Reset Pool',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ),
                               ),
@@ -2596,6 +2544,138 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Winner Decision Celebration & Quick Action Card for Dates and Food
+  Widget _buildDecisionResultCard(BuildContext context, bool isDark) {
+    if (_selectedCategoryIndex == 0) return const SizedBox.shrink();
+    if (_currentDisplayResult == 'Tap Spin to Decide!' ||
+        _currentDisplayResult == 'Spinning...' ||
+        _currentDisplayResult.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isCustomIdea = _currentOptions.contains(_currentDisplayResult);
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 14, bottom: 4),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [
+                  const Color(0xFF2E1C38),
+                  const Color(0xFF1B1124),
+                ]
+              : [
+                  const Color(0xFFFFF0F5),
+                  const Color(0xFFF7ECFA),
+                ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFFFF758C).withValues(alpha: 0.45),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF758C).withValues(alpha: 0.18),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 1. Glowing Header Badge & Origin Tag (Responsive Wrap)
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.stars_rounded,
+                        color: Colors.white, size: 13),
+                    const SizedBox(width: 5),
+                    Text(
+                      _selectedCategoryIndex == 1
+                          ? 'DATE & ACTIVITY'
+                          : 'FOOD & DRINKS',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 10.5,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Origin Tag
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Text(
+                  isCustomIdea ? 'Couple Idea ⭐' : 'Online Suggestion 🌐',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white70 : AppColors.deepCharcoal,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          // 2. Winner Text in Big Romantic Typography
+          Text(
+            _currentDisplayResult,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : AppColors.deepCharcoal,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -3186,8 +3266,17 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         HapticFeedback.lightImpact();
         setState(() {
           _selectedCategoryIndex = index;
-          _currentDisplayResult = 'Tap Spin to Decide!';
+          if (index == 0) {
+            _currentDisplayResult =
+                _pickedMovie?.title ?? 'Tap Spin to Decide!';
+          } else if (index == 1) {
+            _currentDisplayResult =
+                _lastActivityResult ?? 'Tap Spin to Decide!';
+          } else if (index == 2) {
+            _currentDisplayResult = _lastFoodResult ?? 'Tap Spin to Decide!';
+          }
         });
+        _savePersistentData();
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(

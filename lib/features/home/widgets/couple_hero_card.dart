@@ -181,8 +181,14 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 1. Top Romantic Header Bar
-                  _buildHeaderRow(context, anniversaryProvider, hasDate),
+                  // 1. Top Romantic Header Bar (Active Status on left, Seconds ticker & arrow on right)
+                  _buildHeaderRow(
+                    context,
+                    anniversaryProvider,
+                    hasDate,
+                    isPartnerOnline: isPartnerOnline,
+                    isLinked: partner != null,
+                  ),
                   const SizedBox(height: 18),
 
                   // 2. Dual Avatars with Pulsing Beating Heart in Center
@@ -269,43 +275,52 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     );
   }
 
-  /// Top Row: Tag badge on left, Date & Live Ticking Seconds Pill + Expand Arrow on right
+  /// Top Row: Active Status Badge on left, Date & Live Ticking Seconds Pill + Expand Arrow on right
   Widget _buildHeaderRow(
     BuildContext context,
     AnniversaryProvider provider,
-    bool hasDate,
-  ) {
+    bool hasDate, {
+    required bool isPartnerOnline,
+    required bool isLinked,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Romantic Heart Badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.22),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.favorite_rounded,
-                color: Colors.white,
-                size: 14,
-              ),
-              SizedBox(width: 6),
-              Text(
-                'OUR LOVE JOURNEY',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.6,
+        // Re-aligned Active Now / Partner Status Badge on Left
+        if (isLinked)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: 7,
+                  color: isPartnerOnline
+                      ? const Color(0xFF69F0AE)
+                      : Colors.white.withValues(alpha: 0.55),
                 ),
-              ),
-            ],
-          ),
-        ),
+                const SizedBox(width: 5.5),
+                Text(
+                  isPartnerOnline ? 'Active Now' : 'Last seen recently',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                    height: 1.0,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          const SizedBox.shrink(),
 
         // Date & Ticking Pill & Arrow
         Row(
@@ -433,6 +448,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     required String label,
   }) {
     return Stack(
+      clipBehavior: Clip.none,
       children: [
         Container(
           decoration: BoxDecoration(
@@ -465,33 +481,46 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
           ),
         ),
 
-        // Live Online Indicator Badge (Green dot)
+        // Live Online / Offline Indicator Badge
         if (showStatus)
           Positioned(
-            right: 2,
-            bottom: 2,
+            right: 3,
+            bottom: 3,
             child: Container(
               width: 18,
               height: 18,
               decoration: BoxDecoration(
                 color: isOnline
                     ? const Color(0xFF4CAF50)
-                    : Colors.white.withValues(alpha: 0.5),
+                    : const Color(0xFF8E8E93),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: Colors.white,
-                  width: 2.8,
+                  width: 2.6,
                 ),
-                boxShadow: isOnline
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF4CAF50).withValues(alpha: 0.6),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: isOnline
+                        ? const Color(0xFF4CAF50).withValues(alpha: 0.6)
+                        : Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 6,
+                    spreadRadius: isOnline ? 1 : 0,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
+              child: !isOnline
+                  ? Center(
+                      child: Container(
+                        width: 4,
+                        height: 4,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    )
+                  : null,
             ),
           ),
       ],
@@ -803,7 +832,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     );
   }
 
-  /// Bottom Partner Vitals Dock (Distance • Battery • Status)
+  /// Bottom Partner Vitals Dock (Distance • Battery / Connection)
   Widget _buildPartnerVitalsBar(
     BuildContext context, {
     required bool isPartnerOnline,
@@ -811,7 +840,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     required LocationModel? partnerLoc,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(16),
@@ -832,7 +861,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                 color: Colors.white,
                 size: 13,
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 5),
               Text(
                 distanceString.isNotEmpty ? distanceString : 'Location active',
                 style: const TextStyle(
@@ -866,9 +895,9 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                   color: Colors.white,
                   size: 13,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 5),
                 Text(
-                  '${partnerLoc.batteryLevel}%',
+                  '${partnerLoc.batteryLevel}% Battery',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11.5,
@@ -888,9 +917,9 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                   color: Colors.white,
                   size: 13,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 5),
                 Text(
-                  isPartnerOnline ? 'Connected' : 'Offline',
+                  isPartnerOnline ? 'Live Connected' : 'Offline',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11.5,
@@ -899,38 +928,6 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                 ),
               ],
             ),
-
-          Container(
-            width: 1,
-            height: 14,
-            color: Colors.white24,
-          ),
-
-          // Status Badge
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: isPartnerOnline
-                      ? const Color(0xFF69F0AE)
-                      : Colors.white54,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                isPartnerOnline ? 'Active Now' : 'Last seen recently',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );

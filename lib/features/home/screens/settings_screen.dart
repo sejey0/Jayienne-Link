@@ -334,6 +334,7 @@ class SettingsScreen extends StatelessWidget {
                               _showDisablePinDialog(context, appLockProvider);
                             },
                             style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 42),
                               side: const BorderSide(color: AppColors.error),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),

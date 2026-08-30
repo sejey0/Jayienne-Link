@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../providers/couple_provider.dart';
+import '../../../providers/debug_provider.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
 
@@ -62,10 +63,12 @@ class _CoupleProfileCardState extends State<CoupleProfileCard>
     final locationProvider = context.watch<LocationProvider>();
     final partnerLoc = locationProvider.partnerLocation;
     final isAppOnline = locationProvider.isOnline;
-    final isPartnerOnline = partner != null &&
-        isAppOnline &&
-        partnerLoc != null &&
-        partnerLoc.isRecent(threshold: const Duration(minutes: 5));
+    final debugProvider = context.watch<DebugProvider?>();
+    final isPartnerOnline = debugProvider?.simulatedPartnerOnlineStatus ??
+        (partner != null &&
+            isAppOnline &&
+            partnerLoc != null &&
+            partnerLoc.isRecent(threshold: const Duration(minutes: 5)));
 
     final myName = user.displayName.isNotEmpty ? user.displayName : 'You';
     final partnerName = couple.getPartnerName(user.uid, livePartnerName: partner?.displayName);

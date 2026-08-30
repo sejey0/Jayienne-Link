@@ -6,6 +6,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/anniversary_provider.dart';
 import '../../../providers/couple_provider.dart';
+import '../../../providers/debug_provider.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
 
@@ -112,10 +113,12 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     // Location & Online status
     final partnerLoc = locationProvider.partnerLocation;
     final isAppOnline = locationProvider.isOnline;
-    final isPartnerOnline = partner != null &&
-        isAppOnline &&
-        partnerLoc != null &&
-        partnerLoc.isRecent(threshold: const Duration(minutes: 5));
+    final debugProvider = context.watch<DebugProvider?>();
+    final isPartnerOnline = debugProvider?.simulatedPartnerOnlineStatus ??
+        (partner != null &&
+            isAppOnline &&
+            partnerLoc != null &&
+            partnerLoc.isRecent(threshold: const Duration(minutes: 5)));
 
     final myName = (user != null && user.displayName.isNotEmpty)
         ? user.displayName

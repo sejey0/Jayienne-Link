@@ -469,7 +469,169 @@ class SettingsScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const Divider(height: 24, thickness: 1),
+
+                  // Partner Active Status Simulation Controls
+                  Consumer<DebugProvider>(
+                    builder: (context, debugProvider, _) {
+                      final status = debugProvider.simulatedPartnerOnlineStatus;
+                      final String statusLabel = status == null
+                          ? 'Auto (Realtime live status)'
+                          : status
+                              ? '🟢 Forced Active Now (Online)'
+                              : '⚪ Forced Offline / Away';
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Simulate Partner Active Status',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppColors.deepCharcoal,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            statusLabel,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white60 : Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              // Auto (Live)
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    debugProvider.setSimulatedPartnerOnline(null);
+                                    SnackbarHelper.showInfo(context, 'Partner status: Auto (Live)');
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(0, 36),
+                                    backgroundColor: status == null
+                                        ? AppColors.lavender.withValues(alpha: 0.25)
+                                        : Colors.transparent,
+                                    side: BorderSide(
+                                      color: status == null ? AppColors.lavender : Colors.grey.withValues(alpha: 0.3),
+                                      width: status == null ? 1.8 : 1.0,
+                                    ),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                  ),
+                                  child: Text(
+                                    'Auto (Live)',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: status == null ? FontWeight.bold : FontWeight.normal,
+                                      color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              // Active Now
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    debugProvider.setSimulatedPartnerOnline(true);
+                                    SnackbarHelper.showSuccess(context, 'Partner status forced: Active Now');
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(0, 36),
+                                    backgroundColor: status == true
+                                        ? const Color(0xFF4CAF50).withValues(alpha: 0.22)
+                                        : Colors.transparent,
+                                    side: BorderSide(
+                                      color: status == true ? const Color(0xFF4CAF50) : Colors.grey.withValues(alpha: 0.3),
+                                      width: status == true ? 1.8 : 1.0,
+                                    ),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF4CAF50),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Active Now',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: status == true ? FontWeight.bold : FontWeight.normal,
+                                          color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              // Offline
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    debugProvider.setSimulatedPartnerOnline(false);
+                                    SnackbarHelper.showInfo(context, 'Partner status forced: Offline');
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(0, 36),
+                                    backgroundColor: status == false
+                                        ? Colors.grey.withValues(alpha: 0.25)
+                                        : Colors.transparent,
+                                    side: BorderSide(
+                                      color: status == false ? Colors.grey : Colors.grey.withValues(alpha: 0.3),
+                                      width: status == false ? 1.8 : 1.0,
+                                    ),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: isDark ? Colors.white54 : Colors.grey,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Offline',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: status == false ? FontWeight.bold : FontWeight.normal,
+                                          color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const Divider(height: 24, thickness: 1),
                   Row(
                     children: [
                       Expanded(

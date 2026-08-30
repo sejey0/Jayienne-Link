@@ -48,6 +48,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   int _selectedCategoryIndex = 0; // 0: Movie Watchlist (Front), 1: Dates & Activities, 2: Food & Drinks
   int _spinnerModeIndex = 0; // 0: Spin Wheel, 1: Quick Roulette
   bool _isSpinning = false;
+  bool _isInitialized = false;
   String _currentDisplayResult = 'Tap Spin to Decide!';
   RealtimeChannel? _spinnerChannel;
   MovieModel? _pickedMovie;
@@ -184,6 +185,46 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   List<_WheelSliceItem> get _wheelDisplaySlices {
     if (_selectedCategoryIndex == 0) {
       // Movie Watchlist (Front tab)
+      if (_watchOptions.isEmpty) {
+        return List.generate(
+          8,
+          (i) => const _WheelSliceItem(
+            label: '',
+            isCustom: false,
+            onlineIcon: Icons.movie_rounded,
+          ),
+        );
+      }
+      if (_watchOptions.length == 1) {
+        return List.generate(
+          6,
+          (i) => _WheelSliceItem(
+            label: _watchOptions[0],
+            isCustom: true,
+            onlineIcon: Icons.movie_rounded,
+          ),
+        );
+      }
+      if (_watchOptions.length == 2) {
+        return List.generate(
+          6,
+          (i) => _WheelSliceItem(
+            label: _watchOptions[i % 2],
+            isCustom: true,
+            onlineIcon: Icons.movie_rounded,
+          ),
+        );
+      }
+      if (_watchOptions.length == 3) {
+        return List.generate(
+          6,
+          (i) => _WheelSliceItem(
+            label: _watchOptions[i % 3],
+            isCustom: true,
+            onlineIcon: Icons.movie_rounded,
+          ),
+        );
+      }
       return _watchOptions
           .map((title) => _WheelSliceItem(
                 label: title,
@@ -203,6 +244,40 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           isCustom: false,
           onlineIcon: _onlineSliceIcons[i % _onlineSliceIcons.length],
         ),
+      );
+    }
+
+    if (customList.length == 1) {
+      return List.generate(
+        6,
+        (i) => i % 2 == 0
+            ? _WheelSliceItem(
+                label: customList[0],
+                isCustom: true,
+                onlineIcon: Icons.star_rounded,
+              )
+            : _WheelSliceItem(
+                label: '',
+                isCustom: false,
+                onlineIcon: _onlineSliceIcons[i % _onlineSliceIcons.length],
+              ),
+      );
+    }
+
+    if (customList.length == 2) {
+      return List.generate(
+        6,
+        (i) => i % 2 == 0
+            ? _WheelSliceItem(
+                label: customList[(i ~/ 2) % 2],
+                isCustom: true,
+                onlineIcon: Icons.star_rounded,
+              )
+            : _WheelSliceItem(
+                label: '',
+                isCustom: false,
+                onlineIcon: _onlineSliceIcons[i % _onlineSliceIcons.length],
+              ),
       );
     }
 
@@ -253,8 +328,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       curve: Curves.easeOutCubic,
     );
 
+    _loadPersistentData();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadPersistentData();
       _setupRealtimeChannel();
       _fetchOnlineSyncedData();
       _initMovieDiaryStream();
@@ -437,6 +513,17 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
       setState(() {
+        // Always default to Movie Watchlist (Tab 0) when opening the Decision Spinner
+        _selectedCategoryIndex = 0;
+
+        // Load Cached Movie Watchlist Options for instant zero-delay wheel rendering
+        final cachedWatch =
+            prefs.getStringList('decision_spinner_cached_watch_options') ?? [];
+        if (cachedWatch.isNotEmpty) {
+          _watchOptions.clear();
+          _watchOptions.addAll(cachedWatch);
+        }
+
         // Load Custom Options from Local Cache immediately
         final cachedFood =
             prefs.getStringList('decision_spinner_custom_food') ?? [];
@@ -465,9 +552,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             prefs.getString('decision_spinner_last_activity_result');
         _lastFoodResult =
             prefs.getString('decision_spinner_last_food_result');
-        _selectedCategoryIndex =
-            prefs.getInt('decision_spinner_last_category_index') ??
-                _selectedCategoryIndex;
 
         // Load Active Picked Movie from Local Cache
         final cachedMovieTitle =
@@ -485,23 +569,28 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           );
         }
 
-        // Set active display result according to selected category
-        if (_selectedCategoryIndex == 0) {
-          _currentDisplayResult = _pickedMovie?.title ?? 'Tap Spin to Decide!';
-        } else if (_selectedCategoryIndex == 1) {
-          _currentDisplayResult =
-              _lastActivityResult ?? 'Tap Spin to Decide!';
-        } else if (_selectedCategoryIndex == 2) {
-          _currentDisplayResult = _lastFoodResult ?? 'Tap Spin to Decide!';
-        }
+        // Initial display result for Movie Watchlist (Front tab)
+        _currentDisplayResult = _pickedMovie?.title ?? 'Tap Spin to Decide!';
+
+        _isInitialized = true;
       });
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    }
   }
 
   /// Save persistent custom options and excluded history to SharedPreferences
   Future<void> _savePersistentData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (_watchOptions.isNotEmpty) {
+        await prefs.setStringList(
+            'decision_spinner_cached_watch_options', _watchOptions);
+      }
       await prefs.setStringList('decision_spinner_custom_food', _foodOptions);
       await prefs.setStringList(
           'decision_spinner_custom_activities', _activityOptions);
@@ -509,8 +598,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       await prefs.setStringList(
           'decision_spinner_activity_history', _activityHistory);
       await prefs.setStringList('decision_spinner_watch_history', _watchHistory);
-      await prefs.setInt(
-          'decision_spinner_last_category_index', _selectedCategoryIndex);
 
       if (_lastActivityResult != null && _lastActivityResult!.isNotEmpty) {
         await prefs.setString(
@@ -1023,6 +1110,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           if (titleToSync != null && titleToSync.isNotEmpty) {
             _checkAndSetPickedMovie(titleToSync);
           }
+
+          _savePersistentData();
         }
       }
     } catch (_) {}
@@ -1784,173 +1873,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     ),
                   ],
                 ),
-                child: _selectedCategoryIndex == 0 && _pickedMovie != null
-                    ? _buildPickedMovieView(context, isDark)
-                    : Column(
-                        children: [
-                          // Online Connection Indicator Badge
-                          if (_selectedCategoryIndex != 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              margin: const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.05)
-                                    : Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: const Color(0xFFFF758C)
-                                      .withValues(alpha: 0.25),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.wifi_rounded,
-                                    size: 13,
-                                    color: Color(0xFFFF758C),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    'Online Suggestion Pool Active',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark
-                                          ? Colors.white70
-                                          : AppColors.deepCharcoal,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                          if (_spinnerModeIndex == 0)
-                            // Visual Physical Wheel Mode
-                            _buildVisualWheel(context, isDark)
-                          else
-                            // Slot Machine / Carousel Mode
-                            _buildSlotMachineView(context, isDark),
-
-                          // Winner Decision Celebration Card for Dates & Food
-                          _buildDecisionResultCard(context, isDark),
-
-                          const SizedBox(height: 16),
-
-                          // Spin Button
-                          Container(
-                            width: double.infinity,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              gradient: _isSpinning ||
-                                      (_selectedCategoryIndex == 0 &&
-                                          _watchOptions.length < 2)
-                                  ? null
-                                  : const LinearGradient(
-                                      colors: [
-                                        Color(0xFFFF758C),
-                                        Color(0xFFA18CD1)
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                              color: _isSpinning ||
-                                      (_selectedCategoryIndex == 0 &&
-                                          _watchOptions.length < 2)
-                                  ? (isDark
-                                      ? Colors.grey.shade800
-                                      : Colors.grey.shade300)
-                                  : null,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: _isSpinning ||
-                                      (_selectedCategoryIndex == 0 &&
-                                          _watchOptions.length < 2)
-                                  ? null
-                                  : [
-                                      BoxShadow(
-                                        color: const Color(0xFFFF758C)
-                                            .withValues(alpha: 0.35),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                            ),
-                            child: ElevatedButton.icon(
-                              onPressed: _isSpinning ? null : _onSpinPressed,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                foregroundColor: Colors.white,
-                                disabledForegroundColor: isDark
-                                    ? Colors.grey.shade500
-                                    : Colors.grey.shade600,
-                                shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                              icon: AnimatedRotation(
-                                turns: _isSpinning ? 2.0 : 0.0,
-                                duration: const Duration(milliseconds: 1200),
-                                child: Icon(
-                                  _spinnerModeIndex == 0
-                                      ? Icons.rotate_right_rounded
-                                      : Icons.casino_rounded,
-                                  size: 24,
-                                ),
-                              ),
-                              label: Text(
-                                _isSpinning
-                                    ? 'Spinning...'
-                                    : (_currentDisplayResult !=
-                                                'Tap Spin to Decide!' &&
-                                            _currentDisplayResult.isNotEmpty
-                                        ? 'Re-Spin Wheel'
-                                        : 'Spin Wheel'),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (kDebugMode &&
-                              _selectedCategoryIndex == 0 &&
-                              _watchMovies.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: () =>
-                                    _showDebugPickMovieDialog(context),
-                                icon: const Icon(Icons.touch_app_rounded,
-                                    size: 16),
-                                label: const Text(
-                                  'Debug: Pick & Lock Movie for Testing',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.amberAccent.shade400,
-                                  side: BorderSide(
-                                    color: Colors.amberAccent.shade400
-                                        .withValues(alpha: 0.7),
-                                    width: 1.2,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 10),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+                child: _buildMainSpinnerContent(context, isDark),
               ),
 
               const SizedBox(height: 18),
@@ -2548,7 +2471,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  /// Winner Decision Celebration & Quick Action Card for Dates and Food
+  /// Winner Decision Celebration Card for Dates & Activities and Food & Drinks
   Widget _buildDecisionResultCard(BuildContext context, bool isDark) {
     if (_selectedCategoryIndex == 0) return const SizedBox.shrink();
     if (_currentDisplayResult == 'Tap Spin to Decide!' ||
@@ -2558,6 +2481,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
 
     final isCustomIdea = _currentOptions.contains(_currentDisplayResult);
+
+    final categoryLabel = _selectedCategoryIndex == 1
+        ? 'DATE & ACTIVITY PICKED'
+        : 'FOOD & DRINKS CHOICE';
+
+    final originLabel =
+        isCustomIdea ? 'Couple Idea ⭐' : 'Online Suggestion 🌐';
 
     return Container(
       width: double.infinity,
@@ -2621,13 +2551,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.stars_rounded,
-                        color: Colors.white, size: 13),
+                    const Icon(
+                      Icons.stars_rounded,
+                      color: Colors.white,
+                      size: 13,
+                    ),
                     const SizedBox(width: 5),
                     Text(
-                      _selectedCategoryIndex == 1
-                          ? 'DATE & ACTIVITY'
-                          : 'FOOD & DRINKS',
+                      categoryLabel,
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
@@ -2640,7 +2571,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ),
               // Origin Tag
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.white.withValues(alpha: 0.08)
@@ -2651,7 +2583,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   ),
                 ),
                 child: Text(
-                  isCustomIdea ? 'Couple Idea ⭐' : 'Online Suggestion 🌐',
+                  originLabel,
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -2677,6 +2609,169 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ),
         ],
       ),
+    );
+  }
+
+  /// Main Spinner Card Content (Renders Locked Movie Centerpiece for Movies, or Visual Wheel / Slot Machine for Other Tabs)
+  Widget _buildMainSpinnerContent(BuildContext context, bool isDark) {
+    if (_selectedCategoryIndex == 0 && _pickedMovie != null) {
+      return _buildPickedMovieView(context, isDark);
+    }
+
+    return Column(
+      children: [
+        // Online Connection Indicator Badge
+        if (_selectedCategoryIndex != 0)
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.wifi_rounded,
+                  size: 13,
+                  color: Color(0xFFFF758C),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  'Online Suggestion Pool Active',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? Colors.white70
+                        : AppColors.deepCharcoal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        if (_spinnerModeIndex == 0)
+          // Visual Physical Wheel Mode
+          _buildVisualWheel(context, isDark)
+        else
+          // Slot Machine / Carousel Mode
+          _buildSlotMachineView(context, isDark),
+
+        // Winner Decision Celebration Card for Dates & Food
+        _buildDecisionResultCard(context, isDark),
+
+        const SizedBox(height: 16),
+
+        // Spin Button
+        Container(
+          width: double.infinity,
+          height: 52,
+          decoration: BoxDecoration(
+            gradient: _isSpinning ||
+                    (_selectedCategoryIndex == 0 &&
+                        _watchOptions.length < 2)
+                ? null
+                : const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            color: _isSpinning ||
+                    (_selectedCategoryIndex == 0 &&
+                        _watchOptions.length < 2)
+                ? (isDark
+                    ? Colors.grey.shade800
+                    : Colors.grey.shade300)
+                : null,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: _isSpinning ||
+                    (_selectedCategoryIndex == 0 &&
+                        _watchOptions.length < 2)
+                ? null
+                : [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C)
+                          .withValues(alpha: 0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+          ),
+          child: ElevatedButton.icon(
+            onPressed: _isSpinning ? null : _onSpinPressed,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              disabledForegroundColor:
+                  isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            icon: AnimatedRotation(
+              turns: _isSpinning ? 2.0 : 0.0,
+              duration: const Duration(milliseconds: 1200),
+              child: Icon(
+                _spinnerModeIndex == 0
+                    ? Icons.rotate_right_rounded
+                    : Icons.casino_rounded,
+                size: 24,
+              ),
+            ),
+            label: Text(
+              _isSpinning
+                  ? 'Spinning...'
+                  : (_currentDisplayResult != 'Tap Spin to Decide!' &&
+                          _currentDisplayResult.isNotEmpty
+                      ? 'Re-Spin Wheel'
+                      : 'Spin Wheel'),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+        if (kDebugMode &&
+            _selectedCategoryIndex == 0 &&
+            _watchMovies.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showDebugPickMovieDialog(context),
+              icon: const Icon(Icons.touch_app_rounded, size: 16),
+              label: const Text(
+                'Debug: Pick & Lock Movie for Testing',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.amberAccent.shade400,
+                side: BorderSide(
+                  color: Colors.amberAccent.shade400.withValues(alpha: 0.7),
+                  width: 1.2,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -3519,10 +3614,12 @@ class _DecisionWheelPainter extends CustomPainter {
       final sweepAngle = sliceAngle;
 
       final gradientPair = sliceGradients[i % sliceGradients.length];
+      final midAngle = startAngle + sweepAngle / 2;
+
       final slicePaint = Paint()
-        ..shader = SweepGradient(
-          startAngle: startAngle,
-          endAngle: startAngle + sweepAngle,
+        ..shader = LinearGradient(
+          begin: Alignment.center,
+          end: Alignment(cos(midAngle), sin(midAngle)),
           colors: gradientPair,
         ).createShader(Rect.fromCircle(center: Offset.zero, radius: radius))
         ..style = PaintingStyle.fill;
@@ -3646,9 +3743,5 @@ class _DecisionWheelPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _DecisionWheelPainter oldDelegate) {
-    return oldDelegate.angle != angle ||
-        oldDelegate.slices != slices ||
-        oldDelegate.isDark != isDark;
-  }
+  bool shouldRepaint(covariant _DecisionWheelPainter oldDelegate) => true;
 }

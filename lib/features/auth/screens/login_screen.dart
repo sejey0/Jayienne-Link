@@ -138,26 +138,63 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: 10),
 
-                  // Welcome Header Card
+                  // App Logo Header with Romantic Heart Backdrop
                   Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFFFF758C).withValues(alpha: isDark ? 0.2 : 0.15),
-                            const Color(0xFFA18CD1).withValues(alpha: isDark ? 0.2 : 0.15),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Outer Soft Heart Glow
+                        ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ).createShader(bounds),
+                          child: Icon(
+                            Icons.favorite_rounded,
+                            size: 96,
+                            color: Colors.white.withValues(alpha: isDark ? 0.3 : 0.35),
+                          ),
                         ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.favorite_rounded,
-                        color: Color(0xFFFF758C),
-                        size: 40,
-                      ),
+                        // Inner Heart Card
+                        ShaderMask(
+                          shaderCallback: (bounds) => LinearGradient(
+                            colors: isDark
+                                ? [const Color(0xFF261A34), const Color(0xFF191124)]
+                                : [Colors.white, const Color(0xFFFFF0F5)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ).createShader(bounds),
+                          child: const Icon(
+                            Icons.favorite_rounded,
+                            size: 80,
+                            color: Colors.white,
+                          ),
+                        ),
+                        // Heart Border
+                        ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ).createShader(bounds),
+                          child: Icon(
+                            Icons.favorite_outline_rounded,
+                            size: 80,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        // Logo inside Heart
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Image.asset(
+                            'assets/icon/road_to_forever, no bg.png',
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
@@ -172,17 +209,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: isDark ? Colors.white : AppColors.deepCharcoal,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Sign in to reconnect with your favorite person.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      color: isDark ? Colors.white60 : Colors.grey.shade600,
-                    ),
-                  ),
 
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
                   // Email Field
                   _buildInputLabel('EMAIL ADDRESS', isDark),

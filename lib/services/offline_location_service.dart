@@ -25,6 +25,7 @@ class OfflineLocationService {
 
   // Throttling to prevent excessive updates
   DateTime? _lastCaptureTime;
+  int? _lastCapturedBattery;
   static const Duration _minCaptureInterval = Duration(seconds: 15);
 
   // Movement detection threshold (meters)
@@ -214,46 +215,61 @@ class OfflineLocationService {
     }
   }
 
-  /// Capture location with smart throttling (avoids duplicates when stationary)
+  /// Capture location with smart throttling (avoids duplicates when stationary, but refreshes on battery change or heartbeat)
   Future<LocationModel?> captureLocationSmart(String ownerId) async {
+    final now = DateTime.now();
+    int? currentBattery;
+    if (!kIsWeb) {
+      currentBattery = await getBatteryLevel();
+    }
+
+    final bool batteryChanged = currentBattery != null &&
+        _lastCapturedBattery != null &&
+        _lastCapturedBattery != currentBattery;
+
     // Check if we should skip this capture (throttling)
     if (_lastCaptureTime != null) {
-      final elapsed = DateTime.now().difference(_lastCaptureTime!);
-      if (elapsed < _minCaptureInterval) {
+      final elapsed = now.difference(_lastCaptureTime!);
+      if (elapsed < _minCaptureInterval && !batteryChanged) {
         debugPrint('Skipping capture - too soon (${elapsed.inSeconds}s)');
         return null;
       }
-    }
 
-    // Check if we've moved enough since last capture
-    if (_lastPosition != null) {
-      try {
-        final currentPos = await _fetchPositionWithFallback(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: const Duration(seconds: 15),
-        );
+      // If battery changed or 2 minutes elapsed, allow update even if stationary
+      final bool isHeartbeatDue = elapsed >= const Duration(minutes: 2);
 
-        if (currentPos != null) {
-          final distance = Geolocator.distanceBetween(
-            _lastPosition!.latitude,
-            _lastPosition!.longitude,
-            currentPos.latitude,
-            currentPos.longitude,
+      // Check if we've moved enough since last capture
+      if (!isHeartbeatDue && !batteryChanged && _lastPosition != null) {
+        try {
+          final currentPos = await _fetchPositionWithFallback(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: const Duration(seconds: 10),
           );
 
-          if (distance < _movementThreshold) {
-            debugPrint(
-                'Skipping capture - no significant movement (${distance.toStringAsFixed(1)}m)');
-            return null;
+          if (currentPos != null) {
+            final distance = Geolocator.distanceBetween(
+              _lastPosition!.latitude,
+              _lastPosition!.longitude,
+              currentPos.latitude,
+              currentPos.longitude,
+            );
+
+            if (distance < _movementThreshold) {
+              debugPrint(
+                  'Skipping capture - stationary (${distance.toStringAsFixed(1)}m)');
+              return null;
+            }
           }
+        } catch (e) {
+          debugPrint('Movement check failed: $e');
         }
-      } catch (e) {
-        // Continue with capture if movement check fails
-        debugPrint('Movement check failed, continuing with capture: $e');
       }
     }
 
-    _lastCaptureTime = DateTime.now();
+    _lastCaptureTime = now;
+    if (currentBattery != null) {
+      _lastCapturedBattery = currentBattery;
+    }
     return getCurrentLocation(ownerId);
   }
 

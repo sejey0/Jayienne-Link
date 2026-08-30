@@ -357,23 +357,31 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
+  Position? _lastSavedPosition;
+  DateTime? _lastSavedTime;
+  int? _lastSavedBattery;
+
   /// Initialize Battery Monitoring
   Future<void> _initBatteryMonitoring() async {
+    if (kIsWeb) return;
     try {
       _batteryLevel = await _battery.batteryLevel;
       _batteryState = await _battery.batteryState;
-      _batterySubscription = _battery.onBatteryStateChanged.listen((state) async {
+      _batterySubscription?.cancel();
+      _batterySubscription =
+          _battery.onBatteryStateChanged.listen((state) async {
         _batteryState = state;
-        _batteryLevel = await _battery.batteryLevel;
+        try {
+          _batteryLevel = await _battery.batteryLevel;
+        } catch (_) {}
         notifyListeners();
+        // Immediately sync battery change to partner
+        _refreshLiveBatteryAndSync();
       });
     } catch (e) {
       debugPrint('Battery info unavailable: $e');
     }
   }
-
-  Position? _lastSavedPosition;
-  DateTime? _lastSavedTime;
 
   /// Start battery-smart Geolocator stream with distance filter (15m)
   void _startBatterySmartLocationStream() {
@@ -424,9 +432,15 @@ class LocationProvider extends ChangeNotifier {
           position.longitude,
         );
 
-        // If stationary (speed < 0.5 m/s) and moved less than 15m, skip DB insert
+        // If stationary (speed < 0.5 m/s) and moved less than 15m
         if (position.speed < 0.5 && distance < 15.0) {
-          shouldSaveToDb = false;
+          // If battery changed or 2 mins elapsed, save so partner has accurate live battery & status
+          if (_lastSavedBattery != _batteryLevel ||
+              elapsed >= const Duration(minutes: 2)) {
+            shouldSaveToDb = true;
+          } else {
+            shouldSaveToDb = false;
+          }
         } else if (elapsed < const Duration(seconds: 15) && distance < 20.0) {
           // Only save if at least 15s elapsed OR distance > 20m
           shouldSaveToDb = false;
@@ -436,6 +450,7 @@ class LocationProvider extends ChangeNotifier {
       if (shouldSaveToDb) {
         _lastSavedPosition = position;
         _lastSavedTime = now;
+        _lastSavedBattery = _batteryLevel;
 
         await _storageService.insertLocation(locationModel);
         _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
@@ -514,17 +529,61 @@ class LocationProvider extends ChangeNotifier {
   Future<void> startForegroundRecording() async {
     if (_userId == null || !_permissionStatus.canTrack) return;
 
-    await _locationService.captureLocationSmart(_userId!);
+    await _refreshLiveBatteryAndSync();
 
     _foregroundCaptureTimer?.cancel();
     _foregroundCaptureTimer = Timer.periodic(
-      _foregroundCaptureInterval,
+      const Duration(seconds: 45),
       (_) async {
         if (_userId == null || !_permissionStatus.canTrack) return;
-        if (_locationService.isTracking) return;
-        await _locationService.captureLocationSmart(_userId!);
+        await _refreshLiveBatteryAndSync();
       },
     );
+  }
+
+  /// Live Battery & Presence Pulse
+  Future<void> _refreshLiveBatteryAndSync() async {
+    if (_userId == null) return;
+    if (!kIsWeb) {
+      try {
+        final currentLvl = await _battery.batteryLevel;
+        _batteryLevel = currentLvl;
+        _batteryState = await _battery.batteryState;
+      } catch (_) {}
+    }
+
+    final loc = _currentLocation ??
+        await _storageService.getLastKnownLocation(_userId!);
+    if (loc != null) {
+      final updatedLoc = loc.copyWith(
+        batteryLevel: _batteryLevel,
+        timestamp: DateTime.now(),
+      );
+      _currentLocation = updatedLoc;
+      _lastSavedPosition = Position(
+        latitude: updatedLoc.latitude,
+        longitude: updatedLoc.longitude,
+        timestamp: updatedLoc.timestamp,
+        accuracy: updatedLoc.accuracy,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: updatedLoc.heading ?? 0,
+        headingAccuracy: 0,
+        speed: updatedLoc.speed ?? 0,
+        speedAccuracy: 0,
+      );
+      _lastSavedTime = DateTime.now();
+      _lastSavedBattery = _batteryLevel;
+
+      await _storageService.insertLocation(updatedLoc);
+      _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
+      if (isOnline && _coupleId != null) {
+        syncLocations();
+      }
+      notifyListeners();
+    } else {
+      await _locationService.captureLocationSmart(_userId!);
+    }
   }
 
   Future<void> stopForegroundRecording() async {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -175,7 +176,9 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
           borderRadius: BorderRadius.circular(28),
           onTap: hasDate
               ? _toggleExpanded
-              : () => _showDatePickerDialog(context, anniversaryProvider),
+              : (kDebugMode
+                  ? () => _showDatePickerDialog(context, anniversaryProvider)
+                  : null),
           child: AnimatedSize(
             duration: const Duration(milliseconds: 320),
             curve: Curves.easeInOut,
@@ -715,30 +718,31 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                   ),
                 ],
               ),
-              InkWell(
-                onTap: () => _showDatePickerDialog(context, provider),
-                borderRadius: BorderRadius.circular(8),
-                child: const Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.edit_calendar_rounded,
-                          color: Colors.white70, size: 14),
-                      SizedBox(width: 3),
-                      Text(
-                        'Change',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
+              if (kDebugMode)
+                InkWell(
+                  onTap: () => _showDatePickerDialog(context, provider),
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.edit_calendar_rounded,
+                            color: Colors.white70, size: 14),
+                        SizedBox(width: 3),
+                        Text(
+                          'Change',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -851,23 +855,25 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 10),
-        ElevatedButton.icon(
-          onPressed: () => _showDatePickerDialog(context, provider),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: const Color(0xFFFF758C),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+        if (kDebugMode) ...[
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            onPressed: () => _showDatePickerDialog(context, provider),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFFFF758C),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            icon: const Icon(Icons.calendar_month_rounded, size: 16),
+            label: const Text(
+              'Set Anniversary Date',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
           ),
-          icon: const Icon(Icons.calendar_month_rounded, size: 16),
-          label: const Text(
-            'Set Anniversary Date',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-          ),
-        ),
+        ],
       ],
     );
   }

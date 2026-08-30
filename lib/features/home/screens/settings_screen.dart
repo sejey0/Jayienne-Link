@@ -119,12 +119,14 @@ class SettingsScreen extends StatelessWidget {
                           : couple.anniversary != null
                               ? 'Current: ${_formatAnniversary(couple.anniversary!)}'
                               : 'Not set yet',
-                  trailing: Icon(
-                    Icons.edit_calendar_rounded,
-                    color: couple == null ? Colors.grey.shade400 : AppColors.softRose,
-                    size: 22,
-                  ),
-                  onTap: couple == null
+                  trailing: kDebugMode
+                      ? Icon(
+                          Icons.edit_calendar_rounded,
+                          color: couple == null ? Colors.grey.shade400 : AppColors.softRose,
+                          size: 22,
+                        )
+                      : const SizedBox.shrink(),
+                  onTap: (couple == null || !kDebugMode)
                       ? null
                       : () => _requestAnniversary(context, user!, couple),
                 ),
@@ -1114,7 +1116,7 @@ class SettingsScreen extends StatelessWidget {
     required List<Color> gradientColors,
     required String title,
     required String subtitle,
-    required Widget trailing,
+    Widget? trailing,
     VoidCallback? onTap,
   }) {
     return Material(
@@ -1173,7 +1175,7 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              trailing,
+              if (trailing != null) trailing,
             ],
           ),
         ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -71,14 +72,15 @@ class _RelationshipTimelineScreenState
             },
             tooltip: 'Refresh timeline',
           ),
-          IconButton(
-            icon: const Icon(Icons.calendar_month_rounded, color: Colors.white),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              _showEditAnniversaryDialog(context, provider);
-            },
-            tooltip: 'Edit anniversary date',
-          ),
+          if (kDebugMode)
+            IconButton(
+              icon: const Icon(Icons.calendar_month_rounded, color: Colors.white),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _showEditAnniversaryDialog(context, provider);
+              },
+              tooltip: 'Edit anniversary date',
+            ),
         ],
         elevation: 0,
       ),

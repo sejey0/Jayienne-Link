@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -69,7 +70,9 @@ class _CollapsibleAnniversaryCardState
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: hasDate ? _toggleExpanded : () => _showDatePickerDialog(context, provider),
+          onTap: hasDate
+              ? _toggleExpanded
+              : (kDebugMode ? () => _showDatePickerDialog(context, provider) : null),
           child: AnimatedSize(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
@@ -354,26 +357,28 @@ class _CollapsibleAnniversaryCardState
             fontSize: 13,
           ),
         ),
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            _showDatePickerDialog(context, provider);
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: AppColors.softRose,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+        if (kDebugMode) ...[
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              _showDatePickerDialog(context, provider);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.softRose,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            icon: const Icon(Icons.calendar_month_rounded),
+            label: const Text(
+              'Set Anniversary Date',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
-          icon: const Icon(Icons.calendar_month_rounded),
-          label: const Text(
-            'Set Anniversary Date',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
+        ],
       ],
     );
   }

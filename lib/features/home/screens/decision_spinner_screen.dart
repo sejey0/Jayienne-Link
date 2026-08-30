@@ -292,6 +292,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
           final catIndex = payload['categoryIndex'] as int? ?? 0;
           final modeIndex = payload['modeIndex'] as int? ?? 0;
+          final winner = payload['winner']?.toString();
+          final targetSliceIndex = payload['targetSliceIndex'] as int?;
+          final extraTurns = payload['extraTurns'] as int?;
+          final posterUrl = payload['posterUrl']?.toString();
+          final mediaType = payload['mediaType']?.toString();
 
           setState(() {
             _selectedCategoryIndex = catIndex;
@@ -299,9 +304,21 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           });
 
           if (modeIndex == 0) {
-            _startVisualWheelSpin(fromRemote: true);
+            _startVisualWheelSpin(
+              fromRemote: true,
+              remoteWinner: winner,
+              remoteTargetSliceIndex: targetSliceIndex,
+              remoteExtraTurns: extraTurns,
+              remotePosterUrl: posterUrl,
+              remoteMediaType: mediaType,
+            );
           } else {
-            _startQuickSlotSpin(fromRemote: true);
+            _startQuickSlotSpin(
+              fromRemote: true,
+              remoteWinner: winner,
+              remotePosterUrl: posterUrl,
+              remoteMediaType: mediaType,
+            );
           }
         },
       );
@@ -816,14 +833,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   void _onSpinPressed() {
     if (_isSpinning) return;
     if (_selectedCategoryIndex == 0) {
-      if (_pickedMovie != null) {
-        HapticFeedback.vibrate();
-        SnackbarHelper.showInfo(
-          context,
-          'Movie is already locked in! Mark it as watched in Movie Diary to unlock the wheel.',
-        );
-        return;
-      }
       if (_watchOptions.length < 2) {
         HapticFeedback.vibrate();
         SnackbarHelper.showError(
@@ -842,11 +851,39 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   }
 
   /// Interactive Visual Wheel Physics Spin on the merged wheel
-  void _startVisualWheelSpin({bool fromRemote = false}) {
+  void _startVisualWheelSpin({
+    bool fromRemote = false,
+    String? remoteWinner,
+    int? remoteTargetSliceIndex,
+    int? remoteExtraTurns,
+    String? remotePosterUrl,
+    String? remoteMediaType,
+  }) {
     final slices = _wheelDisplaySlices;
     if (slices.isEmpty) return;
 
+    final String finalWinner;
+    final int targetSliceIndex;
+    final int extraTurns;
+    String? finalPosterUrl = remotePosterUrl;
+    String? finalMediaType = remoteMediaType;
+
     if (!fromRemote) {
+      final decision = _pickWinnerWithTarget();
+      finalWinner = decision.winner;
+      targetSliceIndex = decision.targetSliceIndex;
+      extraTurns = 5 + _random.nextInt(3); // 5 to 7 full rotations
+
+      if (_selectedCategoryIndex == 0) {
+        try {
+          final m = _watchMovies.firstWhere(
+            (item) => item.title.trim().toLowerCase() == finalWinner.trim().toLowerCase(),
+          );
+          finalPosterUrl = m.posterUrl;
+          finalMediaType = m.mediaType;
+        } catch (_) {}
+      }
+
       final myUserId =
           Provider.of<UserProvider>(context, listen: false).user?.uid;
       _spinnerChannel?.sendBroadcastMessage(
@@ -855,8 +892,25 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'categoryIndex': _selectedCategoryIndex,
           'modeIndex': 0,
           'userId': myUserId,
+          'winner': finalWinner,
+          'targetSliceIndex': targetSliceIndex,
+          'extraTurns': extraTurns,
+          'posterUrl': finalPosterUrl,
+          'mediaType': finalMediaType ?? 'movie',
         },
       );
+    } else {
+      finalWinner = remoteWinner ?? _pickWinner();
+      if (remoteTargetSliceIndex != null &&
+          remoteTargetSliceIndex >= 0 &&
+          remoteTargetSliceIndex < slices.length) {
+        targetSliceIndex = remoteTargetSliceIndex;
+      } else {
+        final idx = slices.indexWhere(
+            (s) => s.label.trim().toLowerCase() == finalWinner.trim().toLowerCase());
+        targetSliceIndex = idx >= 0 ? idx : 0;
+      }
+      extraTurns = remoteExtraTurns ?? 5;
     }
 
     HapticFeedback.mediumImpact();
@@ -864,13 +918,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       _isSpinning = true;
     });
 
-    final decision = _pickWinnerWithTarget();
     final sliceCount = slices.length;
-
     final sliceAngle = (2 * pi) / sliceCount;
     // Dead-center of the target slice in unrotated local coordinates
     final targetWedgeLocalCenter =
-        (decision.targetSliceIndex + 0.5) * sliceAngle;
+        (targetSliceIndex + 0.5) * sliceAngle;
 
     // Pointer is aligned at top 12 o'clock axis (-pi / 2)
     final targetNormalizedAngle =
@@ -880,7 +932,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     double diff = targetNormalizedAngle - currentNormalized;
     if (diff < 0) diff += 2 * pi;
 
-    final extraTurns = 5 + _random.nextInt(3); // 5 to 7 full rotations
     final finalTargetAngle = _currentWheelAngle + (2 * pi * extraTurns) + diff;
 
     _startWheelAngle = _currentWheelAngle;
@@ -907,12 +958,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     _wheelController.forward().then((_) {
       _wheelController.removeListener(tickListener);
       _currentWheelAngle = finalTargetAngle;
-      _finalizeDecision(decision.winner, fromRemote: fromRemote);
+      _finalizeDecision(
+        finalWinner,
+        fromRemote: fromRemote,
+        posterUrl: finalPosterUrl,
+        mediaType: finalMediaType,
+      );
     });
   }
 
   /// Quick Slot-Machine Carousel Spin
-  void _startQuickSlotSpin({bool fromRemote = false}) {
+  void _startQuickSlotSpin({
+    bool fromRemote = false,
+    String? remoteWinner,
+    String? remotePosterUrl,
+    String? remoteMediaType,
+  }) {
     final displayPool = _selectedCategoryIndex == 0
         ? _watchOptions
         : (_currentOptions.isNotEmpty
@@ -926,7 +987,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
     if (displayPool.isEmpty) return;
 
+    final String finalWinner;
+    String? finalPosterUrl = remotePosterUrl;
+    String? finalMediaType = remoteMediaType;
+
     if (!fromRemote) {
+      finalWinner = _pickWinner();
+      if (_selectedCategoryIndex == 0) {
+        try {
+          final m = _watchMovies.firstWhere(
+            (item) => item.title.trim().toLowerCase() == finalWinner.trim().toLowerCase(),
+          );
+          finalPosterUrl = m.posterUrl;
+          finalMediaType = m.mediaType;
+        } catch (_) {}
+      }
+
       final myUserId =
           Provider.of<UserProvider>(context, listen: false).user?.uid;
       _spinnerChannel?.sendBroadcastMessage(
@@ -935,8 +1011,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'categoryIndex': _selectedCategoryIndex,
           'modeIndex': 1,
           'userId': myUserId,
+          'winner': finalWinner,
+          'posterUrl': finalPosterUrl,
+          'mediaType': finalMediaType ?? 'movie',
         },
       );
+    } else {
+      finalWinner = remoteWinner ?? _pickWinner();
     }
 
     HapticFeedback.mediumImpact();
@@ -959,8 +1040,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
       if (ticks >= totalTicks) {
         timer.cancel();
-        final winner = _pickWinner();
-        _finalizeDecision(winner, fromRemote: fromRemote);
+        _finalizeDecision(
+          finalWinner,
+          fromRemote: fromRemote,
+          posterUrl: finalPosterUrl,
+          mediaType: finalMediaType,
+        );
       }
     });
   }
@@ -1019,29 +1104,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'userId': myUserId,
         },
       );
-
-      // Persist active movie pick in Supabase so partner sees it even when opening app later
-      if (_selectedCategoryIndex == 0 && winningMovie != null) {
-        final coupleId = _getCoupleId();
-        if (coupleId.isNotEmpty) {
-          // Remove prior active pick row first to ensure only 1 active pick exists
-          SupabaseDataService.client
-              .from('decision_ideas')
-              .delete()
-              .eq('couple_id', coupleId)
-              .eq('category', 'active_movie_pick')
-              .then((_) {
-            SupabaseDataService.client.from('decision_ideas').insert({
-              'couple_id': coupleId,
-              'category': 'active_movie_pick',
-              'title': winner,
-              'is_custom': false,
-            }).catchError((e) {
-              debugPrint('Error saving active movie pick: $e');
-            });
-          }).catchError((_) {});
-        }
-      }
     }
 
     showDialog(
@@ -1176,9 +1238,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    _selectedCategoryIndex == 0
-                        ? 'Locked in for Date Night'
-                        : 'Anti-repeat active for next spin',
+                    'Anti-repeat active for next spin',
                     style: TextStyle(
                       color: isDark
                           ? const Color(0xFF81C784)
@@ -1198,47 +1258,76 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_selectedCategoryIndex == 0) ...[
-                    // Movie Category: Lock in button (No Spin Again / Re-spin)
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF758C)
-                                .withValues(alpha: 0.35),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            _onSpinPressed();
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                              color: Color(0xFFFF758C),
+                              width: 1.2,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                        ],
+                          child: const Text(
+                            'Spin Again',
+                            style: TextStyle(
+                              color: Color(0xFFFF758C),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ),
-                      child: ElevatedButton.icon(
-                        onPressed: () => Navigator.pop(dialogContext),
-                        icon: const Icon(Icons.check_rounded, size: 18),
-                        label: const Text(
-                          'Lock In & Enjoy!',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                             borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF758C)
+                                    .withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              'Let\'s Do It!',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
+                  ),
+                  if (_selectedCategoryIndex == 0) ...[
                     const SizedBox(height: 8),
                     TextButton.icon(
                       onPressed: () {
@@ -1255,91 +1344,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFFFF758C),
                       ),
-                    ),
-                    if (kDebugMode) ...[
-                      const SizedBox(height: 4),
-                      TextButton.icon(
-                        onPressed: () {
-                          Navigator.pop(dialogContext);
-                          _forceResetMoviePick();
-                        },
-                        icon: const Icon(Icons.restart_alt_rounded, size: 15),
-                        label: const Text('Reset Pick (Debug Mode)'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.amberAccent.shade400,
-                        ),
-                      ),
-                    ],
-                  ] else ...[
-                    // Other categories: Spin Again + Let's Do It
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () {
-                              Navigator.pop(dialogContext);
-                              _onSpinPressed();
-                            },
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: Color(0xFFFF758C),
-                                width: 1.2,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            child: const Text(
-                              'Spin Again',
-                              style: TextStyle(
-                                color: Color(0xFFFF758C),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFFF758C)
-                                      .withValues(alpha: 0.35),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: ElevatedButton(
-                              onPressed: () => Navigator.pop(dialogContext),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                foregroundColor: Colors.white,
-                                shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                              child: const Text(
-                                'Let\'s Do It!',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ],
@@ -1657,9 +1661,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     ),
                   ],
                 ),
-                child: _selectedCategoryIndex == 0 && _pickedMovie != null
-                    ? _buildPickedMovieView(context, isDark)
-                    : Column(
+                child: Column(
                         children: [
                           // Online Connection Indicator Badge
                           if (_selectedCategoryIndex != 0)

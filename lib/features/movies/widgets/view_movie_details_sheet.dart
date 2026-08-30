@@ -9,6 +9,7 @@ import '../../../models/movie_model.dart';
 import '../../../models/movie_rating_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../services/supabase_data_service.dart';
 import '../../../services/supabase_movie_service.dart';
 import '../../../widgets/smart_profile_image.dart';
 import 'mark_watched_sheet.dart';
@@ -588,6 +589,21 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
     try {
       await _movieService.planRewatch(widget.movie);
       if (!mounted) return;
+
+      try {
+        final coupleId = widget.movie.coupleId;
+        if (coupleId.isNotEmpty) {
+          SupabaseDataService.client
+              .channel('decision_spinner:$coupleId')
+              .sendBroadcastMessage(
+                event: 'pool_updated',
+                payload: {
+                  'action': 'plan_rewatch',
+                  'title': widget.movie.title,
+                },
+              );
+        }
+      } catch (_) {}
 
       widget.onMovieUpdated?.call();
       Navigator.pop(context, {

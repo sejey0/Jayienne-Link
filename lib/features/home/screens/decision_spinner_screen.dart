@@ -297,6 +297,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           final extraTurns = payload['extraTurns'] as int?;
           final posterUrl = payload['posterUrl']?.toString();
           final mediaType = payload['mediaType']?.toString();
+          final watchCount = payload['watchCount'] as int? ?? 1;
+          final movieId = payload['movieId']?.toString();
 
           setState(() {
             _selectedCategoryIndex = catIndex;
@@ -311,6 +313,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               remoteExtraTurns: extraTurns,
               remotePosterUrl: posterUrl,
               remoteMediaType: mediaType,
+              remoteWatchCount: watchCount,
+              remoteMovieId: movieId,
             );
           } else {
             _startQuickSlotSpin(
@@ -318,6 +322,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               remoteWinner: winner,
               remotePosterUrl: posterUrl,
               remoteMediaType: mediaType,
+              remoteWatchCount: watchCount,
+              remoteMovieId: movieId,
             );
           }
         },
@@ -334,6 +340,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           final catIndex = payload['categoryIndex'] as int? ?? 0;
           final posterUrl = payload['posterUrl']?.toString();
           final mediaType = payload['mediaType']?.toString() ?? 'movie';
+          final watchCount = payload['watchCount'] as int? ?? 1;
+          final movieId = payload['movieId']?.toString();
 
           setState(() {
             _selectedCategoryIndex = catIndex;
@@ -346,6 +354,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               winner,
               posterUrl: posterUrl,
               mediaType: mediaType,
+              watchCount: watchCount,
+              movieId: movieId,
             );
           }
 
@@ -355,6 +365,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               fromRemote: true,
               posterUrl: posterUrl,
               mediaType: mediaType,
+              watchCount: watchCount,
+              movieId: movieId,
             );
           }
         },
@@ -569,6 +581,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     String title, {
     String? posterUrl,
     String? mediaType,
+    int watchCount = 1,
+    String? movieId,
   }) {
     if (title.trim().isEmpty) return;
 
@@ -579,19 +593,38 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       );
     } catch (_) {}
 
-    if (found != null && found.isWatched) {
+    if (found != null && found.isWatched && !found.isWatchlist) {
       _clearActiveMoviePickInDb();
       return;
     }
 
-    found ??= MovieModel(
-      coupleId: _getCoupleId(),
-      title: title,
-      posterUrl: posterUrl,
-      status: 'watchlist',
-      mediaType: mediaType ?? 'movie',
-      createdAt: DateTime.now(),
-    );
+    if (found != null) {
+      if (watchCount > found.watchCount) {
+        found = MovieModel(
+          id: found.id ?? movieId,
+          coupleId: found.coupleId,
+          title: found.title,
+          posterUrl: found.posterUrl ?? posterUrl,
+          status: found.status,
+          mediaType: found.mediaType,
+          watchCount: watchCount,
+          createdAt: found.createdAt,
+          watchedDate: found.watchedDate,
+          ratings: found.ratings,
+        );
+      }
+    } else {
+      found = MovieModel(
+        id: movieId,
+        coupleId: _getCoupleId(),
+        title: title,
+        posterUrl: posterUrl,
+        status: 'watchlist',
+        mediaType: mediaType ?? 'movie',
+        watchCount: watchCount,
+        createdAt: DateTime.now(),
+      );
+    }
 
     if (mounted) {
       setState(() {
@@ -647,6 +680,134 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         'Debug: Spinner pool and picked movie reset successfully.',
       );
     }
+  }
+
+  /// Debug: Pick & Lock a specific movie directly to test real-time lock & watch reset
+  void _showDebugPickMovieDialog(BuildContext context) {
+    if (_watchMovies.isEmpty) {
+      SnackbarHelper.showInfo(context, 'No unwatched movies in Movie Diary.');
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1E162B)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.bug_report_rounded, color: Colors.amberAccent),
+                    SizedBox(width: 8),
+                    Text(
+                      'Debug: Pick & Lock Movie',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Tap any movie to instantly lock it on screen for testing:',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _watchMovies.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (ctx, idx) {
+                      final movie = _watchMovies[idx];
+                      return ListTile(
+                        leading: movie.posterUrl != null &&
+                                movie.posterUrl!.isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: MoviePosterWidget(
+                                  posterUrl: movie.posterUrl,
+                                  width: 35,
+                                  height: 50,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : const Icon(Icons.movie_rounded,
+                                color: Color(0xFFFF758C)),
+                        title: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                movie.title,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ),
+                            if (movie.isRewatch) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFFFF758C),
+                                      Color(0xFFA18CD1)
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  movie.rewatchBadgeLabel,
+                                  style: const TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        subtitle: Text(
+                          movie.mediaType == 'series' ||
+                                  movie.mediaType == 'tv'
+                              ? 'TV Series'
+                              : 'Movie',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        trailing: const Icon(
+                          Icons.lock_outline_rounded,
+                          size: 18,
+                          color: Colors.amberAccent,
+                        ),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _finalizeDecision(
+                            movie.title,
+                            posterUrl: movie.posterUrl,
+                            mediaType: movie.mediaType,
+                            watchCount: movie.watchCount,
+                            movieId: movie.id,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   /// Fetch user custom ideas from Supabase and merge with local SharedPreferences cache
@@ -833,6 +994,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   void _onSpinPressed() {
     if (_isSpinning) return;
     if (_selectedCategoryIndex == 0) {
+      if (_pickedMovie != null) {
+        HapticFeedback.vibrate();
+        SnackbarHelper.showInfo(
+          context,
+          'Movie is already locked in! Mark it as watched in Movie Diary to unlock the wheel.',
+        );
+        return;
+      }
       if (_watchOptions.length < 2) {
         HapticFeedback.vibrate();
         SnackbarHelper.showError(
@@ -858,6 +1027,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     int? remoteExtraTurns,
     String? remotePosterUrl,
     String? remoteMediaType,
+    int? remoteWatchCount,
+    String? remoteMovieId,
   }) {
     final slices = _wheelDisplaySlices;
     if (slices.isEmpty) return;
@@ -867,6 +1038,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     final int extraTurns;
     String? finalPosterUrl = remotePosterUrl;
     String? finalMediaType = remoteMediaType;
+    int finalWatchCount = remoteWatchCount ?? 1;
+    String? finalMovieId = remoteMovieId;
 
     if (!fromRemote) {
       final decision = _pickWinnerWithTarget();
@@ -881,6 +1054,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           );
           finalPosterUrl = m.posterUrl;
           finalMediaType = m.mediaType;
+          finalWatchCount = m.watchCount;
+          finalMovieId = m.id;
         } catch (_) {}
       }
 
@@ -897,6 +1072,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'extraTurns': extraTurns,
           'posterUrl': finalPosterUrl,
           'mediaType': finalMediaType ?? 'movie',
+          'watchCount': finalWatchCount,
+          'movieId': finalMovieId,
         },
       );
     } else {
@@ -963,6 +1140,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         fromRemote: fromRemote,
         posterUrl: finalPosterUrl,
         mediaType: finalMediaType,
+        watchCount: finalWatchCount,
+        movieId: finalMovieId,
       );
     });
   }
@@ -973,6 +1152,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     String? remoteWinner,
     String? remotePosterUrl,
     String? remoteMediaType,
+    int? remoteWatchCount,
+    String? remoteMovieId,
   }) {
     final displayPool = _selectedCategoryIndex == 0
         ? _watchOptions
@@ -990,6 +1171,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     final String finalWinner;
     String? finalPosterUrl = remotePosterUrl;
     String? finalMediaType = remoteMediaType;
+    int finalWatchCount = remoteWatchCount ?? 1;
+    String? finalMovieId = remoteMovieId;
 
     if (!fromRemote) {
       finalWinner = _pickWinner();
@@ -1000,6 +1183,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           );
           finalPosterUrl = m.posterUrl;
           finalMediaType = m.mediaType;
+          finalWatchCount = m.watchCount;
+          finalMovieId = m.id;
         } catch (_) {}
       }
 
@@ -1014,6 +1199,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'winner': finalWinner,
           'posterUrl': finalPosterUrl,
           'mediaType': finalMediaType ?? 'movie',
+          'watchCount': finalWatchCount,
+          'movieId': finalMovieId,
         },
       );
     } else {
@@ -1045,6 +1232,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           fromRemote: fromRemote,
           posterUrl: finalPosterUrl,
           mediaType: finalMediaType,
+          watchCount: finalWatchCount,
+          movieId: finalMovieId,
         );
       }
     });
@@ -1055,6 +1244,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     bool fromRemote = false,
     String? posterUrl,
     String? mediaType,
+    int watchCount = 1,
+    String? movieId,
   }) {
     HapticFeedback.heavyImpact();
 
@@ -1066,14 +1257,33 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         );
       } catch (_) {}
 
-      winningMovie ??= MovieModel(
-        coupleId: _getCoupleId(),
-        title: winner,
-        posterUrl: posterUrl,
-        status: 'watchlist',
-        mediaType: mediaType ?? 'movie',
-        createdAt: DateTime.now(),
-      );
+      if (winningMovie != null) {
+        if (watchCount > winningMovie.watchCount) {
+          winningMovie = MovieModel(
+            id: winningMovie.id ?? movieId,
+            coupleId: winningMovie.coupleId,
+            title: winningMovie.title,
+            posterUrl: winningMovie.posterUrl ?? posterUrl,
+            status: winningMovie.status,
+            mediaType: winningMovie.mediaType,
+            watchCount: watchCount,
+            createdAt: winningMovie.createdAt,
+            watchedDate: winningMovie.watchedDate,
+            ratings: winningMovie.ratings,
+          );
+        }
+      } else {
+        winningMovie = MovieModel(
+          id: movieId,
+          coupleId: _getCoupleId(),
+          title: winner,
+          posterUrl: posterUrl,
+          status: 'watchlist',
+          mediaType: mediaType ?? 'movie',
+          watchCount: watchCount,
+          createdAt: DateTime.now(),
+        );
+      }
     }
 
     setState(() {
@@ -1101,9 +1311,38 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'winner': winner,
           'posterUrl': winningMovie?.posterUrl,
           'mediaType': winningMovie?.mediaType ?? 'movie',
+          'watchCount': winningMovie?.watchCount ?? 1,
+          'movieId': winningMovie?.id,
           'userId': myUserId,
         },
       );
+
+      // Persist active movie pick in Supabase so partner sees it locked on screen immediately
+      if (_selectedCategoryIndex == 0 && winningMovie != null) {
+        final coupleId = _getCoupleId();
+        if (coupleId.isNotEmpty) {
+          SupabaseDataService.client
+              .from('decision_ideas')
+              .delete()
+              .eq('couple_id', coupleId)
+              .eq('category', 'active_movie_pick')
+              .then((_) {
+            SupabaseDataService.client.from('decision_ideas').insert({
+              'couple_id': coupleId,
+              'category': 'active_movie_pick',
+              'title': winner,
+              'is_custom': false,
+            }).catchError((e) {
+              debugPrint('Error saving active movie pick: $e');
+            });
+          }).catchError((_) {});
+        }
+      }
+    }
+
+    // Auto-lock for Movie category: Show directly on wheel without popup
+    if (_selectedCategoryIndex == 0) {
+      return;
     }
 
     showDialog(
@@ -1661,7 +1900,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     ),
                   ],
                 ),
-                child: Column(
+                child: _selectedCategoryIndex == 0 && _pickedMovie != null
+                    ? _buildPickedMovieView(context, isDark)
+                    : Column(
                         children: [
                           // Online Connection Indicator Badge
                           if (_selectedCategoryIndex != 0)
@@ -1782,6 +2023,40 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                               ),
                             ),
                           ),
+                          if (kDebugMode &&
+                              _selectedCategoryIndex == 0 &&
+                              _watchMovies.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () =>
+                                    _showDebugPickMovieDialog(context),
+                                icon: const Icon(Icons.touch_app_rounded,
+                                    size: 16),
+                                label: const Text(
+                                  'Debug: Pick & Lock Movie for Testing',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.amberAccent.shade400,
+                                  side: BorderSide(
+                                    color: Colors.amberAccent.shade400
+                                        .withValues(alpha: 0.7),
+                                    width: 1.2,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 10),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
               ),

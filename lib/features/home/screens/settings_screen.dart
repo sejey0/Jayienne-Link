@@ -1250,7 +1250,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   // --- LUXURY PASSCODE FIELD HELPER ---
-  Widget _buildPinField({
+  static Widget _buildPinField({
     required BuildContext context,
     required String label,
     required String hintText,
@@ -1350,337 +1350,19 @@ class SettingsScreen extends StatelessWidget {
     BuildContext context,
     AppLockProvider appLockProvider,
   ) async {
-    final isChanging = appLockProvider.isEnabled;
-    final currentPinController = TextEditingController();
-    final newPinController = TextEditingController();
-    final confirmPinController = TextEditingController();
-
-    bool obscureCurrent = true;
-    bool obscureNew = true;
-    bool obscureConfirm = true;
-
-    String? errorText;
-    bool isSaving = false;
-
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
-          final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
-
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-            backgroundColor: cardBg,
-            contentPadding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
-            content: SizedBox(
-              width: MediaQuery.of(dialogContext).size.width * 0.9,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header Badge
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF758C)
-                                .withValues(alpha: 0.35),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.lock_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Title
-                    Text(
-                      isChanging ? 'Change Passcode' : 'Set App Passcode',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : AppColors.deepCharcoal,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Protect your private couple space with a minimum 8-character passcode.',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: isDark ? Colors.white60 : Colors.grey.shade600,
-                        height: 1.3,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 18),
-
-                    // Inputs
-                    if (isChanging) ...[
-                      _buildPinField(
-                        context: dialogContext,
-                        label: 'Current Passcode',
-                        hintText: 'Enter your existing code',
-                        controller: currentPinController,
-                        obscureText: obscureCurrent,
-                        onToggleObscure: () {
-                          setDialogState(() {
-                            obscureCurrent = !obscureCurrent;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    _buildPinField(
-                      context: dialogContext,
-                      label: 'New Passcode',
-                      hintText: 'Minimum 8 characters',
-                      controller: newPinController,
-                      obscureText: obscureNew,
-                      onToggleObscure: () {
-                        setDialogState(() {
-                          obscureNew = !obscureNew;
-                        });
-                      },
-                      onChanged: (_) {
-                        if (errorText != null) {
-                          setDialogState(() {
-                            errorText = null;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _buildPinField(
-                      context: dialogContext,
-                      label: 'Confirm New Passcode',
-                      hintText: 'Re-enter your passcode',
-                      controller: confirmPinController,
-                      obscureText: obscureConfirm,
-                      onToggleObscure: () {
-                        setDialogState(() {
-                          obscureConfirm = !obscureConfirm;
-                        });
-                      },
-                      onChanged: (_) {
-                        if (errorText != null) {
-                          setDialogState(() {
-                            errorText = null;
-                          });
-                        }
-                      },
-                    ),
-
-                    // Error Box
-                    if (errorText != null) ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.error.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.error_outline_rounded,
-                              color: AppColors.error,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                errorText!,
-                                style: const TextStyle(
-                                  color: AppColors.error,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 20),
-
-                    // Save Button
-                    Container(
-                      width: double.infinity,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF758C)
-                                .withValues(alpha: 0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: isSaving
-                            ? null
-                            : () async {
-                                HapticFeedback.mediumImpact();
-                                final currentPin =
-                                    currentPinController.text.trim();
-                                final newPin = newPinController.text.trim();
-                                final confirmPin =
-                                    confirmPinController.text.trim();
-
-                                if (isChanging && currentPin.isEmpty) {
-                                  setDialogState(() {
-                                    errorText =
-                                        'Please enter your current passcode.';
-                                  });
-                                  return;
-                                }
-
-                                if (newPin.length <
-                                    AppLockProvider.minPasscodeLength) {
-                                  setDialogState(() {
-                                    errorText =
-                                        'Passcode must be at least ${AppLockProvider.minPasscodeLength} characters long.';
-                                  });
-                                  return;
-                                }
-
-                                if (newPin != confirmPin) {
-                                  setDialogState(() {
-                                    errorText = 'Passcodes do not match.';
-                                  });
-                                  return;
-                                }
-
-                                setDialogState(() {
-                                  isSaving = true;
-                                  errorText = null;
-                                });
-
-                                final success = isChanging
-                                    ? await appLockProvider.changePin(
-                                        currentPin,
-                                        newPin,
-                                        notify: false,
-                                      )
-                                    : await appLockProvider.setPin(
-                                        newPin,
-                                        notify: false,
-                                      );
-
-                                if (!dialogContext.mounted) return;
-
-                                if (success) {
-                                  Navigator.pop(dialogContext, true);
-                                } else {
-                                  setDialogState(() {
-                                    isSaving = false;
-                                    errorText = appLockProvider.error ??
-                                        'Unable to save passcode.';
-                                  });
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: isSaving
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(
-                                isChanging
-                                    ? 'Update Passcode'
-                                    : 'Save & Enable Passcode',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Cancel
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: isSaving
-                            ? null
-                            : () => Navigator.pop(dialogContext, false),
-                        child: Text(
-                          'Cancel',
-                          style: TextStyle(
-                            color: isDark
-                                ? Colors.white60
-                                : Colors.grey.shade600,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+      builder: (dialogContext) => _PinDialog(appLockProvider: appLockProvider),
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      currentPinController.dispose();
-      newPinController.dispose();
-      confirmPinController.dispose();
-    });
-
     if (result == true && context.mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await appLockProvider.load();
-        if (!context.mounted) return;
-        SnackbarHelper.showSuccess(
-          context,
-          'App Passcode updated successfully!',
-        );
-      });
+      await appLockProvider.load();
+      if (!context.mounted) return;
+      SnackbarHelper.showSuccess(
+        context,
+        'App Passcode updated successfully!',
+      );
     }
   }
 
@@ -1689,236 +1371,20 @@ class SettingsScreen extends StatelessWidget {
     BuildContext context,
     AppLockProvider appLockProvider,
   ) async {
-    final currentPinController = TextEditingController();
-    bool obscureCurrent = true;
-    String? errorText;
-    bool isSaving = false;
-
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
-          final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
-
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-            backgroundColor: cardBg,
-            contentPadding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
-            content: SizedBox(
-              width: MediaQuery.of(dialogContext).size.width * 0.9,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header Badge
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.lock_open_rounded,
-                        color: AppColors.error,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Title
-                    Text(
-                      'Disable App Passcode',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : AppColors.deepCharcoal,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Enter your current passcode to turn off app lock protection.',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: isDark ? Colors.white60 : Colors.grey.shade600,
-                        height: 1.3,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 18),
-
-                    _buildPinField(
-                      context: dialogContext,
-                      label: 'Current Passcode',
-                      hintText: 'Enter your current code',
-                      controller: currentPinController,
-                      obscureText: obscureCurrent,
-                      onToggleObscure: () {
-                        setDialogState(() {
-                          obscureCurrent = !obscureCurrent;
-                        });
-                      },
-                      onChanged: (_) {
-                        if (errorText != null) {
-                          setDialogState(() {
-                            errorText = null;
-                          });
-                        }
-                      },
-                    ),
-
-                    if (errorText != null) ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.error.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.error_outline_rounded,
-                              color: AppColors.error,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                errorText!,
-                                style: const TextStyle(
-                                  color: AppColors.error,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 20),
-
-                    // Disable Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: isSaving
-                            ? null
-                            : () async {
-                                HapticFeedback.mediumImpact();
-                                final currentPin =
-                                    currentPinController.text.trim();
-                                if (currentPin.isEmpty) {
-                                  setDialogState(() {
-                                    errorText =
-                                        'Please enter your current passcode.';
-                                  });
-                                  return;
-                                }
-
-                                setDialogState(() {
-                                  isSaving = true;
-                                  errorText = null;
-                                });
-
-                                final success =
-                                    await appLockProvider.disablePin(
-                                  currentPin,
-                                  notify: false,
-                                );
-
-                                if (!dialogContext.mounted) return;
-
-                                if (success) {
-                                  Navigator.pop(dialogContext, true);
-                                } else {
-                                  setDialogState(() {
-                                    isSaving = false;
-                                    errorText = appLockProvider.error ??
-                                        'Unable to disable passcode.';
-                                  });
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.error,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: isSaving
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'Disable Passcode Lock',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Cancel Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: isSaving
-                            ? null
-                            : () => Navigator.pop(dialogContext, false),
-                        child: Text(
-                          'Cancel',
-                          style: TextStyle(
-                            color: isDark
-                                ? Colors.white60
-                                : Colors.grey.shade600,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+      builder: (dialogContext) =>
+          _DisablePinDialog(appLockProvider: appLockProvider),
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      currentPinController.dispose();
-    });
-
     if (result == true && context.mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await appLockProvider.load();
-        if (!context.mounted) return;
-        SnackbarHelper.showInfo(
-          context,
-          'App Passcode disabled',
-        );
-      });
+      await appLockProvider.load();
+      if (!context.mounted) return;
+      SnackbarHelper.showInfo(
+        context,
+        'App Passcode disabled',
+      );
     }
   }
 
@@ -2138,5 +1604,563 @@ class SettingsScreen extends StatelessWidget {
         SnackbarHelper.showError(context, 'Supabase test failed: $e');
       }
     }
+  }
+}
+
+// --- PASSCODE SETUP / CHANGE DIALOG WIDGET ---
+class _PinDialog extends StatefulWidget {
+  final AppLockProvider appLockProvider;
+
+  const _PinDialog({required this.appLockProvider});
+
+  @override
+  State<_PinDialog> createState() => _PinDialogState();
+}
+
+class _PinDialogState extends State<_PinDialog> {
+  late final TextEditingController currentPinController;
+  late final TextEditingController newPinController;
+  late final TextEditingController confirmPinController;
+
+  bool obscureCurrent = true;
+  bool obscureNew = true;
+  bool obscureConfirm = true;
+
+  String? errorText;
+  bool isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    currentPinController = TextEditingController();
+    newPinController = TextEditingController();
+    confirmPinController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    currentPinController.dispose();
+    newPinController.dispose();
+    confirmPinController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isChanging = widget.appLockProvider.isEnabled;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+      ),
+      backgroundColor: cardBg,
+      contentPadding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.9,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header Badge
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.lock_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Title
+              Text(
+                isChanging ? 'Change Passcode' : 'Set App Passcode',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppColors.deepCharcoal,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Protect your private couple space with a minimum 8-character passcode.',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                  height: 1.3,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 18),
+
+              // Inputs
+              if (isChanging) ...[
+                SettingsScreen._buildPinField(
+                  context: context,
+                  label: 'Current Passcode',
+                  hintText: 'Enter your existing code',
+                  controller: currentPinController,
+                  obscureText: obscureCurrent,
+                  onToggleObscure: () {
+                    setState(() {
+                      obscureCurrent = !obscureCurrent;
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
+              SettingsScreen._buildPinField(
+                context: context,
+                label: 'New Passcode',
+                hintText: 'Minimum 8 characters',
+                controller: newPinController,
+                obscureText: obscureNew,
+                onToggleObscure: () {
+                  setState(() {
+                    obscureNew = !obscureNew;
+                  });
+                },
+                onChanged: (_) {
+                  if (errorText != null) {
+                    setState(() {
+                      errorText = null;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              SettingsScreen._buildPinField(
+                context: context,
+                label: 'Confirm New Passcode',
+                hintText: 'Re-enter your passcode',
+                controller: confirmPinController,
+                obscureText: obscureConfirm,
+                onToggleObscure: () {
+                  setState(() {
+                    obscureConfirm = !obscureConfirm;
+                  });
+                },
+                onChanged: (_) {
+                  if (errorText != null) {
+                    setState(() {
+                      errorText = null;
+                    });
+                  }
+                },
+              ),
+
+              // Error Box
+              if (errorText != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.error.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: AppColors.error,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          errorText!,
+                          style: const TextStyle(
+                            color: AppColors.error,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 20),
+
+              // Save Button
+              Container(
+                width: double.infinity,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          HapticFeedback.mediumImpact();
+                          final currentPin = currentPinController.text.trim();
+                          final newPin = newPinController.text.trim();
+                          final confirmPin = confirmPinController.text.trim();
+
+                          if (isChanging && currentPin.isEmpty) {
+                            setState(() {
+                              errorText = 'Please enter your current passcode.';
+                            });
+                            return;
+                          }
+
+                          if (newPin.length < AppLockProvider.minPasscodeLength) {
+                            setState(() {
+                              errorText =
+                                  'Passcode must be at least ${AppLockProvider.minPasscodeLength} characters long.';
+                            });
+                            return;
+                          }
+
+                          if (newPin != confirmPin) {
+                            setState(() {
+                              errorText = 'Passcodes do not match.';
+                            });
+                            return;
+                          }
+
+                          setState(() {
+                            isSaving = true;
+                            errorText = null;
+                          });
+
+                          final success = isChanging
+                              ? await widget.appLockProvider.changePin(
+                                  currentPin,
+                                  newPin,
+                                  notify: false,
+                                )
+                              : await widget.appLockProvider.setPin(
+                                  newPin,
+                                  notify: false,
+                                );
+
+                          if (!mounted) return;
+
+                          if (success) {
+                            Navigator.pop(context, true);
+                          } else {
+                            setState(() {
+                              isSaving = false;
+                              errorText = widget.appLockProvider.error ??
+                                  'Unable to save passcode.';
+                            });
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: isSaving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          isChanging
+                              ? 'Update Passcode'
+                              : 'Save & Enable Passcode',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Cancel
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(context, false),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- DISABLE PASSCODE DIALOG WIDGET ---
+class _DisablePinDialog extends StatefulWidget {
+  final AppLockProvider appLockProvider;
+
+  const _DisablePinDialog({required this.appLockProvider});
+
+  @override
+  State<_DisablePinDialog> createState() => _DisablePinDialogState();
+}
+
+class _DisablePinDialogState extends State<_DisablePinDialog> {
+  late final TextEditingController currentPinController;
+  bool obscureCurrent = true;
+  String? errorText;
+  bool isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    currentPinController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    currentPinController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+      ),
+      backgroundColor: cardBg,
+      contentPadding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.9,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header Badge
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.lock_open_rounded,
+                  color: AppColors.error,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Title
+              Text(
+                'Disable App Passcode',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppColors.deepCharcoal,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Enter your current passcode to turn off app lock protection.',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                  height: 1.3,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 18),
+
+              SettingsScreen._buildPinField(
+                context: context,
+                label: 'Current Passcode',
+                hintText: 'Enter your current code',
+                controller: currentPinController,
+                obscureText: obscureCurrent,
+                onToggleObscure: () {
+                  setState(() {
+                    obscureCurrent = !obscureCurrent;
+                  });
+                },
+                onChanged: (_) {
+                  if (errorText != null) {
+                    setState(() {
+                      errorText = null;
+                    });
+                  }
+                },
+              ),
+
+              if (errorText != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.error.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: AppColors.error,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          errorText!,
+                          style: const TextStyle(
+                            color: AppColors.error,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 20),
+
+              // Disable Button
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          HapticFeedback.mediumImpact();
+                          final currentPin = currentPinController.text.trim();
+                          if (currentPin.isEmpty) {
+                            setState(() {
+                              errorText = 'Please enter your current passcode.';
+                            });
+                            return;
+                          }
+
+                          setState(() {
+                            isSaving = true;
+                            errorText = null;
+                          });
+
+                          final success = await widget.appLockProvider.disablePin(
+                            currentPin,
+                            notify: false,
+                          );
+
+                          if (!mounted) return;
+
+                          if (success) {
+                            Navigator.pop(context, true);
+                          } else {
+                            setState(() {
+                              isSaving = false;
+                              errorText = widget.appLockProvider.error ??
+                                  'Unable to disable passcode.';
+                            });
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: isSaving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Disable Passcode Lock',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Cancel Button
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(context, false),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

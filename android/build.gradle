@@ -23,11 +23,17 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Force all subprojects (including plugins) to use Java 17 and configure namespace if missing
+// Force all subprojects (including plugins) to use compileSdk 36, Java 17 and configure namespace if missing
 subprojects { project ->
     def configureAndroid = {
         def androidExt = project.extensions.findByName('android')
         if (androidExt != null) {
+            try {
+                androidExt.compileSdkVersion 36
+            } catch (Throwable ignored) {}
+            try {
+                androidExt.compileSdk = 36
+            } catch (Throwable ignored) {}
             def currentNamespace = null
             try {
                 currentNamespace = androidExt.namespace

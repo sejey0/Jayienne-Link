@@ -93,85 +93,140 @@ class AuthScreen extends StatelessWidget {
 
                   const Spacer(flex: 2),
 
-                  // Hero Icon with Glowing Rings
+                  // Hero Section: Winding Road to Forever leading into the Beating Heart Emblem
                   Center(
                     child: Stack(
                       alignment: Alignment.center,
+                      clipBehavior: Clip.none,
                       children: [
-                        Container(
-                          width: 140,
-                          height: 140,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              colors: [
-                                const Color(0xFFFF758C).withValues(alpha: 0.25),
-                                const Color(0xFFA18CD1).withValues(alpha: 0.05),
-                              ],
+                        // Winding Romantic Road Path behind and leading to the heart
+                        Positioned(
+                          bottom: -40,
+                          child: SizedBox(
+                            width: 240,
+                            height: 120,
+                            child: CustomPaint(
+                              painter: RomanticRoadPainter(isDark: isDark),
                             ),
                           ),
                         ),
-                        Container(
-                          width: 110,
-                          height: 110,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isDark
-                                ? const Color(0xFF1E162B).withValues(alpha: 0.9)
-                                : Colors.white.withValues(alpha: 0.95),
-                            border: Border.all(
-                              color: const Color(0xFFFF758C).withValues(alpha: 0.35),
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFFF758C).withValues(alpha: 0.25),
-                                blurRadius: 20,
-                                offset: const Offset(0, 4),
+
+                        // Beating Heart Emblem Container
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Ambient Outer Heart Glow
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: Icon(
+                                Icons.favorite_rounded,
+                                size: 290,
+                                color: Colors.white.withValues(alpha: isDark ? 0.35 : 0.45),
                               ),
-                            ],
-                          ),
-                          child: const Center(
-                            child: HeartAnimation(size: 64),
-                          ),
-                        ),
+                            ),
+                            // Inner Romantic Heart Card
+                            ShaderMask(
+                              shaderCallback: (bounds) => LinearGradient(
+                                colors: isDark
+                                    ? [const Color(0xFF261A34), const Color(0xFF191124)]
+                                    : [Colors.white, const Color(0xFFFFF0F5)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: const Icon(
+                                Icons.favorite_rounded,
+                                size: 250,
+                                color: Colors.white,
+                              ),
+                            ),
+                            // Delicate Heart Border
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: Icon(
+                                Icons.favorite_outline_rounded,
+                                size: 250,
+                                color: Colors.white.withValues(alpha: 0.65),
+                              ),
+                            ),
+                            // Content Inside Heart: Logo + Name + Tagline Quote
+                            Padding(
+                              padding: const EdgeInsets.only(top: 28.0, left: 24, right: 24),
+                              child: SizedBox(
+                                width: 200,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    // App Logo
+                                    Image.asset(
+                                      'assets/icon/road_to_forever, no bg.png',
+                                      width: 66,
+                                      height: 66,
+                                      fit: BoxFit.contain,
+                                    ),
+                                    const SizedBox(height: 6),
+
+                                    // App Name inside Heart
+                                    ShaderMask(
+                                      shaderCallback: (bounds) => const LinearGradient(
+                                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ).createShader(bounds),
+                                      child: const Text(
+                                        AppStrings.appName,
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.4,
+                                          color: Colors.white,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+
+                                    // Quote inside Heart
+                                    Text(
+                                      AppStrings.appTagline,
+                                      style: GoogleFonts.playfairDisplay(
+                                        textStyle: TextStyle(
+                                          fontSize: 11.5,
+                                          fontStyle: FontStyle.italic,
+                                          color: isDark
+                                              ? const Color(0xFFA18CD1)
+                                              : const Color(0xFF8E24AA),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                            .animate(onPlay: (controller) => controller.repeat(reverse: true))
+                            .scale(
+                              begin: const Offset(1.0, 1.0),
+                              end: const Offset(1.06, 1.06),
+                              duration: 950.ms,
+                              curve: Curves.easeInOut,
+                            ),
                       ],
                     ),
-                  ).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
-
-                  const SizedBox(height: 24),
-
-                  // App Title & Tagline
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                    ).createShader(bounds),
-                    child: const Text(
-                      AppStrings.appName,
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
-                        color: Colors.white,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ).animate().fadeIn(duration: 500.ms),
-
-                  const SizedBox(height: 8),
-
-                  Text(
-                    AppStrings.appTagline,
-                    style: GoogleFonts.playfairDisplay(
-                      textStyle: TextStyle(
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                        color: isDark ? const Color(0xFFA18CD1) : const Color(0xFF8E24AA),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    textAlign: TextAlign.center,
-                  ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
+                  ),
 
                   const Spacer(flex: 3),
 
@@ -201,24 +256,7 @@ class AuthScreen extends StatelessWidget {
                   ).animate().fadeIn(duration: 400.ms, delay: 500.ms).slideY(begin: 0.2, end: 0),
 
                   const Spacer(),
-
-                  // Bottom Romantic Footer
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.favorite, size: 14, color: Color(0xFFFF758C)),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Designed exclusively for couples',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white54 : Colors.grey.shade600,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -323,4 +361,90 @@ class AuthScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Custom painter for the winding romantic "Road to Forever" pathway
+class RomanticRoadPainter extends CustomPainter {
+  final bool isDark;
+
+  const RomanticRoadPainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Graceful S-curve road path leading into the bottom of the heart
+    final roadPath = Path();
+    roadPath.moveTo(w * 0.12, h * 0.95);
+    roadPath.cubicTo(
+      w * 0.02, h * 0.60,
+      w * 0.92, h * 0.40,
+      w * 0.50, h * 0.05,
+    );
+
+    // Glowing road aura
+    final glowPaint = Paint()
+      ..color = const Color(0xFFFF758C).withValues(alpha: isDark ? 0.22 : 0.32)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+    canvas.drawPath(roadPath, glowPaint);
+
+    // Road gradient ribbon
+    final roadPaint = Paint()
+      ..shader = const LinearGradient(
+        colors: [
+          Color(0x00FF758C),
+          Color(0x88FF758C),
+          Color(0xFFA18CD1),
+        ],
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+      ).createShader(Rect.fromLTWH(0, 0, w, h))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(roadPath, roadPaint);
+
+    // Dashed center road markings
+    final dashPaint = Paint()
+      ..color = Colors.white.withValues(alpha: isDark ? 0.7 : 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+
+    final metrics = roadPath.computeMetrics();
+    for (final metric in metrics) {
+      double distance = 0.0;
+      const dashWidth = 5.0;
+      const dashSpace = 4.0;
+      while (distance < metric.length) {
+        final extractPath =
+            metric.extractPath(distance, distance + dashWidth);
+        canvas.drawPath(extractPath, dashPaint);
+        distance += dashWidth + dashSpace;
+      }
+
+      // Glowing heart milestone dots along the road
+      final milestoneT = [0.25, 0.55, 0.82];
+      for (final t in milestoneT) {
+        final tangent = metric.getTangentForOffset(metric.length * t);
+        if (tangent != null) {
+          final haloPaint = Paint()
+            ..color = const Color(0xFFFF758C).withValues(alpha: 0.5)
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(tangent.position, 5.5, haloPaint);
+
+          final dotPaint = Paint()
+            ..color = Colors.white
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(tangent.position, 2.5, dotPaint);
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant RomanticRoadPainter oldDelegate) =>
+      oldDelegate.isDark != isDark;
 }

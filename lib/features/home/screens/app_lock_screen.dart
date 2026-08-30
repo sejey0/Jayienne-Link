@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_strings.dart';
 import '../../../core/router/route_names.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/app_lock_provider.dart';
@@ -13,8 +16,8 @@ enum AppLockMode { unlock, setup }
 /// 2-Step Passcode Creation Workflow
 enum SetupStep { createPasscode, confirmPasscode }
 
-/// Secure App Lock Screen fully integrated with the application's active ThemeData
-/// (Light / Dark mode, Primary colors, Surface fills, and Typography).
+/// Secure App Lock Screen fully integrated with Jayienne Link's romantic theme system
+/// (Soft Rose / Lavender Gradients, Glassmorphic Card, and Playfair & Nunito Typography).
 class AppLockScreen extends StatefulWidget {
   final AppLockMode? mode;
 
@@ -252,7 +255,7 @@ class _AppLockScreenState extends State<AppLockScreen>
           ? 'Create Passcode'
           : 'Confirm Passcode';
     }
-    return 'Jayienne Vault Locked';
+    return AppStrings.appName;
   }
 
   String _getSubtitleText(AppLockProvider lockProvider) {
@@ -269,7 +272,7 @@ class _AppLockScreenState extends State<AppLockScreen>
 
   String get _buttonText {
     if (_currentMode == AppLockMode.setup) {
-      return _setupStep == SetupStep.createPasscode ? 'Next' : 'Confirm & Save';
+      return _setupStep == SetupStep.createPasscode ? 'Next Step' : 'Confirm & Save Passcode';
     }
     return 'Unlock';
   }
@@ -277,226 +280,391 @@ class _AppLockScreenState extends State<AppLockScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
     final lockProvider = context.watch<AppLockProvider>();
     final isLockedOut = _currentMode == AppLockMode.unlock && lockProvider.isLockedOut;
-    final displayError = _setupError ?? lockProvider.error;
+
+    final bgGradient = LinearGradient(
+      colors: isDark
+          ? const [Color(0xFF120C18), Color(0xFF1A1224), Color(0xFF140D1B)]
+          : const [Color(0xFFFFF7F9), Color(0xFFFDF0F4), Color(0xFFF7ECF7)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
 
     return PopScope(
       canPop: _currentMode == AppLockMode.setup && Navigator.canPop(context),
       child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        extendBodyBehindAppBar: true,
         appBar: _currentMode == AppLockMode.setup && Navigator.canPop(context)
             ? AppBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 leading: IconButton(
-                  icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                  ),
                   onPressed: () => Navigator.pop(context),
                 ),
               )
             : null,
-        body: SafeArea(
-          child: AnimatedBuilder(
-            animation: _shakeAnimation,
-            builder: (context, child) {
-              final double offset =
-                  (0.5 - ((_shakeAnimation.value / 24) % 1).abs()) * 12;
-              return Transform.translate(
-                offset: Offset(offset, 0),
-                child: child,
-              );
-            },
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Header Icon with Theme-driven soft container
-                      Container(
-                        padding: const EdgeInsets.all(22),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withValues(alpha: isDark ? 0.2 : 0.12),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _currentMode == AppLockMode.setup
-                              ? Icons.security_rounded
-                              : Icons.lock_outline_rounded,
-                          size: 48,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        _titleText,
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _getSubtitleText(lockProvider),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: isLockedOut
-                              ? colorScheme.error
-                              : colorScheme.onSurface.withValues(alpha: 0.7),
-                          fontSize: 14,
-                          fontWeight:
-                              isLockedOut ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Theme-driven Alphanumeric Passcode TextField
-                      TextField(
-                        controller: _passcodeController,
-                        focusNode: _passcodeFocusNode,
-                        enabled: !isLockedOut && !_isProcessing,
-                        autofocus: true,
-                        keyboardType: TextInputType.visiblePassword,
-                        obscureText: _obscurePasscode,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _handlePasscodeSubmission(),
-                        onChanged: (val) {
-                          if (_setupError != null || lockProvider.error != null) {
-                            setState(() {
-                              _setupError = null;
-                            });
-                          }
-                        },
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontSize: 18,
-                          letterSpacing: 1.5,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Enter passcode (min 8 chars)',
-                          hintStyle: TextStyle(
-                            color: colorScheme.onSurface.withValues(alpha: 0.4),
-                            fontSize: 15,
-                          ),
-                          filled: true,
-                          fillColor: colorScheme.surface,
-                          prefixIcon: Icon(
-                            Icons.key_rounded,
-                            color: colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePasscode
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              color: colorScheme.onSurface.withValues(alpha: 0.6),
+        body: Container(
+          decoration: BoxDecoration(gradient: bgGradient),
+          child: SafeArea(
+            child: AnimatedBuilder(
+              animation: _shakeAnimation,
+              builder: (context, child) {
+                final double offset =
+                    (0.5 - ((_shakeAnimation.value / 24) % 1).abs()) * 12;
+                return Transform.translate(
+                  offset: Offset(offset, 0),
+                  child: child,
+                );
+              },
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Frosted / Theme-driven Vault Card
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(24, 28, 24, 26),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF1E142B).withValues(alpha: 0.9)
+                                : Colors.white.withValues(alpha: 0.95),
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.09)
+                                  : const Color(0xFFFFE0E8),
+                              width: 1.2,
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePasscode = !_obscurePasscode;
-                              });
-                            },
+                            boxShadow: [
+                              BoxShadow(
+                                color: (isDark ? Colors.black : const Color(0xFFFF758C))
+                                    .withValues(alpha: isDark ? 0.45 : 0.12),
+                                blurRadius: 28,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
                           ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: colorScheme.primary,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                      ),
-
-
-                      const SizedBox(height: 24),
-
-                      // Submission Button ("Unlock" or "Next" / "Confirm")
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: (isLockedOut || _isProcessing)
-                              ? null
-                              : _handlePasscodeSubmission,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            foregroundColor: colorScheme.onPrimary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            elevation: 2,
-                          ),
-                          child: _isProcessing
-                              ? SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: colorScheme.onPrimary,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Romantic Glowing Lock Emblem
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      const Color(0xFFFF758C).withValues(alpha: isDark ? 0.4 : 0.35),
+                                      const Color(0xFFA18CD1).withValues(alpha: isDark ? 0.4 : 0.35),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
-                                )
-                              : Text(
-                                  _buttonText,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFFF758C).withValues(alpha: isDark ? 0.35 : 0.25),
+                                      blurRadius: 20,
+                                      spreadRadius: 1,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.all(18),
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    _currentMode == AppLockMode.setup
+                                        ? (_setupStep == SetupStep.createPasscode
+                                            ? Icons.lock_open_rounded
+                                            : Icons.lock_rounded)
+                                        : Icons.lock_rounded,
+                                    size: 38,
+                                    color: Colors.white,
                                   ),
                                 ),
-                        ),
-                      ),
+                              ),
 
-                      // Biometric Alternative Button (Unlock Mode Only)
-                      if (_currentMode == AppLockMode.unlock &&
-                          lockProvider.isBiometricAvailable) ...[
-                        const SizedBox(height: 16),
-                        OutlinedButton.icon(
-                          onPressed: isLockedOut ? null : _triggerBiometrics,
-                          icon: Icon(Icons.fingerprint, color: colorScheme.primary),
-                          label: Text(
-                            'Unlock with Biometrics',
-                            style: TextStyle(color: colorScheme.primary),
+                              const SizedBox(height: 20),
+
+                              // Colored Title (App Name / Screen Mode)
+                              ShaderMask(
+                                shaderCallback: (bounds) => const LinearGradient(
+                                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ).createShader(bounds),
+                                child: Text(
+                                  _titleText,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.playfairDisplay(
+                                    color: Colors.white,
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              // Subtitle
+                              Text(
+                                _getSubtitleText(lockProvider),
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.nunito(
+                                  color: isLockedOut
+                                      ? AppColors.error
+                                      : (isDark
+                                          ? Colors.white.withValues(alpha: 0.7)
+                                          : Colors.grey.shade600),
+                                  fontSize: 13.5,
+                                  fontWeight: isLockedOut ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+
+                              const SizedBox(height: 26),
+
+                              // Alphanumeric Passcode Input Field
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(18),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (isDark ? Colors.black : const Color(0xFFFF758C))
+                                          .withValues(alpha: isDark ? 0.2 : 0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: TextField(
+                                  controller: _passcodeController,
+                                  focusNode: _passcodeFocusNode,
+                                  enabled: !isLockedOut && !_isProcessing,
+                                  autofocus: true,
+                                  keyboardType: TextInputType.visiblePassword,
+                                  obscureText: _obscurePasscode,
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: (_) => _handlePasscodeSubmission(),
+                                  onChanged: (val) {
+                                    if (_setupError != null || lockProvider.error != null) {
+                                      setState(() {
+                                        _setupError = null;
+                                      });
+                                    }
+                                  },
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                    fontSize: 17,
+                                    letterSpacing: 1.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Enter passcode (min 8 chars)',
+                                    hintStyle: TextStyle(
+                                      color: isDark ? Colors.white38 : Colors.grey.shade400,
+                                      fontSize: 14,
+                                      letterSpacing: 0,
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                                    filled: true,
+                                    fillColor: isDark ? const Color(0xFF140D1E) : const Color(0xFFFFF9FA),
+                                    prefixIcon: const Icon(
+                                      Icons.key_rounded,
+                                      color: Color(0xFFFF758C),
+                                      size: 20,
+                                    ),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePasscode
+                                            ? Icons.visibility_off_rounded
+                                            : Icons.visibility_rounded,
+                                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                        size: 20,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _obscurePasscode = !_obscurePasscode;
+                                        });
+                                      },
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 16,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      borderSide: BorderSide(
+                                        color: isDark
+                                            ? Colors.grey.shade800
+                                            : const Color(0xFFFFD4DC),
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      borderSide: BorderSide(
+                                        color: isDark
+                                            ? Colors.grey.shade800
+                                            : const Color(0xFFFFD4DC),
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFFF758C),
+                                        width: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 22),
+
+                              // Primary Action Button (Unlock / Next)
+                              Container(
+                                width: double.infinity,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  gradient: (isLockedOut || _isProcessing)
+                                      ? null
+                                      : const LinearGradient(
+                                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                  color: (isLockedOut || _isProcessing)
+                                      ? (isDark ? Colors.grey.shade800 : Colors.grey.shade300)
+                                      : null,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: (isLockedOut || _isProcessing)
+                                      ? []
+                                      : [
+                                          BoxShadow(
+                                            color: const Color(0xFFFF758C).withValues(alpha: 0.38),
+                                            blurRadius: 14,
+                                            offset: const Offset(0, 6),
+                                          ),
+                                        ],
+                                ),
+                                child: ElevatedButton(
+                                  onPressed: (isLockedOut || _isProcessing)
+                                      ? null
+                                      : _handlePasscodeSubmission,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    foregroundColor: Colors.white,
+                                    shadowColor: Colors.transparent,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: _isProcessing
+                                      ? const SizedBox(
+                                          height: 22,
+                                          width: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Text(
+                                          _buttonText,
+                                          style: GoogleFonts.nunito(
+                                            fontSize: 15.5,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                ),
+                              ),
+
+                              // Biometric Button (Unlock Mode Only)
+                              if (_currentMode == AppLockMode.unlock &&
+                                  lockProvider.isBiometricAvailable) ...[
+                                const SizedBox(height: 14),
+                                Container(
+                                  width: double.infinity,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: const Color(0xFFFF758C).withValues(alpha: isDark ? 0.6 : 0.75),
+                                      width: 1.4,
+                                    ),
+                                    color: (isDark
+                                            ? const Color(0xFFFF758C)
+                                            : const Color(0xFFFF9AA2))
+                                        .withValues(alpha: isDark ? 0.08 : 0.06),
+                                  ),
+                                  child: TextButton.icon(
+                                    onPressed: isLockedOut ? null : _triggerBiometrics,
+                                    icon: const Icon(
+                                      Icons.fingerprint_rounded,
+                                      color: Color(0xFFFF758C),
+                                      size: 22,
+                                    ),
+                                    label: Text(
+                                      'Unlock with Biometrics',
+                                      style: GoogleFonts.nunito(
+                                        color: isDark
+                                            ? const Color(0xFFFF9AA2)
+                                            : const Color(0xFFE25B75),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14.5,
+                                      ),
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: colorScheme.primary),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                        ),
+
+                        // Sign Out Button (Unlock Mode Only)
+                        if (_currentMode == AppLockMode.unlock) ...[
+                          const SizedBox(height: 20),
+                          TextButton.icon(
+                            onPressed: () => context.read<AuthProvider>().signOut(),
+                            icon: Icon(
+                              Icons.logout_rounded,
+                              size: 16,
+                              color: isDark ? Colors.white60 : Colors.grey.shade600,
+                            ),
+                            label: Text(
+                              'Sign Out of Jayienne Link',
+                              style: GoogleFonts.nunito(
+                                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-
-                      const SizedBox(height: 20),
-                      if (_currentMode == AppLockMode.unlock)
-                        TextButton(
-                          onPressed: () => context.read<AuthProvider>().signOut(),
-                          child: Text(
-                            'Sign Out',
-                            style: TextStyle(
-                              color: colorScheme.onSurface.withValues(alpha: 0.6),
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
                 ),
               ),

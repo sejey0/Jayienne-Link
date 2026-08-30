@@ -369,33 +369,6 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     }
   }
 
-  Future<void> _setMovieToWatched(MovieModel movie) async {
-    HapticFeedback.mediumImpact();
-    try {
-      await _movieService.setMovieToWatched(movie);
-      _refreshMovies();
-      if (mounted) {
-        await showCenterAlertDialog(
-          context: context,
-          title: 'Set to Already Watched!',
-          message: '"${movie.title}" has been moved to your watched diary',
-          icon: Icons.check_circle_rounded,
-          iconColor: const Color(0xFFFF758C),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        showCenterAlertDialog(
-          context: context,
-          title: 'Error',
-          message: 'Could not mark as watched: $e',
-          icon: Icons.error_outline_rounded,
-          iconColor: AppColors.error,
-        );
-      }
-    }
-  }
-
   Future<void> _confirmDeleteMovie(MovieModel movie) async {
     HapticFeedback.selectionClick();
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1098,57 +1071,58 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   Widget _buildWatchlistCard(MovieModel movie, bool isDark) {
     return InkWell(
       onTap: () => _openMovieDetailsModal(movie),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E162B) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.08)
-                : const Color(0xFFFF758C).withValues(alpha: 0.2),
+                : const Color(0xFFFF758C).withValues(alpha: 0.18),
           ),
           boxShadow: [
             BoxShadow(
               color: isDark
                   ? Colors.black.withValues(alpha: 0.25)
-                  : const Color(0xFFFF758C).withValues(alpha: 0.08),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
+                  : const Color(0xFFFF758C).withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Movie Poster
               MoviePosterWidget(
                 posterUrl: movie.posterUrl,
-                width: 76,
-                height: 108,
-                borderRadius: BorderRadius.circular(14),
+                width: 68,
+                height: 96,
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
 
               // Details & Actions
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Title & 3-Dots Menu Row (2 options: Edit Movie Details, Remove Movie)
+                    // Title & 3-Dots Menu Row
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: Text(
                             movie.title,
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 15.5,
                               fontWeight: FontWeight.bold,
                               color: isDark ? Colors.white : const Color(0xFF2D4059),
                             ),
@@ -1197,12 +1171,10 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         ),
                       ],
                     ),
+                    const SizedBox(height: 4),
 
-                    // Media Type Tag, Year, Rewatch Badge, & Added Date with Time
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 6,
-                      runSpacing: 4,
+                    // Badges (Media Type, Year, Rewatch)
+                    Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1212,59 +1184,37 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 : const Color(0xFFFF758C).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                movie.isSeries ? Icons.tv_rounded : Icons.movie_rounded,
-                                size: 11,
-                                color: movie.isSeries
-                                    ? const Color(0xFFA18CD1)
-                                    : const Color(0xFFFF758C),
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                movie.isSeries ? 'Series' : 'Movie',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: movie.isSeries
-                                      ? const Color(0xFFA18CD1)
-                                      : const Color(0xFFFF758C),
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            movie.isSeries ? 'Series' : 'Movie',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: movie.isSeries
+                                  ? const Color(0xFFA18CD1)
+                                  : const Color(0xFFFF758C),
+                            ),
                           ),
                         ),
                         if (movie.year != null && movie.year!.isNotEmpty) ...[
+                          const SizedBox(width: 5),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.grey.withValues(alpha: 0.12),
+                              color: isDark ? Colors.white10 : Colors.grey.shade100,
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.calendar_today_rounded,
-                                  size: 10,
-                                  color: isDark ? Colors.white70 : Colors.grey.shade700,
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  movie.year!,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.white70 : Colors.black87,
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              movie.year!,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                              ),
                             ),
                           ),
                         ],
                         if (movie.isRewatch) ...[
+                          const SizedBox(width: 5),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
@@ -1273,79 +1223,52 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                               ),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.replay_rounded,
-                                  size: 11,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  movie.rewatchBadgeLabel,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              movie.rewatchBadgeLabel,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.access_time_rounded,
-                              size: 11,
-                              color: isDark ? Colors.white54 : Colors.grey.shade500,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Added ${movie.formattedCreatedDateTime}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? Colors.white54 : Colors.grey.shade500,
-                              ),
-                            ),
-                          ],
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+
+                    // Added Date
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 11,
+                          color: isDark ? Colors.white38 : Colors.grey.shade500,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Added ${movie.formattedCreatedDateTime}',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: isDark ? Colors.white38 : Colors.grey.shade500,
+                          ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
 
-                    // Description preview if available
-                    if (movie.notes != null && movie.notes!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        movie.notes!.trim(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: isDark ? Colors.white70 : Colors.grey.shade700,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-
-                    // Actions Row: "Set to Already Watched" & "View Details"
+                    // Actions Row: "Mark Watched" (opens rating modal) & "Details"
                     Row(
                       children: [
                         Expanded(
                           child: SizedBox(
-                            height: 34,
+                            height: 32,
                             child: ElevatedButton.icon(
-                              onPressed: () => _setMovieToWatched(movie),
-                              icon: Icon(
-                                movie.isRewatch ? Icons.replay_rounded : Icons.check_circle_rounded,
-                                size: 15,
-                              ),
-                              label: Text(
-                                movie.isRewatch ? 'Set Watched (${movie.currentWatchLabel})' : 'Set to Already Watched',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              onPressed: () => _openRateMovieModal(movie),
+                              icon: const Icon(Icons.check_circle_rounded, size: 14),
+                              label: const Text(
+                                'Mark Watched',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1353,20 +1276,20 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 foregroundColor: Colors.white,
                                 backgroundColor: const Color(0xFFFF758C),
                                 elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         SizedBox(
-                          height: 34,
+                          height: 32,
                           child: OutlinedButton.icon(
                             onPressed: () => _openMovieDetailsModal(movie),
-                            icon: const Icon(Icons.info_outline_rounded, size: 14),
+                            icon: const Icon(Icons.info_outline_rounded, size: 13),
                             label: const Text(
                               'Details',
                               style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
@@ -1376,9 +1299,9 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                               side: BorderSide(
                                 color: isDark ? Colors.white24 : Colors.grey.shade300,
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
                           ),
@@ -1440,6 +1363,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       ),
     );
   }
+
   Widget _buildWatchedCard(
     MovieModel movie,
     bool isDark,
@@ -1456,12 +1380,12 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
 
     return InkWell(
       onTap: () => _openMovieDetailsModal(movie),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E162B) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.08)
@@ -1471,71 +1395,74 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
             BoxShadow(
               color: isDark
                   ? Colors.black.withValues(alpha: 0.25)
-                  : const Color(0xFFA18CD1).withValues(alpha: 0.08),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
+                  : const Color(0xFFA18CD1).withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Movie Poster with Average Score Badge
-              Column(
+              Stack(
                 children: [
                   MoviePosterWidget(
                     posterUrl: movie.posterUrl,
-                    width: 76,
-                    height: 108,
-                    borderRadius: BorderRadius.circular(14),
+                    width: 68,
+                    height: 96,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  if (calculatedAvg != null) ...[
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.favorite_rounded, size: 12, color: Color(0xFFFF4081)),
-                          const SizedBox(width: 4),
-                          Text(
-                            calculatedAvg.toStringAsFixed(1),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFFF4081),
+                  if (calculatedAvg != null)
+                    Positioned(
+                      top: 4,
+                      left: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.75),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star_rounded, size: 11, color: Color(0xFFFFB74D)),
+                            const SizedBox(width: 2),
+                            Text(
+                              calculatedAvg.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ],
                 ],
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
 
-              // Details & Dual Partner Ratings
+              // Details & Actions
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Title & 3-Dots Menu Row (Edit Movie Details, Remove Movie)
+                    // Title & 3-Dots Menu Row
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: Text(
                             movie.title,
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 15.5,
                               fontWeight: FontWeight.bold,
                               color: isDark ? Colors.white : const Color(0xFF2D4059),
                             ),
@@ -1584,12 +1511,10 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         ),
                       ],
                     ),
+                    const SizedBox(height: 4),
 
-                    // Media Type Tag, Year, Total Watches, & Watched Date
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 6,
-                      runSpacing: 4,
+                    // Badges Row (Media Type, Year, Watches)
+                    Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1603,7 +1528,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             movie.isSeries ? 'Series' : 'Movie',
                             style: TextStyle(
                               fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.bold,
                               color: movie.isSeries
                                   ? const Color(0xFFA18CD1)
                                   : const Color(0xFFFF758C),
@@ -1611,189 +1536,142 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                           ),
                         ),
                         if (movie.year != null && movie.year!.isNotEmpty) ...[
+                          const SizedBox(width: 5),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.grey.withValues(alpha: 0.12),
+                              color: isDark ? Colors.white10 : Colors.grey.shade100,
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.calendar_today_rounded,
-                                  size: 10,
-                                  color: isDark ? Colors.white70 : Colors.grey.shade700,
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  movie.year!,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.white70 : Colors.black87,
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              movie.year!,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                              ),
                             ),
                           ),
                         ],
                         if (movie.watchCount > 1) ...[
+                          const SizedBox(width: 5),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFF758C).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.replay_rounded,
-                                  size: 10,
-                                  color: Color(0xFFFF758C),
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  '${movie.watchCount} Watches',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFFF758C),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        if (movie.watchedDate != null) ...[
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.event_available_rounded,
-                                size: 11,
-                                color: Color(0xFFA18CD1),
+                            child: Text(
+                              '${movie.watchCount}x',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFFF758C),
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Watched on ${movie.formattedWatchedDate}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? const Color(0xFFA18CD1) : const Color(0xFF7E57C2),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.access_time_rounded,
-                              size: 11,
-                              color: isDark ? Colors.white54 : Colors.grey.shade500,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Added ${movie.formattedCreatedDateTime}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? Colors.white54 : Colors.grey.shade500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (movie.allWatchPhotos.isNotEmpty) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF758C).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.photo_camera_rounded,
-                                  size: 11,
-                                  color: Color(0xFFFF758C),
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  '${movie.allWatchPhotos.length} Photo${movie.allWatchPhotos.length == 1 ? '' : 's'}',
-                                  style: const TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFFF758C),
-                                  ),
-                                ),
-                              ],
                             ),
                           ),
                         ],
                       ],
                     ),
+                    const SizedBox(height: 4),
 
-                    // Description preview if available
-                    if (movie.notes != null && movie.notes!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        movie.notes!.trim(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: isDark ? Colors.white70 : Colors.grey.shade700,
-                          height: 1.3,
+                    // Compact Partner Rating Avatars row
+                    Row(
+                      children: [
+                        // You rating
+                        _buildMiniAvatar(
+                          photoUrl: myPhotoUrl,
+                          accentColor: const Color(0xFFFF758C),
+                          fallbackIcon: Icons.person_rounded,
+                          size: 15,
                         ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-
-                    // ----------------------------------------------------
-                    // DUAL RATING PREVIEW SECTION (CLEAN & EMOJI-FREE)
-                    // ----------------------------------------------------
-                    // 1. Current User Rating Row (Strictly myRating only)
-                    _buildUserRatingRow(
-                      label: 'You',
-                      photoUrl: myPhotoUrl,
-                      ratingModel: myRating,
-                      isDark: isDark,
+                        const SizedBox(width: 3),
+                        Text(
+                          myRating != null && myRating.rating > 0
+                              ? '⭐${myRating.rating}'
+                              : 'Pending',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white70 : Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // Partner rating
+                        _buildMiniAvatar(
+                          photoUrl: partnerPhotoUrl,
+                          accentColor: const Color(0xFFA18CD1),
+                          fallbackIcon: Icons.favorite_rounded,
+                          size: 15,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          partnerRating != null && partnerRating.rating > 0
+                              ? '⭐${partnerRating.rating}'
+                              : 'Pending',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white70 : Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
 
-                    // 2. Partner Rating Row (Strictly partnerRating only)
-                    _buildPartnerRatingRow(
-                      partnerName: partnerName,
-                      photoUrl: partnerPhotoUrl,
-                      ratingModel: partnerRating,
-                      isDark: isDark,
-                    ),
-                    const SizedBox(height: 10),
-
-                    // 3. Single Decluttered Main Action Button: "View Movie Details"
-                    SizedBox(
-                      height: 34,
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () => _openMovieDetailsModal(movie),
-                        icon: const Icon(Icons.rate_review_rounded, size: 15),
-                        label: const Text(
-                          'View Movie Details',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF758C),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                    // Actions Row: "Rate / Review" & "Details"
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 32,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _openRateMovieModal(movie),
+                              icon: Icon(
+                                myRating != null ? Icons.edit_rounded : Icons.star_rounded,
+                                size: 14,
+                              ),
+                              label: Text(
+                                myRating != null ? 'Edit Review' : 'Rate Movie',
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                backgroundColor: const Color(0xFFFF758C),
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 6),
+                        SizedBox(
+                          height: 32,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _openMovieDetailsModal(movie),
+                            icon: const Icon(Icons.info_outline_rounded, size: 13),
+                            label: const Text(
+                              'Details',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                              side: BorderSide(
+                                color: isDark ? Colors.white24 : Colors.grey.shade300,
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1841,204 +1719,6 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
             child: Icon(fallbackIcon, size: size * 0.6, color: accentColor),
           ),
         ),
-      ),
-    );
-  }
-
-  /// Current User Rating Row (Strictly from movie_ratings)
-  Widget _buildUserRatingRow({
-    required String label,
-    required String? photoUrl,
-    required MovieRatingModel? ratingModel,
-    required bool isDark,
-  }) {
-    if (ratingModel == null) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.02)
-              : const Color(0xFFFF758C).withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            _buildMiniAvatar(
-              photoUrl: photoUrl,
-              accentColor: const Color(0xFFFF758C),
-              fallbackIcon: Icons.person_rounded,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                "You haven't rated this movie yet",
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isDark ? Colors.white38 : Colors.grey.shade600,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.04)
-            : const Color(0xFFFF758C).withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFFFF758C).withValues(alpha: 0.2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _buildMiniAvatar(
-                photoUrl: photoUrl,
-                accentColor: const Color(0xFFFF758C),
-                fallbackIcon: Icons.person_rounded,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '$label: ',
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFFF758C),
-                ),
-              ),
-              Row(
-                children: List.generate(5, (i) {
-                  final isFilled = i < ratingModel.rating;
-                  return Icon(
-                    isFilled ? Icons.favorite : Icons.favorite_border,
-                    size: 13,
-                    color: isFilled ? const Color(0xFFFF4081) : Colors.grey.shade400,
-                  );
-                }),
-              ),
-            ],
-          ),
-          if (ratingModel.notes != null && ratingModel.notes!.isNotEmpty) ...[
-            const SizedBox(height: 3),
-            Text(
-              '"${ratingModel.notes!}"',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                fontStyle: FontStyle.italic,
-                color: isDark ? Colors.white70 : Colors.black87,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// Partner Rating Row
-  Widget _buildPartnerRatingRow({
-    required String partnerName,
-    required String? photoUrl,
-    required MovieRatingModel? ratingModel,
-    required bool isDark,
-  }) {
-    if (ratingModel == null) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.02)
-              : const Color(0xFFA18CD1).withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            _buildMiniAvatar(
-              photoUrl: photoUrl,
-              accentColor: const Color(0xFFA18CD1),
-              fallbackIcon: Icons.favorite_rounded,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'Waiting for $partnerName to rate',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isDark ? Colors.white38 : Colors.grey.shade600,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.04)
-            : const Color(0xFFA18CD1).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFFA18CD1).withValues(alpha: 0.25),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _buildMiniAvatar(
-                photoUrl: photoUrl,
-                accentColor: const Color(0xFFA18CD1),
-                fallbackIcon: Icons.favorite_rounded,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '$partnerName: ',
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFA18CD1),
-                ),
-              ),
-              Row(
-                children: List.generate(5, (i) {
-                  final isFilled = i < ratingModel.rating;
-                  return Icon(
-                    isFilled ? Icons.favorite : Icons.favorite_border,
-                    size: 13,
-                    color: isFilled ? const Color(0xFFFF4081) : Colors.grey.shade400,
-                  );
-                }),
-              ),
-            ],
-          ),
-          if (ratingModel.notes != null && ratingModel.notes!.isNotEmpty) ...[
-            const SizedBox(height: 3),
-            Text(
-              '"${ratingModel.notes!}"',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                fontStyle: FontStyle.italic,
-                color: isDark ? Colors.white70 : Colors.black87,
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }

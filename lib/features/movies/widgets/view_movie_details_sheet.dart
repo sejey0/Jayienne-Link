@@ -65,7 +65,6 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
 
   late int _selectedSession;
   bool _isPlanningRewatch = false;
-  bool _isMarkingWatched = false;
   bool _isUploadingQuickPhoto = false;
 
   @override
@@ -486,46 +485,6 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
     );
     if (res != null) {
       widget.onMovieUpdated?.call();
-    }
-  }
-
-  Future<void> _handleSetToWatched() async {
-    HapticFeedback.mediumImpact();
-    setState(() => _isMarkingWatched = true);
-    try {
-      await _movieService.setMovieToWatched(_currentMovie);
-      if (!mounted) return;
-
-      try {
-        final coupleId = _currentMovie.coupleId;
-        if (coupleId.isNotEmpty) {
-          SupabaseDataService.client
-              .channel('decision_spinner:$coupleId')
-              .sendBroadcastMessage(
-                event: 'pool_updated',
-                payload: {
-                  'action': 'marked_watched',
-                  'title': _currentMovie.title,
-                },
-              );
-        }
-      } catch (_) {}
-
-      widget.onMovieUpdated?.call();
-      Navigator.pop(context, {
-        'action': 'marked_watched',
-        'title': _currentMovie.title,
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isMarkingWatched = false);
-      showCenterAlertDialog(
-        context: context,
-        title: 'Error',
-        message: 'Could not mark as watched: $e',
-        icon: Icons.error_outline_rounded,
-        iconColor: AppColors.error,
-      );
     }
   }
 
@@ -1050,7 +1009,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Ready for movie night? Set it to watched once you enjoy it together!',
+                        'Ready for movie night? Mark it as watched and add your ratings & review together!',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,
@@ -1059,10 +1018,10 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Set to Already Watched Primary Action Button
+                      // Mark as Watched Button (Opens Review & Rating Modal)
                       SizedBox(
                         width: double.infinity,
-                        height: 48,
+                        height: 46,
                         child: Container(
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
@@ -1080,20 +1039,11 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                             ],
                           ),
                           child: ElevatedButton.icon(
-                            onPressed: _isMarkingWatched ? null : _handleSetToWatched,
-                            icon: _isMarkingWatched
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                            label: Text(
-                              _isMarkingWatched ? 'Setting to Watched...' : 'Set to Already Watched',
-                              style: const TextStyle(
+                            onPressed: () => _openRateSheet(context, 1),
+                            icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                            label: const Text(
+                              'Mark as Watched',
+                              style: TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -1105,31 +1055,6 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // Rate & Review option
-                      SizedBox(
-                        width: double.infinity,
-                        height: 44,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _openRateSheet(context, 1),
-                          icon: const Icon(Icons.star_rate_rounded, size: 18, color: Color(0xFFFF758C)),
-                          label: const Text(
-                            'Rate & Review Now',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFFF758C),
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
                             ),
                           ),
                         ),

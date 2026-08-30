@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../models/location_model.dart';
+import '../../../models/user_model.dart';
 import '../../../providers/anniversary_provider.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/debug_provider.dart';
@@ -191,6 +192,11 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                     hasDate,
                     isPartnerOnline: isPartnerOnline,
                     isLinked: partner != null,
+                    statusText: _getPartnerStatusText(
+                      isPartnerOnline: isPartnerOnline,
+                      partnerLoc: partnerLoc,
+                      partner: partner,
+                    ),
                   ),
                   const SizedBox(height: 18),
 
@@ -278,6 +284,34 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     );
   }
 
+  /// Calculates friendly last seen / active status text
+  String _getPartnerStatusText({
+    required bool isPartnerOnline,
+    required LocationModel? partnerLoc,
+    required UserModel? partner,
+  }) {
+    if (isPartnerOnline) return 'Active Now';
+
+    final lastTimestamp = partnerLoc?.timestamp ?? partner?.updatedAt;
+    if (lastTimestamp != null) {
+      final diff = DateTime.now().difference(lastTimestamp);
+      if (diff.inMinutes < 1) {
+        return 'Last seen just now';
+      } else if (diff.inMinutes < 60) {
+        return 'Last seen ${diff.inMinutes}m ago';
+      } else if (diff.inHours < 24) {
+        return 'Last seen ${diff.inHours}h ago';
+      } else if (diff.inDays == 1) {
+        return 'Last seen yesterday';
+      } else if (diff.inDays < 7) {
+        return 'Last seen ${diff.inDays}d ago';
+      } else {
+        return 'Last seen ${DateFormat('MMM d').format(lastTimestamp)}';
+      }
+    }
+    return 'Last seen recently';
+  }
+
   /// Top Row: Active Status Badge on left, Date & Live Ticking Seconds Pill + Expand Arrow on right
   Widget _buildHeaderRow(
     BuildContext context,
@@ -285,6 +319,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     bool hasDate, {
     required bool isPartnerOnline,
     required bool isLinked,
+    required String statusText,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -310,7 +345,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                 ),
                 const SizedBox(width: 5.5),
                 Text(
-                  isPartnerOnline ? 'Active Now' : 'Last seen recently',
+                  statusText,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11,

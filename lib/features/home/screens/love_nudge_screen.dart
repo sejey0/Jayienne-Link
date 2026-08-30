@@ -23,7 +23,6 @@ class LoveNudgeScreen extends StatefulWidget {
 
 class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
   final ImagePicker _imagePicker = ImagePicker();
-  final TextEditingController _messageController = TextEditingController();
 
   String? _kissPhotoUrl;
   String? _hugPhotoUrl;
@@ -32,6 +31,10 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
   bool _isKissPressed = false;
   bool _isHugPressed = false;
   List<String> _savedMessageTemplates = [];
+
+  // Per-card message controllers
+  final TextEditingController _kissMessageController = TextEditingController();
+  final TextEditingController _hugMessageController = TextEditingController();
 
   @override
   void initState() {
@@ -42,7 +45,8 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
 
   @override
   void dispose() {
-    _messageController.dispose();
+    _kissMessageController.dispose();
+    _hugMessageController.dispose();
     super.dispose();
   }
 
@@ -396,7 +400,8 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
     final user = userProvider.user;
 
     final photoUrl = isKiss ? _kissPhotoUrl : _hugPhotoUrl;
-    final message = _messageController.text.trim();
+    final messageCtrl = isKiss ? _kissMessageController : _hugMessageController;
+    final message = messageCtrl.text.trim();
 
     if (message.isNotEmpty) {
       _saveMessageTemplate(message);
@@ -423,20 +428,8 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
       );
     }
 
-    // Spawn Full Realtime Live Overlay locally on sender's device as well
+    // Show live overlay on sender's device — this replaces the snackbar
     LoveNudgeOverlayListener.showLocalNudgeEffect(context, payload);
-
-    final actionText = isKiss ? 'Virtual Kiss' : 'Virtual Hug';
-
-    SnackbarHelper.showCustom(
-      context: context,
-      title: '$actionText Sent!',
-      message: 'Successfully sent a $actionText to $partnerName',
-      icon: isKiss ? Icons.favorite_rounded : Icons.volunteer_activism_rounded,
-      gradientColors: isKiss
-          ? const [Color(0xFFFF4081), Color(0xFFD81B60)]
-          : const [Color(0xFFBA68C8), Color(0xFF7B1FA2)],
-    );
   }
 
   Widget _buildPhotoThumbnail(String photoUrl) {
@@ -532,6 +525,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
                   isUploading: _isUploadingKissPhoto,
                   isPressed: _isKissPressed,
                   partnerName: partnerName,
+                  messageController: _kissMessageController,
                   onTapDown: () => setState(() => _isKissPressed = true),
                   onTapUp: () {
                     setState(() => _isKissPressed = false);
@@ -555,6 +549,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
                   isUploading: _isUploadingHugPhoto,
                   isPressed: _isHugPressed,
                   partnerName: partnerName,
+                  messageController: _hugMessageController,
                   onTapDown: () => setState(() => _isHugPressed = true),
                   onTapUp: () {
                     setState(() => _isHugPressed = false);
@@ -564,270 +559,6 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
                   onUploadTap: () => _showPhotoOptionsModal(false),
                   onDeletePhotoTap: () => _confirmAndDeletePhoto(false),
                 ),
-                const SizedBox(height: 24),
-
-                // OPTIONAL SWEET NOTE SECTION (Clean text field without predefined templates)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E142B) : Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : Colors.grey.shade200,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ListenableBuilder(
-                        listenable: _messageController,
-                        builder: (context, _) {
-                          final currentTrimmed = _messageController.text.trim();
-                          final isAlreadySaved = _savedMessageTemplates.any(
-                            (t) => t.trim().toLowerCase() == currentTrimmed.toLowerCase(),
-                          );
-
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.favorite_rounded,
-                                    size: 16,
-                                    color: Color(0xFFFF758C),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Attach Sweet Message (Optional)',
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark ? Colors.white : const Color(0xFF2D4059),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (currentTrimmed.isNotEmpty)
-                                isAlreadySaved
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.check_circle_outline_rounded, size: 12, color: Colors.green),
-                                            SizedBox(width: 3),
-                                            Text(
-                                              'Saved',
-                                              style: TextStyle(
-                                                fontSize: 10.5,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.green,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      )
-                                    : InkWell(
-                                        onTap: () {
-                                          HapticFeedback.lightImpact();
-                                          FocusScope.of(context).unfocus();
-                                          final textToSave = _messageController.text;
-                                          _saveMessageTemplate(textToSave);
-                                          SnackbarHelper.showSuccess(
-                                            context,
-                                            'Message template saved for future love nudges!',
-                                            title: 'Template Saved',
-                                          );
-                                        },
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFFF758C).withValues(alpha: 0.12),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.bookmark_add_outlined, size: 12, color: Color(0xFFFF758C)),
-                                              SizedBox(width: 3),
-                                              Text(
-                                                'Save',
-                                                style: TextStyle(
-                                                  fontSize: 10.5,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFFFF758C),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                            ],
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      ListenableBuilder(
-                        listenable: _messageController,
-                        builder: (context, _) {
-                          return TextField(
-                            controller: _messageController,
-                            maxLength: 80,
-                            decoration: InputDecoration(
-                              hintText: 'Write a sweet note to pop up with your nudge...',
-                              hintStyle: TextStyle(
-                                fontSize: 12.5,
-                                color: isDark ? Colors.white38 : Colors.grey.shade400,
-                              ),
-                              counterText: '',
-                              filled: true,
-                              fillColor: isDark
-                                  ? Colors.white.withValues(alpha: 0.04)
-                                  : Colors.grey.shade50,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              suffixIcon: _messageController.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear_rounded, size: 18),
-                                      onPressed: () {
-                                        HapticFeedback.lightImpact();
-                                        _messageController.clear();
-                                      },
-                                    )
-                                  : null,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(
-                                  color: isDark ? Colors.white12 : Colors.grey.shade300,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(
-                                  color: isDark ? Colors.white12 : Colors.grey.shade200,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFFF758C),
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      if (_savedMessageTemplates.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.history_rounded,
-                              size: 13,
-                              color: isDark ? Colors.white54 : Colors.grey.shade600,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Saved Templates (Tap to use)',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white54 : Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ListenableBuilder(
-                          listenable: _messageController,
-                          builder: (context, _) {
-                            return SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: _savedMessageTemplates.map((template) {
-                                  final isSelected = _messageController.text.trim() == template;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: InkWell(
-                                      onTap: () {
-                                        HapticFeedback.selectionClick();
-                                        _messageController.text = template;
-                                        _messageController.selection = TextSelection.fromPosition(
-                                          TextPosition(offset: template.length),
-                                        );
-                                      },
-                                      borderRadius: BorderRadius.circular(14),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? const Color(0xFFFF758C).withValues(alpha: 0.18)
-                                              : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100),
-                                          borderRadius: BorderRadius.circular(14),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? const Color(0xFFFF758C).withValues(alpha: 0.6)
-                                                : (isDark ? Colors.white10 : Colors.grey.shade300),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            ConstrainedBox(
-                                              constraints: const BoxConstraints(maxWidth: 160),
-                                              child: Text(
-                                                template,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  fontSize: 11.5,
-                                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                                  color: isSelected
-                                                      ? const Color(0xFFFF758C)
-                                                      : (isDark ? Colors.white : Colors.black87),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            GestureDetector(
-                                              onTap: () => _deleteMessageTemplate(template),
-                                              child: Icon(
-                                                Icons.close_rounded,
-                                                size: 13,
-                                                color: isDark ? Colors.white38 : Colors.grey.shade500,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -847,6 +578,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
     required bool isUploading,
     required bool isPressed,
     required String partnerName,
+    required TextEditingController messageController,
     required VoidCallback onTapDown,
     required VoidCallback onTapUp,
     required VoidCallback onTapCancel,
@@ -1046,6 +778,147 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
             ),
             const SizedBox(height: 14),
           ],
+
+          // Sweet Message Field (per-card)
+          ListenableBuilder(
+            listenable: messageController,
+            builder: (context, _) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.favorite_rounded, size: 13, color: primaryColor),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Sweet Note (optional)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: messageController,
+                    maxLength: 80,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Write a sweet note to pop up with your nudge...',
+                      hintStyle: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white38 : Colors.grey.shade400,
+                      ),
+                      counterText: '',
+                      filled: true,
+                      fillColor: isDark
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : Colors.grey.shade50,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                      suffixIcon: messageController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              onPressed: () {
+                                HapticFeedback.lightImpact();
+                                messageController.clear();
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.white12 : Colors.grey.shade300,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.white12 : Colors.grey.shade200,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: primaryColor, width: 1.5),
+                      ),
+                    ),
+                  ),
+                  if (_savedMessageTemplates.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _savedMessageTemplates.map((template) {
+                          final isSelected = messageController.text.trim() == template;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: InkWell(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                messageController.text = template;
+                                messageController.selection = TextSelection.fromPosition(
+                                  TextPosition(offset: template.length),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? primaryColor.withValues(alpha: 0.18)
+                                      : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? primaryColor.withValues(alpha: 0.6)
+                                        : (isDark ? Colors.white10 : Colors.grey.shade300),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ConstrainedBox(
+                                      constraints: const BoxConstraints(maxWidth: 140),
+                                      child: Text(
+                                        template,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                          color: isSelected
+                                              ? primaryColor
+                                              : (isDark ? Colors.white70 : Colors.black87),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    GestureDetector(
+                                      onTap: () => _deleteMessageTemplate(template),
+                                      child: Icon(
+                                        Icons.close_rounded,
+                                        size: 11,
+                                        color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                ],
+              );
+            },
+          ),
 
           // Big Interactive Tap to Send Button
           GestureDetector(

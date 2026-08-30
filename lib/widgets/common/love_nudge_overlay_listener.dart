@@ -25,6 +25,7 @@ class LoveNudgeOverlayListener extends StatefulWidget {
 
     overlayEntry = OverlayEntry(
       builder: (ctx) => LoveNudgeLiveScreenOverlay(
+        key: UniqueKey(),
         nudge: nudge,
         isLocalSender: true,
         onFinished: () {
@@ -101,6 +102,7 @@ class _LoveNudgeOverlayListenerState extends State<LoveNudgeOverlayListener> {
 
     overlayEntry = OverlayEntry(
       builder: (ctx) => LoveNudgeLiveScreenOverlay(
+        key: UniqueKey(),
         nudge: nudge,
         isLocalSender: false,
         onFinished: () {
@@ -211,6 +213,8 @@ class _LoveNudgeLiveScreenOverlayState extends State<LoveNudgeLiveScreenOverlay>
 
     return CachedNetworkImage(
       imageUrl: photoUrl,
+      // Use timestamp as cache key so each new nudge overlay always loads fresh
+      cacheKey: '${photoUrl}_${widget.nudge.timestamp}',
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,

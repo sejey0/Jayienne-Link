@@ -97,7 +97,9 @@ class SupabaseLoveNudgeService {
     return _nudgeController!.stream;
   }
 
-  /// Broadcast a love nudge (kiss or hug) with optional custom photo to the couple's channel
+  /// Broadcast a love nudge (kiss or hug) with optional custom photo to the couple's channel.
+  /// Reuses the existing subscribed channel when available; otherwise opens a fresh one
+  /// and waits for it to join before broadcasting.
   Future<void> sendLoveNudge({
     required String coupleId,
     required String senderId,
@@ -117,19 +119,50 @@ class SupabaseLoveNudgeService {
       );
 
       final client = SupabaseDataService.client;
-      var channel = _nudgeChannel;
 
-      if (channel == null || _activeCoupleId != coupleId) {
-        channel = client.channel('love_nudge:$coupleId');
-        channel.subscribe();
+      // Fast path: reuse the already-subscribed singleton channel
+      if (_nudgeChannel != null && _activeCoupleId == coupleId) {
+        debugPrint('🚀 Sending Love Nudge ($nudgeType) via existing channel — photo: ${photoUrl != null}');
+        await _nudgeChannel!.sendBroadcastMessage(
+          event: 'nudge',
+          payload: payload.toMap(),
+        );
+        debugPrint('✅ Love Nudge sent via existing channel');
+        return;
       }
 
-      debugPrint('🚀 Sending Love Nudge ($nudgeType) with photo: ${photoUrl != null} to couple: $coupleId');
-      await channel.sendBroadcastMessage(
+      // Slow path: subscribe a new channel and wait before sending
+      debugPrint('🔗 No active channel. Subscribing to love_nudge:$coupleId...');
+      final tempChannel = client.channel('love_nudge:$coupleId');
+      final completer = Completer<void>();
+
+      tempChannel.subscribe((status, [error]) {
+        if (!completer.isCompleted) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            completer.complete();
+          } else if (error != null) {
+            completer.completeError(error);
+          }
+        }
+      });
+
+      try {
+        await completer.future.timeout(const Duration(seconds: 4));
+      } catch (_) {
+        debugPrint('⚠️ Channel subscription timed out — attempting send anyway');
+      }
+
+      debugPrint('🚀 Sending Love Nudge ($nudgeType) via temp channel — photo: ${photoUrl != null}');
+      await tempChannel.sendBroadcastMessage(
         event: 'nudge',
         payload: payload.toMap(),
       );
       debugPrint('✅ Love Nudge broadcast sent successfully');
+
+      // Cleanup temp channel
+      Future.delayed(const Duration(seconds: 2), () {
+        try { tempChannel.unsubscribe(); } catch (_) {}
+      });
     } catch (e) {
       debugPrint('❌ Error sending Love Nudge broadcast: $e');
     }

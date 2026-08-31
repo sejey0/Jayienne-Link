@@ -693,63 +693,64 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // App Bar Row (Back Button + Title + Manual Refresh Button)
+                    // Compact Top Navigation Bar
                     Row(
                       children: [
                         // Back Button
                         InkWell(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            Navigator.pop(context);
-                          },
-                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => Navigator.pop(context),
+                          borderRadius: BorderRadius.circular(12),
                           child: Container(
-                            padding: const EdgeInsets.all(10),
+                            width: 36,
+                            height: 36,
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.22),
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.4),
+                                color: Colors.white.withValues(alpha: 0.35),
                               ),
                             ),
-                            child: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: Colors.white,
-                              size: 18,
+                            child: const Center(
+                              child: Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
 
                         // Header Title with Movie Icon
                         Expanded(
                           child: Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.25),
-                                  borderRadius: BorderRadius.circular(12),
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: const Icon(
                                   Icons.movie_creation_rounded,
                                   color: Colors.white,
-                                  size: 22,
+                                  size: 18,
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 8),
                               const Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
                                     'Movie Diary',
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 20,
+                                      fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 0.2,
                                     ),
@@ -758,7 +759,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                     'Watchlist & reviews',
                                     style: TextStyle(
                                       color: Colors.white70,
-                                      fontSize: 11.5,
+                                      fontSize: 10.5,
                                     ),
                                   ),
                                 ],
@@ -767,61 +768,69 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                           ),
                         ),
 
-                        // Glassmorphic Manual Refresh Button
+                        // Manual Refresh Button
                         InkWell(
                           onTap: () {
                             HapticFeedback.lightImpact();
                             _refreshMovies(showIndicator: true);
                           },
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(12),
                           child: Container(
-                            padding: const EdgeInsets.all(10),
+                            width: 36,
+                            height: 36,
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.22),
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.4),
+                                color: Colors.white.withValues(alpha: 0.35),
                               ),
                             ),
-                            child: const Icon(
-                              Icons.refresh_rounded,
-                              color: Colors.white,
-                              size: 18,
+                            child: const Center(
+                              child: Icon(
+                                Icons.refresh_rounded,
+                                color: Colors.white,
+                                size: 17,
+                              ),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 8),
 
-                    // Cinema Stats Summary Bar
+                    // Sleek Compressed Cinema Stats Capsule Card
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                       decoration: BoxDecoration(
                         color: isDark
                             ? const Color(0xFF1E162B).withValues(alpha: 0.92)
                             : Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : const Color(0xFFFF758C).withValues(alpha: 0.18),
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+                            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           _buildStatItem(
                             icon: Icons.bookmark_added_rounded,
                             iconColor: const Color(0xFFFF758C),
                             value: '$watchlistCount',
-                            label: 'In Watchlist',
+                            label: 'Watchlist',
                             isDark: isDark,
                           ),
                           Container(
-                            height: 30,
+                            height: 22,
                             width: 1,
                             color: isDark ? Colors.white12 : Colors.grey.shade200,
                           ),
@@ -829,11 +838,11 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             icon: Icons.movie_filter_rounded,
                             iconColor: const Color(0xFFA18CD1),
                             value: '$watchedCount',
-                            label: 'Watched Together',
+                            label: 'Watched',
                             isDark: isDark,
                           ),
                           Container(
-                            height: 30,
+                            height: 22,
                             width: 1,
                             color: isDark ? Colors.white12 : Colors.grey.shade200,
                           ),
@@ -849,7 +858,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
 
                     // Search Bar & Decision Spinner Shortcut Row
                     Row(
@@ -857,13 +866,13 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         // Clean Pill Search Bar
                         Expanded(
                           child: Container(
-                            height: 44,
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            height: 40,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             decoration: BoxDecoration(
                               color: isDark
                                   ? const Color(0xFF1E162B).withValues(alpha: 0.95)
                                   : Colors.white,
-                              borderRadius: BorderRadius.circular(22),
+                              borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: isDark
                                     ? Colors.white.withValues(alpha: 0.12)
@@ -873,7 +882,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-                                  blurRadius: 10,
+                                  blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
@@ -884,7 +893,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                               onChanged: (val) => setState(() => _searchQuery = val.trim()),
                               textAlignVertical: TextAlignVertical.center,
                               style: TextStyle(
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 color: isDark ? Colors.white : Colors.black87,
                               ),
                               cursorColor: const Color(0xFFFF758C),
@@ -892,26 +901,26 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 isDense: true,
                                 hintText: 'Search movies, memories...',
                                 hintStyle: TextStyle(
-                                  fontSize: 12.5,
+                                  fontSize: 12,
                                   color: isDark ? Colors.white38 : Colors.grey.shade500,
                                 ),
                                 prefixIcon: const Icon(
                                   Icons.search_rounded,
                                   color: Color(0xFFFF758C),
-                                  size: 18,
+                                  size: 17,
                                 ),
                                 prefixIconConstraints: const BoxConstraints(
-                                  minWidth: 28,
-                                  minHeight: 28,
+                                  minWidth: 26,
+                                  minHeight: 26,
                                 ),
                                 suffixIcon: _searchQuery.isNotEmpty
                                     ? IconButton(
                                         padding: EdgeInsets.zero,
                                         constraints: const BoxConstraints(
-                                          minWidth: 28,
-                                          minHeight: 28,
+                                          minWidth: 26,
+                                          minHeight: 26,
                                         ),
-                                        icon: const Icon(Icons.clear_rounded, size: 16),
+                                        icon: const Icon(Icons.clear_rounded, size: 15),
                                         onPressed: () {
                                           _searchController.clear();
                                           setState(() => _searchQuery = '');
@@ -921,13 +930,13 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 border: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 4,
-                                  vertical: 10,
+                                  vertical: 8,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
 
                         // Decision Spinner Shortcut Button
                         Tooltip(
@@ -942,33 +951,35 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 ),
                               );
                             },
-                            borderRadius: BorderRadius.circular(22),
+                            borderRadius: BorderRadius.circular(20),
                             child: Container(
-                              width: 44,
-                              height: 44,
+                              width: 40,
+                              height: 40,
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFFBA68C8), Color(0xFF7B1FA2)],
+                                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                shape: BoxShape.circle,
+                                borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                   color: Colors.white.withValues(alpha: 0.4),
                                   width: 1.2,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF7B1FA2).withValues(alpha: 0.35),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 3),
+                                    color: const Color(0xFFFF758C).withValues(alpha: 0.4),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
-                              child: const Icon(
-                                Icons.casino_rounded,
-                                color: Colors.white,
-                                size: 20,
+                              child: const Center(
+                                child: Icon(
+                                  Icons.rotate_right_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
                               ),
                             ),
                           ),
@@ -1154,34 +1165,43 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     required String label,
     required bool isDark,
   }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: iconColor, size: 15),
-            const SizedBox(width: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : const Color(0xFF2D4059),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: iconColor.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: iconColor, size: 14),
+          const SizedBox(width: 5),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : const Color(0xFF2D4059),
+                  height: 1.1,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: isDark ? Colors.white60 : Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                  fontWeight: FontWeight.w500,
+                  height: 1.1,
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

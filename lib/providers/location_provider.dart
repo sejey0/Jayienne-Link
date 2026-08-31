@@ -98,6 +98,7 @@ class LocationProvider extends ChangeNotifier {
   String? _historyOwnerId;
   bool _isLoadingHistory = false;
   Timer? _playbackTimer;
+  Timer? _foregroundCaptureTimer;
 
   // Stream Subscriptions
   StreamSubscription<Position>? _devicePositionSubscription;

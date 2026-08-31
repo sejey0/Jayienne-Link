@@ -888,65 +888,69 @@ class _MoodScreenState extends State<MoodScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextFormField(
-                      initialValue: callSign,
+                    AppTextField(
+                      controller: TextEditingController(text: callSign)
+                        ..selection = TextSelection.collapsed(offset: callSign.length),
+                      labelText: 'Callsign',
+                      hintText: 'e.g., wife',
                       onChanged: (value) {
                         callSign = value;
                       },
                       textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        labelText: 'Callsign',
-                        hintText: 'e.g., wife',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
+                      isDark: isDark,
+                      prefixIcon: Icons.favorite_rounded,
+                    ),
+                    const SizedBox(height: AppDimensions.spacingMd),
+                    Center(
+                      child: Text(
+                        'Select Mood',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: isDark ? Colors.white70 : AppColors.deepCharcoal,
                         ),
                       ),
                     ),
-                    const SizedBox(height: AppDimensions.spacingMd),
-                    Text(
-                      'Select Mood',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: isDark ? Colors.white70 : AppColors.deepCharcoal,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ..._moodOptions.map((option) {
-                          final selected = selectedMood == option.key;
-                          return _MoodButton(
-                            option: option,
-                            enabled: true,
-                            isSelected: selected,
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              setDialogState(() {
-                                selectedMood = option.key;
-                              });
-                            },
-                          );
-                        }),
-                        ..._customMoods.map((option) {
-                          final selected = selectedMood == option.key;
-                          return _MoodButton(
-                            option: option,
-                            enabled: true,
-                            isSelected: selected,
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              setDialogState(() {
-                                selectedMood = option.key;
-                              });
-                            },
-                          );
-                        }),
-                        // + Custom Button inside Edit Dialog
-                        InkWell(
-                          onTap: () async {
+                    const SizedBox(height: 10),
+                    Center(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          ..._moodOptions.map((option) {
+                            final selected = selectedMood == option.key;
+                            return _MoodButton(
+                              option: option,
+                              enabled: true,
+                              isSelected: selected,
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                setDialogState(() {
+                                  selectedMood = option.key;
+                                });
+                              },
+                            );
+                          }),
+                          ..._customMoods.map((option) {
+                            final selected = selectedMood == option.key;
+                            return _MoodButton(
+                              option: option,
+                              enabled: true,
+                              isSelected: selected,
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                setDialogState(() {
+                                  selectedMood = option.key;
+                                });
+                              },
+                            );
+                          }),
+                          // + Custom Button inside Edit Dialog
+                          InkWell(
+                            onTap: () async {
                             final newKey = await _showCustomMoodDialog();
                             if (newKey != null) {
                               setDialogState(() {
@@ -1012,7 +1016,8 @@ class _MoodScreenState extends State<MoodScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 18),
+                  ),
+                  const SizedBox(height: 18),
                     Row(
                       children: [
                         Expanded(

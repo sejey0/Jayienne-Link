@@ -253,13 +253,13 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
     if (widget.movie.id == null || widget.currentUserId.isEmpty) return;
 
     if (_selectedRating == null || _selectedRating! <= 0) {
-      HapticFeedback.selectionClick();
-      showCenterAlertDialog(
+      HapticFeedback.mediumImpact();
+      await showCenterAlertDialog(
         context: context,
         title: 'Rating Required',
-        message: 'Please tap a heart (1 to 5) to rate this movie before saving.',
-        icon: Icons.favorite_border_rounded,
-        iconColor: const Color(0xFFFF758C),
+        message: 'Please tap a heart rating (1 to 5) before marking this movie as watched.',
+        icon: Icons.favorite_rounded,
+        iconColor: const Color(0xFFFF4081),
       );
       return;
     }
@@ -299,8 +299,10 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
 
       widget.onMovieUpdated?.call();
       Navigator.pop(context, {
-        'action': 'update_rating',
+        'action': widget.movie.isWatchlist ? 'marked_watched' : 'update_rating',
         'title': widget.movie.title,
+        'isWatchlist': widget.movie.isWatchlist,
+        'watchNumber': _selectedWatchNumber,
       });
     } catch (e) {
       if (!mounted) return;

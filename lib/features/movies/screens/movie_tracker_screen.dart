@@ -304,13 +304,26 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     if (res != null && mounted) {
       _refreshMovies();
       final title = (res is Map<String, dynamic> ? res['title'] : null) ?? movie.title;
-      await showCenterAlertDialog(
-        context: context,
-        title: 'Rating Updated!',
-        message: 'Your review for "$title" has been updated successfully',
-        icon: Icons.favorite_rounded,
-        iconColor: const Color(0xFFFF4081),
-      );
+      final isWatchlist = (res is Map<String, dynamic> ? res['isWatchlist'] : false) || movie.isWatchlist;
+      final action = res is Map<String, dynamic> ? res['action'] : null;
+
+      if (isWatchlist || action == 'marked_watched') {
+        await showCenterAlertDialog(
+          context: context,
+          title: 'Marked as Watched!',
+          message: '"$title" has been added to your Watched Cinema Diary',
+          icon: Icons.check_circle_rounded,
+          iconColor: const Color(0xFFFF758C),
+        );
+      } else {
+        await showCenterAlertDialog(
+          context: context,
+          title: 'Review Updated!',
+          message: 'Your review for "$title" has been saved successfully',
+          icon: Icons.favorite_rounded,
+          iconColor: const Color(0xFFFF4081),
+        );
+      }
     }
   }
 

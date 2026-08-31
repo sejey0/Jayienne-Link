@@ -35,77 +35,88 @@ class PlatformBrandIcon extends StatelessWidget {
 
     final isCustomWithDomain = domain != null && domain.isNotEmpty && domain.contains('.');
 
-    // Real brand icon color (e.g. black for Snapchat, white for others)
+    // Default gradient/vector icon fallback
+    final Widget defaultCustomFallback = _buildDefaultIcon(iconSize);
+
+    if (isCustomWithDomain) {
+      final faviconUrl = 'https://www.google.com/s2/favicons?domain=$domain&sz=128';
+
+      return Image.network(
+        faviconUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded || frame != null) {
+            if (!showBackground) {
+              return SizedBox(
+                width: size,
+                height: size,
+                child: Center(child: child),
+              );
+            }
+            return Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF221A30) : Colors.white,
+                borderRadius: BorderRadius.circular(borderRadius),
+                border: Border.all(
+                  color: platform.primaryColor.withValues(alpha: isDark ? 0.35 : 0.25),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: platform.primaryColor.withValues(alpha: 0.22),
+                    blurRadius: math.max(4, size * 0.2),
+                    offset: Offset(0, size * 0.08),
+                  ),
+                  if (!isDark)
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                ],
+              ),
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(size * 0.18),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(math.max(2, borderRadius * 0.35)),
+                    child: child,
+                  ),
+                ),
+              ),
+            );
+          }
+          return defaultCustomFallback;
+        },
+        errorBuilder: (context, error, stackTrace) {
+          // If favicon cannot be found or network fails, cleanly render default custom icon
+          return defaultCustomFallback;
+        },
+      );
+    }
+
+    return defaultCustomFallback;
+  }
+
+  Widget _buildDefaultIcon(double iconSize) {
     final effectiveIconColor = color ??
         (showBackground ? platform.iconColor : platform.primaryColor);
 
-    final Widget fallbackIcon = FaIcon(
+    final Widget iconWidget = FaIcon(
       platform.icon,
       size: iconSize,
       color: effectiveIconColor,
     );
 
-    if (isCustomWithDomain) {
-      final faviconUrl = 'https://www.google.com/s2/favicons?domain=$domain&sz=128';
-
-      final realFaviconWidget = Image.network(
-        faviconUrl,
-        width: showBackground ? size * 0.58 : size,
-        height: showBackground ? size * 0.58 : size,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => fallbackIcon,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return fallbackIcon;
-        },
-      );
-
-      if (!showBackground) {
-        return SizedBox(
-          width: size,
-          height: size,
-          child: Center(child: realFaviconWidget),
-        );
-      }
-
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF221A30) : Colors.white,
-          borderRadius: BorderRadius.circular(borderRadius),
-          border: Border.all(
-            color: platform.primaryColor.withValues(alpha: isDark ? 0.35 : 0.25),
-            width: 1.2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: platform.primaryColor.withValues(alpha: 0.22),
-              blurRadius: math.max(4, size * 0.2),
-              offset: Offset(0, size * 0.08),
-            ),
-            if (!isDark)
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-          ],
-        ),
-        child: Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(math.max(3, borderRadius * 0.4)),
-            child: realFaviconWidget,
-          ),
-        ),
-      );
-    }
-
     if (!showBackground) {
       return SizedBox(
         width: size,
         height: size,
-        child: Center(child: fallbackIcon),
+        child: Center(child: iconWidget),
       );
     }
 
@@ -131,7 +142,7 @@ class PlatformBrandIcon extends StatelessWidget {
           ),
         ],
       ),
-      child: Center(child: fallbackIcon),
+      child: Center(child: iconWidget),
     );
   }
 }

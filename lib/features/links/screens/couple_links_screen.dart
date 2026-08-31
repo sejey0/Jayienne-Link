@@ -655,7 +655,12 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
                       child: ElevatedButton.icon(
                         onPressed: () {
                           HapticFeedback.lightImpact();
-                          UrlLauncherHelper.launchLink(context, link.url);
+                          _confirmOpenSite(
+                            context,
+                            url: link.url,
+                            title: link.displayTitle,
+                            platform: platform,
+                          );
                         },
                         icon: const Icon(
                           Icons.open_in_new_rounded,
@@ -736,17 +741,15 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
                   // Drag handle
                   Center(
                     child: Container(
-                      width: 42,
+                      width: 44,
                       height: 5,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [accentColor, AppColors.lavender],
-                        ),
+                        color: AppColors.softRose.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
                   // Platform header
                   Row(
@@ -808,6 +811,14 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
                               ],
                             ),
                           ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: sheetDark ? Colors.white54 : Colors.grey.shade600,
+                          size: 22,
                         ),
                       ),
                     ],
@@ -943,7 +954,12 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () {
                         HapticFeedback.lightImpact();
-                        UrlLauncherHelper.launchLink(context, link.url);
+                        _confirmOpenSite(
+                          context,
+                          url: link.url,
+                          title: link.displayTitle,
+                          platform: platform,
+                        );
                       },
                       icon: const Icon(
                         Icons.open_in_new_rounded,
@@ -969,49 +985,121 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
                     ),
                   ),
                   if (isMine) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
+                        // ── Edit Button ──
                         Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
+                          child: InkWell(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
                               Navigator.of(ctx).pop();
                               AddEditLinkSheet.show(context, initialLink: link);
                             },
-                            icon: const Icon(Icons.edit_rounded, size: 15),
-                            label: const Text(
-                              'Edit',
-                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.softRose,
-                              side: const BorderSide(color: AppColors.softRose),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: sheetDark
+                                    ? const Color(0xFF281E38)
+                                    : AppColors.softRose.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: AppColors.softRose.withValues(alpha: 0.35),
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.softRose.withValues(alpha: 0.12),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.softRose.withValues(alpha: 0.18),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.edit_rounded,
+                                      size: 14,
+                                      color: AppColors.softRose,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Edit Link',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13.5,
+                                      color: sheetDark ? Colors.white : AppColors.deepCharcoal,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ),
                         const SizedBox(width: 12),
+
+                        // ── Delete Button ──
                         Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
+                          child: InkWell(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
                               Navigator.of(ctx).pop();
                               _confirmDelete(context, link, linksProvider);
                             },
-                            icon: const Icon(Icons.delete_outline_rounded, size: 15),
-                            label: const Text(
-                              'Delete',
-                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red,
-                              side: const BorderSide(
-                                  color: Colors.red, width: 1),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: sheetDark
+                                    ? const Color(0xFF2E1724)
+                                    : const Color(0xFFFFF0F3),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFFF4D6D).withValues(alpha: 0.35),
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFFF4D6D).withValues(alpha: 0.12),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFF4D6D).withValues(alpha: 0.16),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 14,
+                                      color: Color(0xFFFF4D6D),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Delete',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13.5,
+                                      color: Color(0xFFFF4D6D),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -1028,38 +1116,381 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
     );
   }
 
+  void _confirmOpenSite(
+    BuildContext context, {
+    required String url,
+    required String title,
+    required SocialPlatform platform,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    HapticFeedback.lightImpact();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (modalContext) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1427) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          boxShadow: [
+            BoxShadow(
+              color: platform.primaryColor.withValues(alpha: 0.20),
+              blurRadius: 30,
+              offset: const Offset(0, -8),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 14, 24, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Platform Brand Icon with glow
+                PlatformBrandIcon(
+                  platform: platform,
+                  customUrl: url,
+                  size: 58,
+                  borderRadius: 18,
+                ),
+                const SizedBox(height: 16),
+
+                Text(
+                  'Open External Site?',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                Text(
+                  'You are about to visit "$title" in your external browser or app.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // URL Pill Preview
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.link_rounded,
+                        size: 14,
+                        color: platform.primaryColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          url,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white70 : Colors.grey.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Actions: Cancel & Open Site
+                Row(
+                  children: [
+                    // Cancel
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(modalContext).pop(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? Colors.white70 : AppColors.deepCharcoal,
+                          side: BorderSide(
+                            color: isDark ? Colors.white24 : Colors.grey.shade300,
+                            width: 1.2,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Open Site
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: platform.gradientColors.length >= 2
+                                ? platform.gradientColors
+                                : [AppColors.softRose, AppColors.lavender],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: platform.primaryColor.withValues(alpha: 0.35),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(modalContext).pop();
+                            UrlLauncherHelper.launchLink(context, url);
+                          },
+                          icon: const Icon(Icons.open_in_new_rounded, color: Colors.white, size: 16),
+                          label: const Text(
+                            'Open Site',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _confirmDelete(
     BuildContext context,
     SocialLinkModel link,
     CoupleLinksProvider provider,
   ) {
-    showDialog(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    HapticFeedback.mediumImpact();
+
+    showModalBottomSheet(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Link?'),
-        content: Text('Are you sure you want to remove "${link.displayTitle}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (modalContext) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1427) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF4D6D).withValues(alpha: 0.20),
+              blurRadius: 30,
+              offset: const Offset(0, -8),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 14, 24, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Glowing trash emblem
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF4D6D), Color(0xFFD90429)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFF4D6D).withValues(alpha: 0.40),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.delete_forever_rounded,
+                    color: Colors.white,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                Text(
+                  'Delete Link?',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                Text(
+                  'Are you sure you want to remove "${link.displayTitle}" from your shared couple links?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    // Cancel Button
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(modalContext).pop(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? Colors.white70 : AppColors.deepCharcoal,
+                          side: BorderSide(
+                            color: isDark ? Colors.white24 : Colors.grey.shade300,
+                            width: 1.2,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Confirm Delete Button
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF4D6D), Color(0xFFD90429)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF4D6D).withValues(alpha: 0.35),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            Navigator.of(modalContext).pop();
+                            HapticFeedback.mediumImpact();
+                            final deleted = await provider.deleteLink(link.id);
+                            if (context.mounted) {
+                              if (deleted) {
+                                SnackbarHelper.showSuccess(context, 'Link removed successfully');
+                              } else {
+                                SnackbarHelper.showError(
+                                  context,
+                                  provider.error ?? 'Failed to delete link.',
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 16),
+                          label: const Text(
+                            'Delete',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              final deleted = await provider.deleteLink(link.id);
-              if (context.mounted) {
-                if (deleted) {
-                  SnackbarHelper.showSuccess(context, 'Link removed.');
-                } else {
-                  SnackbarHelper.showError(context, provider.error ?? 'Failed to delete link.');
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+        ),
       ),
     );
   }

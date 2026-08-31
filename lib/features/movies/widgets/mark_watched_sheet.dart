@@ -460,6 +460,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                       children: [
                         MoviePosterWidget(
                           posterUrl: widget.movie.posterUrl,
+                          title: widget.movie.title,
                           width: 48,
                           height: 68,
                           borderRadius: BorderRadius.circular(8),

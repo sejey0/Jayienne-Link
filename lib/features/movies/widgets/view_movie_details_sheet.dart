@@ -196,9 +196,10 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Movie Poster
+                        // Movie Poster (Tap to view full screen)
                         MoviePosterWidget(
                           posterUrl: movie.posterUrl,
+                          title: movie.title,
                           width: 56,
                           height: 80,
                           borderRadius: BorderRadius.circular(10),

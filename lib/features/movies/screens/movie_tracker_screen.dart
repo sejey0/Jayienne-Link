@@ -1263,6 +1263,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
               // Movie Poster
               MoviePosterWidget(
                 posterUrl: movie.posterUrl,
+                title: movie.title,
                 width: 62,
                 height: 86,
                 borderRadius: BorderRadius.circular(10),
@@ -1280,7 +1281,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                       TextSpan(
                         text: movie.title,
                         style: TextStyle(
-                          fontSize: 14.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: isDark ? Colors.white : const Color(0xFF2D4059),
                         ),
@@ -1289,19 +1290,19 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             TextSpan(
                               text: ' (${movie.year})',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
                                 color: isDark ? Colors.white54 : Colors.grey.shade600,
                               ),
                             ),
                         ],
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 3),
 
-                    // Badges (Media Type, Rewatch)
+                    // Media Type Badge & Rewatch Badge
                     Row(
                       children: [
                         Container(
@@ -1328,9 +1329,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFFF9A8B), Color(0xFFFF6A88)],
-                              ),
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
@@ -1338,7 +1337,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                               style: const TextStyle(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: Color(0xFFFF758C),
                               ),
                             ),
                           ),
@@ -1481,7 +1480,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
               isDark: isDark,
               icon: Icons.local_movies_outlined,
               title: _searchQuery.isNotEmpty
-                  ? 'No watched movies match your search'
+                  ? 'No matching watched movies'
                   : 'No Watched Movies Yet',
               subtitle: _searchQuery.isNotEmpty
                   ? 'Try another movie title or keyword'
@@ -1561,6 +1560,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                 children: [
                   MoviePosterWidget(
                     posterUrl: movie.posterUrl,
+                    title: movie.title,
                     width: 62,
                     height: 86,
                     borderRadius: BorderRadius.circular(10),

@@ -14,6 +14,7 @@ class ViewMovieDetailsSheet extends StatefulWidget {
   final VoidCallback? onEditMovie;
   final VoidCallback? onDeleteMovie;
   final VoidCallback? onPlanRewatch;
+  final VoidCallback? onCancelRewatch;
 
   const ViewMovieDetailsSheet({
     super.key,
@@ -24,6 +25,7 @@ class ViewMovieDetailsSheet extends StatefulWidget {
     this.onEditMovie,
     this.onDeleteMovie,
     this.onPlanRewatch,
+    this.onCancelRewatch,
   });
 
   static Future<dynamic> show(
@@ -35,6 +37,7 @@ class ViewMovieDetailsSheet extends StatefulWidget {
     VoidCallback? onEditMovie,
     VoidCallback? onDeleteMovie,
     VoidCallback? onPlanRewatch,
+    VoidCallback? onCancelRewatch,
   }) {
     return showModalBottomSheet<dynamic>(
       context: context,
@@ -49,6 +52,7 @@ class ViewMovieDetailsSheet extends StatefulWidget {
         onEditMovie: onEditMovie,
         onDeleteMovie: onDeleteMovie,
         onPlanRewatch: onPlanRewatch,
+        onCancelRewatch: onCancelRewatch,
       ),
     );
   }
@@ -753,51 +757,36 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                   ),
                   const SizedBox(height: 12),
 
+
+
                   // ----------------------------------------------------
-                  // PLAN TO REWATCH (IF WATCHED)
+                  // CANCEL REWATCH (IF CURRENTLY PLANNED REWATCH IN WATCHLIST)
                   // ----------------------------------------------------
-                  if (movie.isWatched && widget.onPlanRewatch != null) ...[
+                  if (movie.isWatchlist && movie.isRewatch && widget.onCancelRewatch != null) ...[
                     SizedBox(
                       width: double.infinity,
                       height: 38,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pop(context);
+                          widget.onCancelRewatch?.call();
+                        },
+                        icon: const Icon(Icons.undo_rounded, size: 15, color: Color(0xFFA18CD1)),
+                        label: const Text(
+                          'Cancel Rewatch',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFA18CD1),
                           ),
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
                         ),
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            Navigator.pop(context);
-                            widget.onPlanRewatch?.call();
-                          },
-                          icon: const Icon(Icons.replay_rounded, size: 15, color: Colors.white),
-                          label: const Text(
-                            'Plan to Rewatch',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFA18CD1),
+                          side: BorderSide(color: const Color(0xFFA18CD1).withValues(alpha: 0.4)),
+                          backgroundColor: const Color(0xFFA18CD1).withValues(alpha: 0.06),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                       ),

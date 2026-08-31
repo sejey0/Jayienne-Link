@@ -83,7 +83,12 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
     );
     _selectedRating = myRating?.rating;
     _notesController.text = myRating?.notes ?? '';
-    _selectedDate = widget.movie.watchedDate;
+    // Do not pre-fill old watch date when marking a watchlist/rewatch movie as watched
+    if (widget.movie.isWatchlist || (sessionNum > 1 && myRating == null)) {
+      _selectedDate = null;
+    } else {
+      _selectedDate = sessionNum == widget.movie.watchCount ? widget.movie.watchedDate : null;
+    }
     _existingPhotos = [...myRating?.photoUrls ?? []];
     _newPhotoFiles.clear();
   }

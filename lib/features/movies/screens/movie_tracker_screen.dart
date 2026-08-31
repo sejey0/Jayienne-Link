@@ -315,6 +315,55 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   }
 
   Future<void> _planToRewatch(MovieModel movie) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    HapticFeedback.lightImpact();
+
+    // Confirmation dialog before planning rewatch
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.replay_rounded, color: Color(0xFFFF758C), size: 20),
+            SizedBox(width: 8),
+            Text('Plan Rewatch?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Move "${movie.title}" back to your Watchlist to plan a rewatch together?',
+          style: TextStyle(
+            fontSize: 13.5,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF758C),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Plan Rewatch', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     try {
       HapticFeedback.mediumImpact();
       await _movieService.planRewatch(movie);
@@ -338,6 +387,79 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     }
   }
 
+  Future<void> _cancelRewatch(MovieModel movie) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    HapticFeedback.lightImpact();
+
+    // Confirmation dialog before canceling rewatch
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.undo_rounded, color: Color(0xFFA18CD1), size: 20),
+            SizedBox(width: 8),
+            Text('Cancel Rewatch?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Move "${movie.title}" back to your Watched Cinema Diary and cancel the planned rewatch?',
+          style: TextStyle(
+            fontSize: 13.5,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Keep in Watchlist',
+              style: TextStyle(
+                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFA18CD1),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Cancel Rewatch', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      HapticFeedback.mediumImpact();
+      await _movieService.cancelRewatch(movie);
+      if (!mounted) return;
+      _refreshMovies();
+      await showCenterAlertDialog(
+        context: context,
+        title: 'Rewatch Cancelled',
+        message: '"${movie.title}" has been returned to your Watched Diary',
+        icon: Icons.check_circle_rounded,
+        iconColor: const Color(0xFFA18CD1),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      showCenterAlertDialog(
+        context: context,
+        title: 'Error',
+        message: 'Failed to cancel rewatch: $e',
+        icon: Icons.error_outline_rounded,
+      );
+    }
+  }
+
   Future<void> _openMovieDetailsModal(MovieModel movie) async {
     HapticFeedback.lightImpact();
     final currentUserId = _getCurrentUserId(context);
@@ -356,6 +478,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       onEditMovie: () => _openEditMovieDetails(movie),
       onDeleteMovie: () => _confirmDeleteMovie(movie),
       onPlanRewatch: () => _planToRewatch(movie),
+      onCancelRewatch: () => _cancelRewatch(movie),
     );
 
     if (res != null && mounted) {
@@ -1211,7 +1334,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ),
                     const SizedBox(height: 6),
 
-                    // Actions Row: "Mark Watched" (gradient) & "Movie Details" (soft themed outline)
+                    // Actions Row: "Mark Watched", "Cancel" (if rewatch), & "Movie Details"
                     Row(
                       children: [
                         Expanded(
@@ -1234,11 +1357,11 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             ),
                             child: ElevatedButton.icon(
                               onPressed: () => _openRateMovieModal(movie),
-                              icon: const Icon(Icons.check_circle_rounded, size: 13, color: Colors.white),
+                              icon: const Icon(Icons.check_circle_rounded, size: 12, color: Colors.white),
                               label: const Text(
                                 'Mark Watched',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
@@ -1249,7 +1372,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
                                 elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 5),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -1257,16 +1380,46 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        if (movie.isRewatch) ...[
+                          const SizedBox(width: 5),
+                          SizedBox(
+                            height: 30,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _cancelRewatch(movie),
+                              icon: const Icon(Icons.undo_rounded, size: 11, color: Color(0xFFA18CD1)),
+                              label: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: isDark ? Colors.white : const Color(0xFF2D4059),
+                                side: BorderSide(
+                                  color: const Color(0xFFA18CD1).withValues(alpha: 0.35),
+                                ),
+                                backgroundColor: isDark
+                                    ? Colors.white.withValues(alpha: 0.04)
+                                    : const Color(0xFFA18CD1).withValues(alpha: 0.06),
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 5),
                         SizedBox(
                           height: 30,
                           child: OutlinedButton.icon(
                             onPressed: () => _openMovieDetailsModal(movie),
-                            icon: const Icon(Icons.movie_filter_rounded, size: 12, color: Color(0xFFFF758C)),
-                            label: const Text(
-                              'Movie Details',
-                              style: TextStyle(
-                                fontSize: 11,
+                            icon: const Icon(Icons.movie_filter_rounded, size: 11, color: Color(0xFFFF758C)),
+                            label: Text(
+                              movie.isRewatch ? 'Details' : 'Movie Details',
+                              style: const TextStyle(
+                                fontSize: 10,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1278,7 +1431,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                               backgroundColor: isDark
                                   ? Colors.white.withValues(alpha: 0.04)
                                   : const Color(0xFFFF758C).withValues(alpha: 0.06),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding: EdgeInsets.symmetric(horizontal: movie.isRewatch ? 6 : 8),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -1641,7 +1794,6 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     Row(
                       children: [
                         Expanded(
-                          flex: 12,
                           child: Container(
                             height: 30,
                             decoration: BoxDecoration(
@@ -1663,7 +1815,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                               onPressed: () => _openRateMovieModal(movie),
                               icon: Icon(
                                 myRating != null ? Icons.rate_review_rounded : Icons.favorite_rounded,
-                                size: 12,
+                                size: 11,
                                 color: Colors.white,
                               ),
                               label: Text(

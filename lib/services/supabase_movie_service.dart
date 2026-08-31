@@ -284,6 +284,28 @@ class SupabaseMovieService {
     }
   }
 
+  /// Cancel a planned rewatch: Moves movie back to watched diary and restores watch_count
+  Future<void> cancelRewatch(MovieModel movie) async {
+    if (movie.id == null || movie.id!.isEmpty) {
+      throw Exception('Movie ID is required to cancel rewatch');
+    }
+
+    final restoredWatchCount = movie.watchCount > 1 ? movie.watchCount - 1 : 1;
+
+    try {
+      final updateData = <String, dynamic>{
+        'status': 'watched',
+        'watch_count': restoredWatchCount,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+
+      await _executeResilientUpdate(movie.id!, updateData);
+    } catch (e) {
+      debugPrint('Error canceling rewatch: $e');
+      rethrow;
+    }
+  }
+
   /// Upsert a specific partner's rating, review, and watch photos strictly in `movie_ratings`
   Future<void> upsertRating({
     required String movieId,

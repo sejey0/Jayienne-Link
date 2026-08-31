@@ -1112,20 +1112,33 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Title & 3-Dots Menu Row
+                    // Title & Year with 3-Dots Menu Row
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(
-                            movie.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 15.5,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF2D4059),
+                          child: Text.rich(
+                            TextSpan(
+                              text: movie.title,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : const Color(0xFF2D4059),
+                              ),
+                              children: [
+                                if (movie.year != null && movie.year!.isNotEmpty)
+                                  TextSpan(
+                                    text: ' (${movie.year})',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                    ),
+                                  ),
+                              ],
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         PopupMenuButton<String>(
@@ -1171,9 +1184,9 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
 
-                    // Badges (Media Type, Year, Rewatch)
+                    // Badges (Media Type, Rewatch)
                     Row(
                       children: [
                         Container(
@@ -1195,24 +1208,6 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             ),
                           ),
                         ),
-                        if (movie.year != null && movie.year!.isNotEmpty) ...[
-                          const SizedBox(width: 5),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.white10 : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              movie.year!,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white70 : Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ],
                         if (movie.isRewatch) ...[
                           const SizedBox(width: 5),
                           Container(
@@ -1235,27 +1230,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         ],
                       ],
                     ),
-                    const SizedBox(height: 5),
-
-                    // Added Date
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.access_time_rounded,
-                          size: 11,
-                          color: isDark ? Colors.white38 : Colors.grey.shade500,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Added ${movie.formattedCreatedDateTime}',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: isDark ? Colors.white38 : Colors.grey.shade500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
 
                     // Actions Row: "Mark Watched" (opens rating modal) & "Details"
                     Row(
@@ -1452,20 +1427,33 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Title & 3-Dots Menu Row
+                    // Title & Year with 3-Dots Menu Row
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(
-                            movie.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 15.5,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF2D4059),
+                          child: Text.rich(
+                            TextSpan(
+                              text: movie.title,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : const Color(0xFF2D4059),
+                              ),
+                              children: [
+                                if (movie.year != null && movie.year!.isNotEmpty)
+                                  TextSpan(
+                                    text: ' (${movie.year})',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                    ),
+                                  ),
+                              ],
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         PopupMenuButton<String>(
@@ -1513,7 +1501,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ),
                     const SizedBox(height: 4),
 
-                    // Badges Row (Media Type, Year, Watches)
+                    // Badges Row (Media Type, Watches)
                     Row(
                       children: [
                         Container(
@@ -1535,24 +1523,6 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             ),
                           ),
                         ),
-                        if (movie.year != null && movie.year!.isNotEmpty) ...[
-                          const SizedBox(width: 5),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.white10 : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              movie.year!,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white70 : Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ],
                         if (movie.watchCount > 1) ...[
                           const SizedBox(width: 5),
                           Container(

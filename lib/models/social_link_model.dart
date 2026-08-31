@@ -182,33 +182,99 @@ enum SocialPlatform {
   List<Color> get gradientColors {
     switch (this) {
       case SocialPlatform.instagram:
-        return const [Color(0xFFE1306C), Color(0xFFC13584), Color(0xFF833AB4)];
+        return const [
+          Color(0xFF833AB4),
+          Color(0xFFC13584),
+          Color(0xFFE1306C),
+          Color(0xFFFD1D1D),
+          Color(0xFFF77737),
+        ];
       case SocialPlatform.tiktok:
-        return const [Color(0xFF00F2FE), Color(0xFF4FACFE), Color(0xFF000000)];
+        return const [
+          Color(0xFF010101),
+          Color(0xFF161823),
+          Color(0xFF00F2FE),
+        ];
       case SocialPlatform.spotify:
-        return const [Color(0xFF1DB954), Color(0xFF191414)];
+        return const [
+          Color(0xFF1ED760),
+          Color(0xFF1DB954),
+          Color(0xFF121212),
+        ];
       case SocialPlatform.facebook:
-        return const [Color(0xFF1877F2), Color(0xFF0C63D4)];
+        return const [
+          Color(0xFF1877F2),
+          Color(0xFF0C63D4),
+        ];
       case SocialPlatform.twitter:
-        return const [Color(0xFF1DA1F2), Color(0xFF0C85D0)];
+        return const [
+          Color(0xFF000000),
+          Color(0xFF14171A),
+          Color(0xFF24292E),
+        ];
       case SocialPlatform.youtube:
-        return const [Color(0xFFFF0000), Color(0xFFB71C1C)];
+        return const [
+          Color(0xFFFF0000),
+          Color(0xFFCC0000),
+        ];
       case SocialPlatform.snapchat:
-        return const [Color(0xFFFFFC00), Color(0xFFFFD600)];
+        return const [
+          Color(0xFFFFFC00),
+          Color(0xFFFFE600),
+        ];
       case SocialPlatform.telegram:
-        return const [Color(0xFF2AABEE), Color(0xFF229ED9)];
+        return const [
+          Color(0xFF2AABEE),
+          Color(0xFF229ED9),
+          Color(0xFF0088CC),
+        ];
       case SocialPlatform.discord:
-        return const [Color(0xFF5865F2), Color(0xFF4752C4)];
+        return const [
+          Color(0xFF5865F2),
+          Color(0xFF4752C4),
+        ];
       case SocialPlatform.github:
-        return const [Color(0xFF24292E), Color(0xFF0D1117)];
+        return const [
+          Color(0xFF24292E),
+          Color(0xFF161B22),
+          Color(0xFF0D1117),
+        ];
       case SocialPlatform.pinterest:
-        return const [Color(0xFFE60023), Color(0xFFAD081B)];
+        return const [
+          Color(0xFFE60023),
+          Color(0xFFBD081C),
+        ];
       case SocialPlatform.website:
-        return const [Color(0xFFFF758C), Color(0xFFA18CD1)];
+        return const [
+          Color(0xFFFF758C),
+          Color(0xFFA18CD1),
+        ];
     }
   }
 
-  Color get primaryColor => gradientColors.first;
+  Color get primaryColor {
+    switch (this) {
+      case SocialPlatform.snapchat:
+        return const Color(0xFFFFD600);
+      case SocialPlatform.spotify:
+        return const Color(0xFF1DB954);
+      case SocialPlatform.instagram:
+        return const Color(0xFFE1306C);
+      case SocialPlatform.tiktok:
+        return const Color(0xFF00F2FE);
+      default:
+        return gradientColors.first;
+    }
+  }
+
+  Color get iconColor {
+    switch (this) {
+      case SocialPlatform.snapchat:
+        return const Color(0xFF000000); // Official black ghost on yellow
+      default:
+        return Colors.white;
+    }
+  }
 
   String get handlePrefix {
     switch (this) {

@@ -42,6 +42,8 @@ dependencies:
   image_gallery_saver: ^2.0.3
   image: ^4.1.0 # For Base64 image processing
   video_player: ^2.9.2
+  audioplayers: ^6.0.0
+  record: ^5.1.2
 
   # Location & Offline-First
   geolocator: ^10.1.0
@@ -68,6 +70,7 @@ dev_dependencies:
 dependency_overrides:
   image_gallery_saver:
     path: third_party/image_gallery_saver
+  record_platform_interface: 1.2.0
 
 flutter_launcher_icons:
   android: "launcher_icon"

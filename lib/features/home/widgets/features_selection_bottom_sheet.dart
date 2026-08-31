@@ -103,6 +103,13 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
         gradientColors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
         route: RouteNames.coupleLinks,
       ),
+      _FeatureModalItem(
+        title: 'Voice Messages',
+        subtitle: '10s audio love notes',
+        icon: Icons.mic_rounded,
+        gradientColors: [Color(0xFFFF4D6D), Color(0xFFA18CD1)],
+        route: RouteNames.voiceNotes,
+      ),
     ];
 
     final featureItems = [

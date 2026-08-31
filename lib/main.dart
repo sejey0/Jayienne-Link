@@ -30,6 +30,8 @@ import 'package:jayienne_link/providers/anniversary_provider.dart';
 import 'package:jayienne_link/services/supabase_milestone_service.dart';
 import 'package:jayienne_link/providers/couple_links_provider.dart';
 import 'package:jayienne_link/services/supabase_links_service.dart';
+import 'package:jayienne_link/providers/voice_notes_provider.dart';
+import 'package:jayienne_link/services/supabase_voice_note_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -330,6 +332,26 @@ void main() async {
               userId: user.id,
               partnerId: partnerId,
             );
+            return safeProv;
+          },
+        ),
+        ChangeNotifierProxyProvider2<UserProvider, CoupleProvider,
+            VoiceNotesProvider>(
+          create: (_) => VoiceNotesProvider(
+            service: SupabaseVoiceNoteService(),
+          ),
+          update: (_, userProv, coupleProv, voiceProv) {
+            final user = userProv.user;
+            final coupleId = user?.coupleId;
+
+            final safeProv = voiceProv ??
+                VoiceNotesProvider(service: SupabaseVoiceNoteService());
+
+            if (user == null || coupleId == null) {
+              return safeProv;
+            }
+
+            safeProv.init(coupleId);
             return safeProv;
           },
         ),

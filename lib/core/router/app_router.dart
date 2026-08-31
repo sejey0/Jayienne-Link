@@ -30,6 +30,7 @@ import '../../features/secret_media/screens/secret_media_detail_screen.dart';
 import '../../features/secret_media/screens/hidden_vault_screen.dart';
 import '../../features/anniversary/screens/relationship_timeline_screen.dart';
 import '../../features/links/screens/couple_links_screen.dart';
+import '../../features/voice_notes/screens/voice_notes_screen.dart';
 import '../../features/auth/screens/deactivated_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
@@ -265,6 +266,10 @@ class AppRouter {
         GoRoute(
           path: RouteNames.coupleLinks,
           builder: (context, state) => const CoupleLinksScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.voiceNotes,
+          builder: (context, state) => const VoiceNotesScreen(),
         ),
         GoRoute(
           path: RouteNames.adminDashboard,

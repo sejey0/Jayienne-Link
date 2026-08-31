@@ -43,6 +43,9 @@ class RouteNames {
   // Couple Links & Social Profiles
   static const String coupleLinks = '/couple-links';
 
+  // Voice Notes & Audio Messages
+  static const String voiceNotes = '/voice-notes';
+
   // Admin & Security routes
   static const String adminDashboard = '/admin';
   static const String deactivated = '/deactivated';

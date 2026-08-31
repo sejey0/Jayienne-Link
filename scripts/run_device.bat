@@ -619,7 +619,7 @@ echo   [1] Release Build ^& Run (Quick)
 echo   [2] Clean Release Build ^& Run
 echo   [3] Build APK ^& Open Folder (share manually)
 echo   [4] Full Release (Clean + Build APK + Open Folder + Run)
-echo   [5] 🚀 One-Click Auto Publish to GitHub OTA Release
+echo   [5] One-Click Auto Publish to GitHub OTA Release
 echo   [0] Back to Main Menu
 echo ----------------------------------------
 echo.
@@ -719,14 +719,14 @@ echo [4/5] Building Release APK...
 call flutter build apk --release
 if errorlevel 1 (
     echo.
-    echo [ERROR] Flutter release build failed!
+    echo [ERROR] Flutter release build failed.
     pause
     goto releasemenu
 )
 
 if not exist "build\app\outputs\flutter-apk\app-release.apk" (
     echo.
-    echo [ERROR] APK not found at build\app\outputs\flutter-apk\app-release.apk!
+    echo [ERROR] APK not found at build\app\outputs\flutter-apk\app-release.apk.
     pause
     goto releasemenu
 )
@@ -743,16 +743,27 @@ echo   Publishing Release Asset to GitHub
 echo ====================================================
 echo.
 
+set "GH_BIN="
 where gh >nul 2>&1
 if not errorlevel 1 (
-    echo GitHub CLI (gh) detected! Creating GitHub Release automatically...
-    gh release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --repo "%GH_USER%/%GH_REPO%" --title "Jayienne Link v!NEW_VERSION!" --notes "!REL_NOTES!"
+    set "GH_BIN=gh"
+) else (
+    if exist "%LOCALAPPDATA%\Programs\GitHub CLI\bin\gh.exe" (
+        set "GH_BIN=%LOCALAPPDATA%\Programs\GitHub CLI\bin\gh.exe"
+    ) else if exist "C:\Program Files\GitHub CLI\gh.exe" (
+        set "GH_BIN=C:\Program Files\GitHub CLI\gh.exe"
+    )
+)
+
+if defined GH_BIN (
+    echo GitHub CLI (gh) detected. Creating GitHub Release automatically...
+    "!GH_BIN!" release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --repo "%GH_USER%/%GH_REPO%" --title "Jayienne Link v!NEW_VERSION!" --notes "!REL_NOTES!"
     if not errorlevel 1 (
         echo.
         echo ====================================================
-        echo   [SUCCESS] GitHub OTA Release v!NEW_VERSION! Published!
+        echo   [SUCCESS] GitHub OTA Release v!NEW_VERSION! Published
         echo   Direct APK: https://github.com/%GH_USER%/%GH_REPO%/releases/download/v!NEW_VERSION!/app-release.apk
-        echo   All users opening the app will now be forced to update!
+        echo   All users opening the app will now be forced to update.
         echo ====================================================
     ) else (
         echo.
@@ -770,8 +781,8 @@ if not errorlevel 1 (
     echo Complete release manually:
     echo   1. Set Tag: v!NEW_VERSION!
     echo   2. Title: Jayienne Link v!NEW_VERSION!
-    echo   3. Drag 'app-release.apk' into binaries
-    echo   4. Click 'Publish release'
+    echo   3. Drag app-release.apk into binaries
+    echo   4. Click Publish release
 )
 
 echo.

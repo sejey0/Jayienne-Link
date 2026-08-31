@@ -11,10 +11,9 @@ class SupabaseLinksService {
 
   final SupabaseClient _client = SupabaseDataService.client;
 
-  /// Fetch all social links for a given couple
+  /// Fetch all social links for a given couple.
+  /// Remote is always authoritative — deleted rows will not be restored from cache.
   Future<List<SocialLinkModel>> getCoupleLinks(String coupleId) async {
-    final cachedLinks = await getCachedLinks(coupleId);
-
     try {
       final response = await _client
           .from(_tableName)
@@ -26,34 +25,17 @@ class SupabaseLinksService {
           .map((item) => SocialLinkModel.fromJson(item as Map<String, dynamic>))
           .toList();
 
-      // Merge remote links with any locally added unsynced links
-      final Map<String, SocialLinkModel> mergedMap = {};
-      for (final r in remoteLinks) {
-        mergedMap[r.id] = r;
-      }
-      for (final c in cachedLinks) {
-        if (!mergedMap.containsKey(c.id)) {
-          mergedMap[c.id] = c;
-        }
-      }
-
-      final mergedList = mergedMap.values.toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-      // Persist merged set into local storage
-      await _cacheLocally(coupleId, mergedList);
-      return mergedList;
+      // Remote is authoritative — overwrite local cache completely
+      await _cacheLocally(coupleId, remoteLinks);
+      return remoteLinks;
     } catch (e) {
       debugPrint('[SupabaseLinksService] Remote fetch error ($e), falling back to local cache.');
-      return cachedLinks;
+      return await getCachedLinks(coupleId);
     }
   }
 
   /// Add a new social link
   Future<SocialLinkModel> addLink(SocialLinkModel link) async {
-    // 1. Immediately persist to local cache first so it is never lost
-    await _saveSingleToCache(link.coupleId, link);
-
     try {
       final payload = link.toInsertJson();
       final currentAuthUser = _client.auth.currentUser;
@@ -68,23 +50,18 @@ class SupabaseLinksService {
           .single();
 
       final createdLink = SocialLinkModel.fromJson(response);
-      // Replace temporary id in local cache with the authoritative one from Supabase
-      final cached = await getCachedLinks(link.coupleId);
-      cached.removeWhere((l) => l.id == link.id || l.id == createdLink.id);
-      cached.insert(0, createdLink);
-      await _cacheLocally(link.coupleId, cached);
-
+      // Update local cache with the authoritative server-returned link
+      await _saveSingleToCache(link.coupleId, createdLink);
       return createdLink;
     } catch (e) {
-      debugPrint('[SupabaseLinksService] Remote insert error: $e. Saved safely in local cache.');
+      debugPrint('[SupabaseLinksService] Remote insert error: $e. Storing in local cache as fallback.');
+      await _saveSingleToCache(link.coupleId, link);
       return link;
     }
   }
 
   /// Update an existing social link
   Future<SocialLinkModel> updateLink(SocialLinkModel link) async {
-    await _updateSingleInCache(link.coupleId, link);
-
     try {
       final payload = link.toJson();
       payload['updated_at'] = DateTime.now().toIso8601String();
@@ -101,24 +78,26 @@ class SupabaseLinksService {
       return updated;
     } catch (e) {
       debugPrint('[SupabaseLinksService] Remote update error: $e. Updating local cache.');
+      await _updateSingleInCache(link.coupleId, link);
       return link;
     }
   }
 
-  /// Delete a social link
+  /// Delete a social link — remote first, then remove from local cache
   Future<bool> deleteLink(String linkId, String coupleId) async {
-    await _deleteFromCache(coupleId, linkId);
-
     try {
       await _client
           .from(_tableName)
           .delete()
           .eq('id', linkId);
 
+      await _deleteFromCache(coupleId, linkId);
       return true;
     } catch (e) {
-      debugPrint('[SupabaseLinksService] Remote delete error: $e. Deleted from local cache.');
-      return true;
+      debugPrint('[SupabaseLinksService] Remote delete error: $e.');
+      // Still remove from local cache so UI stays consistent
+      await _deleteFromCache(coupleId, linkId);
+      return false;
     }
   }
 

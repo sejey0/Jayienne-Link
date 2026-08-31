@@ -1,12 +1,22 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/social_link_model.dart';
 import '../services/supabase_links_service.dart';
 
 class CoupleLinksProvider extends ChangeNotifier {
   final SupabaseLinksService _service;
+  RealtimeChannel? _realtimeChannel;
+  bool _disposed = false;
 
   CoupleLinksProvider([SupabaseLinksService? service])
       : _service = service ?? SupabaseLinksService();
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
 
   List<SocialLinkModel> _links = [];
   bool _isLoading = false;
@@ -45,13 +55,51 @@ class CoupleLinksProvider extends ChangeNotifier {
       }
     }
 
+    // Subscribe to live Realtime updates from Supabase
+    if (hasChanged || _realtimeChannel == null) {
+      _setupRealtimeChannel(coupleId);
+    }
+
     if (hasChanged || _links.isEmpty) {
       await refreshLinks();
     }
   }
 
+  void _setupRealtimeChannel(String coupleId) {
+    // Remove any existing channel first
+    if (_realtimeChannel != null) {
+      Supabase.instance.client.removeChannel(_realtimeChannel!);
+      _realtimeChannel = null;
+    }
+
+    _realtimeChannel = Supabase.instance.client
+        .channel('couple_links:$coupleId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'couple_links',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'couple_id',
+            value: coupleId,
+          ),
+          callback: (payload) {
+            debugPrint('[CoupleLinksProvider] Realtime change: ${payload.eventType}');
+            // Re-fetch from Supabase to get authoritative sorted list
+            refreshLinks();
+          },
+        )
+        .subscribe((status, [error]) {
+          debugPrint('[CoupleLinksProvider] Channel status: $status ${error ?? ''}');
+        });
+  }
+
   /// Reset / clear state on sign out
   void clear() {
+    if (_realtimeChannel != null) {
+      Supabase.instance.client.removeChannel(_realtimeChannel!);
+      _realtimeChannel = null;
+    }
     _links = [];
     _isLoading = false;
     _isSaving = false;
@@ -60,6 +108,16 @@ class CoupleLinksProvider extends ChangeNotifier {
     _userId = null;
     _partnerId = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    if (_realtimeChannel != null) {
+      Supabase.instance.client.removeChannel(_realtimeChannel!);
+      _realtimeChannel = null;
+    }
+    super.dispose();
   }
 
   /// Fetch all links from service

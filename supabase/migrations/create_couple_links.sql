@@ -85,3 +85,17 @@ USING (
         WHERE auth.uid() = ANY(partner_ids)
     )
 );
+
+-- =============================================================================
+-- 5. ENABLE SUPABASE REALTIME REPLICATION
+-- =============================================================================
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'couple_links'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.couple_links;
+    END IF;
+END $$;
+

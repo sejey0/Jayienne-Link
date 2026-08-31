@@ -160,8 +160,8 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
                 ),
               ),
 
-              // 2. Horizontal Platform Chips Filter
-              _buildPlatformFilterRow(isDark),
+              // 2. Horizontal Platform Chips Filter (only platforms with content)
+              _buildPlatformFilterRow(isDark, tabFilteredLinks),
 
               const SizedBox(height: 8),
 
@@ -300,7 +300,26 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
     );
   }
 
-  Widget _buildPlatformFilterRow(bool isDark) {
+  Widget _buildPlatformFilterRow(bool isDark, List<SocialLinkModel> currentLinks) {
+    final availablePlatforms = <SocialPlatform>{};
+    for (final link in currentLinks) {
+      availablePlatforms.add(link.socialPlatform);
+    }
+
+    if (availablePlatforms.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (_selectedPlatformFilter != null && !availablePlatforms.contains(_selectedPlatformFilter)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedPlatformFilter != null && !availablePlatforms.contains(_selectedPlatformFilter)) {
+          setState(() => _selectedPlatformFilter = null);
+        }
+      });
+    }
+
+    final sortedPlatforms = SocialPlatform.values.where((p) => availablePlatforms.contains(p)).toList();
+
     return SizedBox(
       height: 48,
       child: ListView(
@@ -308,7 +327,7 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         children: [
           _buildPlatformChip(
-            label: 'All Platforms',
+            label: 'All (${currentLinks.length})',
             icon: Icons.apps_rounded,
             isSelected: _selectedPlatformFilter == null,
             onTap: () {
@@ -317,12 +336,13 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
             },
             isDark: isDark,
           ),
-          ...SocialPlatform.values.map((platform) {
+          ...sortedPlatforms.map((platform) {
+            final count = currentLinks.where((l) => l.socialPlatform == platform).length;
             final isSelected = _selectedPlatformFilter == platform;
             return Padding(
               padding: const EdgeInsets.only(left: 8),
               child: _buildPlatformChip(
-                label: platform.displayName,
+                label: '${platform.displayName} ($count)',
                 icon: platform.icon,
                 isSelected: isSelected,
                 color: platform.primaryColor,
@@ -419,236 +439,289 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
     final creatorPhotoUrl = isMine ? currentUser?.photoUrl : (link.userPhotoUrl ?? partner?.photoUrl);
     final creatorName = isMine ? 'You' : (link.userDisplayName ?? (partnerName.isNotEmpty ? partnerName : 'Partner'));
     final platform = link.socialPlatform;
+    final accentColor = isMine ? AppColors.softRose : AppColors.lavender;
 
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E162A) : Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isMine
-              ? AppColors.softRose.withValues(alpha: 0.25)
-              : AppColors.lavender.withValues(alpha: 0.25),
-          width: 1.2,
+          color: accentColor.withValues(alpha: 0.2),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: (isMine ? AppColors.softRose : AppColors.lavender).withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+            color: accentColor.withValues(alpha: 0.07),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
-          borderRadius: BorderRadius.circular(22),
-          onTap: () => UrlLauncherHelper.launchLink(context, link.url),
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => _showLinkDetails(
+            context: context,
+            link: link,
+            isMine: isMine,
+            creatorName: creatorName,
+            creatorPhotoUrl: creatorPhotoUrl,
+            isDark: isDark,
+            linksProvider: linksProvider,
+          ),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Row: Platform Icon + Title/Handle + Actions
+                // ── Top Row: Platform Icon + Title/Handle + 3-Dots ──
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Glowing Branded Platform Emblem
                     PlatformBrandIcon(
                       platform: platform,
-                      size: 48,
-                      borderRadius: 16,
+                      size: 42,
+                      borderRadius: 12,
                     ),
-
-                    const SizedBox(width: 14),
-
-                    // Title & Handle
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             link.displayTitle,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.5,
+                              color: isDark ? Colors.white : AppColors.deepCharcoal,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 3),
-                          // Username / Handle Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.08)
-                                  : Colors.grey.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              link.displayHandle,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white70 : AppColors.deepCharcoal,
+                          Row(
+                            children: [
+                              // Platform Name Badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: platform.primaryColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: platform.primaryColor.withValues(alpha: 0.35),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Text(
+                                  platform.displayName,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: platform.primaryColor,
+                                  ),
+                                ),
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  link.displayHandle,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-
-                    // 3-Dots Menu (for Owner)
                     if (isMine)
-                      PopupMenuButton<String>(
-                        padding: EdgeInsets.zero,
-                        icon: Icon(
-                          Icons.more_vert_rounded,
-                          size: 20,
-                          color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      SizedBox(
+                        width: 26,
+                        height: 26,
+                        child: PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          icon: Icon(
+                            Icons.more_vert_rounded,
+                            size: 18,
+                            color: isDark ? Colors.white38 : Colors.grey.shade400,
+                          ),
+                          onSelected: (action) {
+                            if (action == 'edit') {
+                              AddEditLinkSheet.show(context, initialLink: link);
+                            } else if (action == 'delete') {
+                              _confirmDelete(context, link, linksProvider);
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit_rounded, size: 17, color: AppColors.softRose),
+                                  SizedBox(width: 10),
+                                  Text('Edit'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline_rounded, size: 17, color: Colors.red),
+                                  SizedBox(width: 10),
+                                  Text('Delete', style: TextStyle(color: Colors.red)),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        onSelected: (action) {
-                          if (action == 'edit') {
-                            AddEditLinkSheet.show(context, initialLink: link);
-                          } else if (action == 'delete') {
-                            _confirmDelete(context, link, linksProvider);
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit_rounded, size: 18, color: AppColors.softRose),
-                                SizedBox(width: 10),
-                                Text('Edit Link'),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
-                                SizedBox(width: 10),
-                                Text('Delete', style: TextStyle(color: Colors.red)),
-                              ],
-                            ),
-                          ),
-                        ],
                       ),
                   ],
                 ),
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
-                // Bottom Action & Attribution Row
+                // ── Bottom Row: Creator Badge + Action Buttons ───────
                 Row(
                   children: [
-                    // Shared By Owner Profile with Avatar
+                    // Creator Mini Badge
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      width: 18,
+                      height: 18,
                       decoration: BoxDecoration(
-                        color: isMine
-                            ? AppColors.softRose.withValues(alpha: 0.12)
-                            : AppColors.lavender.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: (isMine ? AppColors.softRose : AppColors.lavender).withValues(alpha: 0.25),
-                          width: 1,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: accentColor, width: 1.2),
+                      ),
+                      child: ClipOval(
+                        child: SmartProfileImage(
+                          imageUrl: creatorPhotoUrl,
+                          width: 18,
+                          height: 18,
+                          placeholder: Container(
+                            color: accentColor.withValues(alpha: 0.2),
+                            child: Icon(Icons.person, color: accentColor, size: 10),
+                          ),
+                          errorWidget: Container(
+                            color: accentColor.withValues(alpha: 0.2),
+                            child: Icon(Icons.person, color: accentColor, size: 10),
+                          ),
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isMine ? AppColors.softRose : AppColors.lavender,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: ClipOval(
-                              child: SmartProfileImage(
-                                imageUrl: creatorPhotoUrl,
-                                width: 20,
-                                height: 20,
-                                placeholder: Container(
-                                  color: (isMine ? AppColors.softRose : AppColors.lavender).withValues(alpha: 0.2),
-                                  child: Icon(
-                                    Icons.person,
-                                    color: isMine ? AppColors.softRose : AppColors.lavender,
-                                    size: 11,
-                                  ),
-                                ),
-                                errorWidget: Container(
-                                  color: (isMine ? AppColors.softRose : AppColors.lavender).withValues(alpha: 0.2),
-                                  child: Icon(
-                                    Icons.person,
-                                    color: isMine ? AppColors.softRose : AppColors.lavender,
-                                    size: 11,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            creatorName,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: isMine ? AppColors.softRose : AppColors.lavender,
-                            ),
-                          ),
-                        ],
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      creatorName,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: accentColor,
                       ),
                     ),
 
                     const Spacer(),
 
-                    // Copy Link Button
-                    IconButton(
-                      tooltip: 'Copy link',
-                      icon: Icon(
-                        Icons.copy_rounded,
-                        size: 18,
-                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    // Details Button
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _showLinkDetails(
+                        context: context,
+                        link: link,
+                        isMine: isMine,
+                        creatorName: creatorName,
+                        creatorPhotoUrl: creatorPhotoUrl,
+                        isDark: isDark,
+                        linksProvider: linksProvider,
                       ),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => UrlLauncherHelper.copyToClipboard(
-                        context,
-                        link.url,
-                        label: link.displayTitle,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : accentColor.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: accentColor.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 13,
+                              color: accentColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Details',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: accentColor,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
 
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
 
-                    // Tap to Open Profile Button
-                    ElevatedButton.icon(
-                      onPressed: () => UrlLauncherHelper.launchLink(context, link.url),
-                      icon: const Icon(Icons.open_in_new_rounded, size: 14, color: Colors.white),
-                      label: Text(
-                        platform == SocialPlatform.website ? 'Visit Site' : 'Open Profile',
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
+                    // Open Site Button
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: platform.gradientColors.length >= 2
+                              ? platform.gradientColors
+                              : [accentColor, AppColors.lavender],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: platform.primaryColor.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          UrlLauncherHelper.launchLink(context, link.url);
+                        },
+                        icon: const Icon(
+                          Icons.open_in_new_rounded,
+                          size: 13,
                           color: Colors.white,
                         ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: platform.primaryColor,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        label: const Text(
+                          'Open Site',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: 11.5,
+                          ),
                         ),
-                        elevation: 0,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 7),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          minimumSize: Size.zero,
+                        ),
                       ),
                     ),
                   ],
@@ -658,6 +731,340 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showLinkDetails({
+    required BuildContext context,
+    required SocialLinkModel link,
+    required bool isMine,
+    required String creatorName,
+    required String? creatorPhotoUrl,
+    required bool isDark,
+    required CoupleLinksProvider linksProvider,
+  }) {
+    final platform = link.socialPlatform;
+    final accentColor = isMine ? AppColors.softRose : AppColors.lavender;
+    HapticFeedback.lightImpact();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final sheetDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Container(
+          decoration: BoxDecoration(
+            color: sheetDark ? const Color(0xFF1A1225) : AppColors.warmWhite,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            boxShadow: [
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.15),
+                blurRadius: 30,
+                offset: const Offset(0, -8),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [accentColor, AppColors.lavender],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Platform header
+                  Row(
+                    children: [
+                      PlatformBrandIcon(
+                        platform: platform,
+                        size: 54,
+                        borderRadius: 16,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              link.displayTitle,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: sheetDark ? Colors.white : AppColors.deepCharcoal,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: platform.primaryColor.withValues(alpha: sheetDark ? 0.2 : 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: platform.primaryColor.withValues(alpha: 0.35),
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    platform.displayName,
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: platform.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    link.displayHandle,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: platform.primaryColor,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Full URL row with Copy Button
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+                    decoration: BoxDecoration(
+                      color: sheetDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : accentColor.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: accentColor.withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.link_rounded, size: 18, color: accentColor),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: SelectableText(
+                            link.url,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: sheetDark ? Colors.white70 : Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: 'Copy Link',
+                          icon: Icon(
+                            Icons.copy_rounded,
+                            size: 17,
+                            color: accentColor,
+                          ),
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            UrlLauncherHelper.copyToClipboard(
+                              context,
+                              link.url,
+                              label: link.displayTitle,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Added by + date row
+                  Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: accentColor, width: 1.5),
+                        ),
+                        child: ClipOval(
+                          child: SmartProfileImage(
+                            imageUrl: creatorPhotoUrl,
+                            width: 28,
+                            height: 28,
+                            placeholder: Container(
+                              color: accentColor.withValues(alpha: 0.2),
+                              child: Icon(Icons.person, color: accentColor, size: 14),
+                            ),
+                            errorWidget: Container(
+                              color: accentColor.withValues(alpha: 0.2),
+                              child: Icon(Icons.person, color: accentColor, size: 14),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: sheetDark ? Colors.white54 : Colors.grey.shade500,
+                            ),
+                            children: [
+                              const TextSpan(
+                                text: 'Added by ',
+                              ),
+                              TextSpan(
+                                text: creatorName,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: accentColor,
+                                ),
+                              ),
+                              TextSpan(
+                                text:
+                                    '  ·  ${link.createdAt.toLocal().toString().substring(0, 10)}',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Open Site Button inside details
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: platform.gradientColors.length >= 2
+                            ? platform.gradientColors
+                            : [accentColor, AppColors.lavender],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: platform.primaryColor.withValues(alpha: 0.35),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        UrlLauncherHelper.launchLink(context, link.url);
+                      },
+                      icon: const Icon(
+                        Icons.open_in_new_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Open Site',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (isMine) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              AddEditLinkSheet.show(context, initialLink: link);
+                            },
+                            icon: const Icon(Icons.edit_rounded, size: 15),
+                            label: const Text(
+                              'Edit',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.softRose,
+                              side: const BorderSide(color: AppColors.softRose),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              _confirmDelete(context, link, linksProvider);
+                            },
+                            icon: const Icon(Icons.delete_outline_rounded, size: 15),
+                            label: const Text(
+                              'Delete',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(
+                                  color: Colors.red, width: 1),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

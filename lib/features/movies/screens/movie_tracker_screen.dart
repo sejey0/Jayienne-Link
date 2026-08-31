@@ -1093,18 +1093,18 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Movie Poster
               MoviePosterWidget(
                 posterUrl: movie.posterUrl,
-                width: 68,
-                height: 96,
-                borderRadius: BorderRadius.circular(12),
+                width: 62,
+                height: 86,
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
 
               // Details & Actions
               Expanded(
@@ -1114,14 +1114,14 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                   children: [
                     // Title & Year with 3-Dots Menu Row
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
                           child: Text.rich(
                             TextSpan(
                               text: movie.title,
                               style: TextStyle(
-                                fontSize: 15,
+                                fontSize: 14.5,
                                 fontWeight: FontWeight.bold,
                                 color: isDark ? Colors.white : const Color(0xFF2D4059),
                               ),
@@ -1130,77 +1130,82 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                   TextSpan(
                                     text: ' (${movie.year})',
                                     style: TextStyle(
-                                      fontSize: 12.5,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       color: isDark ? Colors.white54 : Colors.grey.shade600,
                                     ),
                                   ),
                               ],
                             ),
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        PopupMenuButton<String>(
-                          padding: EdgeInsets.zero,
-                          icon: Icon(
-                            Icons.more_vert_rounded,
-                            size: 18,
-                            color: isDark ? Colors.white54 : Colors.grey.shade500,
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: PopupMenuButton<String>(
+                            padding: EdgeInsets.zero,
+                            iconSize: 18,
+                            icon: Icon(
+                              Icons.more_vert_rounded,
+                              size: 18,
+                              color: isDark ? Colors.white54 : Colors.grey.shade500,
+                            ),
+                            onSelected: (val) {
+                              if (val == 'edit') {
+                                _openEditMovieDetails(movie);
+                              } else if (val == 'delete') {
+                                _confirmDeleteMovie(movie);
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.edit_rounded,
+                                      color: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text('Edit Movie Details'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Remove Movie', style: TextStyle(color: AppColors.error)),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          onSelected: (val) {
-                            if (val == 'edit') {
-                              _openEditMovieDetails(movie);
-                            } else if (val == 'delete') {
-                              _confirmDeleteMovie(movie);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.edit_rounded,
-                                    color: isDark ? Colors.white70 : const Color(0xFF2D4059),
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text('Edit Movie Details'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Remove Movie', style: TextStyle(color: AppColors.error)),
-                                ],
-                              ),
-                            ),
-                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 3),
 
                     // Badges (Media Type, Rewatch)
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                           decoration: BoxDecoration(
                             color: movie.isSeries
                                 ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
                                 : const Color(0xFFFF758C).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
                             movie.isSeries ? 'Series' : 'Movie',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 9.5,
                               fontWeight: FontWeight.bold,
                               color: movie.isSeries
                                   ? const Color(0xFFA18CD1)
@@ -1209,19 +1214,19 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                           ),
                         ),
                         if (movie.isRewatch) ...[
-                          const SizedBox(width: 5),
+                          const SizedBox(width: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFFFF9A8B), Color(0xFFFF6A88)],
                               ),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
                               movie.rewatchBadgeLabel,
                               style: const TextStyle(
-                                fontSize: 10,
+                                fontSize: 9.5,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -1230,20 +1235,20 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         ],
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
 
                     // Actions Row: "Mark Watched" (opens rating modal) & "Details"
                     Row(
                       children: [
                         Expanded(
                           child: SizedBox(
-                            height: 32,
+                            height: 30,
                             child: ElevatedButton.icon(
                               onPressed: () => _openRateMovieModal(movie),
-                              icon: const Icon(Icons.check_circle_rounded, size: 14),
+                              icon: const Icon(Icons.check_circle_rounded, size: 13),
                               label: const Text(
                                 'Mark Watched',
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1251,7 +1256,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 foregroundColor: Colors.white,
                                 backgroundColor: const Color(0xFFFF758C),
                                 elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -1261,13 +1266,13 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         ),
                         const SizedBox(width: 6),
                         SizedBox(
-                          height: 32,
+                          height: 30,
                           child: OutlinedButton.icon(
                             onPressed: () => _openMovieDetailsModal(movie),
-                            icon: const Icon(Icons.info_outline_rounded, size: 13),
+                            icon: const Icon(Icons.info_outline_rounded, size: 12),
                             label: const Text(
                               'Details',
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: isDark ? Colors.white70 : const Color(0xFF2D4059),
@@ -1355,12 +1360,12 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
 
     return InkWell(
       onTap: () => _openMovieDetailsModal(movie),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E162B) : Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.08)
@@ -1371,13 +1376,13 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
               color: isDark
                   ? Colors.black.withValues(alpha: 0.25)
                   : const Color(0xFFA18CD1).withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 3),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -1386,29 +1391,29 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                 children: [
                   MoviePosterWidget(
                     posterUrl: movie.posterUrl,
-                    width: 68,
-                    height: 96,
-                    borderRadius: BorderRadius.circular(12),
+                    width: 62,
+                    height: 86,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   if (calculatedAvg != null)
                     Positioned(
-                      top: 4,
-                      left: 4,
+                      top: 3,
+                      left: 3,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.75),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(5),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.star_rounded, size: 11, color: Color(0xFFFFB74D)),
-                            const SizedBox(width: 2),
+                            const Icon(Icons.star_rounded, size: 10, color: Color(0xFFFFB74D)),
+                            const SizedBox(width: 1.5),
                             Text(
                               calculatedAvg.toStringAsFixed(1),
                               style: const TextStyle(
-                                fontSize: 9.5,
+                                fontSize: 9,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -1419,7 +1424,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ),
                 ],
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
 
               // Details & Actions
               Expanded(
@@ -1429,14 +1434,14 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                   children: [
                     // Title & Year with 3-Dots Menu Row
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
                           child: Text.rich(
                             TextSpan(
                               text: movie.title,
                               style: TextStyle(
-                                fontSize: 15,
+                                fontSize: 14.5,
                                 fontWeight: FontWeight.bold,
                                 color: isDark ? Colors.white : const Color(0xFF2D4059),
                               ),
@@ -1445,77 +1450,82 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                   TextSpan(
                                     text: ' (${movie.year})',
                                     style: TextStyle(
-                                      fontSize: 12.5,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       color: isDark ? Colors.white54 : Colors.grey.shade600,
                                     ),
                                   ),
                               ],
                             ),
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        PopupMenuButton<String>(
-                          padding: EdgeInsets.zero,
-                          icon: Icon(
-                            Icons.more_vert_rounded,
-                            size: 18,
-                            color: isDark ? Colors.white54 : Colors.grey.shade500,
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: PopupMenuButton<String>(
+                            padding: EdgeInsets.zero,
+                            iconSize: 18,
+                            icon: Icon(
+                              Icons.more_vert_rounded,
+                              size: 18,
+                              color: isDark ? Colors.white54 : Colors.grey.shade500,
+                            ),
+                            onSelected: (val) {
+                              if (val == 'edit') {
+                                _openEditMovieDetails(movie);
+                              } else if (val == 'delete') {
+                                _confirmDeleteMovie(movie);
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.edit_rounded,
+                                      color: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text('Edit Movie Details'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Remove Movie', style: TextStyle(color: AppColors.error)),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          onSelected: (val) {
-                            if (val == 'edit') {
-                              _openEditMovieDetails(movie);
-                            } else if (val == 'delete') {
-                              _confirmDeleteMovie(movie);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.edit_rounded,
-                                    color: isDark ? Colors.white70 : const Color(0xFF2D4059),
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text('Edit Movie Details'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Remove Movie', style: TextStyle(color: AppColors.error)),
-                                ],
-                              ),
-                            ),
-                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
 
                     // Badges Row (Media Type, Watches)
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                           decoration: BoxDecoration(
                             color: movie.isSeries
                                 ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
                                 : const Color(0xFFFF758C).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
                             movie.isSeries ? 'Series' : 'Movie',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 9.5,
                               fontWeight: FontWeight.bold,
                               color: movie.isSeries
                                   ? const Color(0xFFA18CD1)
@@ -1524,17 +1534,17 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                           ),
                         ),
                         if (movie.watchCount > 1) ...[
-                          const SizedBox(width: 5),
+                          const SizedBox(width: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
                               '${movie.watchCount}x',
                               style: const TextStyle(
-                                fontSize: 10,
+                                fontSize: 9.5,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFFFF758C),
                               ),
@@ -1587,23 +1597,23 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
 
                     // Actions Row: "Rate / Review" & "Details"
                     Row(
                       children: [
                         Expanded(
                           child: SizedBox(
-                            height: 32,
+                            height: 30,
                             child: ElevatedButton.icon(
                               onPressed: () => _openRateMovieModal(movie),
                               icon: Icon(
                                 myRating != null ? Icons.edit_rounded : Icons.star_rounded,
-                                size: 14,
+                                size: 13,
                               ),
                               label: Text(
                                 myRating != null ? 'Edit Review' : 'Rate Movie',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1611,7 +1621,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 foregroundColor: Colors.white,
                                 backgroundColor: const Color(0xFFFF758C),
                                 elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -1621,13 +1631,13 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         ),
                         const SizedBox(width: 6),
                         SizedBox(
-                          height: 32,
+                          height: 30,
                           child: OutlinedButton.icon(
                             onPressed: () => _openMovieDetailsModal(movie),
-                            icon: const Icon(Icons.info_outline_rounded, size: 13),
+                            icon: const Icon(Icons.info_outline_rounded, size: 12),
                             label: const Text(
                               'Details',
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: isDark ? Colors.white70 : const Color(0xFF2D4059),

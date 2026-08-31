@@ -293,23 +293,26 @@ class _PhotosScreenState extends State<PhotosScreen> {
                     ),
                   ),
                 ),
-                AnimatedPadding(
-                  duration: const Duration(milliseconds: 150),
-                  curve: Curves.easeOut,
-                  padding: EdgeInsets.fromLTRB(
-                    AppDimensions.spacingLg,
-                    AppDimensions.spacingSm,
-                    AppDimensions.spacingLg,
-                    isKeyboardOpen
-                        ? AppDimensions.spacingXs
-                        : AppDimensions.spacingLg,
-                  ),
-                  child: _buildComposer(
-                    context,
-                    photoProvider: photoProvider,
-                    onPickGallery: () => _pickImage(ImageSource.gallery),
-                    onPickCamera: () => _pickImage(ImageSource.camera),
-                    onSend: () => _sendPhoto(photoProvider),
+                SafeArea(
+                  top: false,
+                  child: AnimatedPadding(
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeOut,
+                    padding: EdgeInsets.fromLTRB(
+                      AppDimensions.spacingLg,
+                      AppDimensions.spacingSm,
+                      AppDimensions.spacingLg,
+                      isKeyboardOpen
+                          ? AppDimensions.spacingXs
+                          : AppDimensions.spacingLg,
+                    ),
+                    child: _buildComposer(
+                      context,
+                      photoProvider: photoProvider,
+                      onPickGallery: () => _pickImage(ImageSource.gallery),
+                      onPickCamera: () => _pickImage(ImageSource.camera),
+                      onSend: () => _sendPhoto(photoProvider),
+                    ),
                   ),
                 ),
               ],
@@ -1265,6 +1268,27 @@ class _PhotosScreenState extends State<PhotosScreen> {
                   child: _buildFullPhotoImage(message.imageUrl),
                 ),
               ),
+              if (message.caption != null && message.caption!.trim().isNotEmpty)
+                SafeArea(
+                  top: false,
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      margin: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Text(
+                        message.caption!.trim(),
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
               SafeArea(
                 child: Align(
                   alignment: Alignment.topRight,

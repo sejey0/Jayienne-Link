@@ -137,8 +137,8 @@ class _RelationshipTimelineScreenState
                     );
                   },
                 ),
-              const SizedBox(height: 80), // Padding for FAB
-            ],
+                SizedBox(height: MediaQuery.of(context).padding.bottom + 80), // Padding for FAB
+              ],
           ),
         ),
       ),

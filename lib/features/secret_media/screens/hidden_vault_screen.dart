@@ -786,7 +786,12 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                                   physics: const AlwaysScrollableScrollPhysics(
                                     parent: BouncingScrollPhysics(),
                                   ),
-                                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 24),
+                                  padding: EdgeInsets.fromLTRB(
+                                    14,
+                                    6,
+                                    14,
+                                    MediaQuery.of(context).padding.bottom + 24,
+                                  ),
                                   gridDelegate:
                                       const SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: 2,

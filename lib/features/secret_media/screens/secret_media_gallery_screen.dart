@@ -322,7 +322,12 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                         )
                       : GridView.builder(
                           physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.all(12),
+                          padding: EdgeInsets.fromLTRB(
+                            12,
+                            12,
+                            12,
+                            MediaQuery.of(context).padding.bottom + 80,
+                          ),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 3,

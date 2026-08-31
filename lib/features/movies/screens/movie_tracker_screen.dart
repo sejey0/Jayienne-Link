@@ -22,6 +22,8 @@ import '../../../widgets/common/app_text_field.dart';
 /// Features a decluttered card layout, single "View Details & Ratings" action,
 /// simplified 2-option 3-dots menu ("Edit Movie Details" and "Remove Movie"),
 /// Manual Header Refresh button, Pull-to-Refresh on tabs, and Instant UI Auto-Sync.
+enum MovieRatingFilter { all, unrated, rated }
+
 class MovieTrackerScreen extends StatefulWidget {
   const MovieTrackerScreen({super.key});
 
@@ -45,6 +47,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   List<MovieRatingModel> _allRatings = [];
   bool _isLoading = true;
   String? _errorMessage;
+  MovieRatingFilter _ratingFilter = MovieRatingFilter.all;
 
   @override
   void initState() {
@@ -185,13 +188,35 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     }).toList();
   }
 
+  bool _isMovieUnrated(MovieModel movie, String currentUserId) {
+    final myRating = movie.getRatingForUser(currentUserId);
+    final partnerRating = movie.getPartnerRating(currentUserId);
+    final hasMyScore = myRating != null && myRating.rating > 0;
+    final hasPartnerScore = partnerRating != null && partnerRating.rating > 0;
+    final hasMyReview = myRating?.notes != null && myRating!.notes!.trim().isNotEmpty;
+    final hasPartnerReview = partnerRating?.notes != null && partnerRating!.notes!.trim().isNotEmpty;
+    final hasFallbackRating = movie.rating != null && movie.rating! > 0;
+
+    return !hasMyScore && !hasPartnerScore && !hasMyReview && !hasPartnerReview && !hasFallbackRating;
+  }
+
   List<MovieModel> get _watchedMovies {
+    final currentUserId = _getCurrentUserId(context);
     return _moviesWithRatings.where((m) {
       final matchesStatus = m.status == 'watched';
-      if (_searchQuery.isEmpty) return matchesStatus;
+      if (!matchesStatus) return false;
+
+      if (_ratingFilter == MovieRatingFilter.unrated && !_isMovieUnrated(m, currentUserId)) {
+        return false;
+      }
+      if (_ratingFilter == MovieRatingFilter.rated && _isMovieUnrated(m, currentUserId)) {
+        return false;
+      }
+
+      if (_searchQuery.isEmpty) return true;
       final matchesSearch = m.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           (m.notes?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
-      return matchesStatus && matchesSearch;
+      return matchesSearch;
     }).toList();
   }
 
@@ -1439,41 +1464,177 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final list = _watchedMovies;
 
     if (list.isEmpty) {
-      return RefreshIndicator(
-        color: const Color(0xFFFF758C),
-        onRefresh: () => _refreshMovies(),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.45,
-            child: _buildEmptyState(
-              isDark: isDark,
-              icon: Icons.local_movies_outlined,
-              title: _searchQuery.isNotEmpty
-                  ? 'No matching watched movies'
-                  : 'No Watched Movies Yet',
-              subtitle: _searchQuery.isNotEmpty
-                  ? 'Try another movie title or keyword'
-                  : 'Record your first movie date with $partnerName and rate your favorites together.',
-              buttonText: 'Log Watched Movie',
-              onButtonTap: _openAddMovieModal,
+      String emptyTitle = 'No Watched Movies Yet';
+      String emptySubtitle = 'Record your first movie date with $partnerName and rate your favorites together.';
+      if (_searchQuery.isNotEmpty) {
+        emptyTitle = 'No matching watched movies';
+        emptySubtitle = 'Try another movie title or keyword';
+      } else if (_ratingFilter == MovieRatingFilter.unrated) {
+        emptyTitle = 'No Unrated Movies';
+        emptySubtitle = 'All watched movies have been rated and reviewed!';
+      } else if (_ratingFilter == MovieRatingFilter.rated) {
+        emptyTitle = 'No Rated Movies Yet';
+        emptySubtitle = 'Rate and review your watched movies to see them here.';
+      }
+
+      return Column(
+        children: [
+          _buildFilterChips(isDark, currentUserId),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _buildEmptyState(
+                  isDark: isDark,
+                  icon: _ratingFilter == MovieRatingFilter.unrated
+                      ? Icons.rate_review_outlined
+                      : Icons.local_movies_outlined,
+                  title: emptyTitle,
+                  subtitle: emptySubtitle,
+                  buttonText: 'Log Watched Movie',
+                  onButtonTap: _openAddMovieModal,
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       );
     }
 
-    return RefreshIndicator(
-      color: const Color(0xFFFF758C),
-      onRefresh: () => _refreshMovies(),
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
-        itemCount: list.length,
-        itemBuilder: (context, index) {
-          final movie = list[index];
-          return _buildWatchedCard(movie, isDark, partnerName, currentUserId);
-        },
+    return Column(
+      children: [
+        _buildFilterChips(isDark, currentUserId),
+        Expanded(
+          child: RefreshIndicator(
+            color: const Color(0xFFFF758C),
+            onRefresh: () => _refreshMovies(),
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 96),
+              itemCount: list.length,
+              itemBuilder: (context, index) {
+                final movie = list[index];
+                return _buildWatchedCard(movie, isDark, partnerName, currentUserId);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterChips(bool isDark, String currentUserId) {
+    final rawWatched = _moviesWithRatings.where((m) => m.status == 'watched').toList();
+    final unratedCount = rawWatched.where((m) => _isMovieUnrated(m, currentUserId)).length;
+    final ratedCount = rawWatched.where((m) => !_isMovieUnrated(m, currentUserId)).length;
+
+    final filterItems = [
+      (MovieRatingFilter.all, 'All', rawWatched.length, Icons.apps_rounded),
+      (MovieRatingFilter.unrated, 'Not Rated Yet', unratedCount, Icons.star_border_rounded),
+      (MovieRatingFilter.rated, 'Rated', ratedCount, Icons.star_rounded),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: filterItems.map((item) {
+            final filter = item.$1;
+            final label = item.$2;
+            final count = item.$3;
+            final icon = item.$4;
+            final isSelected = _ratingFilter == filter;
+
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _ratingFilter = filter;
+                  });
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5.5),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFFFF758C)
+                        : (isDark
+                            ? const Color(0xFF1E162B)
+                            : Colors.white),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xFFFF758C)
+                          : (isDark
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : const Color(0xFFFF758C).withValues(alpha: 0.22)),
+                      width: 1.1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isSelected
+                            ? const Color(0xFFFF758C).withValues(alpha: 0.35)
+                            : Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 13.5,
+                        color: isSelected
+                            ? Colors.white
+                            : (isDark ? const Color(0xFFA18CD1) : const Color(0xFFFF758C)),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark ? Colors.white : AppColors.deepCharcoal),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.white.withValues(alpha: 0.28)
+                              : (isDark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : const Color(0xFFFF758C).withValues(alpha: 0.12)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark ? Colors.white70 : const Color(0xFFFF758C)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -1673,18 +1834,27 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 size: 14,
                               ),
                               const SizedBox(width: 4),
-                              Text(
-                                myRating != null && myRating.rating > 0
-                                    ? '❤️ ${myRating.rating}'
-                                    : 'Pending',
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: myRating != null && myRating.rating > 0
-                                      ? const Color(0xFFFF758C)
-                                      : (isDark ? Colors.white54 : Colors.grey.shade600),
+                              if (myRating != null && myRating.rating > 0) ...[
+                                const Icon(Icons.favorite_rounded, size: 10, color: Color(0xFFFF758C)),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '${myRating.rating}',
+                                  style: const TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFFF758C),
+                                  ),
                                 ),
-                              ),
+                              ] else ...[
+                                Text(
+                                  'Pending',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
                               if (hasMyReview) ...[
                                 const SizedBox(width: 4),
                                 Expanded(
@@ -1714,18 +1884,27 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 size: 14,
                               ),
                               const SizedBox(width: 4),
-                              Text(
-                                partnerRating != null && partnerRating.rating > 0
-                                    ? '❤️ ${partnerRating.rating}'
-                                    : 'Pending',
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: partnerRating != null && partnerRating.rating > 0
-                                      ? const Color(0xFFA18CD1)
-                                      : (isDark ? Colors.white54 : Colors.grey.shade600),
+                              if (partnerRating != null && partnerRating.rating > 0) ...[
+                                const Icon(Icons.favorite_rounded, size: 10, color: Color(0xFFA18CD1)),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '${partnerRating.rating}',
+                                  style: const TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFA18CD1),
+                                  ),
                                 ),
-                              ),
+                              ] else ...[
+                                Text(
+                                  'Pending',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
                               if (hasPartnerReview) ...[
                                 const SizedBox(width: 4),
                                 Expanded(

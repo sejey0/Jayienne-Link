@@ -80,8 +80,14 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
 
   @override
   void dispose() {
-    // Restore system UI when leaving this screen
+    // Restore system UI and device orientations when leaving this screen
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _pageController.dispose();
     _captionController.dispose();
     _captionFocusNode.dispose();
@@ -91,6 +97,10 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   void _enterFullScreen() {
     HapticFeedback.mediumImpact();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     setState(() {
       _isFullScreen = true;
       _showOverlays = true;
@@ -100,6 +110,12 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   void _exitFullScreen() {
     HapticFeedback.lightImpact();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     setState(() {
       _isFullScreen = false;
       _showOverlays = true;
@@ -107,14 +123,9 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   }
 
   void _onPageChanged(int index) {
-    // Exit fullscreen when swiping to a different item
-    if (_isFullScreen) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
     setState(() {
       _currentIndex = index;
       _isEditingCaption = false;
-      _isFullScreen = false;
       _captionController.text = _currentMedia.caption ?? '';
     });
   }
@@ -412,11 +423,15 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
     final currentUser = userProvider.user;
     final partner = coupleProvider.partner;
 
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    final isEffectiveFullScreen = _isFullScreen || isLandscape;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (_isFullScreen) {
+        if (isEffectiveFullScreen) {
           _exitFullScreen();
           return;
         }
@@ -444,7 +459,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                     media: item,
                     isActivePage: isActivePage,
                     isRevealed: isRevealed,
-                    isFullScreen: _isFullScreen,
+                    isFullScreen: isEffectiveFullScreen,
                     showOverlays: _showOverlays,
                     onToggleReveal: () {
                       HapticFeedback.selectionClick();
@@ -467,7 +482,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                 return _VaultImagePageItem(
                   media: item,
                   isRevealed: isRevealed,
-                  isFullScreen: _isFullScreen,
+                  isFullScreen: isEffectiveFullScreen,
                   showOverlays: _showOverlays,
                   onToggleReveal: () {
                     HapticFeedback.selectionClick();
@@ -489,7 +504,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
             ),
 
             // 2. Fullscreen Mode: transparent top overlay with exit and counter
-            if (_isFullScreen)
+            if (isEffectiveFullScreen)
               Positioned(
                 top: 0,
                 left: 0,
@@ -559,16 +574,6 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                               ],
                             ),
                           ),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.fullscreen_exit_rounded,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                            tooltip: 'Exit Fullscreen',
-                            onPressed: _exitFullScreen,
-                          ),
                         ],
                       ),
                     ),
@@ -576,8 +581,8 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                 ),
               ),
 
-            // 3. Animated Top AppBar Overlay (hidden in fullscreen)
-            if (!_isFullScreen)
+            // 3. Animated Top AppBar Overlay (hidden in fullscreen / landscape)
+            if (!isEffectiveFullScreen)
             Positioned(
               top: 0,
               left: 0,
@@ -663,17 +668,6 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                           ),
                         ),
 
-                        // Fullscreen View Button
-                        IconButton(
-                          tooltip: 'Fullscreen View',
-                          icon: const Icon(
-                            Icons.fullscreen_rounded,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                          onPressed: _enterFullScreen,
-                        ),
-
                         // Reveal / Hide Current Item Button
                         IconButton(
                           tooltip:
@@ -708,8 +702,8 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
               ),
             ),
 
-            // 4. Animated Bottom Floating Drawer / Caption Panel (hidden in fullscreen)
-            if (!_isFullScreen)
+            // 4. Animated Bottom Floating Drawer / Caption Panel (hidden in fullscreen / landscape)
+            if (!isEffectiveFullScreen)
             Positioned(
               left: 16,
               right: 16,
@@ -955,8 +949,8 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
               ),
             ),
 
-          // 5. Side-by-Side Horizontal Navigation Arrows (hidden in fullscreen)
-          if (!_isFullScreen && _items.length > 1) ...[
+          // 5. Side-by-Side Horizontal Navigation Arrows (hidden in fullscreen / landscape)
+          if (!isEffectiveFullScreen && _items.length > 1) ...[
             // Left Arrow (Previous)
             if (_currentIndex > 0)
               Positioned(
@@ -1102,8 +1096,6 @@ class _VaultImagePageItemState extends State<_VaultImagePageItem> {
   late TransformationController _transformationController;
   TapDownDetails? _doubleTapDetails;
   bool _isZoomed = false;
-  int _quarterTurns = 0;
-  bool _isCoverFit = false;
 
   @override
   void initState() {
@@ -1127,20 +1119,6 @@ class _VaultImagePageItemState extends State<_VaultImagePageItem> {
     _transformationController.removeListener(_onTransformationChanged);
     _transformationController.dispose();
     super.dispose();
-  }
-
-  void _rotateImage() {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _quarterTurns = (_quarterTurns + 1) % 4;
-    });
-  }
-
-  void _toggleFitMode() {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _isCoverFit = !_isCoverFit;
-    });
   }
 
   void _handleDoubleTap() {
@@ -1172,10 +1150,6 @@ class _VaultImagePageItemState extends State<_VaultImagePageItem> {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveFit = widget.isFullScreen
-        ? (!_isCoverFit ? BoxFit.cover : BoxFit.contain)
-        : (_isCoverFit ? BoxFit.cover : BoxFit.contain);
-
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -1204,112 +1178,28 @@ class _VaultImagePageItemState extends State<_VaultImagePageItem> {
                 maxScale: 5.0,
                 clipBehavior: Clip.none,
                 child: Center(
-                  child: AnimatedRotation(
-                    turns: _quarterTurns * 0.25,
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOutCubic,
-                    child: Image.network(
-                      widget.media.mediaUrl,
-                      fit: effectiveFit,
-                      width: (widget.isFullScreen && !_isCoverFit)
-                          ? MediaQuery.of(context).size.width
-                          : null,
-                      height: (widget.isFullScreen && !_isCoverFit)
-                          ? MediaQuery.of(context).size.height
-                          : null,
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: Color(0xFFFF758C),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => const Center(
-                        child: Icon(
-                          Icons.broken_image_rounded,
-                          color: Colors.white54,
-                          size: 48,
+                  child: Image.network(
+                    widget.media.mediaUrl,
+                    fit: widget.isFullScreen ? BoxFit.cover : BoxFit.contain,
+                    width: widget.isFullScreen
+                        ? MediaQuery.of(context).size.width
+                        : null,
+                    height: widget.isFullScreen
+                        ? MediaQuery.of(context).size.height
+                        : null,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFFFF758C),
                         ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-        // Quick Controls Floating Pill for Images when in Fullscreen Mode
-        if (widget.isRevealed && widget.isFullScreen)
-          Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 24,
-            right: 20,
-            child: AnimatedOpacity(
-              opacity: widget.showOverlays ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: IgnorePointer(
-                ignoring: !widget.showOverlays,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            padding: const EdgeInsets.all(6),
-                            constraints: const BoxConstraints(),
-                            tooltip: 'Rotate 90°',
-                            icon: const Icon(
-                              Icons.rotate_right_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            onPressed: _rotateImage,
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            padding: const EdgeInsets.all(6),
-                            constraints: const BoxConstraints(),
-                            tooltip: _isCoverFit
-                                ? 'Fill Screen (No Bezels)'
-                                : 'Fit Original',
-                            icon: Icon(
-                              _isCoverFit
-                                  ? Icons.fit_screen_rounded
-                                  : Icons.crop_free_rounded,
-                              color: _isCoverFit
-                                  ? const Color(0xFFFF758C)
-                                  : Colors.white,
-                              size: 20,
-                            ),
-                            onPressed: _toggleFitMode,
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            padding: const EdgeInsets.all(6),
-                            constraints: const BoxConstraints(),
-                            tooltip: 'Exit Fullscreen',
-                            icon: const Icon(
-                              Icons.fullscreen_exit_rounded,
-                              color: Colors.white,
-                              size: 22,
-                            ),
-                            onPressed: widget.onExitFullScreen,
-                          ),
-                        ],
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Icon(
+                        Icons.broken_image_rounded,
+                        color: Colors.white54,
+                        size: 48,
                       ),
                     ),
                   ),
@@ -1527,7 +1417,6 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
   String? _videoError;
 
   int _quarterTurns = 0;
-  bool _isCoverFit = false;
   late TransformationController _videoTransformationController;
   TapDownDetails? _videoDoubleTapDetails;
   bool _isVideoZoomed = false;
@@ -1616,13 +1505,6 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
     HapticFeedback.selectionClick();
     setState(() {
       _quarterTurns = (_quarterTurns + 1) % 4;
-    });
-  }
-
-  void _toggleFitMode() {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _isCoverFit = !_isCoverFit;
     });
   }
 
@@ -1841,9 +1723,8 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
       );
     }
 
-    final effectiveFit = widget.isFullScreen
-        ? (!_isCoverFit ? BoxFit.cover : BoxFit.contain)
-        : (_isCoverFit ? BoxFit.cover : BoxFit.contain);
+    final effectiveFit =
+        widget.isFullScreen ? BoxFit.cover : BoxFit.contain;
 
     return FutureBuilder<void>(
       future: initFuture,
@@ -2103,34 +1984,14 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
                                         ),
                                         onPressed: _rotateVideo,
                                       ),
-                                      const SizedBox(width: 4),
-                                      // Fit / Fill Mode Toggle (No Bezels vs Fit Original)
-                                      IconButton(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                        ),
-                                        constraints: const BoxConstraints(),
-                                        tooltip: _isCoverFit
-                                            ? 'Fill Screen (No Bezels)'
-                                            : 'Fit Original',
-                                        icon: Icon(
-                                          _isCoverFit
-                                              ? Icons.fit_screen_rounded
-                                              : Icons.crop_free_rounded,
-                                          color: _isCoverFit
-                                              ? const Color(0xFFFF758C)
-                                              : Colors.white70,
-                                          size: 19,
-                                        ),
-                                        onPressed: _toggleFitMode,
-                                      ),
-                                      const SizedBox(width: 4),
+                                      const SizedBox(width: 8),
                                       // Mute/Unmute Button
                                       IconButton(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 4,
                                         ),
                                         constraints: const BoxConstraints(),
+                                        tooltip: _isMuted ? 'Unmute' : 'Mute',
                                         icon: Icon(
                                           _isMuted
                                               ? Icons.volume_off_rounded
@@ -2140,7 +2001,7 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
                                         ),
                                         onPressed: _toggleMute,
                                       ),
-                                      const SizedBox(width: 4),
+                                      const SizedBox(width: 8),
                                       // Fullscreen / Exit Fullscreen Button
                                       IconButton(
                                         padding: const EdgeInsets.symmetric(

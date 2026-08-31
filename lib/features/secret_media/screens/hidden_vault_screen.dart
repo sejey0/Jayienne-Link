@@ -606,17 +606,6 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                     },
                   ),
                   IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                    tooltip: 'Refresh',
-                    onPressed: () async {
-                      HapticFeedback.lightImpact();
-                      final provider = context.read<SecretMediaProvider>();
-                      await provider.refresh();
-                      if (!context.mounted) return;
-                      SnackbarHelper.showSuccess(context, 'Vault refreshed');
-                    },
-                  ),
-                  IconButton(
                     icon: const Icon(Icons.lock_rounded, color: Colors.white),
                     tooltip: 'Lock Vault',
                     onPressed: () {
@@ -1134,48 +1123,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                   ),
                 ),
 
-              // 5. Eye Quick Reveal Toggle Button (Top Right)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      if (media.id == null) return;
-                      setState(() {
-                        if (_revealedMediaIds.contains(media.id)) {
-                          _revealedMediaIds.remove(media.id);
-                        } else {
-                          _revealedMediaIds.add(media.id!);
-                        }
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.3),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Icon(
-                        isRevealedInPlace
-                            ? Icons.visibility_rounded
-                            : Icons.visibility_off_rounded,
-                        color: Colors.white,
-                        size: 15,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // 6. Delete Action Button (Bottom Right)
+              // 5. Delete Action Button (Bottom Right)
               if (canDelete)
                 Positioned(
                   bottom: 8,

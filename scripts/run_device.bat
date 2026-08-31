@@ -745,46 +745,45 @@ echo.
 
 set "GH_BIN="
 where gh >nul 2>&1
-if not errorlevel 1 (
-    set "GH_BIN=gh"
-) else (
-    if exist "%LOCALAPPDATA%\Programs\GitHub CLI\bin\gh.exe" (
-        set "GH_BIN=%LOCALAPPDATA%\Programs\GitHub CLI\bin\gh.exe"
-    ) else if exist "C:\Program Files\GitHub CLI\gh.exe" (
-        set "GH_BIN=C:\Program Files\GitHub CLI\gh.exe"
-    )
-)
+if not errorlevel 1 set "GH_BIN=gh"
+if not defined GH_BIN if exist "%LOCALAPPDATA%\Programs\GitHub CLI\bin\gh.exe" set "GH_BIN=%LOCALAPPDATA%\Programs\GitHub CLI\bin\gh.exe"
+if not defined GH_BIN if exist "C:\Program Files\GitHub CLI\gh.exe" set "GH_BIN=C:\Program Files\GitHub CLI\gh.exe"
 
-if defined GH_BIN (
-    echo GitHub CLI (gh) detected. Creating GitHub Release automatically...
-    "!GH_BIN!" release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --repo "%GH_USER%/%GH_REPO%" --title "Jayienne Link v!NEW_VERSION!" --notes "!REL_NOTES!"
-    if not errorlevel 1 (
-        echo.
-        echo ====================================================
-        echo   [SUCCESS] GitHub OTA Release v!NEW_VERSION! Published
-        echo   Direct APK: https://github.com/%GH_USER%/%GH_REPO%/releases/download/v!NEW_VERSION!/app-release.apk
-        echo   All users opening the app will now be forced to update.
-        echo ====================================================
-    ) else (
-        echo.
-        echo [WARNING] GitHub CLI release creation encountered an issue.
-        echo Opening browser to GitHub Releases and local APK folder as fallback...
-        if exist "build\app\outputs\flutter-apk" explorer "build\app\outputs\flutter-apk"
-        start https://github.com/%GH_USER%/%GH_REPO%/releases/new?tag=v!NEW_VERSION!
-    )
-) else (
-    echo GitHub CLI (gh) not detected on your system.
-    echo Opening browser to GitHub Releases and local APK folder...
-    if exist "build\app\outputs\flutter-apk" explorer "build\app\outputs\flutter-apk"
-    start https://github.com/%GH_USER%/%GH_REPO%/releases/new?tag=v!NEW_VERSION!
-    echo.
-    echo Complete release manually:
-    echo   1. Set Tag: v!NEW_VERSION!
-    echo   2. Title: Jayienne Link v!NEW_VERSION!
-    echo   3. Drag app-release.apk into binaries
-    echo   4. Click Publish release
-)
+if not defined GH_BIN goto gh_cli_missing
 
+echo GitHub CLI detected. Creating GitHub Release automatically...
+call "!GH_BIN!" release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --repo "%GH_USER%/%GH_REPO%" --title "Jayienne Link v!NEW_VERSION!" --notes "!REL_NOTES!"
+if errorlevel 1 goto gh_cli_failed
+
+echo.
+echo ====================================================
+echo   [SUCCESS] GitHub OTA Release v!NEW_VERSION! Published
+echo   Direct APK: https://github.com/%GH_USER%/%GH_REPO%/releases/download/v!NEW_VERSION!/app-release.apk
+echo   All users opening the app will now be forced to update.
+echo ====================================================
+goto gh_release_done
+
+:gh_cli_failed
+echo.
+echo [WARNING] GitHub CLI release creation encountered an issue.
+echo Opening browser to GitHub Releases and local APK folder as fallback...
+if exist "build\app\outputs\flutter-apk" explorer "build\app\outputs\flutter-apk"
+start https://github.com/%GH_USER%/%GH_REPO%/releases/new?tag=v!NEW_VERSION!
+goto gh_release_done
+
+:gh_cli_missing
+echo GitHub CLI not detected on your system.
+echo Opening browser to GitHub Releases and local APK folder...
+if exist "build\app\outputs\flutter-apk" explorer "build\app\outputs\flutter-apk"
+start https://github.com/%GH_USER%/%GH_REPO%/releases/new?tag=v!NEW_VERSION!
+echo.
+echo Complete release manually:
+echo   1. Set Tag: v!NEW_VERSION!
+echo   2. Title: Jayienne Link v!NEW_VERSION!
+echo   3. Drag app-release.apk into binaries
+echo   4. Click Publish release
+
+:gh_release_done
 echo.
 pause
 goto releasemenu

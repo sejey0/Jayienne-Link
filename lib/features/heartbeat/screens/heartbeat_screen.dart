@@ -13,6 +13,7 @@ import '../../../providers/user_provider.dart';
 import '../../../widgets/common/heartbeat_canvas_painter.dart';
 import '../../../widgets/common/live_time_text.dart';
 import '../../../widgets/smart_profile_image.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 /// Redesigned Touch Canvas with Signature Romantic Gradient,
 /// Real-time Interactive Touch Glows, Heart Particles, and Modern Glassmorphism Dock
@@ -238,7 +239,7 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final partnerName = couple != null && user != null
         ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
-        : (partner?.displayName?.isNotEmpty == true ? partner!.displayName : 'wifeyyy');
+        : (partner?.displayName.isNotEmpty == true ? partner!.displayName : 'wifeyyy');
 
     return Scaffold(
       backgroundColor:
@@ -614,91 +615,55 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
   }) {
     final canSend = heartbeatProvider.canSend && !heartbeatProvider.isSending;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF1E162B)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(
-          color: isDark
-              ? const Color(0xFFFF758C).withValues(alpha: 0.25)
-              : const Color(0xFFFF758C).withValues(alpha: 0.2),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ValueListenableBuilder<TextEditingValue>(
-        valueListenable: messageController,
-        builder: (context, value, _) {
-          final hasMessage = value.text.trim().isNotEmpty;
-          final canSendMessage = canSend && hasMessage;
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: messageController,
+      builder: (context, value, _) {
+        final hasMessage = value.text.trim().isNotEmpty;
+        final canSendMessage = canSend && hasMessage;
 
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Message Text Input using unified AppTextField matching Sign-In Screen design
+            Expanded(
+              child: AppTextField(
+                controller: messageController,
+                focusNode: messageFocusNode,
+                enabled: canSend,
+                minLines: 1,
+                maxLines: 3,
+                textInputAction: TextInputAction.send,
+                hintText: 'Type sweet message...',
+                onChanged: heartbeatProvider.handleTypingChanged,
+                onFieldSubmitted: (_) => onSendMessage(),
+                borderRadius: BorderRadius.circular(24),
+                isDark: isDark,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Send Heart Pulse Button (Quick Heartbeat)
+            _buildGradientActionButton(
+              icon: Icons.favorite_rounded,
+              tooltip: 'Send heartbeat',
+              gradientColors: const [Color(0xFFFF4081), Color(0xFFD81B60)],
+              onPressed: canSend ? onSendHeart : null,
+            ),
+
+            if (hasMessage) ...[
               const SizedBox(width: 6),
-              // Message Text Input directly inside dock
-              Expanded(
-                child: TextField(
-                  controller: messageController,
-                  focusNode: messageFocusNode,
-                  enabled: canSend,
-                  minLines: 1,
-                  maxLines: 3,
-                  textAlignVertical: TextAlignVertical.center,
-                  textInputAction: TextInputAction.send,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : AppColors.deepCharcoal,
-                    fontSize: 14.5,
-                  ),
-                  cursorColor: const Color(0xFFFF758C),
-                  onChanged: heartbeatProvider.handleTypingChanged,
-                  onSubmitted: (_) => onSendMessage(),
-                  decoration: InputDecoration(
-                    hintText: 'Type sweet message...',
-                    hintStyle: TextStyle(
-                      color: isDark ? Colors.white38 : Colors.grey.shade500,
-                      fontSize: 13.5,
-                    ),
-                    isDense: true,
-                    border: InputBorder.none,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Send Heart Pulse Button (Quick Heartbeat)
+              // Send Message Button
               _buildGradientActionButton(
-                icon: Icons.favorite_rounded,
-                tooltip: 'Send heartbeat',
-                gradientColors: const [Color(0xFFFF4081), Color(0xFFD81B60)],
-                onPressed: canSend ? onSendHeart : null,
+                icon: Icons.send_rounded,
+                tooltip: 'Send message',
+                gradientColors: const [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                onPressed: canSendMessage ? onSendMessage : null,
               ),
-
-              if (hasMessage) ...[
-                const SizedBox(width: 6),
-                // Send Message Button
-                _buildGradientActionButton(
-                  icon: Icons.send_rounded,
-                  tooltip: 'Send message',
-                  gradientColors: const [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                  onPressed: canSendMessage ? onSendMessage : null,
-                ),
-              ],
             ],
-          );
-        },
-      ),
+          ],
+        );
+      },
     );
   }
 

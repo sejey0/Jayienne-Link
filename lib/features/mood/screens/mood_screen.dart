@@ -1263,11 +1263,6 @@ class _MoodScreenState extends State<MoodScreen> {
     final canSend = provider.canSend && !provider.isSending;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
-    final fieldFillColor =
-        isDark ? AppColors.darkSurface : Colors.grey.shade100;
-    final hintColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
-    final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
-    final textColor = isDark ? AppColors.darkText : AppColors.deepCharcoal;
     final screenHeight = MediaQuery.of(context).size.height;
     final maxComposerHeight =
         isKeyboardOpen ? screenHeight * 0.32 : double.infinity;
@@ -1369,105 +1364,64 @@ class _MoodScreenState extends State<MoodScreen> {
 
             return Column(
               children: [
-                TextField(
+                AppTextField(
                   controller: _callSignController,
                   focusNode: _callSignFocusNode,
                   enabled: canSend,
                   textInputAction: TextInputAction.send,
-                  onSubmitted: (text) {
+                  onFieldSubmitted: (text) {
                     final trimmed = text.trim();
                     if (trimmed.isNotEmpty) {
                       final moodToSend = _selectedMoodKey ?? _moodOptions.first.key;
                       _sendMood(provider, moodToSend, trimmed);
                     }
                   },
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: textColor,
-                      ),
-                  cursorColor: isDark ? AppColors.lavender : AppColors.softRose,
-                  decoration: InputDecoration(
-                    hintText: 'Callsign (e.g., wife)',
-                    hintStyle: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: hintColor),
-                    filled: true,
-                    fillColor: fieldFillColor,
-                    isDense: isKeyboardOpen,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: AppDimensions.spacingMd,
-                      vertical: isKeyboardOpen
-                          ? AppDimensions.spacingXs
-                          : AppDimensions.spacingSm,
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.favorite_rounded,
-                      color: AppColors.softRose,
-                      size: 18,
-                    ),
-                    suffixIcon: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (hasCallSign || isFocused || isKeyboardOpen)
-                          IconButton(
-                            tooltip: 'Cancel / Dismiss',
-                            icon: Icon(
-                              Icons.close_rounded,
-                              size: 18,
-                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                            ),
-                            onPressed: () {
-                              _callSignController.clear();
-                              _callSignFocusNode.unfocus();
-                              FocusScope.of(context).unfocus();
-                            },
+                  hintText: 'Callsign (e.g., wife)',
+                  prefixIcon: Icons.favorite_rounded,
+                  borderRadius: BorderRadius.circular(16),
+                  isDark: isDark,
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (hasCallSign || isFocused || isKeyboardOpen)
+                        IconButton(
+                          tooltip: 'Cancel / Dismiss',
+                          icon: Icon(
+                            Icons.close_rounded,
+                            size: 18,
+                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                           ),
-                        if (hasCallSign)
-                          IconButton(
-                            tooltip: 'Send Mood',
-                            icon: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.send_rounded,
-                                color: Colors.white,
-                                size: 16,
+                          onPressed: () {
+                            _callSignController.clear();
+                            _callSignFocusNode.unfocus();
+                            FocusScope.of(context).unfocus();
+                          },
+                        ),
+                      if (hasCallSign)
+                        IconButton(
+                          tooltip: 'Send Mood',
+                          icon: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
                             ),
-                            onPressed: () {
-                              final moodToSend = _selectedMoodKey ?? _moodOptions.first.key;
-                              _sendMood(provider, moodToSend, callSign);
-                            },
+                            child: const Icon(
+                              Icons.send_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ),
-                      ],
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(
-                        AppDimensions.borderRadiusMedium,
-                      ),
-                      borderSide: BorderSide(color: borderColor),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(
-                        AppDimensions.borderRadiusMedium,
-                      ),
-                      borderSide: BorderSide(color: borderColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(
-                        AppDimensions.borderRadiusMedium,
-                      ),
-                      borderSide: BorderSide(
-                        color: isDark ? AppColors.lavender : AppColors.softRose,
-                      ),
-                    ),
+                          onPressed: () {
+                            final moodToSend = _selectedMoodKey ?? _moodOptions.first.key;
+                            _sendMood(provider, moodToSend, callSign);
+                          },
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: AppDimensions.spacingSm),

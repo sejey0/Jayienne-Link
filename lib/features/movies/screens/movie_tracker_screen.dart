@@ -314,6 +314,30 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     }
   }
 
+  Future<void> _planToRewatch(MovieModel movie) async {
+    try {
+      HapticFeedback.mediumImpact();
+      await _movieService.planRewatch(movie);
+      if (!mounted) return;
+      _refreshMovies();
+      await showCenterAlertDialog(
+        context: context,
+        title: 'Moved to Watchlist!',
+        message: '"${movie.title}" is ready for a rewatch',
+        icon: Icons.replay_rounded,
+        iconColor: const Color(0xFFFF758C),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      showCenterAlertDialog(
+        context: context,
+        title: 'Error',
+        message: 'Failed to plan rewatch: $e',
+        icon: Icons.error_outline_rounded,
+      );
+    }
+  }
+
   Future<void> _openMovieDetailsModal(MovieModel movie) async {
     HapticFeedback.lightImpact();
     final currentUserId = _getCurrentUserId(context);
@@ -331,6 +355,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       onMovieUpdated: () => _refreshMovies(),
       onEditMovie: () => _openEditMovieDetails(movie),
       onDeleteMovie: () => _confirmDeleteMovie(movie),
+      onPlanRewatch: () => _planToRewatch(movie),
     );
 
     if (res != null && mounted) {
@@ -1186,24 +1211,43 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ),
                     const SizedBox(height: 6),
 
-                    // Actions Row: "Mark Watched" (opens rating modal) & "Details"
+                    // Actions Row: "Mark Watched" (gradient) & "Movie Details" (soft themed outline)
                     Row(
                       children: [
                         Expanded(
-                          child: SizedBox(
+                          child: Container(
                             height: 30,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
                             child: ElevatedButton.icon(
                               onPressed: () => _openRateMovieModal(movie),
-                              icon: const Icon(Icons.check_circle_rounded, size: 13),
+                              icon: const Icon(Icons.check_circle_rounded, size: 13, color: Colors.white),
                               label: const Text(
                                 'Mark Watched',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               style: ElevatedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                backgroundColor: const Color(0xFFFF758C),
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
                                 elevation: 0,
                                 padding: const EdgeInsets.symmetric(horizontal: 6),
                                 shape: RoundedRectangleBorder(
@@ -1218,16 +1262,22 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                           height: 30,
                           child: OutlinedButton.icon(
                             onPressed: () => _openMovieDetailsModal(movie),
-                            icon: const Icon(Icons.info_outline_rounded, size: 12),
+                            icon: const Icon(Icons.movie_filter_rounded, size: 12, color: Color(0xFFFF758C)),
                             label: const Text(
-                              'Details',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              'Movie Details',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                              foregroundColor: isDark ? Colors.white : const Color(0xFF2D4059),
                               side: BorderSide(
-                                color: isDark ? Colors.white24 : Colors.grey.shade300,
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.35),
                               ),
+                              backgroundColor: isDark
+                                  ? Colors.white.withValues(alpha: 0.04)
+                                  : const Color(0xFFFF758C).withValues(alpha: 0.06),
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
@@ -1306,6 +1356,11 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final myRating = movie.getRatingForUser(currentUserId);
     final partnerRating = movie.getPartnerRating(currentUserId);
     final calculatedAvg = movie.calculatedAverageRating;
+    final myReview = myRating?.notes?.trim();
+    final partnerReview = partnerRating?.notes?.trim();
+    final hasMyReview = myReview != null && myReview.isNotEmpty;
+    final hasPartnerReview = partnerReview != null && partnerReview.isNotEmpty;
+    final hasMovieNotes = movie.notes != null && movie.notes!.trim().isNotEmpty;
 
     return InkWell(
       onTap: () => _openMovieDetailsModal(movie),
@@ -1357,8 +1412,8 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.star_rounded, size: 10, color: Color(0xFFFFB74D)),
-                            const SizedBox(width: 1.5),
+                            const Icon(Icons.favorite_rounded, size: 9, color: Color(0xFFFF4081)),
+                            const SizedBox(width: 2),
                             Text(
                               calculatedAvg.toStringAsFixed(1),
                               style: const TextStyle(
@@ -1451,73 +1506,181 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ),
                     const SizedBox(height: 4),
 
-                    // Compact Partner Rating Avatars row
-                    Row(
-                      children: [
-                        // You rating
-                        _buildMiniAvatar(
-                          photoUrl: myPhotoUrl,
-                          accentColor: const Color(0xFFFF758C),
-                          fallbackIcon: Icons.person_rounded,
-                          size: 15,
+                    // Combined Couple Ratings & Reviews Section (No duplicates)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.04)
+                            : const Color(0xFFFF758C).withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : const Color(0xFFFF758C).withValues(alpha: 0.12),
+                          width: 0.8,
                         ),
-                        const SizedBox(width: 3),
-                        Text(
-                          myRating != null && myRating.rating > 0
-                              ? '⭐${myRating.rating}'
-                              : 'Pending',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white70 : Colors.grey.shade700,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // You line: Avatar + Hearts + Review Quote
+                          Row(
+                            children: [
+                              _buildMiniAvatar(
+                                photoUrl: myPhotoUrl,
+                                accentColor: const Color(0xFFFF758C),
+                                fallbackIcon: Icons.person_rounded,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                myRating != null && myRating.rating > 0
+                                    ? '❤️ ${myRating.rating}'
+                                    : 'Pending',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: myRating != null && myRating.rating > 0
+                                      ? const Color(0xFFFF758C)
+                                      : (isDark ? Colors.white54 : Colors.grey.shade600),
+                                ),
+                              ),
+                              if (hasMyReview) ...[
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    '"$myReview"',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontStyle: FontStyle.italic,
+                                      color: isDark ? Colors.white70 : Colors.black87,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        // Partner rating
-                        _buildMiniAvatar(
-                          photoUrl: partnerPhotoUrl,
-                          accentColor: const Color(0xFFA18CD1),
-                          fallbackIcon: Icons.favorite_rounded,
-                          size: 15,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          partnerRating != null && partnerRating.rating > 0
-                              ? '⭐${partnerRating.rating}'
-                              : 'Pending',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white70 : Colors.grey.shade700,
+                          const SizedBox(height: 2.5),
+
+                          // Partner line: Avatar + Hearts + Review Quote
+                          Row(
+                            children: [
+                              _buildMiniAvatar(
+                                photoUrl: partnerPhotoUrl,
+                                accentColor: const Color(0xFFA18CD1),
+                                fallbackIcon: Icons.favorite_rounded,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                partnerRating != null && partnerRating.rating > 0
+                                    ? '❤️ ${partnerRating.rating}'
+                                    : 'Pending',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: partnerRating != null && partnerRating.rating > 0
+                                      ? const Color(0xFFA18CD1)
+                                      : (isDark ? Colors.white54 : Colors.grey.shade600),
+                                ),
+                              ),
+                              if (hasPartnerReview) ...[
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    '"$partnerReview"',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontStyle: FontStyle.italic,
+                                      color: isDark ? Colors.white70 : Colors.black87,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ),
-                      ],
+
+                          // Fallback movie notes if neither reviewed
+                          if (!hasMyReview && !hasPartnerReview && hasMovieNotes) ...[
+                            const SizedBox(height: 2.5),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.format_quote_rounded,
+                                  size: 10,
+                                  color: Color(0xFFFF758C),
+                                ),
+                                const SizedBox(width: 3),
+                                Expanded(
+                                  child: Text(
+                                    movie.notes!.trim(),
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontStyle: FontStyle.italic,
+                                      color: isDark ? Colors.white70 : Colors.black87,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 5),
 
-                    // Actions Row: "Rate / Review" & "Details"
+                    // Actions Row: "View / Edit Review", "Rewatch", & "Movie Details"
                     Row(
                       children: [
                         Expanded(
-                          child: SizedBox(
+                          flex: 12,
+                          child: Container(
                             height: 30,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
                             child: ElevatedButton.icon(
                               onPressed: () => _openRateMovieModal(movie),
                               icon: Icon(
-                                myRating != null ? Icons.edit_rounded : Icons.star_rounded,
-                                size: 13,
+                                myRating != null ? Icons.rate_review_rounded : Icons.favorite_rounded,
+                                size: 12,
+                                color: Colors.white,
                               ),
                               label: Text(
-                                myRating != null ? 'Edit Review' : 'Rate Movie',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                myRating != null ? 'View / Edit Review' : 'Rate Movie',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               style: ElevatedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                backgroundColor: const Color(0xFFFF758C),
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
                                 elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 5),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -1525,22 +1688,56 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
+                        SizedBox(
+                          height: 30,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _planToRewatch(movie),
+                            icon: const Icon(Icons.replay_rounded, size: 11, color: Color(0xFFA18CD1)),
+                            label: const Text(
+                              'Rewatch',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? Colors.white : const Color(0xFF2D4059),
+                              side: BorderSide(
+                                color: const Color(0xFFA18CD1).withValues(alpha: 0.35),
+                              ),
+                              backgroundColor: isDark
+                                  ? Colors.white.withValues(alpha: 0.04)
+                                  : const Color(0xFFA18CD1).withValues(alpha: 0.06),
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
                         SizedBox(
                           height: 30,
                           child: OutlinedButton.icon(
                             onPressed: () => _openMovieDetailsModal(movie),
-                            icon: const Icon(Icons.info_outline_rounded, size: 12),
+                            icon: const Icon(Icons.movie_filter_rounded, size: 11, color: Color(0xFFFF758C)),
                             label: const Text(
                               'Details',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                              foregroundColor: isDark ? Colors.white : const Color(0xFF2D4059),
                               side: BorderSide(
-                                color: isDark ? Colors.white24 : Colors.grey.shade300,
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.35),
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              backgroundColor: isDark
+                                  ? Colors.white.withValues(alpha: 0.04)
+                                  : const Color(0xFFFF758C).withValues(alpha: 0.06),
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),

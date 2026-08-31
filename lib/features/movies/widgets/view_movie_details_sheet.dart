@@ -5,6 +5,7 @@ import '../../../models/movie_model.dart';
 import 'movie_poster_widget.dart';
 
 /// Modal bottom sheet displaying Movie Details, Dates, Synopsis, and Edit/Delete Options
+/// Fully aligned to the Jayienne Link romantic aesthetic
 class ViewMovieDetailsSheet extends StatefulWidget {
   final MovieModel movie;
   final String currentUserId;
@@ -12,6 +13,7 @@ class ViewMovieDetailsSheet extends StatefulWidget {
   final VoidCallback? onMovieUpdated;
   final VoidCallback? onEditMovie;
   final VoidCallback? onDeleteMovie;
+  final VoidCallback? onPlanRewatch;
 
   const ViewMovieDetailsSheet({
     super.key,
@@ -21,6 +23,7 @@ class ViewMovieDetailsSheet extends StatefulWidget {
     this.onMovieUpdated,
     this.onEditMovie,
     this.onDeleteMovie,
+    this.onPlanRewatch,
   });
 
   static Future<dynamic> show(
@@ -31,6 +34,7 @@ class ViewMovieDetailsSheet extends StatefulWidget {
     VoidCallback? onMovieUpdated,
     VoidCallback? onEditMovie,
     VoidCallback? onDeleteMovie,
+    VoidCallback? onPlanRewatch,
   }) {
     return showModalBottomSheet<dynamic>(
       context: context,
@@ -44,6 +48,7 @@ class ViewMovieDetailsSheet extends StatefulWidget {
         onMovieUpdated: onMovieUpdated,
         onEditMovie: onEditMovie,
         onDeleteMovie: onDeleteMovie,
+        onPlanRewatch: onPlanRewatch,
       ),
     );
   }
@@ -53,6 +58,28 @@ class ViewMovieDetailsSheet extends StatefulWidget {
 }
 
 class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
+  late int _selectedSessionNumber;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSessionNumber = widget.movie.watchCount;
+  }
+
+  String _getOrdinalSuffix(int n) {
+    if (n >= 11 && n <= 13) return 'th';
+    switch (n % 10) {
+      case 1:
+        return 'st';
+      case 2:
+        return 'nd';
+      case 3:
+        return 'rd';
+      default:
+        return 'th';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -67,7 +94,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1427) : const Color(0xFFFFF9FA),
+            color: isDark ? const Color(0xFF1A1224) : const Color(0xFFFFF9FA),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             boxShadow: [
               BoxShadow(
@@ -103,7 +130,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
@@ -111,20 +138,20 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                              blurRadius: 6,
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                              blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
                           ],
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.movie_creation_rounded, color: Colors.white, size: 14),
-                            SizedBox(width: 5),
+                            const Icon(Icons.movie_filter_rounded, color: Colors.white, size: 14),
+                            const SizedBox(width: 6),
                             Text(
-                              'Movie Details',
-                              style: TextStyle(
+                              movie.isSeries ? 'Series Details' : 'Movie Details',
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.bold,
@@ -150,135 +177,147 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Movie Card Row: Poster + Title (Year) + Badges
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Movie Poster
-                      MoviePosterWidget(
-                        posterUrl: movie.posterUrl,
-                        width: 56,
-                        height: 80,
-                        borderRadius: BorderRadius.circular(10),
+                  // Movie Card Row: Poster + Title (Year) + Badges in a themed card
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : const Color(0xFFFF758C).withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.15),
                       ),
-                      const SizedBox(width: 12),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Movie Poster
+                        MoviePosterWidget(
+                          posterUrl: movie.posterUrl,
+                          width: 56,
+                          height: 80,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        const SizedBox(width: 12),
 
-                      // Movie Title & Badges
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text.rich(
-                              TextSpan(
-                                text: movie.title,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : const Color(0xFF2D4059),
-                                ),
-                                children: [
-                                  if (movie.year != null && movie.year!.isNotEmpty)
-                                    TextSpan(
-                                      text: ' (${movie.year})',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: isDark ? Colors.white54 : Colors.grey.shade600,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 5),
-
-                            // Badges Row (Media Type + Status)
-                            Wrap(
-                              spacing: 5,
-                              runSpacing: 4,
-                              children: [
-                                // Media Type Badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: movie.isSeries
-                                        ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
-                                        : const Color(0xFFFF758C).withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(5),
+                        // Movie Title & Badges
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text.rich(
+                                TextSpan(
+                                  text: movie.title,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : const Color(0xFF2D4059),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        movie.isSeries ? Icons.tv_rounded : Icons.movie_rounded,
-                                        size: 11,
-                                        color: movie.isSeries
-                                            ? const Color(0xFFA18CD1)
-                                            : const Color(0xFFFF758C),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        movie.isSeries ? 'Series' : 'Movie',
+                                  children: [
+                                    if (movie.year != null && movie.year!.isNotEmpty)
+                                      TextSpan(
+                                        text: ' (${movie.year})',
                                         style: TextStyle(
-                                          fontSize: 9.5,
-                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+
+                              // Badges Row (Media Type + Status)
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: [
+                                  // Media Type Badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: movie.isSeries
+                                          ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
+                                          : const Color(0xFFFF758C).withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          movie.isSeries ? Icons.tv_rounded : Icons.movie_rounded,
+                                          size: 11,
                                           color: movie.isSeries
                                               ? const Color(0xFFA18CD1)
                                               : const Color(0xFFFF758C),
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          movie.isSeries ? 'Series' : 'Movie',
+                                          style: TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: movie.isSeries
+                                                ? const Color(0xFFA18CD1)
+                                                : const Color(0xFFFF758C),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
 
-                                // Watch Status Badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: movie.isWatchlist
-                                        ? const Color(0xFFFF758C).withValues(alpha: 0.15)
-                                        : const Color(0xFFA18CD1).withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(5),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        movie.isWatchlist
-                                            ? Icons.bookmark_outline_rounded
-                                            : Icons.check_circle_outline_rounded,
-                                        size: 11,
-                                        color: movie.isWatchlist
-                                            ? const Color(0xFFFF758C)
-                                            : const Color(0xFFA18CD1),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        movie.isWatchlist
-                                            ? 'In Watchlist'
-                                            : (movie.watchCount > 1
-                                                ? 'Watched ${movie.watchCount}x'
-                                                : 'Watched'),
-                                        style: TextStyle(
-                                          fontSize: 9.5,
-                                          fontWeight: FontWeight.bold,
+                                  // Watch Status Badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: movie.isWatchlist
+                                          ? const Color(0xFFFF758C).withValues(alpha: 0.15)
+                                          : const Color(0xFFA18CD1).withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          movie.isWatchlist
+                                              ? Icons.bookmark_outline_rounded
+                                              : Icons.check_circle_outline_rounded,
+                                          size: 11,
                                           color: movie.isWatchlist
                                               ? const Color(0xFFFF758C)
                                               : const Color(0xFFA18CD1),
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          movie.isWatchlist
+                                              ? 'In Watchlist'
+                                              : (movie.watchCount > 1
+                                                  ? 'Watched ${movie.watchCount}x'
+                                                  : 'Watched'),
+                                          style: TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: movie.isWatchlist
+                                                ? const Color(0xFFFF758C)
+                                                : const Color(0xFFA18CD1),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
 
                   // ----------------------------------------------------
                   // DATES SECTION (Added Date & Watched Date)
@@ -290,7 +329,7 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                       color: isDark
                           ? Colors.white.withValues(alpha: 0.04)
                           : const Color(0xFFFF758C).withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: const Color(0xFFFF758C).withValues(alpha: 0.15),
                       ),
@@ -300,10 +339,10 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                         // Added Date with time
                         Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.access_time_rounded,
                               size: 13,
-                              color: isDark ? Colors.white54 : Colors.grey.shade600,
+                              color: Color(0xFFFF758C),
                             ),
                             const SizedBox(width: 6),
                             Expanded(
@@ -412,7 +451,359 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  // ----------------------------------------------------
+                  // WATCH SESSIONS / REWATCH VERSION SELECTOR (IF MULTIPLE)
+                  // ----------------------------------------------------
+                  if (movie.sessionNumbers.length > 1) ...[
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: movie.sessionNumbers.map((sessionNum) {
+                          final isSelected = sessionNum == _selectedSessionNumber;
+                          final label = sessionNum == 1
+                              ? '1st Watch'
+                              : '$sessionNum${_getOrdinalSuffix(sessionNum)} Watch (Rewatch)';
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: InkWell(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => _selectedSessionNumber = sessionNum);
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                                decoration: BoxDecoration(
+                                  gradient: isSelected
+                                      ? const LinearGradient(
+                                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                        )
+                                      : null,
+                                  color: isSelected
+                                      ? null
+                                      : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Colors.transparent
+                                        : (isDark ? Colors.white12 : Colors.grey.shade300),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      sessionNum == 1 ? Icons.movie_rounded : Icons.replay_rounded,
+                                      size: 12,
+                                      color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      label,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+
+                  // ----------------------------------------------------
+                  // COUPLE REVIEWS & RATINGS (IF WATCHED / RATED)
+                  // ----------------------------------------------------
+                  Builder(
+                    builder: (context) {
+                      final myRating = movie.getRatingForUser(
+                        widget.currentUserId,
+                        watchNumber: _selectedSessionNumber,
+                      );
+                      final partnerRating = movie.getPartnerRating(
+                        widget.currentUserId,
+                        watchNumber: _selectedSessionNumber,
+                      );
+                      final myReview = myRating?.notes?.trim();
+                      final partnerReview = partnerRating?.notes?.trim();
+                      final hasMyReview = myReview != null && myReview.isNotEmpty;
+                      final hasPartnerReview = partnerReview != null && partnerReview.isNotEmpty;
+                      final hasRatings = (myRating != null && myRating.rating > 0) ||
+                          (partnerRating != null && partnerRating.rating > 0) ||
+                          hasMyReview ||
+                          hasPartnerReview;
+
+                      if (!hasRatings) return const SizedBox.shrink();
+
+                      return Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.04)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.18),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.favorite_rounded,
+                                  size: 14,
+                                  color: Color(0xFFFF758C),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  movie.sessionNumbers.length > 1
+                                      ? 'Couple Reviews (Watch #$_selectedSessionNumber)'
+                                      : 'Couple Reviews & Ratings',
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+
+                            // 1. Your Rating & Review
+                            if (myRating != null && (myRating.rating > 0 || hasMyReview)) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFF758C).withValues(alpha: isDark ? 0.08 : 0.05),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFF758C).withValues(alpha: 0.2),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            'Your Review',
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFFFF758C),
+                                            ),
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        if (myRating.rating > 0) ...[
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: List.generate(5, (index) {
+                                              final isFilled = index < myRating.rating;
+                                              return Padding(
+                                                padding: const EdgeInsets.only(left: 1.5),
+                                                child: Icon(
+                                                  isFilled ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                                  size: 13,
+                                                  color: isFilled
+                                                      ? const Color(0xFFFF4081)
+                                                      : (isDark ? Colors.white30 : Colors.grey.shade400),
+                                                ),
+                                              );
+                                            }),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${myRating.rating}/5',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFFFF4081),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    if (hasMyReview) ...[
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '"$myReview"',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          height: 1.4,
+                                          fontStyle: FontStyle.italic,
+                                          color: isDark ? Colors.white70 : Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+
+                            if ((myRating != null && (myRating.rating > 0 || hasMyReview)) &&
+                                (partnerRating != null && (partnerRating.rating > 0 || hasPartnerReview)))
+                              const SizedBox(height: 8),
+
+                            // 2. Partner Rating & Review
+                            if (partnerRating != null && (partnerRating.rating > 0 || hasPartnerReview)) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFA18CD1).withValues(alpha: isDark ? 0.08 : 0.05),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFA18CD1).withValues(alpha: 0.18),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFA18CD1).withValues(alpha: 0.2),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            "${widget.partnerName}'s Review",
+                                            style: const TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFFA18CD1),
+                                            ),
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        if (partnerRating.rating > 0) ...[
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: List.generate(5, (index) {
+                                              final isFilled = index < partnerRating.rating;
+                                              return Padding(
+                                                padding: const EdgeInsets.only(left: 1.5),
+                                                child: Icon(
+                                                  isFilled ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                                  size: 13,
+                                                  color: isFilled
+                                                      ? const Color(0xFFFF4081)
+                                                      : (isDark ? Colors.white30 : Colors.grey.shade400),
+                                                ),
+                                              );
+                                            }),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${partnerRating.rating}/5',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFFFF4081),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    if (hasPartnerReview) ...[
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '"$partnerReview"',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          height: 1.4,
+                                          fontStyle: FontStyle.italic,
+                                          color: isDark ? Colors.white70 : Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ----------------------------------------------------
+                  // PLAN TO REWATCH (IF WATCHED)
+                  // ----------------------------------------------------
+                  if (movie.isWatched && widget.onPlanRewatch != null) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 38,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.pop(context);
+                            widget.onPlanRewatch?.call();
+                          },
+                          icon: const Icon(Icons.replay_rounded, size: 15, color: Colors.white),
+                          label: const Text(
+                            'Plan to Rewatch',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
 
                   // ----------------------------------------------------
                   // 2 OPTIONS: EDIT DETAILS & REMOVE MOVIE
@@ -429,16 +820,19 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                               Navigator.pop(context);
                               widget.onEditMovie?.call();
                             },
-                            icon: const Icon(Icons.edit_rounded, size: 14),
+                            icon: const Icon(Icons.edit_rounded, size: 14, color: Color(0xFFFF758C)),
                             label: const Text(
-                              'Edit Movie',
+                              'Edit Details',
                               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? Colors.white70 : const Color(0xFF2D4059),
+                              foregroundColor: isDark ? Colors.white : const Color(0xFF2D4059),
                               side: BorderSide(
-                                color: isDark ? Colors.white24 : Colors.grey.shade300,
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.35),
                               ),
+                              backgroundColor: isDark
+                                  ? Colors.white.withValues(alpha: 0.04)
+                                  : const Color(0xFFFF758C).withValues(alpha: 0.05),
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),

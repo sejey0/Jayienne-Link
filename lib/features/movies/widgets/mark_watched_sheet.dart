@@ -60,6 +60,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
   final ImagePicker _imagePicker = ImagePicker();
   late final TextEditingController _notesController;
 
+  late int _selectedWatchNumber;
   int? _selectedRating;
   DateTime? _selectedDate;
   List<String> _existingPhotos = [];
@@ -67,19 +68,24 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
   bool _isUploadingPhotos = false;
   bool _isSubmitting = false;
 
-  int get _effectiveWatchNumber => widget.targetWatchNumber ?? widget.movie.watchCount;
-
   @override
   void initState() {
     super.initState();
+    _selectedWatchNumber = widget.targetWatchNumber ?? widget.movie.watchCount;
+    _notesController = TextEditingController();
+    _loadSessionData(_selectedWatchNumber);
+  }
+
+  void _loadSessionData(int sessionNum) {
     final myRating = widget.movie.getRatingForUser(
       widget.currentUserId,
-      watchNumber: _effectiveWatchNumber,
+      watchNumber: sessionNum,
     );
     _selectedRating = myRating?.rating;
-    _notesController = TextEditingController(text: myRating?.notes ?? '');
+    _notesController.text = myRating?.notes ?? '';
     _selectedDate = widget.movie.watchedDate;
     _existingPhotos = [...myRating?.photoUrls ?? []];
+    _newPhotoFiles.clear();
   }
 
   @override
@@ -281,7 +287,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
             ? _notesController.text.trim()
             : null,
         photoUrls: finalPhotos,
-        watchNumber: _effectiveWatchNumber,
+        watchNumber: _selectedWatchNumber,
       );
 
       if (!mounted) return;
@@ -307,13 +313,28 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
     }
   }
 
+  String _getOrdinalSuffix(int n) {
+    if (n >= 11 && n <= 13) return 'th';
+    switch (n % 10) {
+      case 1:
+        return 'st';
+      case 2:
+        return 'nd';
+      case 3:
+        return 'rd';
+      default:
+        return 'th';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final partnerRating = widget.movie.getPartnerRating(widget.currentUserId);
-    final hasMyExistingRating =
-        widget.movie.getRatingForUser(widget.currentUserId) != null;
+    final partnerRating = widget.movie.getPartnerRating(widget.currentUserId, watchNumber: _selectedWatchNumber);
+    final myExistingRating = widget.movie.getRatingForUser(widget.currentUserId, watchNumber: _selectedWatchNumber);
+    final hasMyExistingRating = myExistingRating != null && myExistingRating.rating > 0;
+    final sessionList = widget.movie.sessionNumbers;
 
     return Align(
       alignment: Alignment.bottomCenter,
@@ -356,143 +377,318 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                   ),
                   const SizedBox(height: 10),
 
-                  // Compact Header: Poster + Title (Year) + Type Badge + Close
+                  // Header: Gradient Badge "Mark Watched" / "Edit Review" + Close Button
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      MoviePosterWidget(
-                        posterUrl: widget.movie.posterUrl,
-                        width: 42,
-                        height: 58,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text.rich(
-                              TextSpan(
-                                text: widget.movie.title,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : const Color(0xFF2D4059),
-                                ),
-                                children: [
-                                  if (widget.movie.year != null && widget.movie.year!.isNotEmpty)
-                                    TextSpan(
-                                      text: ' (${widget.movie.year})',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: isDark ? Colors.white54 : Colors.grey.shade600,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: widget.movie.isSeries
-                                        ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
-                                        : const Color(0xFFFF758C).withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(5),
-                                  ),
-                                  child: Text(
-                                    widget.movie.isSeries ? 'Series' : 'Movie',
-                                    style: TextStyle(
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: widget.movie.isSeries
-                                          ? const Color(0xFFA18CD1)
-                                          : const Color(0xFFFF758C),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  hasMyExistingRating ? 'Edit Rating' : 'Mark Watched',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? Colors.white60 : Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              hasMyExistingRating ? Icons.rate_review_rounded : Icons.check_circle_rounded,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              hasMyExistingRating ? 'View & Edit Review' : 'Rate & Review',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                              ),
                             ),
                           ],
                         ),
                       ),
+                      const Spacer(),
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pop(context);
+                        },
                         icon: const Icon(Icons.close_rounded, size: 20),
                         color: isDark ? Colors.white70 : Colors.grey.shade600,
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+
+                  // Movie Card Row: Poster + Title (Year) + Badges in a themed container
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : const Color(0xFFFF758C).withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        MoviePosterWidget(
+                          posterUrl: widget.movie.posterUrl,
+                          width: 48,
+                          height: 68,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text.rich(
+                                TextSpan(
+                                  text: widget.movie.title,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : const Color(0xFF2D4059),
+                                  ),
+                                  children: [
+                                    if (widget.movie.year != null && widget.movie.year!.isNotEmpty)
+                                      TextSpan(
+                                        text: ' (${widget.movie.year})',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: widget.movie.isSeries
+                                          ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
+                                          : const Color(0xFFFF758C).withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Text(
+                                      widget.movie.isSeries ? 'Series' : 'Movie',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: widget.movie.isSeries
+                                            ? const Color(0xFFA18CD1)
+                                            : const Color(0xFFFF758C),
+                                      ),
+                                    ),
+                                  ),
+                                  if (widget.movie.watchCount > 1) ...[
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: Text(
+                                        '${widget.movie.watchCount}x Watched',
+                                        style: const TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFFF758C),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 10),
 
-                  // Partner Rating Insight Banner (if partner already rated)
+                  // ----------------------------------------------------
+                  // WATCH SESSIONS / REWATCH VERSION SELECTOR (IF MULTIPLE)
+                  // ----------------------------------------------------
+                  if (sessionList.length > 1) ...[
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: sessionList.map((sessionNum) {
+                          final isSelected = sessionNum == _selectedWatchNumber;
+                          final label = sessionNum == 1
+                              ? '1st Watch'
+                              : '$sessionNum${_getOrdinalSuffix(sessionNum)} Watch (Rewatch)';
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: InkWell(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() {
+                                  _selectedWatchNumber = sessionNum;
+                                  _loadSessionData(sessionNum);
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                                decoration: BoxDecoration(
+                                  gradient: isSelected
+                                      ? const LinearGradient(
+                                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                        )
+                                      : null,
+                                  color: isSelected
+                                      ? null
+                                      : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Colors.transparent
+                                        : (isDark ? Colors.white12 : Colors.grey.shade300),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      sessionNum == 1 ? Icons.movie_rounded : Icons.replay_rounded,
+                                      size: 12,
+                                      color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      label,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+
+                  // ----------------------------------------------------
+                  // PARTNER'S REVIEW & HEARTS CARD (FULL VIEW)
+                  // ----------------------------------------------------
                   if (partnerRating != null) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: isDark
                             ? const Color(0xFFA18CD1).withValues(alpha: 0.12)
-                            : const Color(0xFFA18CD1).withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
+                            : const Color(0xFFA18CD1).withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: const Color(0xFFA18CD1).withValues(alpha: 0.25),
+                          color: const Color(0xFFA18CD1).withValues(alpha: 0.28),
                         ),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.favorite,
-                            size: 13,
-                            color: Color(0xFFA18CD1),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            "${widget.partnerName}'s rating:",
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF2D4059),
-                            ),
-                          ),
-                          const SizedBox(width: 5),
                           Row(
-                            children: List.generate(5, (index) {
-                              final isFilled = index < partnerRating.rating;
-                              return Icon(
-                                isFilled ? Icons.favorite : Icons.favorite_border,
-                                size: 11,
-                                color: isFilled
-                                    ? const Color(0xFFFF4081)
-                                    : Colors.grey.shade400,
-                              );
-                            }),
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFA18CD1).withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.favorite_rounded, size: 11, color: Color(0xFFA18CD1)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "${widget.partnerName}'s Review",
+                                      style: const TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFA18CD1),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Spacer(),
+                              if (partnerRating.rating > 0) ...[
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: List.generate(5, (index) {
+                                    final isFilled = index < partnerRating.rating;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(left: 1.5),
+                                      child: Icon(
+                                        isFilled ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                        size: 14,
+                                        color: isFilled
+                                            ? const Color(0xFFFF4081)
+                                            : (isDark ? Colors.white30 : Colors.grey.shade400),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  '${partnerRating.rating}/5',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFFF4081),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                          if (partnerRating.notes != null && partnerRating.notes!.isNotEmpty) ...[
-                            const SizedBox(width: 6),
-                            Expanded(
+                          if (partnerRating.notes != null && partnerRating.notes!.trim().isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.04)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                               child: Text(
-                                '"${partnerRating.notes!}"',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                '"${partnerRating.notes!.trim()}"',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
+                                  height: 1.45,
                                   fontStyle: FontStyle.italic,
                                   color: isDark ? Colors.white70 : Colors.black87,
                                 ),
@@ -502,206 +698,150 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                   ],
 
                   // ----------------------------------------------------
-                  // HEART RATING PICKER (COMPACT)
+                  // YOUR RATING & REVIEW (MERGED TOGETHER)
                   // ----------------------------------------------------
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Your Rating',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF2D4059),
-                        ),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFFFF758C).withValues(alpha: 0.08)
+                          : const Color(0xFFFF758C).withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.22),
                       ),
-                      if (_selectedRating != null && _selectedRating! > 0)
-                        Text(
-                          '$_selectedRating / 5 Hearts',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFFF758C),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : const Color(0xFFFF758C).withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: List.generate(5, (index) {
-                          final starNum = index + 1;
-                          final isFilled = _selectedRating != null && starNum <= _selectedRating!;
-                          return GestureDetector(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() => _selectedRating = starNum);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 5),
-                              child: AnimatedScale(
-                                scale: isFilled ? 1.1 : 0.95,
-                                duration: const Duration(milliseconds: 150),
-                                child: Icon(
-                                  isFilled ? Icons.favorite : Icons.favorite_border,
-                                  color: isFilled
-                                      ? const Color(0xFFFF4081)
-                                      : (isDark ? Colors.white38 : Colors.grey.shade400),
-                                  size: 27,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Rating Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.rate_review_rounded, size: 11, color: Color(0xFFFF758C)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Your Rating & Review',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFFF758C),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_selectedRating != null && _selectedRating! > 0)
+                              Text(
+                                '$_selectedRating / 5 Hearts',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFFF758C),
                                 ),
                               ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
 
-                  // ----------------------------------------------------
-                  // WATCHED DATE SELECTOR (COMPACT)
-                  // ----------------------------------------------------
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Date Watched (Optional)',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF2D4059),
-                        ),
-                      ),
-                      if (_selectedDate != null)
-                        InkWell(
-                          onTap: _clearDate,
-                          child: Text(
-                            'Clear',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white60 : Colors.grey.shade600,
+                        // Interactive Heart Rating Picker
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.04)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(5, (index) {
+                                final starNum = index + 1;
+                                final isFilled = _selectedRating != null && starNum <= _selectedRating!;
+                                return GestureDetector(
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    setState(() => _selectedRating = starNum);
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                                    child: AnimatedScale(
+                                      scale: isFilled ? 1.1 : 0.95,
+                                      duration: const Duration(milliseconds: 150),
+                                      child: Icon(
+                                        isFilled ? Icons.favorite : Icons.favorite_border,
+                                        color: isFilled
+                                            ? const Color(0xFFFF4081)
+                                            : (isDark ? Colors.white38 : Colors.grey.shade400),
+                                        size: 27,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  InkWell(
-                    onTap: _selectDate,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.1)
-                              : Colors.grey.shade300,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.calendar_month_rounded,
-                            color: Color(0xFFFF758C),
-                            size: 16,
+                        const SizedBox(height: 10),
+
+                        // Review & Thoughts Textfield
+                        TextField(
+                          controller: _notesController,
+                          maxLines: 3,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: isDark ? Colors.white : Colors.black87,
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _selectedDate != null
-                                  ? DateFormat('EEEE, MMM d, yyyy').format(_selectedDate!)
-                                  : 'Tap to select date (Optional)',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w500,
-                                color: _selectedDate != null
-                                    ? (isDark ? Colors.white : Colors.black87)
-                                    : (isDark ? Colors.white38 : Colors.grey.shade500),
+                          decoration: InputDecoration(
+                            hintText: 'Share your thoughts, favorite quotes, or review...',
+                            hintStyle: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white38 : Colors.grey.shade400,
+                            ),
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.white.withValues(alpha: 0.04)
+                                : Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : Colors.grey.shade300,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFFF758C),
+                                width: 1.2,
                               ),
                             ),
                           ),
-                          Icon(
-                            _selectedDate != null
-                                ? Icons.edit_calendar_rounded
-                                : Icons.add_circle_outline_rounded,
-                            color: const Color(0xFFFF758C),
-                            size: 15,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // ----------------------------------------------------
-                  // REVIEW / NOTES TEXTFIELD (COMPACT)
-                  // ----------------------------------------------------
-                  Text(
-                    'Review & Notes (Optional)',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF2D4059),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: _notesController,
-                    maxLines: 2,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Your thoughts, favorite scenes, or review...',
-                      hintStyle: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white38 : Colors.grey.shade400,
-                      ),
-                      filled: true,
-                      fillColor: isDark
-                          ? Colors.white.withValues(alpha: 0.04)
-                          : Colors.grey.shade50,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.1)
-                              : Colors.grey.shade300,
                         ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFFF758C),
-                          width: 1.2,
-                        ),
-                      ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
                   // ----------------------------------------------------
                   // PHOTOS & MEMORIES SECTION (COMPACT)
@@ -907,6 +1047,86 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                       ),
                     ),
                   ],
+                  const SizedBox(height: 12),
+
+                  // ----------------------------------------------------
+                  // WATCHED DATE SELECTOR (PLACED LAST BEFORE SUBMIT)
+                  // ----------------------------------------------------
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Date Watched (Optional)',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF2D4059),
+                        ),
+                      ),
+                      if (_selectedDate != null)
+                        InkWell(
+                          onTap: _clearDate,
+                          child: Text(
+                            'Clear',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white60 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: _selectDate,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.04)
+                            : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : Colors.grey.shade300,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_month_rounded,
+                            color: Color(0xFFFF758C),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _selectedDate != null
+                                  ? DateFormat('EEEE, MMM d, yyyy').format(_selectedDate!)
+                                  : 'Tap to select date (Optional)',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                color: _selectedDate != null
+                                    ? (isDark ? Colors.white : Colors.black87)
+                                    : (isDark ? Colors.white38 : Colors.grey.shade500),
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            _selectedDate != null
+                                ? Icons.edit_calendar_rounded
+                                : Icons.add_circle_outline_rounded,
+                            color: const Color(0xFFFF758C),
+                            size: 15,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 14),
 
                   // ----------------------------------------------------

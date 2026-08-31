@@ -46,7 +46,7 @@ class UpdateService {
   /// Default GitHub raw JSON URL
   /// Users can replace YOUR_GITHUB_USERNAME and YOUR_REPO_NAME or use this default.
   static const String defaultVersionUrl =
-      'https://raw.githubusercontent.com/cjaayy/Jayienne-Link/main/version.json';
+      'https://raw.githubusercontent.com/sejey0/Jayienne-Link/main/version.json';
 
   bool _isChecking = false;
   bool _isDialogOpen = false;

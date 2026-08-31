@@ -642,7 +642,7 @@ echo   One-Click Auto Publish to GitHub OTA Release
 echo ====================================================
 echo.
 
-set "GH_USER=cjaayy"
+set "GH_USER=sejey0"
 set "GH_REPO=Jayienne-Link"
 
 REM 1. Get current version if version.json exists

@@ -937,18 +937,25 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
     final isRevealedInPlace = media.id != null && _revealedMediaIds.contains(media.id);
 
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         HapticFeedback.lightImpact();
-        Navigator.push(
+        final updatedReveals = await Navigator.push<Set<String>>(
           context,
           MaterialPageRoute(
             builder: (context) => SecretMediaDetailScreen(
               media: media,
               mediaList: filteredMedia,
               initialIndex: index,
+              initialRevealedIds: _revealedMediaIds,
             ),
           ),
         );
+        if (updatedReveals != null && mounted) {
+          setState(() {
+            _revealedMediaIds.clear();
+            _revealedMediaIds.addAll(updatedReveals);
+          });
+        }
       },
       child: Container(
         decoration: BoxDecoration(

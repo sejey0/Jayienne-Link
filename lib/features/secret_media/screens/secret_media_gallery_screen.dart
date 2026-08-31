@@ -389,6 +389,10 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
               media: media,
               mediaList: filteredItems,
               initialIndex: index,
+              initialRevealedIds: filteredItems
+                  .map((m) => m.id)
+                  .whereType<String>()
+                  .toSet(),
             ),
           ),
         );

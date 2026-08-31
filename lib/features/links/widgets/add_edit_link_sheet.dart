@@ -144,8 +144,17 @@ class _AddEditLinkSheetState extends State<AddEditLinkSheet> {
       if (!mounted) return;
 
       if (success) {
-        SnackbarHelper.showSuccess(context, 'Link updated successfully!');
+        final updatedLink = provider.links.firstWhere(
+          (l) => l.id == widget.initialLink!.id,
+          orElse: () => widget.initialLink!.copyWith(
+            platform: _selectedPlatform.name,
+            title: customTitle.isNotEmpty ? customTitle : _selectedPlatform.displayName,
+            url: _selectedPlatform.formatUrl(rawInput),
+            username: rawInput,
+          ),
+        );
         Navigator.of(context).pop();
+        LinkAddedSuccessModal.show(context, updatedLink, isEditing: true);
       } else {
         SnackbarHelper.showError(
           context,

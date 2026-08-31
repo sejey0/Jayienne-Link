@@ -97,7 +97,7 @@ enum SocialPlatform {
     if (lower.contains('pinterest.com') || lower.contains('pin.it')) {
       return SocialPlatform.pinterest;
     }
-    if (lower.startsWith('http://') || lower.startsWith('https://') || lower.contains('.')) {
+    if (lower.startsWith('http://') || lower.startsWith('https://') || lower.startsWith('www.')) {
       return SocialPlatform.website;
     }
     return null;

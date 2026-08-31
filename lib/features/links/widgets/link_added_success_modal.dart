@@ -11,20 +11,29 @@ import 'platform_brand_icon.dart';
 
 class LinkAddedSuccessModal extends StatefulWidget {
   final SocialLinkModel link;
+  final bool isEditing;
 
   const LinkAddedSuccessModal({
     super.key,
     required this.link,
+    this.isEditing = false,
   });
 
-  static Future<void> show(BuildContext context, SocialLinkModel link) {
+  static Future<void> show(
+    BuildContext context,
+    SocialLinkModel link, {
+    bool isEditing = false,
+  }) {
     HapticFeedback.mediumImpact();
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => LinkAddedSuccessModal(link: link),
+      builder: (context) => LinkAddedSuccessModal(
+        link: link,
+        isEditing: isEditing,
+      ),
     );
   }
 
@@ -153,8 +162,8 @@ class _LinkAddedSuccessModalState extends State<LinkAddedSuccessModal>
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.favorite_rounded,
+                        child: Icon(
+                          widget.isEditing ? Icons.check_circle_rounded : Icons.favorite_rounded,
                           color: Colors.white,
                           size: 30,
                         ),
@@ -167,7 +176,7 @@ class _LinkAddedSuccessModalState extends State<LinkAddedSuccessModal>
 
                 // ── Title ──────────────────────────────────────────────────
                 Text(
-                  'Link Shared!',
+                  widget.isEditing ? 'Link Updated!' : 'Link Shared!',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -181,13 +190,15 @@ class _LinkAddedSuccessModalState extends State<LinkAddedSuccessModal>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.favorite_rounded,
+                      widget.isEditing ? Icons.check_circle_outline_rounded : Icons.favorite_rounded,
                       size: 13,
                       color: AppColors.softRose,
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      '$partnerName can now visit this anytime',
+                      widget.isEditing
+                          ? 'Changes saved to your couple profile'
+                          : '$partnerName can now visit this anytime',
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark ? Colors.white54 : Colors.grey.shade500,
@@ -283,9 +294,9 @@ class _LinkAddedSuccessModalState extends State<LinkAddedSuccessModal>
                                     ),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: const Text(
-                                    'Added',
-                                    style: TextStyle(
+                                  child: Text(
+                                    widget.isEditing ? 'Updated' : 'Added',
+                                    style: const TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
@@ -297,7 +308,9 @@ class _LinkAddedSuccessModalState extends State<LinkAddedSuccessModal>
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              'Added ${platform.displayName} to your couple profile',
+                              widget.isEditing
+                                  ? 'Updated ${platform.displayName} on your couple profile'
+                                  : 'Added ${platform.displayName} to your couple profile',
                               style: TextStyle(
                                 fontSize: 11.5,
                                 color: isDark ? Colors.white54 : Colors.grey.shade500,
@@ -342,6 +355,7 @@ class _LinkAddedSuccessModalState extends State<LinkAddedSuccessModal>
                     children: [
                       PlatformBrandIcon(
                         platform: platform,
+                        customUrl: widget.link.url,
                         size: 50,
                         borderRadius: 14,
                       ),

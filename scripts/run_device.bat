@@ -746,7 +746,7 @@ echo.
 where gh >nul 2>&1
 if not errorlevel 1 (
     echo GitHub CLI (gh) detected! Creating GitHub Release automatically...
-    gh release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --title "Jayienne Link v!NEW_VERSION!" --notes "!REL_NOTES!"
+    gh release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --repo "%GH_USER%/%GH_REPO%" --title "Jayienne Link v!NEW_VERSION!" --notes "!REL_NOTES!"
     if not errorlevel 1 (
         echo.
         echo ====================================================

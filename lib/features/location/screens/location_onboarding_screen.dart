@@ -120,7 +120,7 @@ class _LocationOnboardingScreenState extends State<LocationOnboardingScreen> {
             height: 120,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: page.color.withOpacity(0.2),
+              color: page.color.withValues(alpha: 0.2),
             ),
             child: Icon(
               page.icon,

@@ -271,7 +271,7 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
             children: [
               CircleAvatar(
                 radius: AppDimensions.avatarSizeMedium / 2,
-                backgroundColor: AppColors.peach.withOpacity(0.3),
+                backgroundColor: AppColors.peach.withValues(alpha: 0.3),
                 child: const Icon(Icons.person, color: AppColors.softRose),
               ),
               const SizedBox(width: AppDimensions.spacingMd),

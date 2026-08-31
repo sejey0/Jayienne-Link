@@ -199,7 +199,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
                         vertical: AppDimensions.spacingXs,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.lavender.withOpacity(0.2),
+                        color: AppColors.lavender.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(
                           AppDimensions.borderRadiusSmall,
                         ),
@@ -439,7 +439,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.warning.withOpacity(0.1),
+                            color: AppColors.warning.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -459,7 +459,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.lavender.withOpacity(0.1),
+                            color: AppColors.lavender.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -668,7 +668,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
               Container(
                 padding: const EdgeInsets.all(AppDimensions.spacingMd),
                 decoration: BoxDecoration(
-                  color: AppColors.lavender.withOpacity(0.1),
+                  color: AppColors.lavender.withValues(alpha: 0.1),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -720,7 +720,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: accentColor.withOpacity(isHighlighted ? 1 : 0.5),
+              color: accentColor.withValues(alpha: isHighlighted ? 1 : 0.5),
               width: isHighlighted ? 2 : 1,
             ),
           ),
@@ -771,7 +771,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: accentColor.withOpacity(0.35),
+            color: accentColor.withValues(alpha: 0.35),
             blurRadius: 8,
             spreadRadius: 1,
           ),
@@ -805,7 +805,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     return Container(
       width: size,
       height: size,
-      color: accentColor.withOpacity(0.15),
+      color: accentColor.withValues(alpha: 0.15),
       child: Icon(
         icon,
         color: accentColor,

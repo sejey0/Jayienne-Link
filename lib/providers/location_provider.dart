@@ -106,10 +106,8 @@ class LocationProvider extends ChangeNotifier {
   StreamSubscription? _connectivitySubscription;
   StreamSubscription? _syncStatusSubscription;
   StreamSubscription<LocationModel>? _partnerLocationSubscription;
-  Timer? _foregroundCaptureTimer;
 
   static const Distance _distanceCalculator = Distance();
-  static const Duration _foregroundCaptureInterval = Duration(minutes: 1);
 
   // Getters
   LocationModel? get currentLocation => _currentLocation;
@@ -388,7 +386,7 @@ class LocationProvider extends ChangeNotifier {
     if (!_permissionStatus.canTrack) return;
 
     _devicePositionSubscription?.cancel();
-    final locationSettings = LocationSettings(
+    const locationSettings = LocationSettings(
       accuracy: kIsWeb ? LocationAccuracy.medium : LocationAccuracy.high,
       distanceFilter: 15, // Only trigger after 15m movement to save battery
     );

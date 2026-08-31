@@ -10,6 +10,39 @@ import '../../../widgets/common/app_text_field.dart';
 import 'link_added_success_modal.dart';
 import 'platform_brand_icon.dart';
 
+/// Formatter that automatically capitalizes the first letter of each word
+class CapitalizeWordsInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) return newValue;
+
+    final buffer = StringBuffer();
+    bool capitalizeNext = true;
+
+    for (int i = 0; i < newValue.text.length; i++) {
+      final char = newValue.text[i];
+      if (char == ' ' || char == '-' || char == '_' || char == '/') {
+        buffer.write(char);
+        capitalizeNext = true;
+      } else if (capitalizeNext) {
+        buffer.write(char.toUpperCase());
+        capitalizeNext = false;
+      } else {
+        buffer.write(char);
+      }
+    }
+
+    final capitalizedString = buffer.toString();
+    return newValue.copyWith(
+      text: capitalizedString,
+      selection: newValue.selection,
+    );
+  }
+}
+
 class AddEditLinkSheet extends StatefulWidget {
   final SocialLinkModel? initialLink;
 
@@ -61,6 +94,16 @@ class _AddEditLinkSheetState extends State<AddEditLinkSheet> {
     }
 
     _inputController.addListener(() {
+      final text = _inputController.text.trim();
+      if (text.isNotEmpty) {
+        final detected = SocialPlatform.detectFromUrl(text);
+        if (detected != null && detected != _selectedPlatform) {
+          setState(() {
+            _selectedPlatform = detected;
+          });
+          return;
+        }
+      }
       if (mounted) setState(() {});
     });
   }
@@ -339,6 +382,7 @@ class _AddEditLinkSheetState extends State<AddEditLinkSheet> {
                       child: Center(
                         child: PlatformBrandIcon(
                           platform: _selectedPlatform,
+                          customUrl: _livePreviewUrl,
                           size: 20,
                           showBackground: false,
                         ),
@@ -372,12 +416,13 @@ class _AddEditLinkSheetState extends State<AddEditLinkSheet> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(
-                            Icons.link_rounded,
-                            size: 16,
-                            color: AppColors.softRose,
+                          PlatformBrandIcon(
+                            platform: _selectedPlatform,
+                            customUrl: _livePreviewUrl,
+                            size: 22,
+                            borderRadius: 6,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,6 +472,10 @@ class _AddEditLinkSheetState extends State<AddEditLinkSheet> {
                     hintText: 'e.g. My Main Account, Favorite Playlist',
                     prefixIcon: Icons.label_outline_rounded,
                     textInputAction: TextInputAction.done,
+                    textCapitalization: TextCapitalization.words,
+                    inputFormatters: [
+                      CapitalizeWordsInputFormatter(),
+                    ],
                     borderRadius: BorderRadius.circular(16),
                     isDark: isDark,
                   ),

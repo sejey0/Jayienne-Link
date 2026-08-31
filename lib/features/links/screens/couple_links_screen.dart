@@ -482,6 +482,7 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
                   children: [
                     PlatformBrandIcon(
                       platform: platform,
+                      customUrl: link.url,
                       size: 42,
                       borderRadius: 12,
                     ),
@@ -752,6 +753,7 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
                     children: [
                       PlatformBrandIcon(
                         platform: platform,
+                        customUrl: link.url,
                         size: 54,
                         borderRadius: 16,
                       ),

@@ -53,9 +53,70 @@ enum SocialPlatform {
       case 'website':
       case 'custom':
       case 'link':
+      case 'other':
       default:
         return SocialPlatform.website;
     }
+  }
+
+  /// Automatically detect platform from a raw URL string or username
+  static SocialPlatform? detectFromUrl(String input) {
+    final lower = input.toLowerCase().trim();
+    if (lower.isEmpty) return null;
+
+    if (lower.contains('instagram.com') || lower.contains('instagr.am')) {
+      return SocialPlatform.instagram;
+    }
+    if (lower.contains('tiktok.com')) {
+      return SocialPlatform.tiktok;
+    }
+    if (lower.contains('spotify.com')) {
+      return SocialPlatform.spotify;
+    }
+    if (lower.contains('facebook.com') || lower.contains('fb.me') || lower.contains('fb.com')) {
+      return SocialPlatform.facebook;
+    }
+    if (lower.contains('twitter.com') || lower.contains('x.com')) {
+      return SocialPlatform.twitter;
+    }
+    if (lower.contains('youtube.com') || lower.contains('youtu.be')) {
+      return SocialPlatform.youtube;
+    }
+    if (lower.contains('snapchat.com')) {
+      return SocialPlatform.snapchat;
+    }
+    if (lower.contains('t.me') || lower.contains('telegram.me') || lower.contains('telegram.org')) {
+      return SocialPlatform.telegram;
+    }
+    if (lower.contains('discord.gg') || lower.contains('discord.com') || lower.contains('discordapp.com')) {
+      return SocialPlatform.discord;
+    }
+    if (lower.contains('github.com')) {
+      return SocialPlatform.github;
+    }
+    if (lower.contains('pinterest.com') || lower.contains('pin.it')) {
+      return SocialPlatform.pinterest;
+    }
+    if (lower.startsWith('http://') || lower.startsWith('https://') || lower.contains('.')) {
+      return SocialPlatform.website;
+    }
+    return null;
+  }
+
+  /// Extract clean domain/hostname from any URL for favicon loading
+  static String? extractDomain(String rawUrl) {
+    try {
+      var clean = rawUrl.trim();
+      if (clean.isEmpty) return null;
+      if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+        clean = 'https://$clean';
+      }
+      final uri = Uri.tryParse(clean);
+      if (uri != null && uri.host.isNotEmpty) {
+        return uri.host;
+      }
+    } catch (_) {}
+    return null;
   }
 
   String get id => name;
@@ -85,7 +146,7 @@ enum SocialPlatform {
       case SocialPlatform.pinterest:
         return 'Pinterest';
       case SocialPlatform.website:
-        return 'Website / Link';
+        return 'Custom';
     }
   }
 

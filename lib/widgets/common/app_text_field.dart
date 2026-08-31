@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
 
 /// Unified romantic text input field matched to the Sign-In / Login styling.
@@ -22,6 +23,7 @@ class AppTextField extends StatefulWidget {
   final bool autofocus;
   final FocusNode? focusNode;
   final TextCapitalization textCapitalization;
+  final List<TextInputFormatter>? inputFormatters;
   final BorderRadius? borderRadius;
   final Color? backgroundColor;
   final Color? borderColor;
@@ -50,6 +52,7 @@ class AppTextField extends StatefulWidget {
     this.autofocus = false,
     this.focusNode,
     this.textCapitalization = TextCapitalization.none,
+    this.inputFormatters,
     this.borderRadius,
     this.backgroundColor,
     this.borderColor,
@@ -202,6 +205,7 @@ class _AppTextFieldState extends State<AppTextField> {
                     autofocus: widget.autofocus,
                     focusNode: _effectiveFocusNode,
                     textCapitalization: widget.textCapitalization,
+                    inputFormatters: widget.inputFormatters,
                     style: widget.style ??
                         TextStyle(
                           color: dark ? Colors.white : AppColors.deepCharcoal,

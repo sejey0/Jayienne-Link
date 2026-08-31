@@ -1,8 +1,8 @@
 ﻿{
-    "version":  "1.0.2",
-    "build_number":  3,
-    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.0.2/app-release.apk",
+    "version":  "1.0.3",
+    "build_number":  4,
+    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.0.3/app-release.apk",
     "release_notes":  "New update with exciting improvements and bug fixes.",
-    "min_required_version":  "1.0.2",
+    "min_required_version":  "1.0.3",
     "force_update":  true
 }

@@ -11,6 +11,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/milestone_model.dart';
 import '../../../providers/anniversary_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../widgets/common/app_text_field.dart';
 
 /// Interactive Relationship Memory Timeline Screen
@@ -251,7 +252,7 @@ class _RelationshipTimelineScreenState
     );
   }
 
-  /// Vertical Timeline Item with Node Connector & Category Card
+  /// Vertical Timeline Item with Node Connector & Redesigned Hero Memory Card
   Widget _buildTimelineNodeItem(
     BuildContext context,
     AnniversaryProvider provider,
@@ -260,203 +261,401 @@ class _RelationshipTimelineScreenState
     bool isLast,
   ) {
     final cat = item.category;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Left Timeline Connector Line & Icon Node
+          // Left Timeline Connector Line & Category Node (Anchored near top)
           SizedBox(
-            width: 48,
-            child: Column(
+            width: 36,
+            child: Stack(
+              alignment: Alignment.topCenter,
               children: [
-                // Top Connecting Line
-                Expanded(
+                // Continuous Spine Line
+                Positioned(
+                  top: isFirst ? 18 : 0,
+                  bottom: isLast ? null : 0,
+                  height: isLast ? 18 : null,
                   child: Container(
-                    width: 3,
-                    color: isFirst ? Colors.transparent : AppColors.softRose.withValues(alpha: 0.3),
-                  ),
-                ),
-                // Category Icon Node Big Circle Dot
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: cat.gradientColors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: cat.gradientColors.first.withValues(alpha: 0.45),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                    width: 2.5,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          cat.gradientColors.first.withValues(alpha: 0.6),
+                          cat.gradientColors.last.withValues(alpha: 0.35),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
-                    ],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                  child: Icon(cat.icon, color: Colors.white, size: 20),
                 ),
-                // Bottom Connecting Line
-                Expanded(
+                // Circular Category Icon Node (Aligned with card top header)
+                Positioned(
+                  top: 10,
                   child: Container(
-                    width: 3,
-                    color: isLast ? Colors.transparent : AppColors.softRose.withValues(alpha: 0.3),
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: cat.gradientColors,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        width: 2.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              cat.gradientColors.first.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(cat.icon, color: Colors.white, size: 16),
                   ),
                 ),
               ],
             ),
           ),
-          // Horizontal connector line: node → card (matches vertical timeline line)
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              width: 16,
-              height: 2.5,
-              decoration: BoxDecoration(
-                color: AppColors.softRose.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
+          const SizedBox(width: 8),
 
-          // Right Card Container
+          // Right Memory Card Container
           Expanded(
             child: Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(18),
+                color: Theme.of(context).cardTheme.color ??
+                    (isDark ? const Color(0xFF1E142B) : Colors.white),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: cat.gradientColors.first.withValues(alpha: 0.25),
-                  width: 1.5,
+                  color: cat.gradientColors.first.withValues(
+                    alpha: isDark ? 0.25 : 0.18,
+                  ),
+                  width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                    color: cat.gradientColors.first.withValues(
+                      alpha: isDark ? 0.12 : 0.06,
+                    ),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Title & Date Header Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.title,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                  // 1. Top Badges & Actions Row
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 6, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Left: Category Badge & Date Badge
+                        Expanded(
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              // Category Badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3.5,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      cat.gradientColors.first
+                                          .withValues(alpha: 0.16),
+                                      cat.gradientColors.last
+                                          .withValues(alpha: 0.16),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: cat.gradientColors.first
+                                        .withValues(alpha: 0.3),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      cat.icon,
+                                      size: 11.5,
+                                      color: cat.gradientColors.first,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      item.displayCategoryLabel,
+                                      style: TextStyle(
+                                        color: cat.gradientColors.first,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+
+                              // Date Badge
+                              if (item.eventDate != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.08)
+                                        : Colors.grey.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.calendar_today_rounded,
+                                        size: 10,
+                                        color: isDark
+                                            ? Colors.white60
+                                            : Colors.black54,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        DateFormat('MMM d, yyyy')
+                                            .format(item.eventDate!),
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? Colors.white70
+                                              : Colors.black87,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: cat.gradientColors.first.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(cat.icon, size: 12, color: cat.gradientColors.first),
-                            const SizedBox(width: 4),
-                            Text(
-                              item.displayCategoryLabel,
-                              style: TextStyle(
-                                color: cat.gradientColors.first,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
+
+                        // Right: Options Menu
+                        PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(
+                            Icons.more_horiz_rounded,
+                            size: 20,
+                            color: Colors.grey,
+                          ),
+                          onSelected: (val) {
+                            if (val == 'delete') {
+                              _confirmDeleteMilestone(context, provider, item);
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: Colors.red,
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Delete Memory',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      if (item.eventDate != null) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            DateFormat('MMM d, yyyy').format(item.eventDate!),
-                            style: TextStyle(
-                              color: Colors.grey.shade700,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
                       ],
-                      const SizedBox(width: 4),
-                      PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_vert_rounded, size: 18, color: Colors.grey),
-                        onSelected: (val) {
-                          if (val == 'delete') {
-                            _confirmDeleteMilestone(context, provider, item);
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
+                    ),
+                  ),
+
+                  // 2. Full-Width Title Display
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                    child: Text(
+                      item.title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppColors.deepCharcoal,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+
+                  // 3. Description Display
+                  if (item.description != null &&
+                      item.description!.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+                      child: Text(
+                        item.description!.trim(),
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.72)
+                              : Colors.black.withValues(alpha: 0.68),
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+
+                  // 4. Hero Photo Preview (If attached)
+                  if (item.photoUrl != null &&
+                      item.photoUrl!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: GestureDetector(
+                        onTap: () => _showImageZoomDialog(
+                            context, item.photoUrl!.trim()),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(
+                                  alpha: isDark ? 0.35 : 0.08,
+                                ),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Stack(
                               children: [
-                                Icon(Icons.delete_outline_rounded, color: Colors.red, size: 18),
-                                SizedBox(width: 8),
-                                Text('Delete Memory', style: TextStyle(color: Colors.red)),
+                                AspectRatio(
+                                  aspectRatio: 16 / 10,
+                                  child: CachedNetworkImage(
+                                    imageUrl: item.photoUrl!.trim(),
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => Container(
+                                      color: isDark
+                                          ? const Color(0xFF2A1C3C)
+                                          : Colors.grey.shade100,
+                                      child: const Center(
+                                        child: SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Color(0xFFFF758C),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                        Container(
+                                      color: isDark
+                                          ? const Color(0xFF2A1C3C)
+                                          : Colors.grey.shade100,
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.broken_image_rounded,
+                                          color: Colors.grey,
+                                          size: 32,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Bottom subtle gradient with zoom hint
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.transparent,
+                                          Colors.black.withValues(alpha: 0.5),
+                                        ],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black
+                                                .withValues(alpha: 0.55),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                            border: Border.all(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.25),
+                                              width: 0.6,
+                                            ),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.fullscreen_rounded,
+                                                color: Colors.white,
+                                                size: 13,
+                                              ),
+                                              SizedBox(width: 3),
+                                              Text(
+                                                'View Photo',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 9.5,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  // Description if present
-                  if (item.description != null && item.description!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      item.description!,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey.shade700,
-                          ),
-                    ),
-                  ],
-
-                  // Photo Thumbnail preview if attached
-                  if (item.photoUrl != null && item.photoUrl!.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: () => _showImageZoomDialog(context, item.photoUrl!),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: CachedNetworkImage(
-                          imageUrl: item.photoUrl!,
-                          width: double.infinity,
-                          height: 180,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            height: 180,
-                            color: Colors.grey.shade200,
-                            child: const Center(child: CircularProgressIndicator()),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            height: 180,
-                            color: Colors.grey.shade200,
-                            child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
-                          ),
                         ),
                       ),
                     ),
-                  ],
+                  ] else
+                    const SizedBox(height: 12),
                 ],
               ),
             ),

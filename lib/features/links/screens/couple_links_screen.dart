@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/snackbar_helper.dart';
@@ -24,6 +25,21 @@ class CoupleLinksScreen extends StatefulWidget {
 class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
   _LinkFilterTab _selectedTab = _LinkFilterTab.all;
   SocialPlatform? _selectedPlatformFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final linksProv = context.read<CoupleLinksProvider>();
+      final userProv = context.read<UserProvider>();
+      final coupleId = userProv.user?.coupleId;
+      final userId = userProv.user?.id;
+      if (coupleId != null && userId != null) {
+        linksProv.initialize(coupleId: coupleId, userId: userId);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -327,13 +343,30 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
 
   Widget _buildPlatformChip({
     required String label,
-    required IconData icon,
+    required dynamic icon,
     required bool isSelected,
     required VoidCallback onTap,
     required bool isDark,
     Color? color,
   }) {
     final activeColor = color ?? AppColors.softRose;
+    Widget iconWidget;
+    if (icon is FaIconData) {
+      iconWidget = FaIcon(
+        icon,
+        size: 13,
+        color: isSelected ? activeColor : (isDark ? Colors.white70 : Colors.grey.shade700),
+      );
+    } else if (icon is IconData) {
+      iconWidget = Icon(
+        icon,
+        size: 14,
+        color: isSelected ? activeColor : (isDark ? Colors.white70 : Colors.grey.shade700),
+      );
+    } else {
+      iconWidget = const SizedBox.shrink();
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -354,11 +387,7 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isSelected ? activeColor : (isDark ? Colors.white70 : Colors.grey.shade700),
-            ),
+            iconWidget,
             const SizedBox(width: 6),
             Text(
               label,

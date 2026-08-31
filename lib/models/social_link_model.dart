@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 enum SocialPlatform {
   website,
@@ -88,32 +89,32 @@ enum SocialPlatform {
     }
   }
 
-  IconData get icon {
+  FaIconData get icon {
     switch (this) {
-      case SocialPlatform.instagram:
-        return Icons.camera_alt_rounded;
-      case SocialPlatform.tiktok:
-        return Icons.music_note_rounded;
-      case SocialPlatform.spotify:
-        return Icons.headphones_rounded;
-      case SocialPlatform.facebook:
-        return Icons.facebook_rounded;
-      case SocialPlatform.twitter:
-        return Icons.tag_rounded;
-      case SocialPlatform.youtube:
-        return Icons.play_circle_fill_rounded;
-      case SocialPlatform.snapchat:
-        return Icons.chat_bubble_rounded;
-      case SocialPlatform.telegram:
-        return Icons.send_rounded;
-      case SocialPlatform.discord:
-        return Icons.forum_rounded;
-      case SocialPlatform.github:
-        return Icons.code_rounded;
-      case SocialPlatform.pinterest:
-        return Icons.push_pin_rounded;
       case SocialPlatform.website:
-        return Icons.language_rounded;
+        return FontAwesomeIcons.globe;
+      case SocialPlatform.instagram:
+        return FontAwesomeIcons.instagram;
+      case SocialPlatform.tiktok:
+        return FontAwesomeIcons.tiktok;
+      case SocialPlatform.spotify:
+        return FontAwesomeIcons.spotify;
+      case SocialPlatform.facebook:
+        return FontAwesomeIcons.facebookF;
+      case SocialPlatform.twitter:
+        return FontAwesomeIcons.xTwitter;
+      case SocialPlatform.youtube:
+        return FontAwesomeIcons.youtube;
+      case SocialPlatform.snapchat:
+        return FontAwesomeIcons.snapchat;
+      case SocialPlatform.telegram:
+        return FontAwesomeIcons.telegram;
+      case SocialPlatform.discord:
+        return FontAwesomeIcons.discord;
+      case SocialPlatform.github:
+        return FontAwesomeIcons.github;
+      case SocialPlatform.pinterest:
+        return FontAwesomeIcons.pinterestP;
     }
   }
 
@@ -327,12 +328,13 @@ class SocialLinkModel {
   }
 
   Map<String, dynamic> toInsertJson() {
-    return {
-      'id': id,
+    final map = <String, dynamic>{
       'couple_id': coupleId,
       'user_id': userId,
-      if (userDisplayName != null) 'user_display_name': userDisplayName,
-      if (userPhotoUrl != null) 'user_photo_url': userPhotoUrl,
+      if (userDisplayName != null && userDisplayName!.isNotEmpty)
+        'user_display_name': userDisplayName,
+      if (userPhotoUrl != null && userPhotoUrl!.isNotEmpty)
+        'user_photo_url': userPhotoUrl,
       'platform': platform,
       'title': title,
       'username': username,
@@ -340,6 +342,12 @@ class SocialLinkModel {
       if (iconKey != null) 'icon_key': iconKey,
       'created_at': createdAt.toIso8601String(),
     };
+    // Only pass ID if it is a valid UUID, otherwise allow Postgres gen_random_uuid() to generate it
+    if (RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+        .hasMatch(id)) {
+      map['id'] = id;
+    }
+    return map;
   }
 
   SocialLinkModel copyWith({

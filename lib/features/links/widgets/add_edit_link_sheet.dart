@@ -334,7 +334,16 @@ class _AddEditLinkSheetState extends State<AddEditLinkSheet> {
                   AppTextField(
                     controller: _inputController,
                     hintText: _selectedPlatform.placeholder,
-                    prefixIcon: _selectedPlatform.icon,
+                    prefixWidget: SizedBox(
+                      width: 44,
+                      child: Center(
+                        child: PlatformBrandIcon(
+                          platform: _selectedPlatform,
+                          size: 20,
+                          showBackground: false,
+                        ),
+                      ),
+                    ),
                     textInputAction: TextInputAction.next,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {

@@ -36,6 +36,15 @@ class CoupleLinksProvider extends ChangeNotifier {
     _userId = userId;
     _partnerId = partnerId;
 
+    // Immediately load from local cache if memory list is empty
+    if (_links.isEmpty) {
+      final cached = await _service.getCachedLinks(coupleId);
+      if (cached.isNotEmpty) {
+        _links = cached;
+        notifyListeners();
+      }
+    }
+
     if (hasChanged || _links.isEmpty) {
       await refreshLinks();
     }
@@ -130,7 +139,7 @@ class CoupleLinksProvider extends ChangeNotifier {
       );
 
       final created = await _service.addLink(newLink);
-      _links.removeWhere((l) => l.id == created.id);
+      _links.removeWhere((l) => l.id == created.id || l.id == newLink.id);
       _links.insert(0, created);
       _isSaving = false;
       notifyListeners();

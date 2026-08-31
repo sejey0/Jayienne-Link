@@ -4,7 +4,7 @@
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS public.couple_links (
-    id TEXT PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     couple_id UUID NOT NULL REFERENCES public.couples(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     user_display_name TEXT,

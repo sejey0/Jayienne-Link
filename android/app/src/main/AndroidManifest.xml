@@ -30,6 +30,9 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- In-App Auto Update (OTA) APK Installation -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:label="Jayienne Link"
         android:name="${applicationName}"

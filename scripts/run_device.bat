@@ -619,18 +619,163 @@ echo   [1] Release Build ^& Run (Quick)
 echo   [2] Clean Release Build ^& Run
 echo   [3] Build APK ^& Open Folder (share manually)
 echo   [4] Full Release (Clean + Build APK + Open Folder + Run)
+echo   [5] 🚀 One-Click Auto Publish to GitHub OTA Release
 echo   [0] Back to Main Menu
 echo ----------------------------------------
 echo.
-set /p "REL_CHOICE=Enter choice (1-4, 0): "
+set /p "REL_CHOICE=Enter choice (1-5, 0): "
 
 if "%REL_CHOICE%"=="1" goto buildrun
 if "%REL_CHOICE%"=="2" goto cleanrebuild
 if "%REL_CHOICE%"=="3" goto buildapk
 if "%REL_CHOICE%"=="4" goto fullrelease
+if "%REL_CHOICE%"=="5" goto github_ota_release
 if "%REL_CHOICE%"=="0" goto menu
-echo Invalid choice. Please enter 1-4 or 0.
+echo Invalid choice. Please enter 1-5 or 0.
 echo.
+goto releasemenu
+
+:github_ota_release
+echo.
+echo ====================================================
+echo   One-Click Auto Publish to GitHub OTA Release
+echo ====================================================
+echo.
+
+set "GH_USER=cjaayy"
+set "GH_REPO=Jayienne-Link"
+
+REM 1. Get current version if version.json exists
+set "CURRENT_VER=1.0.0"
+set "CURRENT_BUILD=1"
+if exist "version.json" (
+    for /f "delims=" %%v in ('powershell -NoProfile -Command "(Get-Content 'version.json' -Raw | ConvertFrom-Json).version"') do set "CURRENT_VER=%%v"
+    for /f "delims=" %%b in ('powershell -NoProfile -Command "(Get-Content 'version.json' -Raw | ConvertFrom-Json).build_number"') do set "CURRENT_BUILD=%%b"
+)
+
+REM Calculate next default patch version (e.g. 1.0.1 -> 1.0.2)
+set "DEFAULT_NEXT_VER=1.0.1"
+for /f "delims=" %%p in ('powershell -NoProfile -Command "$p = '!CURRENT_VER!'.Split('.'); if ($p.Length -ge 3) { $p[2] = [string]([int]$p[2] + 1); $p -join '.' } elseif ($p.Length -eq 2) { $p[0] + '.' + $p[1] + '.1' } else { '!CURRENT_VER!.0.1' }"') do set "DEFAULT_NEXT_VER=%%p"
+
+set /a "DEFAULT_NEXT_BUILD=CURRENT_BUILD+1"
+
+echo Current Version in version.json: v!CURRENT_VER! (Build !CURRENT_BUILD!)
+echo.
+
+set "NEW_VERSION="
+set /p "NEW_VERSION=Enter new version number [default !DEFAULT_NEXT_VER!]: "
+if "!NEW_VERSION!"=="" set "NEW_VERSION=!DEFAULT_NEXT_VER!"
+
+set "NEW_BUILD="
+set /p "NEW_BUILD=Enter build number [default !DEFAULT_NEXT_BUILD!]: "
+if "!NEW_BUILD!"=="" set "NEW_BUILD=!DEFAULT_NEXT_BUILD!"
+
+echo.
+set /p "REL_NOTES=Enter release notes (optional, press Enter for default): "
+if "!REL_NOTES!"=="" set "REL_NOTES=New update with exciting improvements and bug fixes."
+
+echo.
+echo ----------------------------------------------------
+echo Target Release: v!NEW_VERSION! (Build !NEW_BUILD!)
+echo Repository: %GH_USER%/%GH_REPO%
+echo Release Notes: !REL_NOTES!
+echo ----------------------------------------------------
+echo.
+
+set /p "CONFIRM=Proceed with building and publishing v!NEW_VERSION!? (y/n): "
+if /i not "!CONFIRM!"=="y" (
+    echo Publishing cancelled.
+    pause
+    goto releasemenu
+)
+
+echo.
+echo [1/5] Updating version.json and pubspec.yaml...
+powershell -NoProfile -Command ^
+    "$jsonObj = [ordered]@{ " ^
+    "    version = '!NEW_VERSION!'; " ^
+    "    build_number = [int]!NEW_BUILD!; " ^
+    "    download_url = 'https://github.com/%GH_USER%/%GH_REPO%/releases/download/v!NEW_VERSION!/app-release.apk'; " ^
+    "    release_notes = '!REL_NOTES!'; " ^
+    "    min_required_version = '!NEW_VERSION!'; " ^
+    "    force_update = $true " ^
+    "}; " ^
+    "$jsonObj | ConvertTo-Json -Depth 4 | Set-Content -Path 'version.json' -Encoding UTF8"
+
+REM Update pubspec.yaml version string
+powershell -NoProfile -Command ^
+    "(Get-Content 'pubspec.yaml') -replace '^version:\s*.*$', 'version: !NEW_VERSION!+!NEW_BUILD!' | Set-Content 'pubspec.yaml'"
+
+echo.
+echo [2/5] Cleaning project...
+call flutter clean
+
+echo.
+echo [3/5] Resolving dependencies...
+call flutter pub get
+
+echo.
+echo [4/5] Building Release APK...
+call flutter build apk --release
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Flutter release build failed!
+    pause
+    goto releasemenu
+)
+
+if not exist "build\app\outputs\flutter-apk\app-release.apk" (
+    echo.
+    echo [ERROR] APK not found at build\app\outputs\flutter-apk\app-release.apk!
+    pause
+    goto releasemenu
+)
+
+echo.
+echo [5/5] Committing version update to Git repository...
+git add version.json pubspec.yaml
+git commit -m "chore(release): bump version to v!NEW_VERSION! (build !NEW_BUILD!)"
+git push origin main
+
+echo.
+echo ====================================================
+echo   Publishing Release Asset to GitHub
+echo ====================================================
+echo.
+
+where gh >nul 2>&1
+if not errorlevel 1 (
+    echo GitHub CLI (gh) detected! Creating GitHub Release automatically...
+    gh release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --title "Jayienne Link v!NEW_VERSION!" --notes "!REL_NOTES!"
+    if not errorlevel 1 (
+        echo.
+        echo ====================================================
+        echo   [SUCCESS] GitHub OTA Release v!NEW_VERSION! Published!
+        echo   Direct APK: https://github.com/%GH_USER%/%GH_REPO%/releases/download/v!NEW_VERSION!/app-release.apk
+        echo   All users opening the app will now be forced to update!
+        echo ====================================================
+    ) else (
+        echo.
+        echo [WARNING] GitHub CLI release creation encountered an issue.
+        echo Opening browser to GitHub Releases and local APK folder as fallback...
+        if exist "build\app\outputs\flutter-apk" explorer "build\app\outputs\flutter-apk"
+        start https://github.com/%GH_USER%/%GH_REPO%/releases/new?tag=v!NEW_VERSION!
+    )
+) else (
+    echo GitHub CLI (gh) not detected on your system.
+    echo Opening browser to GitHub Releases and local APK folder...
+    if exist "build\app\outputs\flutter-apk" explorer "build\app\outputs\flutter-apk"
+    start https://github.com/%GH_USER%/%GH_REPO%/releases/new?tag=v!NEW_VERSION!
+    echo.
+    echo Complete release manually:
+    echo   1. Set Tag: v!NEW_VERSION!
+    echo   2. Title: Jayienne Link v!NEW_VERSION!
+    echo   3. Drag 'app-release.apk' into binaries
+    echo   4. Click 'Publish release'
+)
+
+echo.
+pause
 goto releasemenu
 
 :fullrelease

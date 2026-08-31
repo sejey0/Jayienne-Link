@@ -1,0 +1,8 @@
+{
+  "version": "1.0.1",
+  "build_number": 2,
+  "download_url": "https://github.com/cjaayy/Jayienne-Link/releases/download/v1.0.1/app-release.apk",
+  "release_notes": "Added 10-second Voice Messages snippet, partner live replication, and forced OTA updates.",
+  "min_required_version": "1.0.1",
+  "force_update": true
+}

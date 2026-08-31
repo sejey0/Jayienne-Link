@@ -19,6 +19,7 @@ import '../../../providers/theme_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/secret_media_provider.dart';
 import '../../../services/supabase_storage_service.dart';
+import '../../../services/update_service.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../admin/screens/admin_dashboard_screen.dart';
@@ -814,7 +815,7 @@ class SettingsScreen extends StatelessWidget {
                     const Icon(Icons.favorite, size: 14, color: Color(0xFFFF758C)),
                     const SizedBox(width: 6),
                     Text(
-                      'Jayienne Link v1.0.0',
+                      'Jayienne Link',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -823,7 +824,30 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    UpdateService.instance.checkForUpdates(context, isManualCheck: true);
+                  },
+                  icon: const Icon(Icons.system_update_rounded, size: 15, color: AppColors.softRose),
+                  label: const Text(
+                    'Check for Updates',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.softRose,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    backgroundColor: AppColors.softRose.withValues(alpha: 0.1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Text(
                   'Crafted with love for couples',
                   style: TextStyle(

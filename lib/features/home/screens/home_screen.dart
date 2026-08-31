@@ -11,6 +11,7 @@ import '../../../models/anniversary_request_model.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../services/update_service.dart';
 import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/love_nudge_overlay_listener.dart';
@@ -18,8 +19,23 @@ import '../widgets/couple_hero_card.dart';
 import '../widgets/daily_quote_card.dart';
 import '../widgets/open_features_card.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        UpdateService.instance.checkForUpdates(context);
+      }
+    });
+  }
 
   String _getDynamicGreeting(UserModel? user, CoupleProvider coupleProvider) {
     final hour = DateTime.now().hour;

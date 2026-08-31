@@ -9,7 +9,7 @@ import '../../../providers/user_provider.dart';
 import '../../../widgets/smart_profile_image.dart';
 import 'platform_brand_icon.dart';
 
-class LinkAddedSuccessModal extends StatelessWidget {
+class LinkAddedSuccessModal extends StatefulWidget {
   final SocialLinkModel link;
 
   const LinkAddedSuccessModal({
@@ -29,6 +29,34 @@ class LinkAddedSuccessModal extends StatelessWidget {
   }
 
   @override
+  State<LinkAddedSuccessModal> createState() => _LinkAddedSuccessModalState();
+}
+
+class _LinkAddedSuccessModalState extends State<LinkAddedSuccessModal>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    _scaleAnim = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
+    _fadeAnim = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final userProvider = context.watch<UserProvider>();
@@ -39,313 +67,370 @@ class LinkAddedSuccessModal extends StatelessWidget {
         ? partner!.displayName
         : 'your partner';
 
-    final authorName = link.userDisplayName ?? currentUser?.displayName ?? 'You';
-    final authorPhotoUrl = link.userPhotoUrl ?? currentUser?.photoUrl;
-    final platform = link.socialPlatform;
+    final authorName = widget.link.userDisplayName ?? currentUser?.displayName ?? 'You';
+    final authorPhotoUrl = widget.link.userPhotoUrl ?? currentUser?.photoUrl;
+    final platform = widget.link.socialPlatform;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1427) : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.softRose.withValues(alpha: 0.25),
-            blurRadius: 28,
-            offset: const Offset(0, -8),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: AppColors.softRose.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
+    final bgColor = isDark ? const Color(0xFF1A1225) : AppColors.warmWhite;
+    final cardColor = isDark ? const Color(0xFF221932) : Colors.white;
+    final subtleColor = isDark
+        ? Colors.white.withValues(alpha: 0.05)
+        : AppColors.softRose.withValues(alpha: 0.06);
 
-              // Celebratory Floating Heart Emblem
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.softRose, AppColors.lavender],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.softRose.withValues(alpha: 0.4),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.check_rounded,
-                    color: Colors.white,
-                    size: 36,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              Text(
-                'Link Shared Successfully!',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 6),
-
-              Text(
-                'Now available in your couple connection for $partnerName to visit anytime.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isDark ? Colors.white60 : Colors.grey.shade600,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 20),
-
-              // Creator Profile Card
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.05)
-                      : AppColors.softRose.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.softRose.withValues(alpha: 0.25),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.softRose,
-                          width: 2,
-                        ),
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: Container(
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.softRose.withValues(alpha: 0.18),
+              blurRadius: 40,
+              offset: const Offset(0, -12),
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Drag Handle ──────────────────────────────────────────
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.softRose, AppColors.lavender],
                       ),
-                      child: ClipOval(
-                        child: SmartProfileImage(
-                          imageUrl: authorPhotoUrl,
-                          width: 40,
-                          height: 40,
-                          placeholder: Container(
-                            color: AppColors.softRose.withValues(alpha: 0.2),
-                            child: const Icon(Icons.person, color: AppColors.softRose, size: 20),
-                          ),
-                          errorWidget: Container(
-                            color: AppColors.softRose.withValues(alpha: 0.2),
-                            child: const Icon(Icons.person, color: AppColors.softRose, size: 20),
-                          ),
-                        ),
-                      ),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                authorName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.softRose.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Text(
-                                  'Creator',
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.softRose,
-                                  ),
-                                ),
-                              ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // ── Animated Success Emblem ───────────────────────────────
+                ScaleTransition(
+                  scale: _scaleAnim,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Outer glow ring
+                      Container(
+                        width: 90,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              AppColors.softRose.withValues(alpha: 0.25),
+                              Colors.transparent,
                             ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Added this ${platform.displayName} link to your couple profile',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? Colors.white60 : Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Link Preview Card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF241A33) : Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: platform.primaryColor.withValues(alpha: 0.3),
-                    width: 1.5,
+                      // Inner gradient circle
+                      Container(
+                        width: 68,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [AppColors.softRose, AppColors.lavender],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.softRose.withValues(alpha: 0.45),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.favorite_rounded,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                      ),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: platform.primaryColor.withValues(alpha: 0.12),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
-                child: Row(
+
+                const SizedBox(height: 16),
+
+                // ── Title ──────────────────────────────────────────────────
+                Text(
+                  'Link Shared!',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                    letterSpacing: 0.2,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    PlatformBrandIcon(
-                      platform: platform,
-                      size: 46,
-                      borderRadius: 14,
+                    Icon(
+                      Icons.favorite_rounded,
+                      size: 13,
+                      color: AppColors.softRose,
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            link.displayTitle,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            link.displayHandle,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: platform.primaryColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            link.url,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? Colors.white38 : Colors.grey.shade500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                    const SizedBox(width: 5),
+                    Text(
+                      '$partnerName can now visit this anytime',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.white54 : Colors.grey.shade500,
+                        height: 1.4,
                       ),
                     ),
                   ],
                 ),
-              ),
 
-              const SizedBox(height: 22),
+                const SizedBox(height: 22),
 
-              // Action Buttons
-              Row(
-                children: [
-                  // Copy Button
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        UrlLauncherHelper.copyToClipboard(
-                          context,
-                          link.url,
-                          label: link.displayTitle,
-                        );
-                      },
-                      icon: const Icon(Icons.copy_rounded, size: 16),
-                      label: const Text('Copy Link'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: isDark ? Colors.white70 : AppColors.deepCharcoal,
-                        side: BorderSide(
-                          color: isDark ? Colors.white24 : Colors.grey.shade300,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
+                // ── Creator Card ──────────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: subtleColor,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppColors.softRose.withValues(alpha: 0.22),
+                      width: 1,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Test Open Link
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: platform.gradientColors,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: platform.primaryColor.withValues(alpha: 0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+                  child: Row(
+                    children: [
+                      // Avatar
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [AppColors.softRose, AppColors.lavender],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                        ],
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.softRose.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(2),
+                        child: ClipOval(
+                          child: SmartProfileImage(
+                            imageUrl: authorPhotoUrl,
+                            width: 44,
+                            height: 44,
+                            placeholder: Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [AppColors.softRose, AppColors.lavender],
+                                ),
+                              ),
+                              child: const Icon(Icons.person, color: Colors.white, size: 22),
+                            ),
+                            errorWidget: Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [AppColors.softRose, AppColors.lavender],
+                                ),
+                              ),
+                              child: const Icon(Icons.person, color: Colors.white, size: 22),
+                            ),
+                          ),
+                        ),
                       ),
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          UrlLauncherHelper.launchLink(context, link.url);
-                        },
-                        icon: const Icon(Icons.open_in_new_rounded, size: 16, color: Colors.white),
-                        label: const Text(
-                          'Test Open',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    authorName,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14.5,
+                                      color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [AppColors.softRose, AppColors.lavender],
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'Added',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Added ${platform.displayName} to your couple profile',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: isDark ? Colors.white54 : Colors.grey.shade500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                // ── Link Preview Card ─────────────────────────────────────
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: platform.primaryColor.withValues(alpha: 0.25),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: platform.primaryColor.withValues(alpha: 0.10),
+                        blurRadius: 18,
+                        offset: const Offset(0, 5),
+                      ),
+                      if (!isDark)
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      PlatformBrandIcon(
+                        platform: platform,
+                        size: 50,
+                        borderRadius: 14,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.link.displayTitle,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: isDark ? Colors.white : AppColors.deepCharcoal,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              widget.link.displayHandle,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: platform.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.link.url,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.white30 : Colors.grey.shade400,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Arrow indicator
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: platform.primaryColor.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.arrow_outward_rounded,
+                          size: 16,
+                          color: platform.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                // ── Action Buttons ────────────────────────────────────────
+                Row(
+                  children: [
+                    // Copy URL
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          UrlLauncherHelper.copyToClipboard(
+                            context,
+                            widget.link.url,
+                            label: widget.link.displayTitle,
+                          );
+                        },
+                        icon: const Icon(Icons.copy_rounded, size: 15),
+                        label: const Text(
+                          'Copy Link',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? Colors.white70 : AppColors.deepCharcoal,
+                          side: BorderSide(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.18)
+                                : Colors.grey.shade300,
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -353,27 +438,105 @@ class LinkAddedSuccessModal extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 12),
+                    // Open Link
+                    Expanded(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: platform.gradientColors.length >= 2
+                                ? platform.gradientColors
+                                : [AppColors.softRose, AppColors.lavender],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: platform.primaryColor.withValues(alpha: 0.35),
+                              blurRadius: 12,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            UrlLauncherHelper.launchLink(context, widget.link.url);
+                          },
+                          icon: const Icon(Icons.open_in_new_rounded, size: 15, color: Colors.white),
+                          label: const Text(
+                            'Open',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
 
-              const SizedBox(height: 10),
+                const SizedBox(height: 10),
 
-              // Done Button
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    'Done',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white60 : Colors.grey.shade700,
+                // ── Done Button ───────────────────────────────────────────
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.softRose, AppColors.lavender],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.softRose.withValues(alpha: 0.35),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.check_circle_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Done',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Colors.white,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

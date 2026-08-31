@@ -541,48 +541,6 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
                         ],
                       ),
                     ),
-                    if (isMine)
-                      SizedBox(
-                        width: 26,
-                        height: 26,
-                        child: PopupMenuButton<String>(
-                          padding: EdgeInsets.zero,
-                          icon: Icon(
-                            Icons.more_vert_rounded,
-                            size: 18,
-                            color: isDark ? Colors.white38 : Colors.grey.shade400,
-                          ),
-                          onSelected: (action) {
-                            if (action == 'edit') {
-                              AddEditLinkSheet.show(context, initialLink: link);
-                            } else if (action == 'delete') {
-                              _confirmDelete(context, link, linksProvider);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.edit_rounded, size: 17, color: AppColors.softRose),
-                                  SizedBox(width: 10),
-                                  Text('Edit'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete_outline_rounded, size: 17, color: Colors.red),
-                                  SizedBox(width: 10),
-                                  Text('Delete', style: TextStyle(color: Colors.red)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                   ],
                 ),
 

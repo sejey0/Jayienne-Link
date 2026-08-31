@@ -9,6 +9,7 @@ import '../../../models/movie_model.dart';
 import '../../../services/supabase_movie_service.dart';
 import 'movie_alert_dialog.dart';
 import 'movie_poster_widget.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 /// Modal bottom sheet for adding or editing movie/series details
 /// Features:
@@ -665,78 +666,24 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                         // Title Input
                         Expanded(
                           flex: 3,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Title *',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.white : const Color(0xFF2D4059),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              TextFormField(
-                                controller: _titleController,
-                                textCapitalization: TextCapitalization.words,
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: _mediaType == 'series'
-                                      ? 'Stranger Things, Friends...'
-                                      : 'La La Land, Titanic...',
-                                  hintStyle: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark ? Colors.white38 : Colors.grey.shade400,
-                                  ),
-                                  prefixIcon: Icon(
-                                    _mediaType == 'series'
-                                        ? Icons.tv_rounded
-                                        : Icons.movie_creation_rounded,
-                                    color: const Color(0xFFFF758C),
-                                    size: 16,
-                                  ),
-                                  prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                  filled: true,
-                                  fillColor: isDark
-                                      ? Colors.white.withValues(alpha: 0.05)
-                                      : Colors.grey.shade50,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 8,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(
-                                      color: isDark
-                                          ? Colors.white.withValues(alpha: 0.12)
-                                          : Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFFF758C),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: AppColors.error),
-                                  ),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Please enter title';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ],
+                          child: AppTextField(
+                            labelText: 'Title *',
+                            controller: _titleController,
+                            textCapitalization: TextCapitalization.words,
+                            hintText: _mediaType == 'series'
+                                ? 'Stranger Things, Friends...'
+                                : 'La La Land, Titanic...',
+                            prefixIcon: _mediaType == 'series'
+                                ? Icons.tv_rounded
+                                : Icons.movie_creation_rounded,
+                            borderRadius: BorderRadius.circular(14),
+                            isDark: isDark,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter title';
+                              }
+                              return null;
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -744,115 +691,29 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                         // Release Year Input
                         Expanded(
                           flex: 1,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Year',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.white : const Color(0xFF2D4059),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              TextFormField(
-                                controller: _yearController,
-                                keyboardType: TextInputType.number,
-                                maxLength: 4,
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                ),
-                                decoration: InputDecoration(
-                                  counterText: '',
-                                  hintText: '2024',
-                                  hintStyle: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark ? Colors.white38 : Colors.grey.shade400,
-                                  ),
-                                  filled: true,
-                                  fillColor: isDark
-                                      ? Colors.white.withValues(alpha: 0.05)
-                                      : Colors.grey.shade50,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 8,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(
-                                      color: isDark
-                                          ? Colors.white.withValues(alpha: 0.12)
-                                          : Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFFF758C),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: AppTextField(
+                            labelText: 'Year',
+                            controller: _yearController,
+                            keyboardType: TextInputType.number,
+                            hintText: '2024',
+                            borderRadius: BorderRadius.circular(14),
+                            isDark: isDark,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
 
                     // Description / Synopsis Input
-                    Text(
-                      'Description / Synopsis (Optional)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : const Color(0xFF2D4059),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    TextFormField(
+                    AppTextField(
+                      labelText: 'Description / Synopsis (Optional)',
                       controller: _descriptionController,
                       maxLines: 2,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Brief plot, genre, or notes on why you want to watch this...',
-                        hintStyle: TextStyle(
-                          fontSize: 11.5,
-                          color: isDark ? Colors.white38 : Colors.grey.shade400,
-                        ),
-                        filled: true,
-                        fillColor: isDark
-                            ? Colors.white.withValues(alpha: 0.05)
-                            : Colors.grey.shade50,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.12)
-                                : Colors.grey.shade300,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFFF758C),
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
+                      hintText: 'Brief plot, genre, or notes on why you want to watch this...',
+                      borderRadius: BorderRadius.circular(14),
+                      isDark: isDark,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
 
                     // ----------------------------------------------------
                     // MEDIA TYPE SELECTOR (MOVIE VS SERIES)
@@ -1457,49 +1318,13 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                       const SizedBox(height: 10),
 
                       // 3. Review & Notes (Optional)
-                      Text(
-                        'Your Review / Notes (Optional)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white : const Color(0xFF2D4059),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      TextField(
+                      AppTextField(
+                        labelText: 'Your Review / Notes (Optional)',
                         controller: _notesController,
                         maxLines: 2,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Write what you felt about this movie, favorite lines, or date memories...',
-                          hintStyle: TextStyle(
-                            fontSize: 11.5,
-                            color: isDark ? Colors.white38 : Colors.grey.shade400,
-                          ),
-                          filled: true,
-                          fillColor: isDark
-                              ? Colors.white.withValues(alpha: 0.05)
-                              : Colors.grey.shade50,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.12)
-                                  : Colors.grey.shade300,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                              color: Color(0xFFFF758C),
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
+                        hintText: 'Write what you felt about this movie, favorite lines, or date memories...',
+                        borderRadius: BorderRadius.circular(14),
+                        isDark: isDark,
                       ),
                       const SizedBox(height: 10),
 

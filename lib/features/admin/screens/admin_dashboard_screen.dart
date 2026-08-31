@@ -11,6 +11,7 @@ import '../../../providers/admin_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/secret_media_provider.dart';
 import '../../../widgets/smart_profile_image.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 /// Senior Admin Dashboard Screen accurately aligned with Jayienne Link design system
 class AdminDashboardScreen extends StatefulWidget {
@@ -579,49 +580,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     AdminProvider provider,
     bool isDark,
   ) {
-    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
-    return TextField(
+    return AppTextField(
       controller: _searchController,
+      hintText: 'Search display name or email...',
+      prefixIcon: Icons.search_rounded,
       onChanged: (val) => provider.setSearchQuery(val),
-      style: TextStyle(
-        color: isDark ? Colors.white : AppColors.deepCharcoal,
-      ),
-      decoration: InputDecoration(
-        hintText: 'Search display name or email...',
-        hintStyle: TextStyle(
-          color: isDark ? Colors.white38 : Colors.grey.shade500,
-          fontSize: 14,
-        ),
-        prefixIcon: const Icon(Icons.search_rounded, color: AppColors.softRose),
-        suffixIcon: _searchController.text.isNotEmpty
-            ? IconButton(
-                icon: const Icon(Icons.clear_rounded, color: Colors.grey),
-                onPressed: () {
-                  _searchController.clear();
-                  provider.setSearchQuery('');
-                },
-              )
-            : null,
-        filled: true,
-        fillColor: cardBg,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(
-            color: isDark ? Colors.white12 : Colors.grey.shade300,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(
-            color: isDark ? Colors.white12 : Colors.grey.shade200,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFFF758C), width: 1.8),
-        ),
-      ),
+      isDark: isDark,
+      suffixIcon: _searchController.text.isNotEmpty
+          ? IconButton(
+              icon: const Icon(Icons.clear_rounded, size: 16),
+              onPressed: () {
+                _searchController.clear();
+                provider.setSearchQuery('');
+              },
+            )
+          : null,
     );
   }
 

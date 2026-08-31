@@ -9,6 +9,7 @@ import '../../../models/movie_model.dart';
 import '../../../services/supabase_movie_service.dart';
 import 'movie_alert_dialog.dart';
 import 'movie_poster_widget.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 /// Compressed Bottom Sheet allowing a partner to submit or edit their individual rating & review,
 /// set optional watched dates, attach watch photos/memories, and mark the movie as watched.
@@ -817,40 +818,13 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                         const SizedBox(height: 10),
 
                         // Review & Thoughts Textfield
-                        TextField(
+                        AppTextField(
                           controller: _notesController,
                           maxLines: 3,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Share your thoughts, favorite quotes, or review...',
-                            hintStyle: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? Colors.white38 : Colors.grey.shade400,
-                            ),
-                            filled: true,
-                            fillColor: isDark
-                                ? Colors.white.withValues(alpha: 0.04)
-                                : Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.1)
-                                    : Colors.grey.shade300,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFFF758C),
-                                width: 1.2,
-                              ),
-                            ),
-                          ),
+                          hintText: 'Share your thoughts, favorite quotes, or review...',
+                          borderRadius: BorderRadius.circular(14),
+                          isDark: isDark,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
                       ],
                     ),

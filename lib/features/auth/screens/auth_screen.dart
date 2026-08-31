@@ -7,7 +7,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/router/route_names.dart';
-import '../../../widgets/common/heart_animation.dart';
 
 /// Redesigned Romantic Preview Welcome Screen with
 /// Signature Ambient Glow, Feature Badges, and Glassmorphism Actions

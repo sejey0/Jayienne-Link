@@ -16,6 +16,7 @@ import '../../../services/supabase_data_service.dart';
 import '../../../services/supabase_movie_service.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
 import '../../movies/widgets/movie_poster_widget.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 /// Representation of a slice on the merged wheel
 class _WheelSliceItem {
@@ -1581,23 +1582,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'Add Custom ${_selectedCategoryIndex == 2 ? "Food & Drink" : "Date & Activity"}',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        content: TextField(
+        content: AppTextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(
-            color: Theme.of(ctx).brightness == Brightness.dark
-                ? Colors.white
-                : AppColors.deepCharcoal,
-          ),
-          decoration: InputDecoration(
-            hintText: _selectedCategoryIndex == 2
-                ? 'e.g. Samgyupsal, Crispy Sisig, Milk Tea...'
-                : 'e.g. Sunset in Manila Bay, Arcade Night...',
-            filled: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
+          hintText: _selectedCategoryIndex == 2
+              ? 'e.g. Samgyupsal, Crispy Sisig, Milk Tea...'
+              : 'e.g. Sunset in Manila Bay, Arcade Night...',
+          borderRadius: BorderRadius.circular(14),
         ),
         actions: [
           Padding(

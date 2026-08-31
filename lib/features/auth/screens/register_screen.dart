@@ -8,6 +8,7 @@ import '../../../core/router/route_names.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../core/utils/validators.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/loading_overlay.dart';
 
 /// Redesigned Romantic Register Screen matching the App Design Theme
@@ -180,9 +181,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 24),
 
                   // Email Field
-                  _buildInputLabel('EMAIL ADDRESS', isDark),
-                  const SizedBox(height: 6),
-                  _buildTextField(
+                  AppTextField(
+                    labelText: 'Email Address',
                     controller: _emailController,
                     hintText: 'Enter your email',
                     prefixIcon: Icons.email_outlined,
@@ -194,9 +194,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 18),
 
                   // Password Field
-                  _buildInputLabel('PASSWORD', isDark),
-                  const SizedBox(height: 6),
-                  _buildTextField(
+                  AppTextField(
+                    labelText: 'Password',
                     controller: _passwordController,
                     hintText: 'Choose a strong password',
                     prefixIcon: Icons.lock_outline_rounded,
@@ -220,9 +219,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 18),
 
                   // Confirm Password Field
-                  _buildInputLabel('CONFIRM PASSWORD', isDark),
-                  const SizedBox(height: 6),
-                  _buildTextField(
+                  AppTextField(
+                    labelText: 'Confirm Password',
                     controller: _confirmPasswordController,
                     hintText: 'Re-enter your password',
                     prefixIcon: Icons.lock_outline_rounded,
@@ -344,72 +342,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildInputLabel(String text, bool isDark) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 0.8,
-        color: isDark ? Colors.white54 : Colors.grey.shade600,
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hintText,
-    required IconData prefixIcon,
-    required bool isDark,
-    bool obscureText = false,
-    TextInputType keyboardType = TextInputType.text,
-    TextInputAction textInputAction = TextInputAction.next,
-    String? Function(String?)? validator,
-    Widget? suffixIcon,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E162B) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFFF758C).withValues(alpha: 0.25),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TextFormField(
-        controller: controller,
-        obscureText: obscureText,
-        keyboardType: keyboardType,
-        textInputAction: textInputAction,
-        validator: validator,
-        style: TextStyle(
-          color: isDark ? Colors.white : AppColors.deepCharcoal,
-          fontSize: 14,
-        ),
-        cursorColor: const Color(0xFFFF758C),
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: TextStyle(
-            color: isDark ? Colors.white38 : Colors.grey.shade500,
-            fontSize: 13.5,
-          ),
-          prefixIcon: Icon(
-            prefixIcon,
-            color: const Color(0xFFFF758C),
-            size: 20,
-          ),
-          suffixIcon: suffixIcon,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        ),
-      ),
-    );
-  }
 }

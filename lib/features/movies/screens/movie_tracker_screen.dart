@@ -16,6 +16,7 @@ import '../widgets/movie_poster_widget.dart';
 import '../widgets/view_movie_details_sheet.dart';
 import '../../home/screens/decision_spinner_screen.dart';
 import '../../../widgets/smart_profile_image.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 /// Senior Couples Movie Tracker & Watchlist Screen ("Cinema Diary")
 /// Features a decluttered card layout, single "View Details & Ratings" action,
@@ -863,77 +864,24 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     // Search Bar & Decision Spinner Shortcut Row
                     Row(
                       children: [
-                        // Clean Pill Search Bar
+                        // Clean Search Bar matching Sign-In Screen design
                         Expanded(
-                          child: Container(
-                            height: 40,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(0xFF1E162B).withValues(alpha: 0.95)
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.12)
-                                    : const Color(0xFFFF758C).withValues(alpha: 0.2),
-                                width: 1.0,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            alignment: Alignment.centerLeft,
-                            child: TextField(
-                              controller: _searchController,
-                              onChanged: (val) => setState(() => _searchQuery = val.trim()),
-                              textAlignVertical: TextAlignVertical.center,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isDark ? Colors.white : Colors.black87,
-                              ),
-                              cursorColor: const Color(0xFFFF758C),
-                              decoration: InputDecoration(
-                                isDense: true,
-                                hintText: 'Search movies, memories...',
-                                hintStyle: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? Colors.white38 : Colors.grey.shade500,
-                                ),
-                                prefixIcon: const Icon(
-                                  Icons.search_rounded,
-                                  color: Color(0xFFFF758C),
-                                  size: 17,
-                                ),
-                                prefixIconConstraints: const BoxConstraints(
-                                  minWidth: 26,
-                                  minHeight: 26,
-                                ),
-                                suffixIcon: _searchQuery.isNotEmpty
-                                    ? IconButton(
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(
-                                          minWidth: 26,
-                                          minHeight: 26,
-                                        ),
-                                        icon: const Icon(Icons.clear_rounded, size: 15),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                          setState(() => _searchQuery = '');
-                                        },
-                                      )
-                                    : null,
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 8,
-                                ),
-                              ),
-                            ),
+                          child: AppTextField(
+                            controller: _searchController,
+                            hintText: 'Search movies, memories...',
+                            prefixIcon: Icons.search_rounded,
+                            onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                            isDark: isDark,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear_rounded, size: 16),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  )
+                                : null,
                           ),
                         ),
                         const SizedBox(width: 8),

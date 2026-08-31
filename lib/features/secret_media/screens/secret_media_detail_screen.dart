@@ -9,6 +9,7 @@ import 'package:jayienne_link/models/secret_media_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import 'package:video_player/video_player.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 class SecretMediaDetailScreen extends StatefulWidget {
   final SecretMediaModel media;
@@ -311,30 +312,16 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                   if (_isUploader && _isEditingCaption)
                     Column(
                       children: [
-                        TextField(
+                        AppTextField(
                           controller: _captionController,
                           focusNode: _captionFocusNode,
                           autofocus: true,
                           maxLines: 4,
                           keyboardType: TextInputType.multiline,
                           textInputAction: TextInputAction.newline,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: 'Add a caption...',
-                            hintStyle: const TextStyle(color: Colors.white54),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Colors.white30),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                  color: Colors.blue, width: 2),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey.shade800,
-                          ),
+                          hintText: 'Add a caption...',
+                          borderRadius: BorderRadius.circular(14),
+                          isDark: true,
                         ),
                         const SizedBox(height: 12),
                         Wrap(

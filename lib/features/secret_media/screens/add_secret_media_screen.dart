@@ -10,6 +10,7 @@ import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/providers/auth_provider.dart';
 import 'package:jayienne_link/providers/user_provider.dart';
 import 'package:jayienne_link/services/supabase_storage_service.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 class AddSecretMediaScreen extends StatefulWidget {
   const AddSecretMediaScreen({super.key});
@@ -327,30 +328,12 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
               const SizedBox(height: 24),
 
               // Caption
-              Text(
-                'Add a Caption (Optional)',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
+              AppTextField(
+                labelText: 'Add a Caption (Optional)',
                 controller: _captionController,
                 maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'Add a caption or note...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Colors.deepPurple,
-                      width: 2,
-                    ),
-                  ),
-                ),
+                hintText: 'Add a caption or note...',
+                borderRadius: BorderRadius.circular(14),
               ),
               const SizedBox(height: 24),
 

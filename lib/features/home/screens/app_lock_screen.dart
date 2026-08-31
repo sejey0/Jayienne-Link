@@ -9,6 +9,7 @@ import '../../../core/router/route_names.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/app_lock_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 /// Operating modes for AppLockScreen
 enum AppLockMode { unlock, setup }
@@ -442,19 +443,7 @@ class _AppLockScreenState extends State<AppLockScreen>
                               const SizedBox(height: 26),
 
                               // Alphanumeric Passcode Input Field
-                              Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(18),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: (isDark ? Colors.black : const Color(0xFFFF758C))
-                                          .withValues(alpha: isDark ? 0.2 : 0.05),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: TextField(
+                                AppTextField(
                                   controller: _passcodeController,
                                   focusNode: _passcodeFocusNode,
                                   enabled: !isLockedOut && !_isProcessing,
@@ -462,7 +451,7 @@ class _AppLockScreenState extends State<AppLockScreen>
                                   keyboardType: TextInputType.visiblePassword,
                                   obscureText: _obscurePasscode,
                                   textInputAction: TextInputAction.done,
-                                  onSubmitted: (_) => _handlePasscodeSubmission(),
+                                  onFieldSubmitted: (_) => _handlePasscodeSubmission(),
                                   onChanged: (val) {
                                     if (_setupError != null || lockProvider.error != null) {
                                       setState(() {
@@ -472,69 +461,29 @@ class _AppLockScreenState extends State<AppLockScreen>
                                   },
                                   style: TextStyle(
                                     color: isDark ? Colors.white : AppColors.deepCharcoal,
-                                    fontSize: 17,
+                                    fontSize: 16,
                                     letterSpacing: 1.5,
                                     fontWeight: FontWeight.w600,
                                   ),
-                                  decoration: InputDecoration(
-                                    hintText: 'Enter passcode (min 8 chars)',
-                                    hintStyle: TextStyle(
-                                      color: isDark ? Colors.white38 : Colors.grey.shade400,
-                                      fontSize: 14,
-                                      letterSpacing: 0,
-                                      fontWeight: FontWeight.normal,
-                                    ),
-                                    filled: true,
-                                    fillColor: isDark ? const Color(0xFF140D1E) : const Color(0xFFFFF9FA),
-                                    prefixIcon: const Icon(
-                                      Icons.key_rounded,
-                                      color: Color(0xFFFF758C),
+                                  hintText: 'Enter passcode (min 8 chars)',
+                                  prefixIcon: Icons.key_rounded,
+                                  borderRadius: BorderRadius.circular(18),
+                                  isDark: isDark,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePasscode
+                                          ? Icons.visibility_off_rounded
+                                          : Icons.visibility_rounded,
+                                      color: isDark ? Colors.white60 : Colors.grey.shade600,
                                       size: 20,
                                     ),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        _obscurePasscode
-                                            ? Icons.visibility_off_rounded
-                                            : Icons.visibility_rounded,
-                                        color: isDark ? Colors.white60 : Colors.grey.shade600,
-                                        size: 20,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _obscurePasscode = !_obscurePasscode;
-                                        });
-                                      },
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 16,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(18),
-                                      borderSide: BorderSide(
-                                        color: isDark
-                                            ? Colors.grey.shade800
-                                            : const Color(0xFFFFD4DC),
-                                      ),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(18),
-                                      borderSide: BorderSide(
-                                        color: isDark
-                                            ? Colors.grey.shade800
-                                            : const Color(0xFFFFD4DC),
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(18),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFFFF758C),
-                                        width: 2,
-                                      ),
-                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscurePasscode = !_obscurePasscode;
+                                      });
+                                    },
                                   ),
                                 ),
-                              ),
 
                               const SizedBox(height: 22),
 

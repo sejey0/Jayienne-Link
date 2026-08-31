@@ -11,6 +11,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/milestone_model.dart';
 import '../../../providers/anniversary_provider.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 /// Interactive Relationship Memory Timeline Screen
 class RelationshipTimelineScreen extends StatefulWidget {
@@ -558,13 +559,11 @@ class _RelationshipTimelineScreenState
                     const SizedBox(height: 16),
 
                     // Title Input
-                    TextField(
+                    AppTextField(
+                      labelText: 'Memory Title *',
                       controller: titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Memory Title *',
-                        hintText: 'e.g. Our First Date at Sunset Park',
-                        border: OutlineInputBorder(),
-                      ),
+                      hintText: 'e.g. Our First Date at Sunset Park',
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     const SizedBox(height: 14),
 
@@ -676,17 +675,13 @@ class _RelationshipTimelineScreenState
                     // Custom Category Name Input Field (Appears when Custom is selected)
                     if (selectedCategory == MilestoneCategory.custom) ...[
                       const SizedBox(height: 12),
-                      TextField(
+                      AppTextField(
+                        labelText: 'Custom Category Name *',
                         controller: customCategoryController,
                         autofocus: true,
-                        decoration: InputDecoration(
-                          labelText: 'Custom Category Name *',
-                          hintText: 'e.g. Cooking Together, First Movie, Road Trip...',
-                          prefixIcon: const Icon(Icons.edit_note_rounded, color: AppColors.coral),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                          filled: true,
-                          fillColor: AppColors.coral.withValues(alpha: 0.06),
-                        ),
+                        hintText: 'e.g. Cooking Together, First Movie, Road Trip...',
+                        prefixIcon: Icons.edit_note_rounded,
+                        borderRadius: BorderRadius.circular(14),
                         onChanged: (_) => setModalState(() {}),
                       ),
                     ],
@@ -793,14 +788,12 @@ class _RelationshipTimelineScreenState
                     const SizedBox(height: 12),
 
                     // Description Input
-                    TextField(
+                    AppTextField(
+                      labelText: 'Description / Story (Optional)',
                       controller: descriptionController,
                       maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Description / Story (Optional)',
-                        hintText: 'Write down what made this moment special...',
-                        border: OutlineInputBorder(),
-                      ),
+                      hintText: 'Write down what made this moment special...',
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     const SizedBox(height: 16),
 

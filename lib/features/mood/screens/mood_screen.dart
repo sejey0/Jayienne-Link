@@ -11,6 +11,7 @@ import '../../../providers/couple_provider.dart';
 import '../../../providers/mood_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_card.dart';
+import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/smart_profile_image.dart';
 
 class MoodScreen extends StatefulWidget {
@@ -552,16 +553,15 @@ class _MoodScreenState extends State<MoodScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Mood name input
-                TextField(
+                AppTextField(
+                  labelText: 'Mood name *',
                   controller: customController,
                   autofocus: true,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    labelText: 'Mood name *',
-                    hintText: 'e.g., Grateful, Nostalgic, Cozy...',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                    prefixIcon: const Icon(Icons.edit_rounded, color: AppColors.softRose),
-                  ),
+                  hintText: 'e.g., Grateful, Nostalgic, Cozy...',
+                  prefixIcon: Icons.edit_rounded,
+                  borderRadius: BorderRadius.circular(14),
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 14),
                 Text(

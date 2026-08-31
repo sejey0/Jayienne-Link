@@ -19,6 +19,7 @@ import '../../../providers/theme_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_storage_service.dart';
 import '../../../widgets/smart_profile_image.dart';
+import '../../../widgets/common/app_text_field.dart';
 import '../../admin/screens/admin_dashboard_screen.dart';
 import '../../auth/screens/auth_screen.dart';
 import '../../auth/screens/login_screen.dart';
@@ -1260,88 +1261,31 @@ class SettingsScreen extends StatelessWidget {
     ValueChanged<String>? onChanged,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white70 : AppColors.deepCharcoal,
-            ),
-          ),
-        ),
-        TextField(
-          controller: controller,
-          obscureText: obscureText,
-          keyboardType: TextInputType.visiblePassword,
-          onChanged: onChanged,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: isDark ? Colors.white : AppColors.deepCharcoal,
-          ),
-          decoration: InputDecoration(
-            hintText: hintText,
-            hintStyle: TextStyle(
-              fontSize: 13,
-              color: isDark ? Colors.white38 : Colors.grey.shade400,
-            ),
-            filled: true,
-            fillColor: isDark
-                ? Colors.white.withValues(alpha: 0.05)
-                : const Color(0xFFF9F7FB),
-            prefixIcon: const Icon(
-              Icons.lock_outline_rounded,
-              color: Color(0xFFFF758C),
-              size: 20,
-            ),
-            suffixIcon: onToggleObscure != null
-                ? IconButton(
-                    icon: Icon(
-                      obscureText
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
-                      color: isDark ? Colors.white54 : Colors.grey.shade600,
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      HapticFeedback.selectionClick();
-                      onToggleObscure();
-                    },
-                  )
-                : null,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.grey.shade300,
+    return AppTextField(
+      labelText: label,
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: TextInputType.visiblePassword,
+      onChanged: onChanged,
+      hintText: hintText,
+      prefixIcon: Icons.lock_outline_rounded,
+      borderRadius: BorderRadius.circular(16),
+      isDark: isDark,
+      suffixIcon: onToggleObscure != null
+          ? IconButton(
+              icon: Icon(
+                obscureText
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
+                color: isDark ? Colors.white54 : Colors.grey.shade600,
+                size: 20,
               ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.grey.shade300,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: Color(0xFFFF758C),
-                width: 1.5,
-              ),
-            ),
-          ),
-        ),
-      ],
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                onToggleObscure();
+              },
+            )
+          : null,
     );
   }
 

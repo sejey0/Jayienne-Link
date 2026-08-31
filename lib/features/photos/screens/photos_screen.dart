@@ -17,6 +17,7 @@ import '../../../providers/couple_provider.dart';
 import '../../../providers/photo_message_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_card.dart';
+import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/smart_profile_image.dart';
 
 class PhotosScreen extends StatefulWidget {
@@ -331,7 +332,6 @@ class _PhotosScreenState extends State<PhotosScreen> {
     final placeholderHeight = isKeyboardOpen ? 52.0 : 100.0;
     final captionMaxLines = isKeyboardOpen ? 1 : 2;
     final verticalSpacing = isKeyboardOpen ? 4.0 : AppDimensions.spacingSm;
-    final fieldVerticalPadding = isKeyboardOpen ? 4.0 : AppDimensions.spacingSm;
     final screenHeight = MediaQuery.of(context).size.height;
     final maxComposerHeight =
         isKeyboardOpen ? screenHeight * 0.32 : double.infinity;
@@ -531,54 +531,18 @@ class _PhotosScreenState extends State<PhotosScreen> {
               ),
             ),
           ),
-        SizedBox(height: verticalSpacing),
-        TextField(
+        AppTextField(
           controller: _captionController,
           focusNode: _captionFocusNode,
           enabled: canSend,
           minLines: 1,
           maxLines: captionMaxLines,
           textInputAction: TextInputAction.send,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isDark ? AppColors.darkText : AppColors.deepCharcoal,
-              ),
-          cursorColor: isDark ? AppColors.lavender : AppColors.softRose,
-          onSubmitted: (_) => onSend(),
-          decoration: InputDecoration(
-            hintText: 'Add a sweet caption (optional)...',
-            hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                ),
-            filled: true,
-            fillColor: isDark ? AppColors.darkSurface : Colors.grey.shade100,
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: AppDimensions.spacingMd,
-              vertical: fieldVerticalPadding,
-            ),
-            prefixIcon: const Icon(
-              Icons.edit_note_rounded,
-              color: AppColors.softRose,
-              size: 20,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: isDark ? AppColors.lavender : AppColors.softRose,
-              ),
-            ),
-          ),
+          hintText: 'Add a sweet caption (optional)...',
+          prefixIcon: Icons.edit_note_rounded,
+          borderRadius: BorderRadius.circular(16),
+          onFieldSubmitted: (_) => onSend(),
+          isDark: isDark,
         ),
         SizedBox(height: verticalSpacing),
         Row(
@@ -1496,28 +1460,22 @@ class _EditCaptionDialogState extends State<_EditCaptionDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(
+          AppTextField(
+            labelText: 'Caption',
             controller: _captionController,
             minLines: 1,
             maxLines: 3,
             textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              labelText: 'Caption',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
+            borderRadius: BorderRadius.circular(14),
+            isDark: isDark,
           ),
           const SizedBox(height: AppDimensions.spacingSm),
-          TextField(
+          AppTextField(
+            labelText: 'Type "${widget.confirmationPhrase}" to save',
             controller: _confirmController,
             textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              labelText: 'Type "${widget.confirmationPhrase}" to save',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
+            borderRadius: BorderRadius.circular(14),
+            isDark: isDark,
           ),
         ],
       ),
@@ -1667,15 +1625,12 @@ class _DeletePhotoDialogState extends State<_DeletePhotoDialog> {
             ),
           ),
           const SizedBox(height: AppDimensions.spacingMd),
-          TextField(
+          AppTextField(
+            labelText: 'Type "${widget.confirmationPhrase}" to delete',
             controller: _confirmController,
             textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              labelText: 'Type "${widget.confirmationPhrase}" to delete',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
+            borderRadius: BorderRadius.circular(14),
+            isDark: isDark,
           ),
         ],
       ),

@@ -12,6 +12,7 @@ import 'package:jayienne_link/providers/user_provider.dart';
 import 'package:jayienne_link/models/secret_media_model.dart';
 import 'add_secret_media_screen.dart';
 import 'secret_media_detail_screen.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 class HiddenVaultScreen extends StatefulWidget {
   const HiddenVaultScreen({super.key});
@@ -462,67 +463,28 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                     padding: EdgeInsets.only(
                       bottom: index == _vaultLocks.length - 1 ? 0 : 12,
                     ),
-                    child: TextField(
+                    child: AppTextField(
+                      labelText: 'Security Key ${index + 1}',
                       controller: _lockControllers[index],
                       obscureText: _obscureLocks[index],
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'Security Key ${index + 1}',
-                        labelStyle: TextStyle(
-                          fontSize: 12.5,
+                      prefixIcon: Icons.key_rounded,
+                      borderRadius: BorderRadius.circular(14),
+                      isDark: isDark,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureLocks[index]
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
+                          size: 20,
                           color: isDark ? Colors.white54 : Colors.grey.shade600,
                         ),
-                        prefixIcon: Icon(
-                          Icons.key_rounded,
-                          size: 18,
-                          color: isDark ? Colors.white38 : Colors.grey.shade400,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureLocks[index]
-                                ? Icons.visibility_off_rounded
-                                : Icons.visibility_rounded,
-                            size: 20,
-                            color: isDark ? Colors.white54 : Colors.grey.shade600,
-                          ),
-                          onPressed: () {
-                            HapticFeedback.selectionClick();
-                            setState(() {
-                              _obscureLocks[index] = !_obscureLocks[index];
-                            });
-                          },
-                          tooltip: _obscureLocks[index] ? 'Show key' : 'Hide key',
-                        ),
-                        filled: true,
-                        fillColor: isDark
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : Colors.grey.shade50,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(
-                            color: isDark ? Colors.white12 : Colors.grey.shade300,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(
-                            color: isDark ? Colors.white12 : Colors.grey.shade200,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFFF758C),
-                            width: 1.5,
-                          ),
-                        ),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _obscureLocks[index] = !_obscureLocks[index];
+                          });
+                        },
+                        tooltip: _obscureLocks[index] ? 'Show key' : 'Hide key',
                       ),
                     ),
                   );

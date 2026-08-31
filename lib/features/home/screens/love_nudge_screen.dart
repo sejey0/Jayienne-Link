@@ -12,6 +12,7 @@ import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_love_nudge_service.dart';
 import '../../../widgets/common/love_nudge_overlay_listener.dart';
+import '../../../widgets/common/app_text_field.dart';
 
 /// Senior Love Nudge Screen supporting custom photo uploads for Kiss & Hug and live real-time visual screen effects
 class LoveNudgeScreen extends StatefulWidget {
@@ -786,66 +787,13 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.favorite_rounded, size: 13, color: primaryColor),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Sweet Note (optional)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white54 : Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
+                  AppTextField(
+                    labelText: 'Sweet Note (optional)',
                     controller: messageController,
-                    maxLength: 80,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Write a sweet note to pop up with your nudge...',
-                      hintStyle: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white38 : Colors.grey.shade400,
-                      ),
-                      counterText: '',
-                      filled: true,
-                      fillColor: isDark
-                          ? Colors.white.withValues(alpha: 0.04)
-                          : Colors.grey.shade50,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                      suffixIcon: messageController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 16),
-                              onPressed: () {
-                                HapticFeedback.lightImpact();
-                                messageController.clear();
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: isDark ? Colors.white12 : Colors.grey.shade300,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: isDark ? Colors.white12 : Colors.grey.shade200,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: primaryColor, width: 1.5),
-                      ),
-                    ),
+                    hintText: 'Write a sweet note to pop up with your nudge...',
+                    prefixIcon: Icons.favorite_rounded,
+                    borderRadius: BorderRadius.circular(14),
+                    isDark: isDark,
                   ),
                   if (_savedMessageTemplates.isNotEmpty) ...[
                     const SizedBox(height: 8),

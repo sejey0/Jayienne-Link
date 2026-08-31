@@ -12,6 +12,7 @@ import 'package:jayienne_link/providers/user_provider.dart';
 import 'package:jayienne_link/models/secret_media_model.dart';
 import 'add_secret_media_screen.dart';
 import 'secret_media_detail_screen.dart';
+import 'package:video_player/video_player.dart';
 import '../../../widgets/common/app_text_field.dart';
 
 class HiddenVaultScreen extends StatefulWidget {
@@ -985,33 +986,47 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // 1. Background Image (Blurred if hidden, clear if revealed in-place)
-              if (displayImageUrl.isNotEmpty)
-                isRevealedInPlace
-                    ? Image.network(
-                        displayImageUrl,
+              // 1. Background Media Content (Blurred if hidden, live preview or image if revealed)
+              if (!isRevealedInPlace)
+                if (displayImageUrl.isNotEmpty)
+                  ImageFiltered(
+                    imageFilter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                    child: Image.network(
+                      displayImageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: const Color(0xFF1E142B),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    color: const Color(0xFF1E142B),
+                  )
+              else
+                // Revealed in-place (Hide All is off)
+                isVideo
+                    ? _VaultGridVideoPreview(
+                        key: ValueKey(media.id ?? media.displayUrl),
+                        videoUrl: media.displayUrl,
+                        thumbnail: media.thumbnail,
+                      )
+                    : Image.network(
+                        displayImageUrl.isNotEmpty
+                            ? displayImageUrl
+                            : media.displayUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => Container(
                           color: const Color(0xFF1E142B),
                           child: const Center(
-                            child: Icon(Icons.broken_image_rounded, color: Colors.white54, size: 28),
+                            child: Icon(
+                              Icons.broken_image_rounded,
+                              color: Colors.white54,
+                              size: 28,
+                            ),
                           ),
                         ),
-                      )
-                    : ImageFiltered(
-                        imageFilter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-                        child: Image.network(
-                          displayImageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            color: const Color(0xFF1E142B),
-                          ),
-                        ),
-                      )
-              else
-                Container(
-                  color: const Color(0xFF1E142B),
-                ),
+                      ),
 
               // 2. Dark frosted gradient overlay when hidden
               if (!isRevealedInPlace)
@@ -1196,6 +1211,164 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
             child: const Text('Delete'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Lightweight paused thumbnail preview for vault grid items (zero streaming overhead)
+class _VaultGridVideoPreview extends StatefulWidget {
+  final String videoUrl;
+  final String? thumbnail;
+
+  const _VaultGridVideoPreview({
+    super.key,
+    required this.videoUrl,
+    this.thumbnail,
+  });
+
+  @override
+  State<_VaultGridVideoPreview> createState() => _VaultGridVideoPreviewState();
+}
+
+class _VaultGridVideoPreviewState extends State<_VaultGridVideoPreview> {
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // If static thumbnail image exists, use it directly without initializing player
+    if (widget.thumbnail == null || widget.thumbnail!.isEmpty) {
+      _initController();
+    }
+  }
+
+  Future<void> _initController() async {
+    try {
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
+      _controller = controller;
+      await controller.initialize();
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      await controller.setVolume(0.0);
+      await controller.pause(); // Kept paused on first frame to avoid stressing database/network
+      setState(() {
+        _isInitialized = true;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Static thumbnail if available (0 video network load)
+    if (widget.thumbnail?.isNotEmpty == true) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(
+            widget.thumbnail!,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) =>
+                Container(color: const Color(0xFF1E142B)),
+          ),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // 2. Paused first frame if video controller initialized
+    if (_isInitialized && _controller != null) {
+      final size = _controller!.value.size;
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          FittedBox(
+            fit: BoxFit.cover,
+            clipBehavior: Clip.hardEdge,
+            child: SizedBox(
+              width: size.width > 0 ? size.width : 16,
+              height: size.height > 0 ? size.height : 9,
+              child: VideoPlayer(_controller!),
+            ),
+          ),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_hasError) {
+      return Container(
+        color: const Color(0xFF1E142B),
+        child: const Center(
+          child: Icon(Icons.videocam_rounded, color: Colors.white38, size: 28),
+        ),
+      );
+    }
+
+    return Container(
+      color: const Color(0xFF1E142B),
+      child: const Center(
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Color(0xFFFF758C),
+          ),
+        ),
       ),
     );
   }

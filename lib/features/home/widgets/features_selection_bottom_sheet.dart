@@ -96,6 +96,13 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
         gradientColors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
         actionType: _ActionType.movieDiaryScreen,
       ),
+      _FeatureModalItem(
+        title: 'Couple Links',
+        subtitle: 'Socials & websites',
+        icon: Icons.link_rounded,
+        gradientColors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+        route: RouteNames.coupleLinks,
+      ),
     ];
 
     final featureItems = [

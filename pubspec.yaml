@@ -32,6 +32,7 @@ dependencies:
   flutter_cache_manager: ^3.3.1
 
   # Utilities
+  url_launcher: ^6.3.0
   share_plus: ^9.0.0
   image_picker: ^1.1.0
   cached_network_image: ^3.3.0

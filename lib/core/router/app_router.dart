@@ -29,6 +29,7 @@ import '../../features/secret_media/screens/add_secret_media_screen.dart';
 import '../../features/secret_media/screens/secret_media_detail_screen.dart';
 import '../../features/secret_media/screens/hidden_vault_screen.dart';
 import '../../features/anniversary/screens/relationship_timeline_screen.dart';
+import '../../features/links/screens/couple_links_screen.dart';
 import '../../features/auth/screens/deactivated_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
@@ -260,6 +261,10 @@ class AppRouter {
         GoRoute(
           path: RouteNames.relationshipTimeline,
           builder: (context, state) => const RelationshipTimelineScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.coupleLinks,
+          builder: (context, state) => const CoupleLinksScreen(),
         ),
         GoRoute(
           path: RouteNames.adminDashboard,

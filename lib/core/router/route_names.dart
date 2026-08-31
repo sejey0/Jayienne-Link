@@ -40,6 +40,9 @@ class RouteNames {
   // Anniversary & Timeline routes
   static const String relationshipTimeline = '/timeline';
 
+  // Couple Links & Social Profiles
+  static const String coupleLinks = '/couple-links';
+
   // Admin & Security routes
   static const String adminDashboard = '/admin';
   static const String deactivated = '/deactivated';

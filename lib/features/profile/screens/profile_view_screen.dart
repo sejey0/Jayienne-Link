@@ -8,8 +8,12 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
+import '../../../core/utils/url_launcher_helper.dart';
+import '../../../providers/couple_links_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/couple_provider.dart';
+import '../../links/widgets/add_edit_link_sheet.dart';
+import '../../links/widgets/platform_brand_icon.dart';
 
 class ProfileViewScreen extends StatelessWidget {
   const ProfileViewScreen({super.key});
@@ -225,8 +229,196 @@ class ProfileViewScreen extends StatelessWidget {
                 ],
               ),
             ],
+            const SizedBox(height: AppDimensions.spacingLg),
+
+            // Social Profiles & Links Section
+            _buildSocialLinksSection(context),
+
+            const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSocialLinksSection(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final linksProvider = context.watch<CoupleLinksProvider>();
+    final allLinks = linksProvider.links;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppDimensions.spacingMd),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+        border: Border.all(
+          color: AppColors.lavender.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.lavender.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.softRose, AppColors.lavender],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.link_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'SOCIALS & WEBSITES',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.1,
+                      color: AppColors.lavender,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  context.push(RouteNames.coupleLinks);
+                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Manage',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.softRose,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (allLinks.isEmpty) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.04)
+                    : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.grey.shade200,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'No social profiles added yet',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      AddEditLinkSheet.show(context);
+                    },
+                    icon: const Icon(Icons.add_rounded, size: 14),
+                    label: const Text('Add Link / Account', style: TextStyle(fontSize: 11.5)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.softRose,
+                      side: const BorderSide(color: AppColors.softRose),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allLinks.map((link) {
+                final platform = link.socialPlatform;
+                return InkWell(
+                  onTap: () => UrlLauncherHelper.launchLink(context, link.url),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? platform.primaryColor.withValues(alpha: 0.15)
+                          : platform.primaryColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: platform.primaryColor.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        PlatformBrandIcon(
+                          platform: platform,
+                          size: 22,
+                          borderRadius: 6,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          link.displayTitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppColors.deepCharcoal,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_outward_rounded,
+                          size: 12,
+                          color: platform.primaryColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
       ),
     );
   }

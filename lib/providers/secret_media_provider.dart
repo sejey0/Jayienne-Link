@@ -1,13 +1,17 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/secret_media_model.dart';
 import '../services/supabase_secret_media_service.dart';
 
 class SecretMediaProvider extends ChangeNotifier {
   final SupabaseSecretMediaService _service;
   bool _disposed = false;
+  bool _isVaultHiddenFromFeatures = false;
 
-  SecretMediaProvider(this._service);
+  SecretMediaProvider(this._service) {
+    loadVaultSettings();
+  }
 
   @override
   void notifyListeners() {
@@ -40,6 +44,29 @@ class SecretMediaProvider extends ChangeNotifier {
   String? get error => _error;
   bool get showHiddenVault => _showHiddenVault;
   bool get isVaultUnlockedSession => _isVaultUnlockedSession;
+  bool get isVaultHiddenFromFeatures => _isVaultHiddenFromFeatures;
+
+  Future<void> loadVaultSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _isVaultHiddenFromFeatures =
+          prefs.getBool('is_vault_hidden_from_features') ?? false;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading vault settings: $e');
+    }
+  }
+
+  Future<void> setVaultHiddenFromFeatures(bool hidden) async {
+    _isVaultHiddenFromFeatures = hidden;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_vault_hidden_from_features', hidden);
+    } catch (e) {
+      debugPrint('Error saving vault settings: $e');
+    }
+  }
 
   void unlockVaultSession() {
     _isVaultUnlockedSession = true;

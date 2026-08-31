@@ -21,18 +21,6 @@ import '../widgets/open_features_card.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  /// Dynamic Time-of-Day Romantic Greeting Header Formula
-  IconData _getGreetingIcon() {
-    final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) {
-      return Icons.wb_sunny_rounded;
-    } else if (hour >= 12 && hour < 18) {
-      return Icons.wb_cloudy_rounded;
-    } else {
-      return Icons.nights_stay_rounded;
-    }
-  }
-
   String _getDynamicGreeting(UserModel? user, CoupleProvider coupleProvider) {
     final hour = DateTime.now().hour;
 
@@ -70,7 +58,6 @@ class HomeScreen extends StatelessWidget {
     final coupleProvider = context.watch<CoupleProvider>();
     final user = userProvider.user;
     final couple = coupleProvider.couple;
-    final partner = coupleProvider.partner;
     final incomingAnniversary = coupleProvider.incomingAnniversaryRequests;
 
     final greetingText = _getDynamicGreeting(user, coupleProvider);
@@ -83,7 +70,7 @@ class HomeScreen extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
+                const Icon(
                   Icons.favorite,
                   color: AppColors.softRose,
                   size: AppDimensions.iconSizeSmall,

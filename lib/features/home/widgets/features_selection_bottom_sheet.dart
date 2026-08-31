@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/route_names.dart';
+import '../../../providers/secret_media_provider.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
 import '../../secret_media/screens/hidden_vault_screen.dart';
 import '../screens/decision_spinner_screen.dart';
@@ -32,9 +34,11 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secretMediaProvider = context.watch<SecretMediaProvider>();
+    final isVaultHidden = secretMediaProvider.isVaultHiddenFromFeatures;
 
-    // Strict Pink & Purple Palette Tile Items (8 Interactive Tiles)
-    const featureItems = [
+    // Strict Pink & Purple Palette Tile Items (Hidden Vault is ALWAYS dynamically placed at the very end)
+    const baseFeatures = [
       _FeatureModalItem(
         title: 'Live Location',
         subtitle: 'Map & distance',
@@ -85,20 +89,25 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
         actionType: _ActionType.decisionSpinnerScreen,
       ),
       _FeatureModalItem(
-        title: 'Hidden Vault',
-        subtitle: 'Private photos & video',
-        icon: Icons.lock_rounded,
-        gradientColors: [Color(0xFFC2185B), Color(0xFF512DA8)],
-        route: RouteNames.secretMediaHiddenVault,
-        actionType: _ActionType.customScreen,
-      ),
-      _FeatureModalItem(
         title: 'Movie Diary',
         subtitle: 'Watchlist & reviews',
         icon: Icons.local_movies_rounded,
         gradientColors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
         actionType: _ActionType.movieDiaryScreen,
       ),
+    ];
+
+    final featureItems = [
+      ...baseFeatures,
+      if (!isVaultHidden)
+        const _FeatureModalItem(
+          title: 'Hidden Vault',
+          subtitle: 'Private photos & video',
+          icon: Icons.lock_rounded,
+          gradientColors: [Color(0xFFC2185B), Color(0xFF512DA8)],
+          route: RouteNames.secretMediaHiddenVault,
+          actionType: _ActionType.customScreen,
+        ),
     ];
 
     return Container(

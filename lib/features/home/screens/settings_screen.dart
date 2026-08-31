@@ -17,6 +17,7 @@ import '../../../providers/couple_provider.dart';
 import '../../../providers/debug_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../providers/secret_media_provider.dart';
 import '../../../services/supabase_storage_service.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
@@ -358,6 +359,43 @@ class SettingsScreen extends StatelessWidget {
                       ],
                     ),
                   ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Consumer<SecretMediaProvider>(
+            builder: (context, secretMediaProvider, _) {
+              final isVaultHidden = secretMediaProvider.isVaultHiddenFromFeatures;
+              return Container(
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.grey.shade200,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: _buildSwitchTile(
+                  icon: isVaultHidden ? Icons.visibility_off_rounded : Icons.lock_rounded,
+                  gradientColors: const [Color(0xFFC2185B), Color(0xFF512DA8)],
+                  title: 'Hide Vault from Features',
+                  subtitle: isVaultHidden
+                      ? 'Hidden Vault is concealed from features menu'
+                      : 'Hidden Vault is visible in features menu',
+                  value: isVaultHidden,
+                  onChanged: (val) {
+                    HapticFeedback.selectionClick();
+                    secretMediaProvider.setVaultHiddenFromFeatures(val);
+                  },
                 ),
               );
             },
@@ -1815,7 +1853,7 @@ class _PinDialogState extends State<_PinDialog> {
                                   notify: false,
                                 );
 
-                          if (!mounted) return;
+                          if (!context.mounted) return;
 
                           if (success) {
                             Navigator.pop(context, true);
@@ -2046,7 +2084,7 @@ class _DisablePinDialogState extends State<_DisablePinDialog> {
                             notify: false,
                           );
 
-                          if (!mounted) return;
+                          if (!context.mounted) return;
 
                           if (success) {
                             Navigator.pop(context, true);

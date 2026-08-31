@@ -127,7 +127,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
         : 'You';
     final partnerName = couple != null && user != null
         ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
-        : (partner?.displayName?.isNotEmpty == true ? partner!.displayName : 'wifeyyy');
+        : (partner?.displayName.isNotEmpty == true ? partner!.displayName : 'wifeyyy');
 
     // Distance calculation
     final distanceMeters = locationProvider.distanceInMeters;
@@ -135,7 +135,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     if (locationProvider.myLatLng != null && locationProvider.partnerLatLng != null) {
       final km = distanceMeters / 1000.0;
       if (km < 0.05) {
-        distanceString = 'Together ❤️';
+        distanceString = 'Together';
       } else if (km < 1.0) {
         distanceString = '${distanceMeters.toStringAsFixed(0)}m apart';
       } else {

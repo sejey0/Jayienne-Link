@@ -815,9 +815,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     if (mounted) {
       setState(() {
         _pickedMovie = found;
-        _currentDisplayResult = found!.title;
-        if (!_watchHistory.contains(found!.title)) {
-          _watchHistory.add(found!.title);
+        if (found != null) {
+          _currentDisplayResult = found.title;
+          if (!_watchHistory.contains(found.title)) {
+            _watchHistory.add(found.title);
+          }
         }
       });
       _savePersistentData();

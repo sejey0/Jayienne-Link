@@ -1359,7 +1359,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                               onPressed: () => _openRateMovieModal(movie),
                               icon: const Icon(Icons.check_circle_rounded, size: 12, color: Colors.white),
                               label: const Text(
-                                'Mark Watched',
+                                'Mark as Watched',
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,

@@ -404,13 +404,17 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              hasMyExistingRating ? Icons.rate_review_rounded : Icons.check_circle_rounded,
+                              widget.movie.isWatchlist
+                                  ? Icons.check_circle_rounded
+                                  : (hasMyExistingRating ? Icons.rate_review_rounded : Icons.favorite_rounded),
                               color: Colors.white,
                               size: 14,
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              hasMyExistingRating ? 'View & Edit Review' : 'Rate & Review',
+                              widget.movie.isWatchlist
+                                  ? 'Mark as Watched'
+                                  : (hasMyExistingRating ? 'View & Edit Review' : 'Rate Movie'),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12.5,
@@ -1194,7 +1198,9 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                                   const Icon(Icons.check_circle_rounded, color: Colors.white, size: 17),
                                   const SizedBox(width: 6),
                                   Text(
-                                    hasMyExistingRating ? 'Update Rating' : 'Save Rating',
+                                    widget.movie.isWatchlist
+                                        ? 'Mark as Watched'
+                                        : (hasMyExistingRating ? 'Update Review & Rating' : 'Save Review & Rating'),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 14,

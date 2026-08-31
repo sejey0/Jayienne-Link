@@ -1264,6 +1264,8 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
               MoviePosterWidget(
                 posterUrl: movie.posterUrl,
                 title: movie.title,
+                year: movie.year,
+                date: movie.formattedCreatedDate,
                 width: 62,
                 height: 86,
                 borderRadius: BorderRadius.circular(10),
@@ -1561,6 +1563,8 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                   MoviePosterWidget(
                     posterUrl: movie.posterUrl,
                     title: movie.title,
+                    year: movie.year,
+                    date: movie.formattedWatchedDate,
                     width: 62,
                     height: 86,
                     borderRadius: BorderRadius.circular(10),

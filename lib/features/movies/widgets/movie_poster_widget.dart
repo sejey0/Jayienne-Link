@@ -17,6 +17,8 @@ class MoviePosterWidget extends StatelessWidget {
   final bool showShadow;
   final bool enableZoomOnTap;
   final String? title;
+  final String? year;
+  final String? date;
 
   const MoviePosterWidget({
     super.key,
@@ -29,6 +31,8 @@ class MoviePosterWidget extends StatelessWidget {
     this.showShadow = true,
     this.enableZoomOnTap = true,
     this.title,
+    this.year,
+    this.date,
   });
 
   bool get _isDataUri =>
@@ -47,6 +51,8 @@ class MoviePosterWidget extends StatelessWidget {
     String? posterUrl,
     File? localFile,
     String? title,
+    String? year,
+    String? date,
   }) {
     if ((posterUrl == null || posterUrl.trim().isEmpty) &&
         (localFile == null || !localFile.existsSync())) {
@@ -174,41 +180,41 @@ class MoviePosterWidget extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
 
-                      // Movie Title & Subtitle Badge
+                      // Movie Title with Year / Date
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              title != null && title.trim().isNotEmpty
-                                  ? title.trim()
-                                  : 'Movie Poster',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                        child: Text.rich(
+                          TextSpan(
+                            text: title != null && title.trim().isNotEmpty
+                                ? title.trim()
+                                : 'Movie Poster',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
                             ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                const Icon(Icons.favorite_rounded, size: 9, color: Color(0xFFFF4081)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Cinema Memories',
+                            children: [
+                              if (year != null && year.trim().isNotEmpty)
+                                TextSpan(
+                                  text: ' (${year.trim()})',
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w600,
+                                    color: Colors.white.withValues(alpha: 0.75),
+                                  ),
+                                )
+                              else if (date != null && date.trim().isNotEmpty)
+                                TextSpan(
+                                  text: ' • ${date.trim()}',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w500,
                                     color: const Color(0xFFFF758C).withValues(alpha: 0.9),
-                                    letterSpacing: 0.3,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ],
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
 
@@ -372,6 +378,8 @@ class MoviePosterWidget extends StatelessWidget {
             posterUrl: posterUrl,
             localFile: localFile,
             title: title,
+            year: year,
+            date: date,
           ),
           borderRadius: effectiveRadius,
           child: posterContainer,

@@ -200,6 +200,8 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                         MoviePosterWidget(
                           posterUrl: movie.posterUrl,
                           title: movie.title,
+                          year: movie.year,
+                          date: movie.isWatched ? movie.formattedWatchedDate : movie.formattedCreatedDate,
                           width: 56,
                           height: 80,
                           borderRadius: BorderRadius.circular(10),

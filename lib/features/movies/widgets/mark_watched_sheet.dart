@@ -461,6 +461,8 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                         MoviePosterWidget(
                           posterUrl: widget.movie.posterUrl,
                           title: widget.movie.title,
+                          year: widget.movie.year,
+                          date: widget.movie.isWatched ? widget.movie.formattedWatchedDate : null,
                           width: 48,
                           height: 68,
                           borderRadius: BorderRadius.circular(8),

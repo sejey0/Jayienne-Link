@@ -329,6 +329,8 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       currentUserId: currentUserId,
       partnerName: partnerName,
       onMovieUpdated: () => _refreshMovies(),
+      onEditMovie: () => _openEditMovieDetails(movie),
+      onDeleteMovie: () => _confirmDeleteMovie(movie),
     );
 
     if (res != null && mounted) {
@@ -1112,82 +1114,29 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Title & Year with 3-Dots Menu Row
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Text.rich(
+                    // Title & Year
+                    Text.rich(
+                      TextSpan(
+                        text: movie.title,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF2D4059),
+                        ),
+                        children: [
+                          if (movie.year != null && movie.year!.isNotEmpty)
                             TextSpan(
-                              text: movie.title,
+                              text: ' (${movie.year})',
                               style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : const Color(0xFF2D4059),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white54 : Colors.grey.shade600,
                               ),
-                              children: [
-                                if (movie.year != null && movie.year!.isNotEmpty)
-                                  TextSpan(
-                                    text: ' (${movie.year})',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white54 : Colors.grey.shade600,
-                                    ),
-                                  ),
-                              ],
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: PopupMenuButton<String>(
-                            padding: EdgeInsets.zero,
-                            iconSize: 18,
-                            icon: Icon(
-                              Icons.more_vert_rounded,
-                              size: 18,
-                              color: isDark ? Colors.white54 : Colors.grey.shade500,
-                            ),
-                            onSelected: (val) {
-                              if (val == 'edit') {
-                                _openEditMovieDetails(movie);
-                              } else if (val == 'delete') {
-                                _confirmDeleteMovie(movie);
-                              }
-                            },
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.edit_rounded,
-                                      color: isDark ? Colors.white70 : const Color(0xFF2D4059),
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text('Edit Movie Details'),
-                                  ],
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Remove Movie', style: TextStyle(color: AppColors.error)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 3),
 
@@ -1432,82 +1381,29 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Title & Year with 3-Dots Menu Row
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Text.rich(
+                    // Title & Year
+                    Text.rich(
+                      TextSpan(
+                        text: movie.title,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF2D4059),
+                        ),
+                        children: [
+                          if (movie.year != null && movie.year!.isNotEmpty)
                             TextSpan(
-                              text: movie.title,
+                              text: ' (${movie.year})',
                               style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : const Color(0xFF2D4059),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white54 : Colors.grey.shade600,
                               ),
-                              children: [
-                                if (movie.year != null && movie.year!.isNotEmpty)
-                                  TextSpan(
-                                    text: ' (${movie.year})',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white54 : Colors.grey.shade600,
-                                    ),
-                                  ),
-                              ],
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: PopupMenuButton<String>(
-                            padding: EdgeInsets.zero,
-                            iconSize: 18,
-                            icon: Icon(
-                              Icons.more_vert_rounded,
-                              size: 18,
-                              color: isDark ? Colors.white54 : Colors.grey.shade500,
-                            ),
-                            onSelected: (val) {
-                              if (val == 'edit') {
-                                _openEditMovieDetails(movie);
-                              } else if (val == 'delete') {
-                                _confirmDeleteMovie(movie);
-                              }
-                            },
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.edit_rounded,
-                                      color: isDark ? Colors.white70 : const Color(0xFF2D4059),
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text('Edit Movie Details'),
-                                  ],
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Remove Movie', style: TextStyle(color: AppColors.error)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 3),
 

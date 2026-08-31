@@ -591,6 +591,19 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                     },
                   ),
                   IconButton(
+                    icon: const Icon(Icons.add_photo_alternate_rounded, color: Colors.white),
+                    tooltip: 'Add Media',
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AddSecretMediaScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.refresh_rounded, color: Colors.white),
                     tooltip: 'Refresh',
                     onPressed: () async {
@@ -780,7 +793,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                                   physics: const AlwaysScrollableScrollPhysics(
                                     parent: BouncingScrollPhysics(),
                                   ),
-                                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 96),
+                                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 24),
                                   gridDelegate:
                                       const SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: 2,
@@ -807,49 +820,6 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                   );
                 },
               ),
-        floatingActionButton: _isUnlocked
-            ? Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFF758C).withValues(alpha: 0.45),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: FloatingActionButton.extended(
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AddSecretMediaScreen(),
-                      ),
-                    );
-                  },
-                  elevation: 0,
-                  backgroundColor: Colors.transparent,
-                  splashColor: Colors.white.withValues(alpha: 0.2),
-                  icon: const Icon(Icons.add_photo_alternate_rounded, color: Colors.white, size: 22),
-                  label: const Text(
-                    'Add Media',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14.5,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              )
-            : null,
       ),
     );
   }

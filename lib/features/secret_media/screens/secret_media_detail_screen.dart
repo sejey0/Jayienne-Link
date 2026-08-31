@@ -548,7 +548,9 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                                 child: Text(
                                   _currentMedia.caption?.isNotEmpty == true
                                       ? _currentMedia.caption!
-                                      : 'Private Memory',
+                                      : (_currentMedia.mediaType == 'video'
+                                          ? 'Private Video'
+                                          : 'Private Photo'),
                                   maxLines: _showInfoDrawer ? 4 : 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.poppins(
@@ -717,6 +719,117 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
               ),
             ),
           ),
+
+          // 4. Side-by-Side Horizontal Navigation Arrows
+          if (_items.length > 1) ...[
+            // Left Arrow (Previous)
+            if (_currentIndex > 0)
+              Positioned(
+                left: 14,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: _showOverlays ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 220),
+                    child: IgnorePointer(
+                      ignoring: !_showOverlays,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _pageController.previousPage(
+                              duration: const Duration(milliseconds: 320),
+                              curve: Curves.easeInOutCubic,
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(25),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.25),
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.35),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.chevron_left_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Right Arrow (Next)
+            if (_currentIndex < _items.length - 1)
+              Positioned(
+                right: 14,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: _showOverlays ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 220),
+                    child: IgnorePointer(
+                      ignoring: !_showOverlays,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 320),
+                              curve: Curves.easeInOutCubic,
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(25),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.25),
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.35),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.chevron_right_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -739,32 +852,26 @@ class _VaultImagePageItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        if (!isRevealed) {
-          onToggleReveal();
-        } else {
-          onToggleOverlays();
-        }
-      },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 1. Image View (Blurred if hidden, Crisp InteractiveViewer if revealed)
-          if (!isRevealed)
-            ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-              child: Image.network(
-                media.mediaUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: const Color(0xFF150D20),
-                ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 1. Image View (Blurred if hidden, Crisp InteractiveViewer if revealed)
+        if (!isRevealed)
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+            child: Image.network(
+              media.mediaUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: const Color(0xFF150D20),
               ),
-            )
-          else
-            InteractiveViewer(
+            ),
+          )
+        else
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onToggleOverlays,
+            child: InteractiveViewer(
               minScale: 0.8,
               maxScale: 4.5,
               child: Center(
@@ -788,122 +895,122 @@ class _VaultImagePageItem extends StatelessWidget {
                 ),
               ),
             ),
+          ),
 
-          // 2. Frosted Privacy Overlay & "Tap to View" Button when hidden
-          if (!isRevealed)
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withValues(alpha: 0.65),
-                    Colors.black.withValues(alpha: 0.85),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
+        // 2. Frosted Privacy Overlay & "Tap to View" Button when hidden (ONLY button reveals)
+        if (!isRevealed)
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.black.withValues(alpha: 0.65),
+                  Colors.black.withValues(alpha: 0.85),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+            ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C)
+                                .withValues(alpha: 0.4),
+                            blurRadius: 18,
+                            offset: const Offset(0, 4),
                           ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF758C)
-                                  .withValues(alpha: 0.4),
-                              blurRadius: 18,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.lock_rounded,
-                          color: Colors.white,
-                          size: 34,
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Private Photo',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                      child: const Icon(
+                        Icons.lock_rounded,
+                        color: Colors.white,
+                        size: 34,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Tap the view button or tap anywhere to decrypt and view this photo.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: Colors.white.withValues(alpha: 0.7),
-                          height: 1.4,
-                        ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Private Photo',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                      const SizedBox(height: 20),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Tap the button below to decrypt and view this private photo.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.white.withValues(alpha: 0.7),
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C)
+                                .withValues(alpha: 0.35),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF758C)
-                                  .withValues(alpha: 0.35),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                        ],
+                      ),
+                      child: ElevatedButton.icon(
+                        onPressed: onToggleReveal,
+                        icon: const Icon(
+                          Icons.visibility_rounded,
+                          color: Colors.white,
+                          size: 18,
                         ),
-                        child: ElevatedButton.icon(
-                          onPressed: onToggleReveal,
-                          icon: const Icon(
-                            Icons.visibility_rounded,
+                        label: const Text(
+                          'View Photo',
+                          style: TextStyle(
                             color: Colors.white,
-                            size: 18,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
-                          label: const Text(
-                            'View Photo',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
@@ -949,40 +1056,13 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
     if ((widget.isActivePage && widget.isRevealed) &&
         (!oldWidget.isActivePage || !oldWidget.isRevealed || _controller == null)) {
       _initVideo();
-    } else if (!widget.isActivePage && oldWidget.isActivePage) {
-      _controller?.pause();
-      setState(() {
-        _isPlaying = false;
-      });
-    }
-  }
-
-  void _initVideo() {
-    _controller?.dispose();
-    try {
-      final controller =
-          VideoPlayerController.networkUrl(Uri.parse(widget.media.mediaUrl));
-      _controller = controller;
-      _initFuture = controller.initialize().then((_) {
-        if (!mounted) return;
-        controller.addListener(() {
-          if (mounted) {
-            setState(() {
-              _isPlaying = controller.value.isPlaying;
-            });
-          }
-        });
-        setState(() {});
-      }).catchError((error) {
-        if (!mounted) return;
+    } else if (!widget.isActivePage || !widget.isRevealed) {
+      if (_controller != null && _isPlaying) {
+        _controller?.pause();
         setState(() {
-          _videoError = 'Failed to load video';
+          _isPlaying = false;
         });
-      });
-    } catch (e) {
-      setState(() {
-        _videoError = 'Failed to initialize player';
-      });
+      }
     }
   }
 
@@ -992,11 +1072,64 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
     super.dispose();
   }
 
-  String _formatDuration(Duration duration) {
-    final minutes =
-        duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds =
-        duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  Future<void> _initVideo() async {
+    try {
+      _controller?.dispose();
+      final controller =
+          VideoPlayerController.networkUrl(Uri.parse(widget.media.mediaUrl));
+      _controller = controller;
+      _initFuture = controller.initialize().then((_) {
+        if (mounted) {
+          setState(() {
+            _videoError = null;
+            _isPlaying = controller.value.isPlaying;
+          });
+          controller.setLooping(true);
+        }
+      });
+      controller.addListener(() {
+        if (mounted) {
+          setState(() {
+            _isPlaying = controller.value.isPlaying;
+          });
+        }
+      });
+      setState(() {});
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _videoError = 'Failed to load video: $e';
+        });
+      }
+    }
+  }
+
+  void _togglePlayPause() {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (_controller!.value.isPlaying) {
+        _controller!.pause();
+        _isPlaying = false;
+      } else {
+        _controller!.play();
+        _isPlaying = true;
+      }
+    });
+  }
+
+  void _toggleMute() {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _isMuted = !_isMuted;
+      _controller!.setVolume(_isMuted ? 0.0 : 1.0);
+    });
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
   }
 
@@ -1007,141 +1140,137 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
           ? widget.media.thumbnail!
           : widget.media.displayUrl;
 
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onToggleReveal,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Blurred Thumbnail
-            if (displayThumbnail.isNotEmpty)
-              ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                child: Image.network(
-                  displayThumbnail,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: const Color(0xFF150D20),
-                  ),
-                ),
-              )
-            else
-              Container(color: const Color(0xFF150D20)),
-
-            // Dark frosted privacy mask
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withValues(alpha: 0.65),
-                    Colors.black.withValues(alpha: 0.85),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          // Blurred Thumbnail
+          if (displayThumbnail.isNotEmpty)
+            ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+              child: Image.network(
+                displayThumbnail,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: const Color(0xFF150D20),
                 ),
               ),
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+            )
+          else
+            Container(color: const Color(0xFF150D20)),
+
+          // Dark frosted privacy mask (ONLY button reveals)
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.black.withValues(alpha: 0.65),
+                  Colors.black.withValues(alpha: 0.85),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C)
+                                .withValues(alpha: 0.4),
+                            blurRadius: 18,
+                            offset: const Offset(0, 4),
                           ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF758C)
-                                  .withValues(alpha: 0.4),
-                              blurRadius: 18,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.videocam_rounded,
-                          color: Colors.white,
-                          size: 34,
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Private Video',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                      child: const Icon(
+                        Icons.videocam_rounded,
+                        color: Colors.white,
+                        size: 34,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Tap the view button or tap anywhere to decrypt and play this video.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: Colors.white.withValues(alpha: 0.7),
-                          height: 1.4,
-                        ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Private Video',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                      const SizedBox(height: 20),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Tap the button below to decrypt and play this private video.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.white.withValues(alpha: 0.7),
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C)
+                                .withValues(alpha: 0.35),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF758C)
-                                  .withValues(alpha: 0.35),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                        ],
+                      ),
+                      child: ElevatedButton.icon(
+                        onPressed: widget.onToggleReveal,
+                        icon: const Icon(
+                          Icons.visibility_rounded,
+                          color: Colors.white,
+                          size: 18,
                         ),
-                        child: ElevatedButton.icon(
-                          onPressed: widget.onToggleReveal,
-                          icon: const Icon(
-                            Icons.play_circle_fill_rounded,
+                        label: const Text(
+                          'View Video',
+                          style: TextStyle(
                             color: Colors.white,
-                            size: 20,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
-                          label: const Text(
-                            'View Video',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
@@ -1192,10 +1321,7 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        controller.play();
-                      },
+                      onTap: _togglePlayPause,
                       borderRadius: BorderRadius.circular(40),
                       child: Container(
                         padding: const EdgeInsets.all(18),
@@ -1295,14 +1421,7 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
                                       color: Colors.white,
                                       size: 24,
                                     ),
-                                    onPressed: () {
-                                      HapticFeedback.selectionClick();
-                                      if (_isPlaying) {
-                                        controller.pause();
-                                      } else {
-                                        controller.play();
-                                      }
-                                    },
+                                    onPressed: _togglePlayPause,
                                   ),
                                   const SizedBox(width: 10),
                                   Text(
@@ -1325,12 +1444,7 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
                                   color: Colors.white70,
                                   size: 20,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    _isMuted = !_isMuted;
-                                    controller.setVolume(_isMuted ? 0.0 : 1.0);
-                                  });
-                                },
+                                onPressed: _toggleMute,
                               ),
                             ],
                           ),

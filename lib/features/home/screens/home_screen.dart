@@ -124,6 +124,7 @@ class HomeScreen extends StatelessWidget {
 
               // Features Launcher Button Card
               const OpenFeaturesCard(),
+              const SizedBox(height: 28),
             ],
           ),
         ),

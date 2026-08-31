@@ -511,6 +511,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
               ),
             ),
           ],
+          const SizedBox(height: 32),
         ],
       ),
     );

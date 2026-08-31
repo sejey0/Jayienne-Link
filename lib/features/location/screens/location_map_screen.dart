@@ -670,7 +670,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
           // 2. Floating Action Controls (Satellite, Fullscreen, Fit Both, Center Partner, Center Me, Refresh)
           Positioned(
             right: 16,
-            bottom: isFullscreen ? 24 : (isHistoryMode ? 280 : 220),
+            bottom: isFullscreen
+                ? (MediaQuery.of(context).padding.bottom + 24)
+                : (isHistoryMode
+                    ? (MediaQuery.of(context).padding.bottom + 300)
+                    : (MediaQuery.of(context).padding.bottom + 220)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -786,7 +790,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
               Positioned(
                 left: 16,
                 right: 16,
-                bottom: 16,
+                bottom: MediaQuery.of(context).padding.bottom + 16,
                 child: AnimatedCrossFade(
                   duration: const Duration(milliseconds: 250),
                   crossFadeState: _isCardHidden

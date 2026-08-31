@@ -251,6 +251,7 @@ class _CoupleLinkingScreenState extends State<CoupleLinkingScreen> {
                       side: BorderSide(color: Colors.grey.shade300),
                     ),
                   ),
+                const SizedBox(height: 24),
               ],
             ),
           ),

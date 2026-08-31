@@ -1239,20 +1239,23 @@ class _MoodScreenState extends State<MoodScreen> {
                       ),
                     ),
                   ),
-                  AnimatedPadding(
-                    duration: const Duration(milliseconds: 150),
-                    curve: Curves.easeOut,
-                    padding: EdgeInsets.fromLTRB(
-                      AppDimensions.spacingLg,
-                      AppDimensions.spacingSm,
-                      AppDimensions.spacingLg,
-                      isKeyboardOpen
-                          ? AppDimensions.spacingXs
-                          : AppDimensions.spacingLg,
-                    ),
-                    child: _buildMoodComposer(
-                      context,
-                      provider: moodProvider,
+                  SafeArea(
+                    top: false,
+                    child: AnimatedPadding(
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOut,
+                      padding: EdgeInsets.fromLTRB(
+                        AppDimensions.spacingLg,
+                        AppDimensions.spacingSm,
+                        AppDimensions.spacingLg,
+                        isKeyboardOpen
+                            ? AppDimensions.spacingXs
+                            : AppDimensions.spacingLg,
+                      ),
+                      child: _buildMoodComposer(
+                        context,
+                        provider: moodProvider,
+                      ),
                     ),
                   ),
                 ],

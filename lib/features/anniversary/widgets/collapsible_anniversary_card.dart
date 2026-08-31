@@ -77,6 +77,7 @@ class _CollapsibleAnniversaryCardState
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
             alignment: Alignment.topCenter,
+            clipBehavior: Clip.hardEdge,
             child: Padding(
               padding: const EdgeInsets.all(18.0),
               child: Column(

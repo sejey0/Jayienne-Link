@@ -478,23 +478,26 @@ class _HeartbeatScreenState extends State<HeartbeatScreen>
                           ),
 
                           // Modern Floating Send Bar
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              AppDimensions.spacingMd,
-                              AppDimensions.spacingXs,
-                              AppDimensions.spacingMd,
-                              AppDimensions.spacingMd,
-                            ),
-                            child: _buildSendDock(
-                              context,
-                              heartbeatProvider: heartbeatProvider,
-                              messageController: _messageController,
-                              messageFocusNode: _messageFocusNode,
-                              onSendMessage: () =>
-                                  _handleSendMessage(heartbeatProvider),
-                              onSendHeart: () =>
-                                  _handleSendHeart(heartbeatProvider),
-                              isDark: isDark,
+                          SafeArea(
+                            top: false,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                AppDimensions.spacingMd,
+                                AppDimensions.spacingXs,
+                                AppDimensions.spacingMd,
+                                AppDimensions.spacingMd,
+                              ),
+                              child: _buildSendDock(
+                                context,
+                                heartbeatProvider: heartbeatProvider,
+                                messageController: _messageController,
+                                messageFocusNode: _messageFocusNode,
+                                onSendMessage: () =>
+                                    _handleSendMessage(heartbeatProvider),
+                                onSendHeart: () =>
+                                    _handleSendHeart(heartbeatProvider),
+                                isDark: isDark,
+                              ),
                             ),
                           ),
                         ],

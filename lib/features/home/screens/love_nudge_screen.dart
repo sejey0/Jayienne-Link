@@ -179,6 +179,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
 
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -560,6 +561,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
                   onUploadTap: () => _showPhotoOptionsModal(false),
                   onDeletePhotoTap: () => _confirmAndDeletePhoto(false),
                 ),
+                const SizedBox(height: 24),
               ],
             ),
           ),

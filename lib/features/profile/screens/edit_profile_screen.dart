@@ -427,6 +427,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     onPressed: _save,
                     isLoading: userProvider.isLoading,
                   ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),

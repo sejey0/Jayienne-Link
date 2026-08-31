@@ -669,6 +669,7 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 32),
           ],
         ),
       ),

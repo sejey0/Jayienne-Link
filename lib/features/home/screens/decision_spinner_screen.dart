@@ -878,6 +878,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).brightness == Brightness.dark
           ? const Color(0xFF1E162B)
           : Colors.white,

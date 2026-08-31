@@ -44,6 +44,7 @@ class AddMovieSheet extends StatefulWidget {
     return showModalBottomSheet<dynamic>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       constraints: const BoxConstraints(maxWidth: 440),
       builder: (context) => AddMovieSheet(

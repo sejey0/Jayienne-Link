@@ -183,6 +183,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
             duration: const Duration(milliseconds: 320),
             curve: Curves.easeInOut,
             alignment: Alignment.topCenter,
+            clipBehavior: Clip.hardEdge,
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(

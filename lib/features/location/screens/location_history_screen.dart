@@ -172,7 +172,12 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     return RefreshIndicator(
       onRefresh: () => _loadHistory(forceRefresh: true),
       child: ListView.builder(
-        padding: const EdgeInsets.all(AppDimensions.spacingMd),
+        padding: EdgeInsets.fromLTRB(
+          AppDimensions.spacingMd,
+          AppDimensions.spacingMd,
+          AppDimensions.spacingMd,
+          MediaQuery.of(context).padding.bottom + 24,
+        ),
         itemCount: grouped.length,
         itemBuilder: (context, index) {
           final date = grouped.keys.elementAt(index);
@@ -520,20 +525,23 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         final provider = context.watch<LocationProvider>();
         final currentUser = provider.currentUser;
         final partnerUser = provider.partnerUser;
 
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppDimensions.borderRadiusLarge),
+        return SafeArea(
+          top: false,
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.6,
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppDimensions.borderRadiusLarge),
+              ),
             ),
-          ),
           child: Column(
             children: [
               // Handle bar
@@ -688,8 +696,9 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
               ),
             ],
           ),
-        );
-      },
+        ),
+      );
+    },
     );
   }
 

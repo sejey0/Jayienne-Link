@@ -52,6 +52,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     final picker = ImagePicker();
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
+      useSafeArea: true,
       builder: (context) => SafeArea(
         child: Wrap(
           children: [

@@ -1,22 +1,29 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:jayienne_link/providers/auth_provider.dart';
-import 'package:jayienne_link/providers/secret_media_provider.dart';
-import 'package:jayienne_link/models/secret_media_model.dart';
+import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/snackbar_helper.dart';
-import 'package:video_player/video_player.dart';
+import '../../../models/secret_media_model.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../providers/secret_media_provider.dart';
 import '../../../widgets/common/app_text_field.dart';
 
+/// Full-Screen Swipable Detail & Gallery Viewer for Hidden Vault and Secret Media
 class SecretMediaDetailScreen extends StatefulWidget {
   final SecretMediaModel media;
+  final List<SecretMediaModel>? mediaList;
+  final int initialIndex;
 
   const SecretMediaDetailScreen({
     super.key,
     required this.media,
+    this.mediaList,
+    this.initialIndex = 0,
   });
 
   @override
@@ -25,86 +32,83 @@ class SecretMediaDetailScreen extends StatefulWidget {
 }
 
 class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
+  late List<SecretMediaModel> _items;
+  late int _currentIndex;
+  late PageController _pageController;
+
+  final Set<String> _revealedMediaIds = <String>{};
+  bool _showOverlays = true;
+  bool _showInfoDrawer = false;
+
   late TextEditingController _captionController;
   final FocusNode _captionFocusNode = FocusNode();
-  String? _currentCaption;
   bool _isEditingCaption = false;
   bool _isSavingCaption = false;
-  bool _isImageMasked = false;
-  bool _showVideoControls = false;
-  VideoPlayerController? _videoController;
-  Future<void>? _videoInitializeFuture;
-  String? _videoError;
+
+  SecretMediaModel get _currentMedia => _items[_currentIndex];
 
   bool get _isUploader {
     final currentUserId = context.read<AuthProvider>().currentUserId;
-    final isUploader = currentUserId != null &&
+    return currentUserId != null &&
         currentUserId.isNotEmpty &&
-        widget.media.uploadedById.isNotEmpty &&
-        currentUserId == widget.media.uploadedById;
-
-    // Debug: Print to console to help troubleshoot
-    debugPrint(
-        'Delete Permission Check: currentUser=$currentUserId, uploadedBy=${widget.media.uploadedById}, canDelete=$isUploader');
-
-    return isUploader;
+        _currentMedia.uploadedById.isNotEmpty &&
+        currentUserId == _currentMedia.uploadedById;
   }
 
   @override
   void initState() {
     super.initState();
-    _currentCaption = widget.media.caption;
+    _items = (widget.mediaList != null && widget.mediaList!.isNotEmpty)
+        ? List<SecretMediaModel>.from(widget.mediaList!)
+        : [widget.media];
+
+    _currentIndex = widget.initialIndex.clamp(0, _items.length - 1);
+    _pageController = PageController(initialPage: _currentIndex);
     _captionController =
-        TextEditingController(text: widget.media.caption ?? '');
-
-    if (widget.media.mediaType == 'video') {
-      _initializeVideoPlayer();
-    }
-  }
-
-  void _initializeVideoPlayer() {
-    try {
-      final controller =
-          VideoPlayerController.networkUrl(Uri.parse(widget.media.mediaUrl));
-      _videoController = controller;
-      _videoInitializeFuture = controller.initialize().then((_) {
-        if (!mounted) return;
-        setState(() {});
-      }).catchError((error) {
-        if (!mounted) return;
-        setState(() {
-          _videoError = _buildVideoErrorMessage(error);
-        });
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _videoError = _buildVideoErrorMessage(error);
-      });
-    }
-  }
-
-  String _buildVideoErrorMessage(Object error) {
-    final message = error.toString();
-    if (error is PlatformException ||
-        message.contains('Unable to establish connection on channel') ||
-        message.contains('video_player_android')) {
-      return 'Video player is not initialized. Fully restart the app (stop and run again).';
-    }
-    return 'Failed to load video';
+        TextEditingController(text: _currentMedia.caption ?? '');
   }
 
   @override
   void dispose() {
+    _pageController.dispose();
     _captionController.dispose();
     _captionFocusNode.dispose();
-    _videoController?.dispose();
     super.dispose();
+  }
+
+  void _onPageChanged(int index) {
+    setState(() {
+      _currentIndex = index;
+      _isEditingCaption = false;
+      _captionController.text = _currentMedia.caption ?? '';
+    });
+  }
+
+  void _toggleCurrentReveal() {
+    HapticFeedback.lightImpact();
+    final id = _currentMedia.id;
+    if (id == null) return;
+    setState(() {
+      if (_revealedMediaIds.contains(id)) {
+        _revealedMediaIds.remove(id);
+      } else {
+        _revealedMediaIds.add(id);
+      }
+    });
+  }
+
+
+  void _toggleOverlays() {
+    setState(() {
+      _showOverlays = !_showOverlays;
+    });
   }
 
   void _startEditingCaption() {
     setState(() {
       _isEditingCaption = true;
+      _showInfoDrawer = true;
+      _captionController.text = _currentMedia.caption ?? '';
       _captionController.selection = TextSelection.fromPosition(
         TextPosition(offset: _captionController.text.length),
       );
@@ -119,7 +123,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
 
   Future<void> _saveCaption() async {
     final newCaption = _captionController.text.trim();
-    final currentCaption = _currentCaption?.trim() ?? '';
+    final currentCaption = _currentMedia.caption?.trim() ?? '';
 
     if (newCaption == currentCaption) {
       setState(() {
@@ -133,13 +137,16 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
     });
 
     final provider = context.read<SecretMediaProvider>();
-    final success = await provider.updateCaption(widget.media.id!, newCaption);
+    final success =
+        await provider.updateCaption(_currentMedia.id!, newCaption);
 
     if (mounted) {
       setState(() {
         _isSavingCaption = false;
         if (success) {
-          _currentCaption = newCaption.isEmpty ? null : newCaption;
+          _items[_currentIndex] = _currentMedia.copyWith(
+            caption: newCaption.isEmpty ? null : newCaption,
+          );
           _isEditingCaption = false;
           SnackbarHelper.showSuccess(context, 'Caption updated');
         }
@@ -147,536 +154,13 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black87,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          if (_isUploader)
-            PopupMenuButton(
-              icon: const Icon(Icons.more_vert, color: Colors.white),
-              itemBuilder: (BuildContext context) => [
-                PopupMenuItem(
-                  child: const Text('Delete'),
-                  onTap: () {
-                    _showConfirmDialog(
-                      'Delete Media?',
-                      'This action cannot be undone.',
-                      () {
-                        context
-                            .read<SecretMediaProvider>()
-                            .deleteSecretMedia(widget.media.id!);
-                        Navigator.pop(context);
-                        Navigator.pop(context);
-                        SnackbarHelper.showSuccess(context, 'Media deleted');
-                      },
-                    );
-                  },
-                ),
-              ],
-            ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Media Display
-            Container(
-              color: Colors.black,
-              child: widget.media.mediaType == 'image'
-                  ? _buildImagePreview()
-                  : _buildVideoPlayer(),
-            ),
-            // Details Panel
-            Container(
-              color: Colors.grey.shade900,
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Media Info
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.withValues(alpha: 0.3),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    widget.media.mediaType.toUpperCase(),
-                                    style: const TextStyle(
-                                      color: Colors.blue,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withValues(alpha: 0.3),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'HIDDEN',
-                                    style: TextStyle(
-                                      color: Colors.red,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                if (widget.media.isEncrypted)
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.withValues(alpha: 0.3),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Icon(
-                                      Icons.lock,
-                                      color: Colors.amber,
-                                      size: 12,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Uploaded ${DateFormat('MMM dd, yyyy').format(widget.media.uploadedAt)}',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white54,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Caption Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Caption',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (_isUploader && !_isEditingCaption)
-                        IconButton(
-                          onPressed: _startEditingCaption,
-                          icon: const Icon(
-                            Icons.edit,
-                            color: Colors.white70,
-                            size: 18,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (!_isUploader)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        'Only the uploader can edit this description.',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  if (_isUploader && _isEditingCaption)
-                    Column(
-                      children: [
-                        AppTextField(
-                          controller: _captionController,
-                          focusNode: _captionFocusNode,
-                          autofocus: true,
-                          maxLines: 4,
-                          keyboardType: TextInputType.multiline,
-                          textInputAction: TextInputAction.newline,
-                          hintText: 'Add a caption...',
-                          borderRadius: BorderRadius.circular(14),
-                          isDark: true,
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          alignment: WrapAlignment.end,
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            OutlinedButton(
-                              onPressed: () {
-                                _captionController.text = _currentCaption ?? '';
-                                _captionFocusNode.unfocus();
-                                setState(() {
-                                  _isEditingCaption = false;
-                                });
-                              },
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Colors.white54),
-                                foregroundColor: Colors.white70,
-                              ),
-                              child: const Text('Cancel'),
-                            ),
-                            ElevatedButton(
-                              onPressed: _isSavingCaption ? null : _saveCaption,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: _isSavingCaption
-                                  ? const SizedBox(
-                                      height: 18,
-                                      width: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Save'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                  else
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade800,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _currentCaption?.isNotEmpty ?? false
-                            ? _currentCaption!
-                            : 'No caption',
-                        style: GoogleFonts.poppins(
-                          color: _currentCaption?.isNotEmpty ?? false
-                              ? Colors.white
-                              : Colors.white54,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImagePreview() {
-    return SizedBox(
-      height: 400,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.network(
-              widget.media.mediaUrl,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey.shade800,
-                  child: const Center(
-                    child: Icon(
-                      Icons.broken_image,
-                      size: 48,
-                      color: Colors.white,
-                    ),
-                  ),
-                );
-              },
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  color: Colors.black,
-                  child: const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
-                );
-              },
-            ),
-          ),
-          if (_isImageMasked)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black,
-              ),
-            ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 16,
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Material(
-                    color: Colors.redAccent,
-                    elevation: 6,
-                    shadowColor: Colors.black54,
-                    shape: const CircleBorder(
-                      side: BorderSide(color: Colors.white24, width: 1),
-                    ),
-                    child: IconButton(
-                      tooltip: 'Full View',
-                      icon: const Icon(Icons.fullscreen, color: Colors.white),
-                      onPressed: _showFullImageViewer,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Material(
-                    color: Colors.black87,
-                    elevation: 6,
-                    shadowColor: Colors.black54,
-                    shape: const CircleBorder(
-                      side: BorderSide(color: Colors.white24, width: 1),
-                    ),
-                    child: IconButton(
-                      tooltip: _isImageMasked ? 'Show Image' : 'Hide Image',
-                      icon: Icon(
-                        _isImageMasked
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: Colors.white,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _isImageMasked = !_isImageMasked;
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showFullImageViewer() {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black,
-      builder: (dialogContext) {
-        return Dialog.fullscreen(
-          backgroundColor: Colors.black,
-          child: Stack(
-            children: [
-              Center(
-                child: InteractiveViewer(
-                  minScale: 0.8,
-                  maxScale: 4,
-                  child: Image.network(
-                    widget.media.mediaUrl,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey.shade800,
-                        child: const Center(
-                          child: Icon(
-                            Icons.broken_image,
-                            size: 48,
-                            color: Colors.white,
-                          ),
-                        ),
-                      );
-                    },
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: Colors.black,
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              SafeArea(
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildVideoPlayer() {
-    if (_videoError != null) {
-      return Container(
-        height: 400,
-        color: Colors.grey.shade900,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              _videoError!,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.white70,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final initializeFuture = _videoInitializeFuture;
-    final controller = _videoController;
-    if (initializeFuture == null || controller == null) {
-      return Container(
-        height: 400,
-        color: Colors.grey.shade900,
-      );
-    }
-
-    return FutureBuilder<void>(
-      future: initializeFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return Container(
-            height: 400,
-            color: Colors.grey.shade900,
-            child: const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-          );
-        }
-
-        return Container(
-          height: 400,
-          color: Colors.black,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              setState(() {
-                _showVideoControls = !_showVideoControls;
-              });
-            },
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Center(
-                  child: AspectRatio(
-                    aspectRatio: controller.value.aspectRatio,
-                    child: VideoPlayer(controller),
-                  ),
-                ),
-                if (_showVideoControls)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 16,
-                    child: Center(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(32),
-                        ),
-                        child: IconButton(
-                          onPressed: () {
-                            setState(() {
-                              if (controller.value.isPlaying) {
-                                controller.pause();
-                              } else {
-                                controller.play();
-                              }
-                            });
-                          },
-                          icon: Icon(
-                            controller.value.isPlaying
-                                ? Icons.pause_circle_filled
-                                : Icons.play_circle_fill,
-                            size: 36,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (_showVideoControls)
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: IconButton(
-                      icon: const Icon(Icons.fullscreen, color: Colors.white),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => SecretMediaFullscreenVideoScreen(
-                              title: _currentCaption?.isNotEmpty == true
-                                  ? _currentCaption!
-                                  : 'Video',
-                              videoUrl: widget.media.mediaUrl,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showConfirmDialog(
-    String title,
-    String message,
-    VoidCallback onConfirm,
-  ) {
+  void _showDeleteDialog() {
     HapticFeedback.heavyImpact();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+        backgroundColor: const Color(0xFF1C1427),
         contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -699,26 +183,30 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 32),
+              child: const Icon(
+                Icons.delete_forever_rounded,
+                color: Colors.white,
+                size: 32,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
-              title,
+              'Delete Media?',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: GoogleFonts.poppins(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : AppColors.deepCharcoal,
+                color: Colors.white,
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              message,
+            const Text(
+              'This action cannot be undone. This private media will be permanently erased.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: 13,
                 height: 1.4,
-                color: isDark ? Colors.white70 : Colors.grey.shade700,
+                color: Colors.white70,
               ),
             ),
             const SizedBox(height: 20),
@@ -728,8 +216,11 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(ctx),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: const BorderSide(
+                          color: Color(0xFFFF758C), width: 1.2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     child: const Text(
@@ -754,9 +245,28 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        final mediaId = _currentMedia.id;
                         Navigator.pop(ctx);
-                        onConfirm();
+                        if (mediaId != null) {
+                          await context
+                              .read<SecretMediaProvider>()
+                              .deleteSecretMedia(mediaId);
+                          if (mounted) {
+                            SnackbarHelper.showSuccess(
+                                context, 'Media deleted');
+                            if (_items.length <= 1) {
+                              Navigator.pop(context);
+                            } else {
+                              setState(() {
+                                _items.removeAt(_currentIndex);
+                                if (_currentIndex >= _items.length) {
+                                  _currentIndex = _items.length - 1;
+                                }
+                              });
+                            }
+                          }
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
@@ -765,11 +275,10 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        elevation: 0,
                       ),
                       child: const Text(
-                        'Confirm',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        'Delete',
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -781,261 +290,1060 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
       ),
     );
   }
-}
-
-class SecretMediaFullscreenVideoScreen extends StatefulWidget {
-  final String title;
-  final String videoUrl;
-
-  const SecretMediaFullscreenVideoScreen({
-    super.key,
-    required this.title,
-    required this.videoUrl,
-  });
-
-  @override
-  State<SecretMediaFullscreenVideoScreen> createState() =>
-      _SecretMediaFullscreenVideoScreenState();
-}
-
-class _SecretMediaFullscreenVideoScreenState
-    extends State<SecretMediaFullscreenVideoScreen> {
-  VideoPlayerController? _controller;
-  Future<void>? _initFuture;
-  bool _showVideoControls = false;
-  bool _isLandscapeMode = false;
-
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-
-  Future<void> _toggleLandscapeMode() async {
-    final nextMode = !_isLandscapeMode;
-
-    setState(() {
-      _isLandscapeMode = nextMode;
-    });
-
-    await SystemChrome.setPreferredOrientations(
-      nextMode
-          ? [
-              DeviceOrientation.landscapeLeft,
-              DeviceOrientation.landscapeRight,
-            ]
-          : [
-              DeviceOrientation.portraitUp,
-              DeviceOrientation.portraitDown,
-            ],
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    final controller =
-        VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
-    _controller = controller;
-    _initFuture = controller.initialize().then((_) {
-      if (!mounted) return;
-      controller.addListener(() {
-        if (mounted) {
-          setState(() {});
-        }
-      });
-      setState(() {});
-      controller.play();
-    });
-  }
-
-  @override
-  void dispose() {
-    SystemChrome.setPreferredOrientations(
-      [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown],
-    );
-    _controller?.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    final initFuture = _initFuture;
+    if (_items.isEmpty) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Text(
+            'No media available',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+      );
+    }
+
+    final isCurrentRevealed = _currentMedia.id != null &&
+        _revealedMediaIds.contains(_currentMedia.id);
 
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black87,
-        title: Text(widget.title),
-      ),
-      body: controller == null || initFuture == null
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            )
-          : FutureBuilder<void>(
-              future: initFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  );
-                }
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Swipable Horizontal PageView (Scroll next to next)
+          PageView.builder(
+            controller: _pageController,
+            physics: const BouncingScrollPhysics(),
+            onPageChanged: _onPageChanged,
+            itemCount: _items.length,
+            itemBuilder: (context, index) {
+              final item = _items[index];
+              final isRevealed =
+                  item.id != null && _revealedMediaIds.contains(item.id);
+              final isActivePage = index == _currentIndex;
 
-                return Center(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      setState(() {
-                        _showVideoControls = !_showVideoControls;
-                      });
-                    },
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        AspectRatio(
-                          aspectRatio: controller.value.aspectRatio,
-                          child: VideoPlayer(controller),
+              if (item.mediaType == 'video') {
+                return _VaultVideoPageItem(
+                  media: item,
+                  isActivePage: isActivePage,
+                  isRevealed: isRevealed,
+                  onToggleReveal: () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      if (item.id != null) {
+                        if (_revealedMediaIds.contains(item.id)) {
+                          _revealedMediaIds.remove(item.id);
+                        } else {
+                          _revealedMediaIds.add(item.id!);
+                        }
+                      }
+                    });
+                  },
+                  onToggleOverlays: _toggleOverlays,
+                );
+              }
+
+              return _VaultImagePageItem(
+                media: item,
+                isRevealed: isRevealed,
+                onToggleReveal: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    if (item.id != null) {
+                      if (_revealedMediaIds.contains(item.id)) {
+                        _revealedMediaIds.remove(item.id);
+                      } else {
+                        _revealedMediaIds.add(item.id!);
+                      }
+                    }
+                  });
+                },
+                onToggleOverlays: _toggleOverlays,
+              );
+            },
+          ),
+
+          // 2. Animated Top AppBar Overlay
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AnimatedOpacity(
+              opacity: _showOverlays ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 220),
+              child: IgnorePointer(
+                ignoring: !_showOverlays,
+                child: Container(
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top + 4,
+                    left: 8,
+                    right: 8,
+                    bottom: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.black.withValues(alpha: 0.8),
+                        Colors.black.withValues(alpha: 0.4),
+                        Colors.transparent,
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      // Back Button
+                      IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 20,
                         ),
-                        if (_showVideoControls)
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 12,
-                            child: SafeArea(
-                              minimum: const EdgeInsets.symmetric(
-                                horizontal: 16,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+
+                      // Position Counter & Media Type Indicator
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
                               ),
-                              child: Column(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  SliderTheme(
-                                    data: SliderTheme.of(context).copyWith(
-                                      trackHeight: 3,
-                                      thumbShape: const RoundSliderThumbShape(
-                                        enabledThumbRadius: 7,
-                                      ),
-                                      overlayShape:
-                                          const RoundSliderOverlayShape(
-                                        overlayRadius: 14,
-                                      ),
-                                      activeTrackColor: Colors.white,
-                                      inactiveTrackColor: Colors.white30,
-                                      thumbColor: Colors.white,
-                                    ),
-                                    child: Slider(
-                                      value: controller
-                                              .value.position.inMilliseconds
-                                              .clamp(
-                                                0,
-                                                controller.value.duration
-                                                    .inMilliseconds,
-                                              )
-                                              .toDouble() /
-                                          (controller
-                                              .value.duration.inMilliseconds
-                                              .clamp(
-                                                  1, double.maxFinite.toInt())
-                                              .toDouble()),
-                                      onChanged: controller.value.duration
-                                                  .inMilliseconds ==
-                                              0
-                                          ? null
-                                          : (value) {
-                                              final targetPosition = Duration(
-                                                milliseconds: (controller
-                                                            .value
-                                                            .duration
-                                                            .inMilliseconds *
-                                                        value)
-                                                    .round(),
-                                              );
-                                              controller.seekTo(targetPosition);
-                                            },
-                                    ),
+                                  Icon(
+                                    _currentMedia.mediaType == 'video'
+                                        ? Icons.videocam_rounded
+                                        : Icons.photo_rounded,
+                                    color: const Color(0xFFFF758C),
+                                    size: 14,
                                   ),
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          _formatDuration(
-                                              controller.value.position),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        Text(
-                                          _formatDuration(
-                                              controller.value.duration),
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${_currentIndex + 1} / ${_items.length}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
                                     ),
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          color: Colors.black54,
-                                          borderRadius:
-                                              BorderRadius.circular(32),
-                                        ),
-                                        child: IconButton(
-                                          onPressed: _toggleLandscapeMode,
-                                          icon: Icon(
-                                            _isLandscapeMode
-                                                ? Icons.screen_rotation
-                                                : Icons.stay_current_landscape,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                      DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          color: Colors.black54,
-                                          borderRadius:
-                                              BorderRadius.circular(32),
-                                        ),
-                                        child: IconButton(
-                                          onPressed: () {
-                                            setState(() {
-                                              if (controller.value.isPlaying) {
-                                                controller.pause();
-                                              } else {
-                                                controller.play();
-                                              }
-                                            });
-                                          },
-                                          icon: Icon(
-                                            controller.value.isPlaying
-                                                ? Icons.pause_circle_filled
-                                                : Icons.play_circle_fill,
-                                            size: 36,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
                                   ),
                                 ],
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+
+                      // Reveal / Hide Current Item Button
+                      IconButton(
+                        tooltip: isCurrentRevealed ? 'Hide Media' : 'View Media',
+                        icon: Icon(
+                          isCurrentRevealed
+                              ? Icons.visibility_rounded
+                              : Icons.visibility_off_rounded,
+                          color: isCurrentRevealed
+                              ? const Color(0xFFFF758C)
+                              : Colors.white,
+                          size: 22,
+                        ),
+                        onPressed: _toggleCurrentReveal,
+                      ),
+
+
+                      // Delete Button (if uploader)
+                      if (_isUploader)
+                        IconButton(
+                          tooltip: 'Delete Media',
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: AppColors.error,
+                            size: 22,
                           ),
-                      ],
+                          onPressed: _showDeleteDialog,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // 3. Animated Bottom Floating Drawer / Caption Panel
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: MediaQuery.of(context).padding.bottom + 14,
+            child: AnimatedOpacity(
+              opacity: _showOverlays ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 220),
+              child: IgnorePointer(
+                ignoring: !_showOverlays,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1C1427).withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Top bar with Caption Title and Expand / Edit buttons
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Color(0xFFFF758C),
+                                      Color(0xFFA18CD1)
+                                    ],
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.favorite_rounded,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _currentMedia.caption?.isNotEmpty == true
+                                      ? _currentMedia.caption!
+                                      : 'Private Memory',
+                                  maxLines: _showInfoDrawer ? 4 : 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              if (_isUploader && !_isEditingCaption)
+                                IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  icon: const Icon(
+                                    Icons.edit_note_rounded,
+                                    color: Color(0xFFFF758C),
+                                    size: 22,
+                                  ),
+                                  tooltip: 'Edit Caption',
+                                  onPressed: _startEditingCaption,
+                                ),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _showInfoDrawer = !_showInfoDrawer;
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4.0),
+                                  child: Icon(
+                                    _showInfoDrawer
+                                        ? Icons.keyboard_arrow_down_rounded
+                                        : Icons.info_outline_rounded,
+                                    color: Colors.white70,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // Editing Caption TextField
+                          if (_isEditingCaption && _isUploader) ...[
+                            const SizedBox(height: 10),
+                            AppTextField(
+                              controller: _captionController,
+                              focusNode: _captionFocusNode,
+                              hintText: 'Add a romantic caption...',
+                              isDark: true,
+                              maxLines: 3,
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _isEditingCaption = false;
+                                      _captionController.text =
+                                          _currentMedia.caption ?? '';
+                                    });
+                                  },
+                                  child: const Text(
+                                    'Cancel',
+                                    style: TextStyle(color: Colors.white60),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  onPressed:
+                                      _isSavingCaption ? null : _saveCaption,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFFF758C),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: _isSavingCaption
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text('Save'),
+                                ),
+                              ],
+                            ),
+                          ],
+
+                          // Expanded Metadata Section
+                          if (_showInfoDrawer && !_isEditingCaption) ...[
+                            const SizedBox(height: 10),
+                            const Divider(color: Colors.white12, height: 1),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.calendar_today_rounded,
+                                      size: 13,
+                                      color: Colors.white54,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      DateFormat('MMM dd, yyyy • hh:mm a')
+                                          .format(_currentMedia.uploadedAt),
+                                      style: const TextStyle(
+                                        fontSize: 11.5,
+                                        color: Colors.white60,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF00B09B)
+                                        .withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: const Color(0xFF00B09B)
+                                          .withValues(alpha: 0.4),
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.lock_rounded,
+                                        size: 11,
+                                        color: Color(0xFF00B09B),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Encrypted',
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF00B09B),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Image Page Item with Zoom Support, Tap to View, and Privacy Mask
+class _VaultImagePageItem extends StatelessWidget {
+  final SecretMediaModel media;
+  final bool isRevealed;
+  final VoidCallback onToggleReveal;
+  final VoidCallback onToggleOverlays;
+
+  const _VaultImagePageItem({
+    required this.media,
+    required this.isRevealed,
+    required this.onToggleReveal,
+    required this.onToggleOverlays,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (!isRevealed) {
+          onToggleReveal();
+        } else {
+          onToggleOverlays();
+        }
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Image View (Blurred if hidden, Crisp InteractiveViewer if revealed)
+          if (!isRevealed)
+            ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+              child: Image.network(
+                media.mediaUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: const Color(0xFF150D20),
+                ),
+              ),
+            )
+          else
+            InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4.5,
+              child: Center(
+                child: Image.network(
+                  media.mediaUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const Center(
+                      child:
+                          CircularProgressIndicator(color: Color(0xFFFF758C)),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) => const Center(
+                    child: Icon(
+                      Icons.broken_image_rounded,
+                      color: Colors.white54,
+                      size: 48,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // 2. Frosted Privacy Overlay & "Tap to View" Button when hidden
+          if (!isRevealed)
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.black.withValues(alpha: 0.65),
+                    Colors.black.withValues(alpha: 0.85),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C)
+                                  .withValues(alpha: 0.4),
+                              blurRadius: 18,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.lock_rounded,
+                          color: Colors.white,
+                          size: 34,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Private Photo',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Tap the view button or tap anywhere to decrypt and view this photo.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: Colors.white.withValues(alpha: 0.7),
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C)
+                                  .withValues(alpha: 0.35),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: onToggleReveal,
+                          icon: const Icon(
+                            Icons.visibility_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'View Photo',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Video Page Item with Inline Player Controls, Tap to View, and Privacy Mask
+class _VaultVideoPageItem extends StatefulWidget {
+  final SecretMediaModel media;
+  final bool isActivePage;
+  final bool isRevealed;
+  final VoidCallback onToggleReveal;
+  final VoidCallback onToggleOverlays;
+
+  const _VaultVideoPageItem({
+    required this.media,
+    required this.isActivePage,
+    required this.isRevealed,
+    required this.onToggleReveal,
+    required this.onToggleOverlays,
+  });
+
+  @override
+  State<_VaultVideoPageItem> createState() => _VaultVideoPageItemState();
+}
+
+class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
+  VideoPlayerController? _controller;
+  Future<void>? _initFuture;
+  bool _isPlaying = false;
+  bool _isMuted = false;
+  String? _videoError;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isActivePage && widget.isRevealed) {
+      _initVideo();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _VaultVideoPageItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((widget.isActivePage && widget.isRevealed) &&
+        (!oldWidget.isActivePage || !oldWidget.isRevealed || _controller == null)) {
+      _initVideo();
+    } else if (!widget.isActivePage && oldWidget.isActivePage) {
+      _controller?.pause();
+      setState(() {
+        _isPlaying = false;
+      });
+    }
+  }
+
+  void _initVideo() {
+    _controller?.dispose();
+    try {
+      final controller =
+          VideoPlayerController.networkUrl(Uri.parse(widget.media.mediaUrl));
+      _controller = controller;
+      _initFuture = controller.initialize().then((_) {
+        if (!mounted) return;
+        controller.addListener(() {
+          if (mounted) {
+            setState(() {
+              _isPlaying = controller.value.isPlaying;
+            });
+          }
+        });
+        setState(() {});
+      }).catchError((error) {
+        if (!mounted) return;
+        setState(() {
+          _videoError = 'Failed to load video';
+        });
+      });
+    } catch (e) {
+      setState(() {
+        _videoError = 'Failed to initialize player';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes =
+        duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds =
+        duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.isRevealed) {
+      final displayThumbnail = widget.media.thumbnail?.isNotEmpty == true
+          ? widget.media.thumbnail!
+          : widget.media.displayUrl;
+
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onToggleReveal,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Blurred Thumbnail
+            if (displayThumbnail.isNotEmpty)
+              ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Image.network(
+                  displayThumbnail,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: const Color(0xFF150D20),
+                  ),
+                ),
+              )
+            else
+              Container(color: const Color(0xFF150D20)),
+
+            // Dark frosted privacy mask
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.black.withValues(alpha: 0.65),
+                    Colors.black.withValues(alpha: 0.85),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C)
+                                  .withValues(alpha: 0.4),
+                              blurRadius: 18,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.videocam_rounded,
+                          color: Colors.white,
+                          size: 34,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Private Video',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Tap the view button or tap anywhere to decrypt and play this video.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: Colors.white.withValues(alpha: 0.7),
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C)
+                                  .withValues(alpha: 0.35),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: widget.onToggleReveal,
+                          icon: const Icon(
+                            Icons.play_circle_fill_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          label: const Text(
+                            'View Video',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_videoError != null) {
+      return Center(
+        child: Text(
+          _videoError!,
+          style: const TextStyle(color: Colors.white70),
+        ),
+      );
+    }
+
+    final controller = _controller;
+    final initFuture = _initFuture;
+
+    if (controller == null || initFuture == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFFF758C)),
+      );
+    }
+
+    return FutureBuilder<void>(
+      future: initFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFFFF758C)),
+          );
+        }
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onToggleOverlays,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Video Player
+              Center(
+                child: AspectRatio(
+                  aspectRatio: controller.value.aspectRatio,
+                  child: VideoPlayer(controller),
+                ),
+              ),
+
+              // Center Play/Pause Overlay Button
+              if (!_isPlaying)
+                Center(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        controller.play();
+                      },
+                      borderRadius: BorderRadius.circular(40),
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 40,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Bottom Video Controls Bar
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 100,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.15),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 3,
+                              thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 6,
+                              ),
+                              overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 12,
+                              ),
+                              activeTrackColor: const Color(0xFFFF758C),
+                              inactiveTrackColor: Colors.white24,
+                              thumbColor: Colors.white,
+                            ),
+                            child: Slider(
+                              value: controller.value.position.inMilliseconds
+                                  .clamp(
+                                    0,
+                                    controller.value.duration.inMilliseconds,
+                                  )
+                                  .toDouble() /
+                                  (controller.value.duration.inMilliseconds
+                                      .clamp(1, double.maxFinite.toInt())
+                                      .toDouble()),
+                              onChanged:
+                                  controller.value.duration.inMilliseconds == 0
+                                      ? null
+                                      : (val) {
+                                          final target = Duration(
+                                            milliseconds: (controller
+                                                        .value
+                                                        .duration
+                                                        .inMilliseconds *
+                                                    val)
+                                                .round(),
+                                          );
+                                          controller.seekTo(target);
+                                        },
+                            ),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    icon: Icon(
+                                      _isPlaying
+                                          ? Icons.pause_rounded
+                                          : Icons.play_arrow_rounded,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                    onPressed: () {
+                                      HapticFeedback.selectionClick();
+                                      if (_isPlaying) {
+                                        controller.pause();
+                                      } else {
+                                        controller.play();
+                                      }
+                                    },
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    '${_formatDuration(controller.value.position)} / ${_formatDuration(controller.value.duration)}',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: Icon(
+                                  _isMuted
+                                      ? Icons.volume_off_rounded
+                                      : Icons.volume_up_rounded,
+                                  color: Colors.white70,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _isMuted = !_isMuted;
+                                    controller.setVolume(_isMuted ? 0.0 : 1.0);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

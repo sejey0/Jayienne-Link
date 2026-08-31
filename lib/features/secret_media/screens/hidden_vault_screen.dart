@@ -563,16 +563,31 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
           elevation: 0,
           actions: _isUnlocked
               ? [
-                  IconButton(
-                    icon: const Icon(Icons.lock_rounded, color: Colors.white),
-                    tooltip: 'Lock Vault',
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      context.read<SecretMediaProvider>().lockVaultSession();
-                      setState(() {
-                        _isUnlocked = false;
-                      });
-                      SnackbarHelper.showInfo(context, 'Vault locked');
+                  Consumer<SecretMediaProvider>(
+                    builder: (context, provider, _) {
+                      final filtered = _filteredHiddenMedia(provider);
+                      final allIds = filtered.map((m) => m.id).whereType<String>().toSet();
+                      final isAllRevealed = allIds.isNotEmpty && allIds.every(_revealedMediaIds.contains);
+
+                      return IconButton(
+                        icon: Icon(
+                          isAllRevealed
+                              ? Icons.visibility_rounded
+                              : Icons.visibility_off_rounded,
+                          color: Colors.white,
+                        ),
+                        tooltip: isAllRevealed ? 'Hide All' : 'View All',
+                        onPressed: () {
+                          HapticFeedback.mediumImpact();
+                          setState(() {
+                            if (isAllRevealed) {
+                              _revealedMediaIds.removeAll(allIds);
+                            } else {
+                              _revealedMediaIds.addAll(allIds);
+                            }
+                          });
+                        },
+                      );
                     },
                   ),
                   IconButton(
@@ -587,16 +602,15 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                     },
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add_photo_alternate_rounded, color: Colors.white),
-                    tooltip: 'Add Media',
+                    icon: const Icon(Icons.lock_rounded, color: Colors.white),
+                    tooltip: 'Lock Vault',
                     onPressed: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AddSecretMediaScreen(),
-                        ),
-                      );
+                      HapticFeedback.mediumImpact();
+                      context.read<SecretMediaProvider>().lockVaultSession();
+                      setState(() {
+                        _isUnlocked = false;
+                      });
+                      SnackbarHelper.showInfo(context, 'Vault locked');
                     },
                   ),
                 ]
@@ -713,7 +727,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
 
                   return Column(
                     children: [
-                      // Interactive Filter Chips Row
+                      // Category Filter Chips Row
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                         child: SingleChildScrollView(
@@ -777,7 +791,14 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                                   itemCount: filteredMedia.length,
                                   itemBuilder: (context, index) {
                                     final media = filteredMedia[index];
-                                    return _buildMediaCard(context, media, provider, isDark);
+                                    return _buildMediaCard(
+                                      context,
+                                      media,
+                                      provider,
+                                      isDark,
+                                      index,
+                                      filteredMedia,
+                                    );
                                   },
                                 ),
                               ),
@@ -929,6 +950,8 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
     SecretMediaModel media,
     SecretMediaProvider provider,
     bool isDark,
+    int index,
+    List<SecretMediaModel> filteredMedia,
   ) {
     final currentUserId = context.read<AuthProvider>().currentUserId;
     final canDelete =
@@ -949,7 +972,11 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SecretMediaDetailScreen(media: media),
+            builder: (context) => SecretMediaDetailScreen(
+              media: media,
+              mediaList: filteredMedia,
+              initialIndex: index,
+            ),
           ),
         );
       },
@@ -1144,8 +1171,8 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                       ),
                       child: Icon(
                         isRevealedInPlace
-                            ? Icons.visibility_off_rounded
-                            : Icons.visibility_rounded,
+                            ? Icons.visibility_rounded
+                            : Icons.visibility_off_rounded,
                         color: Colors.white,
                         size: 15,
                       ),

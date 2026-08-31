@@ -337,6 +337,8 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
                               context,
                               media,
                               secretMediaProvider,
+                              index,
+                              filteredItems,
                             );
                           },
                         ),
@@ -365,6 +367,8 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
     BuildContext context,
     SecretMediaModel media,
     SecretMediaProvider provider,
+    int index,
+    List<SecretMediaModel> filteredItems,
   ) {
     final currentUserId = context.read<AuthProvider>().currentUserId;
     final canDelete =
@@ -381,7 +385,11 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SecretMediaDetailScreen(media: media),
+            builder: (context) => SecretMediaDetailScreen(
+              media: media,
+              mediaList: filteredItems,
+              initialIndex: index,
+            ),
           ),
         );
       },

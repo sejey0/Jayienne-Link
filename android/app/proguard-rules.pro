@@ -33,3 +33,9 @@
 # Audio & Media Plugins
 -dontwarn com.google.android.exoplayer2.**
 -dontwarn androidx.media3.**
+
+# OTA Update & FileProvider
+-keep class sk.ota.update.** { *; }
+-keep class androidx.core.content.FileProvider { *; }
+-keepclassmembers class sk.ota.update.** { *; }
+

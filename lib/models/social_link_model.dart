@@ -328,7 +328,8 @@ class SocialLinkModel {
   }
 
   Map<String, dynamic> toInsertJson() {
-    final map = <String, dynamic>{
+    // Never send 'id' — always let Supabase generate it via DEFAULT gen_random_uuid()::text
+    return <String, dynamic>{
       'couple_id': coupleId,
       'user_id': userId,
       if (userDisplayName != null && userDisplayName!.isNotEmpty)
@@ -342,12 +343,6 @@ class SocialLinkModel {
       if (iconKey != null) 'icon_key': iconKey,
       'created_at': createdAt.toIso8601String(),
     };
-    // Only pass ID if it is a valid UUID, otherwise allow Postgres gen_random_uuid() to generate it
-    if (RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
-        .hasMatch(id)) {
-      map['id'] = id;
-    }
-    return map;
   }
 
   SocialLinkModel copyWith({

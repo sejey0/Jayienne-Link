@@ -566,8 +566,10 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                   Consumer<SecretMediaProvider>(
                     builder: (context, provider, _) {
                       final filtered = _filteredHiddenMedia(provider);
-                      final allIds = filtered.map((m) => m.id).whereType<String>().toSet();
-                      final isAllRevealed = allIds.isNotEmpty && allIds.every(_revealedMediaIds.contains);
+                      final allIds =
+                          filtered.map((m) => m.id).whereType<String>().toSet();
+                      final isAllRevealed = allIds.isNotEmpty &&
+                          allIds.every((id) => _revealedMediaIds.contains(id));
 
                       return IconButton(
                         icon: Icon(
@@ -930,7 +932,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
     final displayImageUrl = media.mediaType == 'video'
         ? (media.thumbnail?.isNotEmpty == true
             ? media.thumbnail!
-            : media.displayUrl)
+            : '')
         : media.displayUrl;
 
     final isVideo = media.mediaType == 'video';
@@ -939,7 +941,18 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
     return GestureDetector(
       onTap: () async {
         HapticFeedback.lightImpact();
-        final updatedReveals = await Navigator.push<Set<String>>(
+
+        // Snapshot the "Hide All" state BEFORE navigating.
+        // If every item was hidden (none revealed), hide-all was active.
+        final provider = context.read<SecretMediaProvider>();
+        final allMediaIds = _filteredHiddenMedia(provider)
+            .map((m) => m.id)
+            .whereType<String>()
+            .toSet();
+        final wasHideAllActive = allMediaIds.isNotEmpty &&
+            !allMediaIds.any((id) => _revealedMediaIds.contains(id));
+
+        final dynamic updatedReveals = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => SecretMediaDetailScreen(
@@ -950,10 +963,14 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
             ),
           ),
         );
-        if (updatedReveals != null && mounted) {
+        if (updatedReveals is Set<String> && mounted) {
           setState(() {
             _revealedMediaIds.clear();
-            _revealedMediaIds.addAll(updatedReveals);
+            // If "Hide All" was active before entering, re-enforce it
+            // by NOT restoring any reveals that happened inside.
+            if (!wasHideAllActive) {
+              _revealedMediaIds.addAll(updatedReveals);
+            }
           });
         }
       },

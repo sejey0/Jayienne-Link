@@ -44,6 +44,7 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
   final Set<String> _revealedMediaIds = <String>{};
   bool _showOverlays = true;
   bool _showInfoDrawer = false;
+  bool _isFullScreen = false;
 
   late TextEditingController _captionController;
   final FocusNode _captionFocusNode = FocusNode();
@@ -79,16 +80,41 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
 
   @override
   void dispose() {
+    // Restore system UI when leaving this screen
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _pageController.dispose();
     _captionController.dispose();
     _captionFocusNode.dispose();
     super.dispose();
   }
 
+  void _enterFullScreen() {
+    HapticFeedback.mediumImpact();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    setState(() {
+      _isFullScreen = true;
+      _showOverlays = true;
+    });
+  }
+
+  void _exitFullScreen() {
+    HapticFeedback.lightImpact();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    setState(() {
+      _isFullScreen = false;
+      _showOverlays = true;
+    });
+  }
+
   void _onPageChanged(int index) {
+    // Exit fullscreen when swiping to a different item
+    if (_isFullScreen) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     setState(() {
       _currentIndex = index;
       _isEditingCaption = false;
+      _isFullScreen = false;
       _captionController.text = _currentMedia.caption ?? '';
     });
   }
@@ -390,6 +416,10 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (_isFullScreen) {
+          _exitFullScreen();
+          return;
+        }
         Navigator.pop(context, _revealedMediaIds);
       },
       child: Scaffold(
@@ -414,6 +444,8 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                     media: item,
                     isActivePage: isActivePage,
                     isRevealed: isRevealed,
+                    isFullScreen: _isFullScreen,
+                    showOverlays: _showOverlays,
                     onToggleReveal: () {
                       HapticFeedback.selectionClick();
                       setState(() {
@@ -427,12 +459,16 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                       });
                     },
                     onToggleOverlays: _toggleOverlays,
+                    onEnterFullScreen: _enterFullScreen,
+                    onExitFullScreen: _exitFullScreen,
                   );
                 }
 
                 return _VaultImagePageItem(
                   media: item,
                   isRevealed: isRevealed,
+                  isFullScreen: _isFullScreen,
+                  showOverlays: _showOverlays,
                   onToggleReveal: () {
                     HapticFeedback.selectionClick();
                     setState(() {
@@ -446,11 +482,102 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                     });
                   },
                   onToggleOverlays: _toggleOverlays,
+                  onEnterFullScreen: _enterFullScreen,
+                  onExitFullScreen: _exitFullScreen,
                 );
               },
             ),
 
-            // 2. Animated Top AppBar Overlay
+            // 2. Fullscreen Mode: transparent top overlay with exit and counter
+            if (_isFullScreen)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: AnimatedOpacity(
+                  opacity: _showOverlays ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 220),
+                  child: IgnorePointer(
+                    ignoring: !_showOverlays,
+                    child: Container(
+                      padding: EdgeInsets.only(
+                        top: MediaQuery.of(context).padding.top + 6,
+                        left: 8,
+                        right: 12,
+                        bottom: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withValues(alpha: 0.75),
+                            Colors.transparent,
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            tooltip: 'Exit Fullscreen',
+                            onPressed: _exitFullScreen,
+                          ),
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _currentMedia.mediaType == 'video'
+                                      ? Icons.videocam_rounded
+                                      : Icons.photo_rounded,
+                                  color: const Color(0xFFFF758C),
+                                  size: 13,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${_currentIndex + 1} / ${_items.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.fullscreen_exit_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                            tooltip: 'Exit Fullscreen',
+                            onPressed: _exitFullScreen,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // 3. Animated Top AppBar Overlay (hidden in fullscreen)
+            if (!_isFullScreen)
             Positioned(
               top: 0,
               left: 0,
@@ -536,16 +663,15 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                           ),
                         ),
 
-                        // Full View Toggle Button
+                        // Fullscreen View Button
                         IconButton(
-                          tooltip:
-                              _showOverlays ? 'Full View' : 'Exit Full View',
+                          tooltip: 'Fullscreen View',
                           icon: const Icon(
                             Icons.fullscreen_rounded,
                             color: Colors.white,
-                            size: 23,
+                            size: 24,
                           ),
-                          onPressed: _toggleOverlays,
+                          onPressed: _enterFullScreen,
                         ),
 
                         // Reveal / Hide Current Item Button
@@ -582,7 +708,8 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
               ),
             ),
 
-            // 3. Animated Bottom Floating Drawer / Caption Panel
+            // 4. Animated Bottom Floating Drawer / Caption Panel (hidden in fullscreen)
+            if (!_isFullScreen)
             Positioned(
               left: 16,
               right: 16,
@@ -828,8 +955,8 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
               ),
             ),
 
-          // 4. Side-by-Side Horizontal Navigation Arrows
-          if (_items.length > 1) ...[
+          // 5. Side-by-Side Horizontal Navigation Arrows (hidden in fullscreen)
+          if (!_isFullScreen && _items.length > 1) ...[
             // Left Arrow (Previous)
             if (_currentIndex > 0)
               Positioned(
@@ -949,14 +1076,22 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
 class _VaultImagePageItem extends StatefulWidget {
   final SecretMediaModel media;
   final bool isRevealed;
+  final bool isFullScreen;
+  final bool showOverlays;
   final VoidCallback onToggleReveal;
   final VoidCallback onToggleOverlays;
+  final VoidCallback? onEnterFullScreen;
+  final VoidCallback? onExitFullScreen;
 
   const _VaultImagePageItem({
     required this.media,
     required this.isRevealed,
+    this.isFullScreen = false,
+    this.showOverlays = true,
     required this.onToggleReveal,
     required this.onToggleOverlays,
+    this.onEnterFullScreen,
+    this.onExitFullScreen,
   });
 
   @override
@@ -967,6 +1102,8 @@ class _VaultImagePageItemState extends State<_VaultImagePageItem> {
   late TransformationController _transformationController;
   TapDownDetails? _doubleTapDetails;
   bool _isZoomed = false;
+  int _quarterTurns = 0;
+  bool _isCoverFit = false;
 
   @override
   void initState() {
@@ -990,6 +1127,20 @@ class _VaultImagePageItemState extends State<_VaultImagePageItem> {
     _transformationController.removeListener(_onTransformationChanged);
     _transformationController.dispose();
     super.dispose();
+  }
+
+  void _rotateImage() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _quarterTurns = (_quarterTurns + 1) % 4;
+    });
+  }
+
+  void _toggleFitMode() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _isCoverFit = !_isCoverFit;
+    });
   }
 
   void _handleDoubleTap() {
@@ -1021,6 +1172,10 @@ class _VaultImagePageItemState extends State<_VaultImagePageItem> {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveFit = widget.isFullScreen
+        ? (!_isCoverFit ? BoxFit.cover : BoxFit.contain)
+        : (_isCoverFit ? BoxFit.cover : BoxFit.contain);
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -1042,27 +1197,120 @@ class _VaultImagePageItemState extends State<_VaultImagePageItem> {
             onDoubleTapDown: (details) => _doubleTapDetails = details,
             onDoubleTap: _handleDoubleTap,
             onTap: widget.onToggleOverlays,
-            child: InteractiveViewer(
-              transformationController: _transformationController,
-              minScale: 1.0,
-              maxScale: 5.0,
-              clipBehavior: Clip.none,
-              child: Center(
-                child: Image.network(
-                  widget.media.mediaUrl,
-                  fit: BoxFit.contain,
-                  loadingBuilder: (context, child, progress) {
-                    if (progress == null) return child;
-                    return const Center(
-                      child:
-                          CircularProgressIndicator(color: Color(0xFFFF758C)),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) => const Center(
-                    child: Icon(
-                      Icons.broken_image_rounded,
-                      color: Colors.white54,
-                      size: 48,
+            child: SizedBox.expand(
+              child: InteractiveViewer(
+                transformationController: _transformationController,
+                minScale: 1.0,
+                maxScale: 5.0,
+                clipBehavior: Clip.none,
+                child: Center(
+                  child: AnimatedRotation(
+                    turns: _quarterTurns * 0.25,
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOutCubic,
+                    child: Image.network(
+                      widget.media.mediaUrl,
+                      fit: effectiveFit,
+                      width: (widget.isFullScreen && !_isCoverFit)
+                          ? MediaQuery.of(context).size.width
+                          : null,
+                      height: (widget.isFullScreen && !_isCoverFit)
+                          ? MediaQuery.of(context).size.height
+                          : null,
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFFFF758C),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) => const Center(
+                        child: Icon(
+                          Icons.broken_image_rounded,
+                          color: Colors.white54,
+                          size: 48,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // Quick Controls Floating Pill for Images when in Fullscreen Mode
+        if (widget.isRevealed && widget.isFullScreen)
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 24,
+            right: 20,
+            child: AnimatedOpacity(
+              opacity: widget.showOverlays ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: IgnorePointer(
+                ignoring: !widget.showOverlays,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            padding: const EdgeInsets.all(6),
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Rotate 90°',
+                            icon: const Icon(
+                              Icons.rotate_right_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            onPressed: _rotateImage,
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            padding: const EdgeInsets.all(6),
+                            constraints: const BoxConstraints(),
+                            tooltip: _isCoverFit
+                                ? 'Fill Screen (No Bezels)'
+                                : 'Fit Original',
+                            icon: Icon(
+                              _isCoverFit
+                                  ? Icons.fit_screen_rounded
+                                  : Icons.crop_free_rounded,
+                              color: _isCoverFit
+                                  ? const Color(0xFFFF758C)
+                                  : Colors.white,
+                              size: 20,
+                            ),
+                            onPressed: _toggleFitMode,
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            padding: const EdgeInsets.all(6),
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Exit Fullscreen',
+                            icon: const Icon(
+                              Icons.fullscreen_exit_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                            onPressed: widget.onExitFullScreen,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1073,44 +1321,52 @@ class _VaultImagePageItemState extends State<_VaultImagePageItem> {
         // Floating Reset Zoom Button when zoomed in
         if (widget.isRevealed && _isZoomed)
           Positioned(
-            top: MediaQuery.of(context).padding.top + 70,
+            top: MediaQuery.of(context).padding.top +
+                (widget.isFullScreen ? 55 : 70),
             right: 18,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _resetZoom,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.65),
+            child: AnimatedOpacity(
+              opacity: widget.showOverlays ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: IgnorePointer(
+                ignoring: !widget.showOverlays,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _resetZoom,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.zoom_out_map_rounded,
-                        color: Colors.white,
-                        size: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
                       ),
-                      SizedBox(width: 4),
-                      Text(
-                        'Reset Zoom',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          width: 1,
                         ),
                       ),
-                    ],
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.zoom_out_map_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Reset Zoom',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1240,15 +1496,23 @@ class _VaultVideoPageItem extends StatefulWidget {
   final SecretMediaModel media;
   final bool isActivePage;
   final bool isRevealed;
+  final bool isFullScreen;
+  final bool showOverlays;
   final VoidCallback onToggleReveal;
   final VoidCallback onToggleOverlays;
+  final VoidCallback onEnterFullScreen;
+  final VoidCallback? onExitFullScreen;
 
   const _VaultVideoPageItem({
     required this.media,
     required this.isActivePage,
     required this.isRevealed,
+    required this.isFullScreen,
+    required this.showOverlays,
     required this.onToggleReveal,
     required this.onToggleOverlays,
+    required this.onEnterFullScreen,
+    this.onExitFullScreen,
   });
 
   @override
@@ -1263,6 +1527,7 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
   String? _videoError;
 
   int _quarterTurns = 0;
+  bool _isCoverFit = false;
   late TransformationController _videoTransformationController;
   TapDownDetails? _videoDoubleTapDetails;
   bool _isVideoZoomed = false;
@@ -1341,7 +1606,7 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _videoError = 'Failed to load video: $e';
+          _videoError = 'Failed to load video';
         });
       }
     }
@@ -1351,6 +1616,13 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
     HapticFeedback.selectionClick();
     setState(() {
       _quarterTurns = (_quarterTurns + 1) % 4;
+    });
+  }
+
+  void _toggleFitMode() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _isCoverFit = !_isCoverFit;
     });
   }
 
@@ -1415,7 +1687,7 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
     if (!widget.isRevealed) {
       final displayThumbnail = widget.media.thumbnail?.isNotEmpty == true
           ? widget.media.thumbnail!
-          : widget.media.displayUrl;
+          : '';
 
       return Stack(
         fit: StackFit.expand,
@@ -1569,6 +1841,10 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
       );
     }
 
+    final effectiveFit = widget.isFullScreen
+        ? (!_isCoverFit ? BoxFit.cover : BoxFit.contain)
+        : (_isCoverFit ? BoxFit.cover : BoxFit.contain);
+
     return FutureBuilder<void>(
       future: initFuture,
       builder: (context, snapshot) {
@@ -1586,47 +1862,65 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Interactive Video Player with Pinch Zoom & Animated Rotation
-              Center(
+              // Interactive Video Player with Pinch Zoom, Animated Rotation & Fullscreen Edge-to-Edge Fit
+              SizedBox.expand(
                 child: InteractiveViewer(
                   transformationController: _videoTransformationController,
                   minScale: 1.0,
                   maxScale: 5.0,
                   clipBehavior: Clip.none,
-                  child: AnimatedRotation(
-                    turns: _quarterTurns * 0.25,
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOutCubic,
-                    child: AspectRatio(
-                      aspectRatio: controller.value.aspectRatio,
-                      child: VideoPlayer(controller),
+                  child: Center(
+                    child: AnimatedRotation(
+                      turns: _quarterTurns * 0.25,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOutCubic,
+                      child: FittedBox(
+                        fit: effectiveFit,
+                        clipBehavior: Clip.hardEdge,
+                        child: SizedBox(
+                          width: controller.value.size.width > 0
+                              ? controller.value.size.width
+                              : 16,
+                          height: controller.value.size.height > 0
+                              ? controller.value.size.height
+                              : 9,
+                          child: VideoPlayer(controller),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
 
-              // Center Play/Pause Overlay Button
+              // Center Play/Pause Overlay Button (hides when overlays hidden)
               if (!_isPlaying)
-                Center(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _togglePlayPause,
-                      borderRadius: BorderRadius.circular(40),
-                      child: Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.3),
-                            width: 1.5,
+                AnimatedOpacity(
+                  opacity: widget.showOverlays ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: IgnorePointer(
+                    ignoring: !widget.showOverlays,
+                    child: Center(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _togglePlayPause,
+                          borderRadius: BorderRadius.circular(40),
+                          child: Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 40,
+                            ),
                           ),
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: 40,
                         ),
                       ),
                     ),
@@ -1636,44 +1930,52 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
               // Floating Reset Zoom Button when zoomed in
               if (_isVideoZoomed)
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + 70,
+                  top: MediaQuery.of(context).padding.top +
+                      (widget.isFullScreen ? 55 : 70),
                   right: 18,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _resetVideoZoom,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
+                  child: AnimatedOpacity(
+                    opacity: widget.showOverlays ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: IgnorePointer(
+                      ignoring: !widget.showOverlays,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _resetVideoZoom,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.zoom_out_map_rounded,
-                              color: Colors.white,
-                              size: 14,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
                             ),
-                            SizedBox(width: 4),
-                            Text(
-                              'Reset Zoom',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.65),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.3),
+                                width: 1,
                               ),
                             ),
-                          ],
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.zoom_out_map_rounded,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Reset Zoom',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -1681,142 +1983,191 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
                 ),
 
               // Bottom Video Controls Bar
+              // In fullscreen: stick to very bottom; otherwise lift above description panel
               Positioned(
-                left: 20,
-                right: 20,
-                bottom: 100,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.15),
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              trackHeight: 3,
-                              thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 6,
-                              ),
-                              overlayShape: const RoundSliderOverlayShape(
-                                overlayRadius: 12,
-                              ),
-                              activeTrackColor: const Color(0xFFFF758C),
-                              inactiveTrackColor: Colors.white24,
-                              thumbColor: Colors.white,
-                            ),
-                            child: Slider(
-                              value: controller.value.position.inMilliseconds
-                                  .clamp(
-                                    0,
-                                    controller.value.duration.inMilliseconds,
-                                  )
-                                  .toDouble() /
-                                  (controller.value.duration.inMilliseconds
-                                      .clamp(1, double.maxFinite.toInt())
-                                      .toDouble()),
-                              onChanged:
-                                  controller.value.duration.inMilliseconds == 0
-                                      ? null
-                                      : (val) {
-                                          final target = Duration(
-                                            milliseconds: (controller
-                                                        .value
-                                                        .duration
-                                                        .inMilliseconds *
-                                                    val)
-                                                .round(),
-                                          );
-                                          controller.seekTo(target);
-                                        },
+                left: 12,
+                right: 12,
+                bottom: widget.isFullScreen
+                    ? (MediaQuery.of(context).padding.bottom + 16)
+                    : 155,
+                child: AnimatedOpacity(
+                  opacity: widget.showOverlays ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: IgnorePointer(
+                    ignoring: !widget.showOverlays,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.15),
                             ),
                           ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Row(
-                                children: [
-                                  IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    icon: Icon(
-                                      _isPlaying
-                                          ? Icons.pause_rounded
-                                          : Icons.play_arrow_rounded,
-                                      color: Colors.white,
-                                      size: 24,
-                                    ),
-                                    onPressed: _togglePlayPause,
+                              SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 2.5,
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 5.5,
                                   ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    '${_formatDuration(controller.value.position)} / ${_formatDuration(controller.value.duration)}',
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  overlayShape: const RoundSliderOverlayShape(
+                                    overlayRadius: 10,
                                   ),
-                                ],
+                                  activeTrackColor: const Color(0xFFFF758C),
+                                  inactiveTrackColor: Colors.white24,
+                                  thumbColor: Colors.white,
+                                ),
+                                child: Slider(
+                                  value: controller.value.position.inMilliseconds
+                                      .clamp(
+                                        0,
+                                        controller.value.duration.inMilliseconds,
+                                      )
+                                      .toDouble() /
+                                      (controller.value.duration.inMilliseconds
+                                          .clamp(1, double.maxFinite.toInt())
+                                          .toDouble()),
+                                  onChanged:
+                                      controller.value.duration.inMilliseconds == 0
+                                          ? null
+                                          : (val) {
+                                              final target = Duration(
+                                                milliseconds: (controller
+                                                            .value
+                                                            .duration
+                                                            .inMilliseconds *
+                                                        val)
+                                                    .round(),
+                                              );
+                                              controller.seekTo(target);
+                                            },
+                                ),
                               ),
                               Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  // Rotate Video Button
-                                  IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    tooltip: 'Rotate 90°',
-                                    icon: const Icon(
-                                      Icons.rotate_right_rounded,
-                                      color: Colors.white70,
-                                      size: 22,
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          icon: Icon(
+                                            _isPlaying
+                                                ? Icons.pause_rounded
+                                                : Icons.play_arrow_rounded,
+                                            color: Colors.white,
+                                            size: 22,
+                                          ),
+                                          onPressed: _togglePlayPause,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            '${_formatDuration(controller.value.position)} / ${_formatDuration(controller.value.duration)}',
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    onPressed: _rotateVideo,
                                   ),
-                                  const SizedBox(width: 12),
-                                  // Mute/Unmute Button
-                                  IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    icon: Icon(
-                                      _isMuted
-                                          ? Icons.volume_off_rounded
-                                          : Icons.volume_up_rounded,
-                                      color: Colors.white70,
-                                      size: 20,
-                                    ),
-                                    onPressed: _toggleMute,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  // Full View Toggle
-                                  IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    tooltip: 'Full View',
-                                    icon: const Icon(
-                                      Icons.fullscreen_rounded,
-                                      color: Colors.white70,
-                                      size: 22,
-                                    ),
-                                    onPressed: widget.onToggleOverlays,
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Rotate Video Button
+                                      IconButton(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                        constraints: const BoxConstraints(),
+                                        tooltip: 'Rotate 90°',
+                                        icon: const Icon(
+                                          Icons.rotate_right_rounded,
+                                          color: Colors.white70,
+                                          size: 20,
+                                        ),
+                                        onPressed: _rotateVideo,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      // Fit / Fill Mode Toggle (No Bezels vs Fit Original)
+                                      IconButton(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                        constraints: const BoxConstraints(),
+                                        tooltip: _isCoverFit
+                                            ? 'Fill Screen (No Bezels)'
+                                            : 'Fit Original',
+                                        icon: Icon(
+                                          _isCoverFit
+                                              ? Icons.fit_screen_rounded
+                                              : Icons.crop_free_rounded,
+                                          color: _isCoverFit
+                                              ? const Color(0xFFFF758C)
+                                              : Colors.white70,
+                                          size: 19,
+                                        ),
+                                        onPressed: _toggleFitMode,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      // Mute/Unmute Button
+                                      IconButton(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                        constraints: const BoxConstraints(),
+                                        icon: Icon(
+                                          _isMuted
+                                              ? Icons.volume_off_rounded
+                                              : Icons.volume_up_rounded,
+                                          color: Colors.white70,
+                                          size: 19,
+                                        ),
+                                        onPressed: _toggleMute,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      // Fullscreen / Exit Fullscreen Button
+                                      IconButton(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                        constraints: const BoxConstraints(),
+                                        tooltip: widget.isFullScreen
+                                            ? 'Exit Fullscreen'
+                                            : 'Fullscreen',
+                                        icon: Icon(
+                                          widget.isFullScreen
+                                              ? Icons.fullscreen_exit_rounded
+                                              : Icons.fullscreen_rounded,
+                                          color: Colors.white,
+                                          size: 22,
+                                        ),
+                                        onPressed: widget.isFullScreen
+                                            ? widget.onExitFullScreen
+                                            : widget.onEnterFullScreen,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

@@ -830,7 +830,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
   }
 
 
-  /// Bottom Partner Vitals Dock (Distance • Battery / Connection)
+  /// Bottom Partner Vitals Dock (Distance • Connection Status)
   Widget _buildPartnerVitalsBar(
     BuildContext context, {
     required bool isPartnerOnline,
@@ -877,55 +877,28 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
             color: Colors.white24,
           ),
 
-          // Battery
-          if (partnerLoc != null && partnerLoc.batteryLevel != null)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  (partnerLoc.batteryLevel! > 80)
-                      ? Icons.battery_full_rounded
-                      : (partnerLoc.batteryLevel! > 40)
-                          ? Icons.battery_5_bar_rounded
-                          : (partnerLoc.batteryLevel! > 15)
-                              ? Icons.battery_2_bar_rounded
-                              : Icons.battery_alert_rounded,
+          // Live Connection Status
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isPartnerOnline
+                    ? Icons.wifi_rounded
+                    : Icons.wifi_off_rounded,
+                color: Colors.white,
+                size: 13,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                isPartnerOnline ? 'Live Connected' : 'Offline',
+                style: const TextStyle(
                   color: Colors.white,
-                  size: 13,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(width: 5),
-                Text(
-                  '${partnerLoc.batteryLevel}% Battery',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            )
-          else
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isPartnerOnline
-                      ? Icons.wifi_rounded
-                      : Icons.wifi_off_rounded,
-                  color: Colors.white,
-                  size: 13,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  isPartnerOnline ? 'Live Connected' : 'Offline',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
+          ),
         ],
       ),
     );

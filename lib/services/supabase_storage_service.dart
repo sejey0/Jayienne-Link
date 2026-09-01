@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as path;
 import 'package:image/image.dart' as img;
+import '../providers/debug_provider.dart';
 
 class SupabaseStorageService {
   static const String _bucketName = 'profile-photos';
@@ -15,6 +16,9 @@ class SupabaseStorageService {
 
   /// Upload profile photo to Supabase Storage
   Future<String> uploadProfilePhoto(String userId, File imageFile) async {
+    if (DebugProvider.isOfflineForced) {
+      throw const SocketException('Simulated Offline Mode: Cannot upload photo while offline');
+    }
     try {
       debugPrint('Starting Supabase profile photo upload for user: $userId');
 
@@ -109,6 +113,9 @@ class SupabaseStorageService {
   /// Upload secret media (images and videos)
   Future<String> uploadSecretMedia(
       String userId, File mediaFile, String mediaType) async {
+    if (DebugProvider.isOfflineForced) {
+      throw const SocketException('Simulated Offline Mode: Cannot upload secret media while offline');
+    }
     try {
       debugPrint(
           'Starting secret media upload for user: $userId, type: $mediaType');
@@ -352,6 +359,10 @@ class SupabaseStorageService {
 
   /// Test Supabase connectivity
   Future<bool> testConnectivity() async {
+    if (DebugProvider.isOfflineForced) {
+      debugPrint('❌ Supabase storage connectivity blocked: Simulated Offline Mode');
+      return false;
+    }
     try {
       debugPrint('Testing Supabase connectivity...');
 
@@ -368,6 +379,9 @@ class SupabaseStorageService {
 
   /// Get storage usage statistics
   Future<Map<String, dynamic>> getStorageStats() async {
+    if (DebugProvider.isOfflineForced) {
+      return {'error': 'Simulated Offline Mode Active (Disconnected from cloud)'};
+    }
     try {
       final files = await _supabase.storage.from(_bucketName).list();
 

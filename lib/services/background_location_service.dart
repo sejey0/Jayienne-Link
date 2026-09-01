@@ -243,9 +243,11 @@ Future<void> _captureBackgroundLocation() async {
 Future<void> _trySyncInBackground() async {
   try {
     final connectivity = await Connectivity().checkConnectivity();
+    final prefs = await SharedPreferences.getInstance();
+    final forcedOffline = prefs.getBool('debug_force_offline_mode') ?? false;
     // Any connection type except 'none' means we have network access
-    final isOnline = connectivity != ConnectivityResult.none;
-    debugPrint('Background connectivity: $connectivity, isOnline: $isOnline');
+    final isOnline = connectivity != ConnectivityResult.none && !forcedOffline;
+    debugPrint('Background connectivity: $connectivity, isOnline: $isOnline (forcedOffline: $forcedOffline)');
 
     if (!isOnline) {
       debugPrint('Background: Offline, skipping sync');

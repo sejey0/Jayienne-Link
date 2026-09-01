@@ -841,8 +841,7 @@ class SupabaseCoupleService {
   /// Test connectivity
   Future<bool> testConnectivity() async {
     try {
-      await SupabaseDataService.testConnectivity();
-      return true;
+      return await SupabaseDataService.testConnectivity();
     } catch (e) {
       debugPrint('Couple service connectivity test failed: $e');
       return false;

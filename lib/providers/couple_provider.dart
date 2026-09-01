@@ -6,6 +6,7 @@ import '../models/partner_request_model.dart';
 import '../models/user_model.dart';
 import '../services/supabase_couple_service.dart';
 import '../services/supabase_user_service.dart';
+import '../services/supabase_data_service.dart';
 import '../services/local_cache_service.dart';
 import 'debug_provider.dart';
 
@@ -47,6 +48,8 @@ class CoupleProvider extends ChangeNotifier {
     super.notifyListeners();
   }
 
+  StreamSubscription<bool>? _offlineStreamSub;
+
   CoupleProvider(this._coupleService, this._userService,
       [this._debugProvider]) {
     // Initialize with static cache if available
@@ -54,6 +57,32 @@ class CoupleProvider extends ChangeNotifier {
       _couple = _staticCoupleCache;
       _partner = _staticPartnerCache;
     }
+
+    _offlineStreamSub = DebugProvider.offlineModeStream.listen((isForced) {
+      if (isForced) {
+        _coupleSubscription?.cancel();
+        LocalCacheService.loadCouple().then((cachedCouple) {
+          if (cachedCouple != null) {
+            _couple = cachedCouple;
+            _staticCoupleCache = cachedCouple;
+            notifyListeners();
+          }
+        });
+        LocalCacheService.loadPartner().then((cachedPartner) {
+          if (cachedPartner != null) {
+            _partner = cachedPartner;
+            _staticPartnerCache = cachedPartner;
+            notifyListeners();
+          }
+        });
+      } else if (_couple != null && _couple!.id != null) {
+        final currentUid = SupabaseDataService.currentUserId ??
+            (_couple!.partnerIds.isNotEmpty ? _couple!.partnerIds.first : '');
+        if (currentUid.isNotEmpty) {
+          loadCouple(_couple!.id!, currentUid);
+        }
+      }
+    });
   }
 
   CoupleModel? get couple => _couple;
@@ -372,7 +401,7 @@ class CoupleProvider extends ChangeNotifier {
     _coupleSubscription?.cancel();
 
     // If in debug offline mode, load from cache immediately and skip stream
-    if (_debugProvider?.forceOfflineMode ?? false) {
+    if ((_debugProvider?.forceOfflineMode ?? false) || DebugProvider.isOfflineForced) {
       LocalCacheService.loadCouple().then((cachedCouple) {
         if (cachedCouple != null && cachedCouple.id == coupleId) {
           _couple = cachedCouple;
@@ -548,6 +577,7 @@ class CoupleProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _offlineStreamSub?.cancel();
     _coupleSubscription?.cancel();
     _incomingRequestsSubscription?.cancel();
     _outgoingRequestsSubscription?.cancel();

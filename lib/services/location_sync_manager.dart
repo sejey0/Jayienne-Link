@@ -3,6 +3,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:synchronized/synchronized.dart';
+import '../providers/debug_provider.dart';
 import 'location_database.dart';
 
 /// Result object for location batch sync operations.
@@ -20,7 +21,7 @@ class LocationSyncResult {
   });
 
   factory LocationSyncResult.empty() => LocationSyncResult(success: true, syncedCount: 0);
-  factory LocationSyncResult.offline() => LocationSyncResult(success: false, errorMessage: 'No network connection available.');
+  factory LocationSyncResult.offline() => LocationSyncResult(success: false, errorMessage: 'No network connection available (Simulated Offline Mode).');
 }
 
 /// Thread-safe, Mutex-locked Location Sync Manager for Flutter & Supabase.
@@ -36,6 +37,7 @@ class LocationSyncManager {
 
   /// Connectivity subscription for foreground auto-sync
   StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+  StreamSubscription<bool>? _simulatedOfflineSubscription;
   bool _isInitialized = false;
 
   LocationSyncManager._internal();
@@ -59,10 +61,19 @@ class LocationSyncManager {
         await syncPendingLocations();
       }
     });
+
+    _simulatedOfflineSubscription?.cancel();
+    _simulatedOfflineSubscription = DebugProvider.offlineModeStream.listen((offlineForced) async {
+      if (!offlineForced) {
+        debugPrint('[LocationSyncManager] Simulated offline disabled - triggering sync...');
+        await syncPendingLocations();
+      }
+    });
   }
 
   /// Helper to check if internet connectivity is available
   bool _checkConnectivityResult(ConnectivityResult result) {
+    if (DebugProvider.isOfflineForced) return false;
     return result == ConnectivityResult.mobile ||
         result == ConnectivityResult.wifi ||
         result == ConnectivityResult.ethernet;
@@ -70,6 +81,7 @@ class LocationSyncManager {
 
   /// Direct method to check if currently online
   Future<bool> isNetworkAvailable() async {
+    if (DebugProvider.isOfflineForced) return false;
     try {
       final result = await _connectivity.checkConnectivity();
       return _checkConnectivityResult(result);
@@ -86,6 +98,10 @@ class LocationSyncManager {
     int maxRetries = 5,
     SupabaseClient? customClient,
   }) async {
+    if (DebugProvider.isOfflineForced) {
+      debugPrint('[LocationSyncManager] Sync blocked: Simulated Offline Mode active');
+      return LocationSyncResult.offline();
+    }
     // Acquire Mutex Lock around sync execution
     return await _syncLock.synchronized(() async {
       debugPrint('[LocationSyncManager] Entered Mutex sync execution pipeline.');

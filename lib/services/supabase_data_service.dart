@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import '../providers/debug_provider.dart';
 
 /// Base Supabase database service providing common database operations
 /// and authentication integration for the Jayienne Link app.
@@ -18,6 +20,10 @@ class SupabaseDataService {
   /// Common error handling for database operations
   static String _handleDatabaseError(dynamic error) {
     debugPrint('Supabase Database Error: $error');
+
+    if (error is SocketException) {
+      return 'No Internet connection. You are in offline mode.';
+    }
 
     if (error is PostgrestException) {
       switch (error.code) {
@@ -58,6 +64,10 @@ class SupabaseDataService {
     Future<T> Function() operation, {
     String? context,
   }) async {
+    if (DebugProvider.isOfflineForced) {
+      debugPrint('🔌 [Simulated Offline Mode] Blocked operation: ${context ?? 'Database operation'}');
+      throw const SocketException('No Internet connection (Simulated Offline Mode active)');
+    }
     try {
       return await operation();
     } catch (e) {
@@ -112,22 +122,40 @@ class SupabaseDataService {
           .eq(whereColumn, whereValue)
           .select(returning!);
       return List<Map<String, dynamic>>.from(response);
-    }, context: 'Update $table where $whereColumn = $whereValue');
+    }, context: 'Update in $table');
     return result ?? <Map<String, dynamic>>[];
   }
 
+  /// Alias for updateRecords
+  static Future<List<Map<String, dynamic>>> updateRecord(
+    String table,
+    Map<String, dynamic> data, {
+    required String whereColumn,
+    required dynamic whereValue,
+    String? returning = '*',
+  }) => updateRecords(table, data, whereColumn: whereColumn, whereValue: whereValue, returning: returning);
+
   /// Delete records from a table
-  static Future<void> deleteRecords(
+  static Future<bool> deleteRecords(
     String table, {
     required String whereColumn,
     required dynamic whereValue,
   }) async {
-    await safeExecute(() async {
+    final result = await safeExecute(() async {
       await client.from(table).delete().eq(whereColumn, whereValue);
-    }, context: 'Delete from $table where $whereColumn = $whereValue');
+      return true;
+    }, context: 'Delete from $table');
+    return result ?? false;
   }
 
-  /// Get records from a table with optional filtering
+  /// Alias for deleteRecords
+  static Future<bool> deleteRecord(
+    String table, {
+    required String whereColumn,
+    required dynamic whereValue,
+  }) => deleteRecords(table, whereColumn: whereColumn, whereValue: whereValue);
+
+  /// Get records from a table with optional filtering and pagination
   static Future<List<Map<String, dynamic>>> getRecords(
     String table, {
     String? select = '*',
@@ -165,6 +193,10 @@ class SupabaseDataService {
     required String whereColumn,
     required dynamic whereValue,
   }) async {
+    if (DebugProvider.isOfflineForced) {
+      debugPrint('🔌 [Simulated Offline Mode] Blocked getSingleRecord: $table');
+      throw const SocketException('No Internet connection (Simulated Offline Mode active)');
+    }
     try {
       final response = await client
           .from(table)
@@ -188,6 +220,12 @@ class SupabaseDataService {
     String? orderBy,
     bool ascending = true,
   }) {
+    if (DebugProvider.isOfflineForced) {
+      debugPrint('🔌 [Simulated Offline Mode] Blocked getRecordsStream for $table');
+      return Stream<List<Map<String, dynamic>>>.error(
+        const SocketException('No Internet connection (Simulated Offline Mode active)'),
+      );
+    }
     try {
       final query = client.from(table).stream(primaryKey: ['id']);
 
@@ -224,6 +262,12 @@ class SupabaseDataService {
     required String whereColumn,
     required dynamic whereValue,
   }) {
+    if (DebugProvider.isOfflineForced) {
+      debugPrint('🔌 [Simulated Offline Mode] Blocked getSingleRecordStream for $table');
+      return Stream.error(
+        const SocketException('No Internet connection (Simulated Offline Mode active)'),
+      );
+    }
     try {
       final query = client
           .from(table)
@@ -277,8 +321,6 @@ class SupabaseDataService {
   static Future<T> executeTransaction<T>(
     Future<T> Function() operation,
   ) async {
-    // Note: Supabase doesn't have built-in transactions in the client
-    // but we can simulate with careful error handling
     final result = await safeExecute(operation, context: 'Transaction');
     if (result == null) {
       throw Exception('Transaction returned null');
@@ -288,6 +330,10 @@ class SupabaseDataService {
 
   /// Test database connectivity
   static Future<bool> testConnectivity() async {
+    if (DebugProvider.isOfflineForced) {
+      debugPrint('🔌 [Simulated Offline Mode] testConnectivity: DISCONNECTED');
+      return false;
+    }
     try {
       // Simple query to test connection
       await client.from('users').select('count').limit(1);
@@ -301,6 +347,15 @@ class SupabaseDataService {
 
   /// Get database statistics and health
   static Future<Map<String, dynamic>> getDatabaseHealth() async {
+    if (DebugProvider.isOfflineForced) {
+      return {
+        'connected': false,
+        'latency_ms': 0,
+        'database_type': 'Simulated Offline Mode',
+        'error': 'Network is simulated offline (Disconnected from Wi-Fi)',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+    }
     final result = await safeExecute(() async {
       // Get basic statistics from each table
       final stats = <String, dynamic>{};
@@ -377,7 +432,7 @@ class SupabaseDataService {
       debugPrint('✅ Supabase database initialized successfully');
       return true;
     } catch (e) {
-      debugPrint('❌ Supabase database initialization failed: $e');
+      debugPrint('❌ Failed to initialize Supabase database: $e');
       return false;
     }
   }

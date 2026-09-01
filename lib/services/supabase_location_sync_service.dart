@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/location_model.dart';
 import 'offline_storage_service.dart';
 
+import '../providers/debug_provider.dart';
+
 /// Supabase-based location sync service for syncing locations between local SQLite and PostgreSQL
 /// Monitors connectivity and auto-syncs when internet is available
 class SupabaseLocationSyncService {
@@ -18,6 +20,7 @@ class SupabaseLocationSyncService {
 
   // Connectivity monitoring
   StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+  StreamSubscription<bool>? _simulatedOfflineSubscription;
   bool _isOnline = false;
   bool _isSyncing = false;
 
@@ -55,7 +58,7 @@ class SupabaseLocationSyncService {
   Stream<bool> get connectivityStream => _connectivityController.stream;
 
   /// Current online status
-  bool get isOnline => _isOnline;
+  bool get isOnline => _isOnline && !DebugProvider.isOfflineForced;
 
   /// Current syncing status
   bool get isSyncing => _isSyncing;
@@ -101,6 +104,18 @@ class SupabaseLocationSyncService {
       },
     );
 
+    // Monitor Simulated Offline Mode toggles
+    _simulatedOfflineSubscription?.cancel();
+    _simulatedOfflineSubscription = DebugProvider.offlineModeStream.listen((offlineForced) {
+      final wasOnline = _isOnline;
+      _isOnline = !offlineForced;
+      _connectivityController.add(_isOnline);
+      debugPrint('🔌 [LocationSyncService] Simulated Offline Mode changed: $_isOnline (was: $wasOnline)');
+      if (_isOnline && !wasOnline) {
+        _triggerAutoSync();
+      }
+    });
+
     debugPrint('SupabaseLocationSyncService initialized. Online: $_isOnline');
   }
 
@@ -126,6 +141,7 @@ class SupabaseLocationSyncService {
 
   /// Check if connectivity result indicates internet access
   bool _hasInternetConnection(ConnectivityResult result) {
+    if (DebugProvider.isOfflineForced) return false;
     return result != ConnectivityResult.none;
   }
 

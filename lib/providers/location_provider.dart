@@ -27,12 +27,15 @@ class LocationProvider extends ChangeNotifier {
   final DebugProvider? _debugProvider;
   final Battery _battery = Battery();
 
+  StreamSubscription<bool>? _offlineStreamSub;
+
   LocationProvider(this._userService, [this._debugProvider]) {
     _debugProvider?.addListener(_onDebugModeChanged);
+    _offlineStreamSub = DebugProvider.offlineModeStream.listen((_) => _onDebugModeChanged());
   }
 
   void _onDebugModeChanged() async {
-    final forcedOffline = _debugProvider?.forceOfflineMode ?? false;
+    final forcedOffline = (_debugProvider?.forceOfflineMode ?? false) || DebugProvider.isOfflineForced;
     if (_userId != null) {
       _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
     }
@@ -117,7 +120,7 @@ class LocationProvider extends ChangeNotifier {
   List<LocationModel> get partnerLocationHistory => _partnerLocationHistory;
   LocationSharingSettings get settings => _settings;
   LocationPermissionStatus get permissionStatus => _permissionStatus;
-  bool get isOnline => _isOnline && !(_debugProvider?.forceOfflineMode ?? false);
+  bool get isOnline => _isOnline && !(_debugProvider?.forceOfflineMode ?? false) && !DebugProvider.isOfflineForced;
   SyncStatus get syncStatus => _syncStatus;
   int get pendingSyncCount => _pendingSyncCount;
   bool get isLoading => _isLoading;
@@ -970,6 +973,7 @@ class LocationProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _offlineStreamSub?.cancel();
     _debugProvider?.removeListener(_onDebugModeChanged);
     _devicePositionSubscription?.cancel();
     _batterySubscription?.cancel();

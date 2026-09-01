@@ -14,6 +14,7 @@ class FirebaseLocationService {
   static const String _databaseUrl =
       'https://jayienne-link-51c81-default-rtdb.asia-southeast1.firebasedatabase.app';
   static const String _rootNode = 'live_locations';
+  static const String _historyNode = 'location_history';
 
   FirebaseDatabase? _database;
   bool _isInitialized = false;
@@ -226,6 +227,62 @@ class FirebaseLocationService {
     _partnerLocationSub?.cancel();
     _partnerLocationSub = null;
     _activePartnerId = null;
+  }
+
+  /// Record history point in Firebase for route playback across devices
+  Future<void> recordHistoryPoint({
+    required String coupleId,
+    required String userId,
+    required LocationModel location,
+  }) async {
+    if (DebugProvider.isOfflineForced) return;
+
+    try {
+      final dateKey =
+          '${location.timestamp.year}-${location.timestamp.month.toString().padLeft(2, '0')}-${location.timestamp.day.toString().padLeft(2, '0')}';
+      final pointNode = _database!
+          .ref('$_historyNode/$coupleId/$userId/$dateKey/${location.timestamp.millisecondsSinceEpoch}');
+
+      await pointNode.set(location.toFirebase());
+    } catch (e) {
+      debugPrint('⚠️ [FirebaseLocationService] recordHistoryPoint error: $e');
+    }
+  }
+
+  /// Fetch history points for a date from Firebase (for route playback)
+  Future<List<LocationModel>> fetchHistoryForDate({
+    required String coupleId,
+    required String userId,
+    required DateTime date,
+  }) async {
+    if (DebugProvider.isOfflineForced) return [];
+
+    try {
+      final dateKey =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final historyNode =
+          _database!.ref('$_historyNode/$coupleId/$userId/$dateKey');
+      final snapshot = await historyNode.get();
+      final data = snapshot.value;
+
+      if (data != null && data is Map) {
+        final List<LocationModel> points = [];
+        data.forEach((k, v) {
+          if (v is Map) {
+            points.add(LocationModel.fromFirebase(
+              v,
+              coupleId: coupleId,
+              partnerId: userId,
+            ));
+          }
+        });
+        points.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        return points;
+      }
+    } catch (e) {
+      debugPrint('⚠️ [FirebaseLocationService] fetchHistoryForDate error: $e');
+    }
+    return [];
   }
 
   /// Disconnect user presence when logging out

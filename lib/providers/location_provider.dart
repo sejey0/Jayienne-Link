@@ -434,6 +434,14 @@ class LocationProvider extends ChangeNotifier {
         await _storageService.insertLocation(locationModel);
         _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
         _syncStatus = SyncStatus.synced;
+
+        if (_coupleId != null && _userId != null) {
+          _firebaseLocationService.recordHistoryPoint(
+            coupleId: _coupleId!,
+            userId: _userId!,
+            location: locationModel,
+          );
+        }
       }
 
       // Publish directly to Firebase Realtime Database for true sub-second live tracking
@@ -492,9 +500,14 @@ class LocationProvider extends ChangeNotifier {
 
     _partnerLocationSubscription =
         _firebaseLocationService.partnerLocationStream.listen(
-      (location) {
+      (location) async {
         if (location != null) {
           _partnerLocation = location;
+          // Store partner location locally in SQLite so history & route playback work
+          await _storageService.insertLocation(location.copyWith(
+            ownerId: _partnerId,
+            source: LocationSource.partner,
+          ));
           notifyListeners();
         }
       },
@@ -586,6 +599,11 @@ class LocationProvider extends ChangeNotifier {
           location: updatedLoc,
           batteryLevel: _batteryLevel,
           isCharging: _batteryState == BatteryState.charging,
+        );
+        _firebaseLocationService.recordHistoryPoint(
+          coupleId: _coupleId!,
+          userId: _userId!,
+          location: updatedLoc,
         );
       }
 
@@ -829,10 +847,24 @@ class LocationProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final points = await _storageService.getLocationsByDate(
+      var points = await _storageService.getLocationsByDate(
         ownerId,
         date,
       );
+
+      // If local storage has 0 points, fetch history from Firebase and cache locally
+      if (points.isEmpty && _coupleId != null) {
+        final remotePoints = await _firebaseLocationService.fetchHistoryForDate(
+          coupleId: _coupleId!,
+          userId: ownerId,
+          date: date,
+        );
+        if (remotePoints.isNotEmpty) {
+          await _storageService.insertLocationsBatch(remotePoints);
+          points = remotePoints;
+        }
+      }
+
       _historyLocations = points;
       _playbackIndex = 0;
     } catch (e) {

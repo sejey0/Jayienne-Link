@@ -415,6 +415,55 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header with Title and "Show All / Hide All" Keys Toggle
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Security Keys (${_vaultLocks.length})',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white70 : Colors.grey.shade800,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        final anyObscured = _obscureLocks.any((o) => o);
+                        setState(() {
+                          for (int i = 0; i < _obscureLocks.length; i++) {
+                            _obscureLocks[i] = !anyObscured;
+                          }
+                        });
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        foregroundColor: const Color(0xFFFF758C),
+                      ),
+                      icon: Icon(
+                        _obscureLocks.any((o) => o)
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        size: 16,
+                      ),
+                      label: Text(
+                        _obscureLocks.any((o) => o) ? 'Show All' : 'Hide All',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
                 // 6 Lock Fields using unified AppTextField
                 ...List.generate(_vaultLocks.length, (index) {
                   return Padding(

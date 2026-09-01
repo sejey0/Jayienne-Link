@@ -12,13 +12,17 @@ import '../../../services/mapbox_service.dart';
 class MapboxSearchBar extends StatefulWidget {
   final LatLng? userPosition;
   final ValueChanged<MapboxPlace> onPlaceSelected;
+  final ValueChanged<bool>? onSearchingChanged;
   final VoidCallback? onClear;
+  final VoidCallback? onCancel;
 
   const MapboxSearchBar({
     super.key,
     this.userPosition,
     required this.onPlaceSelected,
+    this.onSearchingChanged,
     this.onClear,
+    this.onCancel,
   });
 
   @override
@@ -39,9 +43,13 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
   void initState() {
     super.initState();
     _focusNode.addListener(() {
+      final isSearching = _focusNode.hasFocus;
       if (_focusNode.hasFocus && _suggestions.isNotEmpty) {
         setState(() => _isDropdownVisible = true);
+      } else if (!_focusNode.hasFocus) {
+        setState(() => _isDropdownVisible = false);
       }
+      widget.onSearchingChanged?.call(isSearching);
     });
   }
 
@@ -64,9 +72,11 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
         _isLoading = false;
       });
       widget.onClear?.call();
+      widget.onSearchingChanged?.call(_focusNode.hasFocus);
       return;
     }
 
+    widget.onSearchingChanged?.call(true);
     setState(() => _isLoading = true);
 
     _debounceTimer = Timer(const Duration(milliseconds: 280), () async {
@@ -94,6 +104,7 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
       _suggestions = [];
       _isDropdownVisible = false;
     });
+    widget.onSearchingChanged?.call(false);
     widget.onPlaceSelected(place);
   }
 
@@ -106,6 +117,21 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
       _isDropdownVisible = false;
       _isLoading = false;
     });
+    widget.onSearchingChanged?.call(false);
+    widget.onClear?.call();
+  }
+
+  void _cancelSearch() {
+    HapticFeedback.lightImpact();
+    _searchController.clear();
+    _focusNode.unfocus();
+    setState(() {
+      _suggestions = [];
+      _isDropdownVisible = false;
+      _isLoading = false;
+    });
+    widget.onSearchingChanged?.call(false);
+    widget.onCancel?.call();
     widget.onClear?.call();
   }
 
@@ -128,7 +154,8 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
     }
     if (type == 'poi') return Icons.place_rounded;
     if (type == 'address') return Icons.navigation_rounded;
-    return Icons.location_city_rounded;
+    if (type == 'place' || type == 'locality') return Icons.location_city_rounded;
+    return Icons.place_rounded;
   }
 
   String? _getDistanceText(LatLng target) {
@@ -148,102 +175,151 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isSearchActive = _focusNode.hasFocus || _searchController.text.isNotEmpty || _isDropdownVisible;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Clean Search Input Bar (No Glowing Colored Rings or Light Mode Rings)
-        Container(
-          height: 48,
-          decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0xFF231A33)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: isDark
-                ? Border.all(
-                    color: Colors.white.withValues(alpha: 0.10),
-                    width: 1.0,
-                  )
-                : null,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 14),
-              Icon(
-                Icons.search_rounded,
-                color: isDark ? Colors.white60 : const Color(0xFF6B5F79),
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  focusNode: _focusNode,
-                  cursorColor: AppColors.softRose,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : AppColors.deepCharcoal,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  decoration: InputDecoration(
-                    filled: false,
-                    fillColor: Colors.transparent,
-                    hoverColor: Colors.transparent,
-                    hintText: 'Search places, cafes, addresses...',
-                    hintStyle: TextStyle(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.45)
-                          : Colors.grey.shade500,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.normal,
+        // Clean Search Input Bar with Animated Cancel Button
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF231A33)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: isDark
+                      ? Border.all(
+                          color: Colors.white.withValues(alpha: 0.10),
+                          width: 1.0,
+                        )
+                      : null,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 3),
                     ),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    errorBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    focusedErrorBorder: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: _onSearchChanged,
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 14),
+                    Icon(
+                      Icons.search_rounded,
+                      color: isDark ? Colors.white60 : const Color(0xFF6B5F79),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _focusNode,
+                        cursorColor: AppColors.softRose,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : AppColors.deepCharcoal,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        decoration: InputDecoration(
+                          filled: false,
+                          fillColor: Colors.transparent,
+                          hoverColor: Colors.transparent,
+                          hintText: 'Search places, cafes, addresses...',
+                          hintStyle: TextStyle(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.45)
+                                : Colors.grey.shade500,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.normal,
+                          ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onChanged: _onSearchChanged,
+                      ),
+                    ),
+                    if (_isLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            color: AppColors.softRose,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      )
+                    else if (_searchController.text.isNotEmpty)
+                      IconButton(
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: isDark ? Colors.white60 : Colors.grey.shade600,
+                          size: 18,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                        onPressed: _clearSearch,
+                      ),
+                    const SizedBox(width: 4),
+                  ],
                 ),
               ),
-              if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      color: AppColors.softRose,
-                      strokeWidth: 2,
-                    ),
-                  ),
-                )
-              else if (_searchController.text.isNotEmpty)
-                IconButton(
-                  icon: Icon(
-                    Icons.close_rounded,
-                    color: isDark ? Colors.white60 : Colors.grey.shade600,
-                    size: 18,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-                  onPressed: _clearSearch,
-                ),
-              const SizedBox(width: 4),
-            ],
-          ),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: isSearchActive
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: GestureDetector(
+                        onTap: _cancelSearch,
+                        child: Container(
+                          height: 48,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF281D3C) : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: isDark
+                                ? Border.all(
+                                    color: Colors.white.withValues(alpha: 0.12),
+                                    width: 1.0,
+                                  )
+                                : null,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: AppColors.softRose,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
         ),
 
         // Autocomplete Dropdown List

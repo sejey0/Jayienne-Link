@@ -39,10 +39,6 @@ class SettingsScreen extends StatelessWidget {
     final couple = coupleProvider.couple;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final pendingAnniversary =
-        coupleProvider.outgoingAnniversaryRequests.isNotEmpty
-            ? coupleProvider.outgoingAnniversaryRequests.first
-            : null;
 
     final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
 
@@ -89,56 +85,7 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 20),
           ],
 
-          // 3. Section: Relationship
-          _buildSectionHeader('RELATIONSHIP', isDark),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.grey.shade200,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                _buildSettingsTile(
-                  icon: Icons.favorite_rounded,
-                  gradientColors: const [Color(0xFFEC407A), Color(0xFF8E24AA)],
-                  title: 'Anniversary Date',
-                  subtitle: couple == null
-                      ? 'Link with your love to set one'
-                      : pendingAnniversary != null
-                          ? 'Request pending for ${_formatAnniversary(pendingAnniversary.proposedDate)}'
-                          : couple.anniversary != null
-                              ? 'Current: ${_formatAnniversary(couple.anniversary!)}'
-                              : 'Not set yet',
-                  trailing: kDebugMode
-                      ? Icon(
-                          Icons.edit_calendar_rounded,
-                          color: couple == null ? Colors.grey.shade400 : AppColors.softRose,
-                          size: 22,
-                        )
-                      : const SizedBox.shrink(),
-                  onTap: (couple == null || !kDebugMode)
-                      ? null
-                      : () => _requestAnniversary(context, user!, couple),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // 4. Section: Preferences & Appearance
+          // 3. Section: Preferences & Appearance
           _buildSectionHeader('PREFERENCES', isDark),
           const SizedBox(height: 8),
           Container(
@@ -1429,52 +1376,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  String _formatAnniversary(DateTime date) {
-    return DateFormat('MMM d, yyyy').format(date);
-  }
 
-  Future<void> _requestAnniversary(
-    BuildContext context,
-    UserModel user,
-    CoupleModel couple,
-  ) async {
-    HapticFeedback.lightImpact();
-    if (couple.id == null) {
-      SnackbarHelper.showError(context, 'Couple not ready. Try again.');
-      return;
-    }
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: couple.anniversary ?? DateTime.now(),
-      firstDate: DateTime(1990),
-      lastDate: DateTime.now(),
-    );
-
-    if (picked == null) return;
-    if (!context.mounted) return;
-
-    final coupleProvider = context.read<CoupleProvider>();
-    final partnerId = couple.getPartnerId(user.id);
-    if (partnerId.isEmpty) {
-      SnackbarHelper.showError(context, 'Partner not found.');
-      return;
-    }
-    final success = await coupleProvider.sendAnniversaryRequest(
-      coupleId: couple.id!,
-      proposerId: user.id,
-      partnerId: partnerId,
-      proposedDate: picked,
-    );
-
-    if (!context.mounted) return;
-
-    if (success) {
-      SnackbarHelper.showSuccess(context, 'Anniversary request sent');
-    } else if (coupleProvider.error != null) {
-      SnackbarHelper.showError(context, coupleProvider.error!);
-    }
-  }
 
   void _showStorageInfo(BuildContext context) {
     HapticFeedback.lightImpact();

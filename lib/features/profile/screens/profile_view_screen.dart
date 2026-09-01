@@ -2,29 +2,100 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
+import '../../../core/utils/snackbar_helper.dart';
 import '../../../core/utils/url_launcher_helper.dart';
+import '../../../models/couple_model.dart';
+import '../../../models/user_model.dart';
+import '../../../providers/anniversary_provider.dart';
 import '../../../providers/couple_links_provider.dart';
-import '../../../providers/user_provider.dart';
 import '../../../providers/couple_provider.dart';
+import '../../../providers/user_provider.dart';
 import '../../links/widgets/add_edit_link_sheet.dart';
 import '../../links/widgets/platform_brand_icon.dart';
-
 import '../../../widgets/common/romantic_loading_indicator.dart';
 
-class ProfileViewScreen extends StatelessWidget {
+class ProfileViewScreen extends StatefulWidget {
   const ProfileViewScreen({super.key});
+
+  @override
+  State<ProfileViewScreen> createState() => _ProfileViewScreenState();
+}
+
+class _ProfileViewScreenState extends State<ProfileViewScreen> {
+  Future<void> _requestAnniversary(
+    BuildContext context,
+    UserModel user,
+    CoupleModel couple,
+  ) async {
+    HapticFeedback.lightImpact();
+    if (couple.id == null) {
+      SnackbarHelper.showError(context, 'Couple not ready. Try again.');
+      return;
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: couple.anniversary ?? DateTime.now(),
+      firstDate: DateTime(1990),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: isDark
+              ? const ColorScheme.dark(
+                  primary: Color(0xFFFF758C),
+                  onPrimary: Colors.white,
+                  surface: Color(0xFF1C1427),
+                  onSurface: Colors.white,
+                )
+              : const ColorScheme.light(
+                  primary: Color(0xFFFF758C),
+                  onPrimary: Colors.white,
+                  surface: Colors.white,
+                  onSurface: Color(0xFF2D4059),
+                ),
+        ),
+        child: child!,
+      ),
+    );
+
+    if (picked == null) return;
+    if (!context.mounted) return;
+
+    final coupleProvider = context.read<CoupleProvider>();
+    final partnerId = couple.getPartnerId(user.id);
+    if (partnerId.isEmpty) {
+      SnackbarHelper.showError(context, 'Partner not found.');
+      return;
+    }
+    final success = await coupleProvider.sendAnniversaryRequest(
+      coupleId: couple.id!,
+      proposerId: user.id,
+      partnerId: partnerId,
+      proposedDate: picked,
+    );
+
+    if (!context.mounted) return;
+    if (success) {
+      SnackbarHelper.showSuccess(context, 'Anniversary request sent to your partner');
+    } else if (coupleProvider.error != null) {
+      SnackbarHelper.showError(context, coupleProvider.error!);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final coupleProvider = context.watch<CoupleProvider>();
+    final anniversaryProvider = context.watch<AnniversaryProvider>();
     final user = userProvider.user;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (user == null) {
       return const RomanticLoadingScreen(
@@ -33,19 +104,21 @@ class ProfileViewScreen extends StatelessWidget {
     }
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF120E19) : const Color(0xFFFFF7F9),
       appBar: AppBar(
         title: const Text(
-          AppStrings.profile,
+          'Profile',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.white,
+            fontSize: 18,
           ),
         ),
         centerTitle: true,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [AppColors.softRose, AppColors.lavender],
+              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -61,207 +134,437 @@ class ProfileViewScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_rounded, color: Colors.white),
+            tooltip: 'Edit Profile',
             onPressed: () {
               HapticFeedback.lightImpact();
               context.push(RouteNames.editProfile);
             },
           ),
         ],
+        elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppDimensions.spacingLg),
         child: Column(
           children: [
-            const SizedBox(height: AppDimensions.spacingLg),
-            CircleAvatar(
-              radius: AppDimensions.avatarSizeLarge / 2,
-              backgroundColor: AppColors.peach.withValues(alpha: 0.3),
-              backgroundImage: _getProfileImageProvider(user.photoUrl),
-              child: user.photoUrl == null
-                  ? Container(
-                      width: double.infinity,
-                      height: double.infinity,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: const Icon(Icons.person_rounded,
-                          size: 48, color: Colors.white),
-                    )
-                  : null,
-            ),
-            const SizedBox(height: AppDimensions.spacingLg),
-            // Border Framed Couple Names Card (Name 1 & Name 2)
+            // ── Hero Header Banner ─────────────────────────────────
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(AppDimensions.spacingMd),
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
               decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
-                border: Border.all(
-                  color: AppColors.softRose.withValues(alpha: 0.6),
-                  width: 2.0,
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFFF758C).withValues(alpha: 0.12),
+                    const Color(0xFFA18CD1).withValues(alpha: 0.10),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.softRose.withValues(alpha: 0.12),
-                    blurRadius: 12,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
               child: Column(
                 children: [
-                  const Text(
-                    'COUPLE PROFILE',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                      color: AppColors.softRose,
-                    ),
-                  ),
-                  const SizedBox(height: AppDimensions.spacingSm),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      // Name 1 Border Pill
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.softRose.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppColors.softRose,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          user.displayName,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).textTheme.titleMedium?.color ??
-                                    (Theme.of(context).brightness == Brightness.dark
-                                        ? Colors.white
-                                        : AppColors.deepCharcoal),
-                              ),
-                        ),
+                  // Avatar with gradient ring
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      if (coupleProvider.couple != null) ...[
-                        const Icon(
-                          Icons.favorite,
-                          color: AppColors.softRose,
-                          size: 20,
-                        ),
-                        // Name 2 Border Pill
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: AppColors.lavender.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: AppColors.lavender,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Text(
-                            coupleProvider.couple!.getPartnerName(
-                              user.uid,
-                              livePartnerName: coupleProvider.partner?.displayName,
-                            ),
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).textTheme.titleMedium?.color ??
-                                      (Theme.of(context).brightness == Brightness.dark
-                                          ? Colors.white
-                                          : AppColors.deepCharcoal),
-                                ),
-                          ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
                         ),
                       ],
-                    ],
-                  ),
-                  if (coupleProvider.couple != null) ...[
-                    const SizedBox(height: AppDimensions.spacingSm),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
-                        color: Colors.grey.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        shape: BoxShape.circle,
+                        color: isDark ? const Color(0xFF120E19) : Colors.white,
                       ),
-                      child: Text(
-                        '${coupleProvider.couple!.daysTogether} ${AppStrings.daysTogether}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey.shade700,
+                      child: CircleAvatar(
+                        radius: AppDimensions.avatarSizeLarge / 2,
+                        backgroundColor: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                        backgroundImage: _getProfileImageProvider(user.photoUrl),
+                        child: user.photoUrl == null
+                            ? Container(
+                                width: double.infinity,
+                                height: double.infinity,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.person_rounded,
+                                  size: 48,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    user.displayName,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppColors.deepCharcoal,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    user.email,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      color: isDark ? Colors.white54 : Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (user.birthday != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF758C).withValues(alpha: isDark ? 0.12 : 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.cake_outlined, size: 13, color: Color(0xFFFF758C)),
+                          const SizedBox(width: 5),
+                          Text(
+                            _formatDate(user.birthday!),
+                            style: const TextStyle(
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
+                              color: Color(0xFFFF758C),
                             ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ],
               ),
             ),
-            const SizedBox(height: AppDimensions.spacingSm),
-            Text(
-              user.email,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey,
-                  ),
-            ),
-            if (user.birthday != null) ...[
-              const SizedBox(height: AppDimensions.spacingSm),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              child: Column(
                 children: [
-                  const Icon(Icons.cake_outlined,
-                      size: 16, color: AppColors.softRose),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${user.birthday!.month}/${user.birthday!.day}/${user.birthday!.year}',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+                  // ── Couple Card (Gradient hero style) ─────────────
+                  if (coupleProvider.couple != null) ...[
+                    _buildCoupleCard(
+                      context: context,
+                      isDark: isDark,
+                      user: user,
+                      coupleProvider: coupleProvider,
+                      anniversaryProvider: anniversaryProvider,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // ── My Social Links Section ────────────────────────
+                  _buildSocialLinksSection(context, isDark),
                 ],
               ),
-            ],
-            const SizedBox(height: AppDimensions.spacingLg),
-
-            // Social Profiles & Links Section
-            _buildSocialLinksSection(context),
-
-            const SizedBox(height: 24),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSocialLinksSection(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final linksProvider = context.watch<CoupleLinksProvider>();
-    final allLinks = linksProvider.links;
+  Widget _buildCoupleCard({
+    required BuildContext context,
+    required bool isDark,
+    required UserModel user,
+    required CoupleProvider coupleProvider,
+    required AnniversaryProvider anniversaryProvider,
+  }) {
+    final couple = coupleProvider.couple!;
+    final partnerName = couple.getPartnerName(
+      user.uid,
+      livePartnerName: coupleProvider.partner?.displayName,
+    );
+    final partnerPhotoUrl = coupleProvider.partner?.photoUrl;
+    final pendingAnniversary = coupleProvider.outgoingAnniversaryRequests.isNotEmpty
+        ? coupleProvider.outgoingAnniversaryRequests.first
+        : null;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppDimensions.spacingMd),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.lavender.withValues(alpha: 0.4),
+          color: Colors.white.withValues(alpha: 0.30),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.lavender.withValues(alpha: 0.1),
-            blurRadius: 12,
+            color: const Color(0xFFFF758C).withValues(alpha: 0.30),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Section label
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'COUPLE',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.4,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // Dual avatars with heart
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // My avatar
+                _buildHeroAvatar(photoUrl: user.photoUrl),
+                const SizedBox(width: 16),
+                // Heart
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.22),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.25),
+                        blurRadius: 14,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.favorite_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Partner avatar
+                _buildHeroAvatar(photoUrl: partnerPhotoUrl),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Names row
+            Row(
+              children: [
+                Expanded(
+                  child: _buildWhiteNamePill(user.displayName),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildWhiteNamePill(partnerName),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Days together counter
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    '${couple.daysTogether}',
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'days together',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white70,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Anniversary date row
+            GestureDetector(
+              onTap: () => _requestAnniversary(context, user, couple),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_month_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        pendingAnniversary != null
+                            ? 'Request pending: ${DateFormat('MMM d, yyyy').format(pendingAnniversary.proposedDate)}'
+                            : couple.anniversary != null
+                                ? 'Anniversary: ${DateFormat('MMM d, yyyy').format(couple.anniversary!)}'
+                                : 'Set your anniversary date',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: pendingAnniversary != null
+                              ? Colors.white70
+                              : couple.anniversary != null
+                                  ? Colors.white
+                                  : Colors.white70,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.edit_calendar_rounded,
+                      color: Colors.white.withValues(alpha: 0.70),
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroAvatar({required String? photoUrl}) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: CircleAvatar(
+        radius: 32,
+        backgroundColor: Colors.white.withValues(alpha: 0.25),
+        backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
+            ? _getProfileImageProvider(photoUrl)
+            : null,
+        child: (photoUrl == null || photoUrl.isEmpty)
+            ? const Icon(Icons.person_rounded, size: 32, color: Colors.white)
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildWhiteNamePill(String name) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1),
+      ),
+      child: Text(
+        name,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required BuildContext context,
+    required bool isDark,
+    required IconData icon,
+    required List<Color> gradientColors,
+    required String label,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1427) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: gradientColors.first.withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: gradientColors.first.withValues(alpha: 0.08),
+            blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
@@ -270,64 +573,95 @@ class ProfileViewScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: gradientColors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: Colors.white, size: 15),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  color: gradientColors.first,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSocialLinksSection(BuildContext context, bool isDark) {
+    final linksProvider = context.watch<CoupleLinksProvider>();
+    // Only show MY links
+    final myLinks = linksProvider.myLinks;
+
+    return _buildSectionCard(
+      context: context,
+      isDark: isDark,
+      icon: Icons.link_rounded,
+      gradientColors: const [Color(0xFFA18CD1), Color(0xFF7C82E8)],
+      label: 'MY SOCIALS & WEBSITES',
+      child: Column(
+        children: [
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.softRose, AppColors.lavender],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.link_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'SOCIALS & WEBSITES',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.1,
-                      color: AppColors.lavender,
-                    ),
-                  ),
-                ],
+              Text(
+                myLinks.isEmpty
+                    ? 'No links added yet'
+                    : '${myLinks.length} link${myLinks.length == 1 ? '' : 's'}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.white54 : Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              TextButton(
-                onPressed: () {
+              GestureDetector(
+                onTap: () {
                   HapticFeedback.lightImpact();
                   context.push(RouteNames.coupleLinks);
                 },
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text(
-                  'Manage',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.softRose,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFA18CD1).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFFA18CD1).withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: const Text(
+                    'Manage',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFA18CD1),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          if (allLinks.isEmpty) ...[
+          const SizedBox(height: 10),
+          if (myLinks.isEmpty) ...[
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
               decoration: BoxDecoration(
                 color: isDark
                     ? Colors.white.withValues(alpha: 0.04)
@@ -341,26 +675,36 @@ class ProfileViewScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
+                  Icon(
+                    Icons.link_off_rounded,
+                    size: 28,
+                    color: isDark ? Colors.white30 : Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 8),
                   Text(
-                    'No social profiles added yet',
+                    'No social profiles or websites added yet',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,
-                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      color: isDark ? Colors.white54 : Colors.grey.shade600,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: () {
                       HapticFeedback.lightImpact();
                       AddEditLinkSheet.show(context);
                     },
                     icon: const Icon(Icons.add_rounded, size: 14),
-                    label: const Text('Add Link / Account', style: TextStyle(fontSize: 11.5)),
+                    label: const Text(
+                      'Add Link',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.softRose,
-                      side: const BorderSide(color: AppColors.softRose),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      foregroundColor: const Color(0xFFA18CD1),
+                      side: const BorderSide(color: Color(0xFFA18CD1)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -370,16 +714,18 @@ class ProfileViewScreen extends StatelessWidget {
               ),
             ),
           ] else ...[
+            // Centered wrap of link chips
             Wrap(
+              alignment: WrapAlignment.center,
               spacing: 8,
               runSpacing: 8,
-              children: allLinks.map((link) {
+              children: myLinks.map((link) {
                 final platform = link.socialPlatform;
                 return InkWell(
                   onTap: () => UrlLauncherHelper.launchLink(context, link.url),
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: isDark
                           ? platform.primaryColor.withValues(alpha: 0.15)
@@ -398,7 +744,7 @@ class ProfileViewScreen extends StatelessWidget {
                           size: 22,
                           borderRadius: 6,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 7),
                         Text(
                           link.displayTitle,
                           style: TextStyle(
@@ -425,23 +771,25 @@ class ProfileViewScreen extends StatelessWidget {
     );
   }
 
-  /// Get appropriate ImageProvider for profile photos (supports both network URLs and Base64)
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
   ImageProvider? _getProfileImageProvider(String? photoUrl) {
     if (photoUrl == null) return null;
-
-    // Check if it's a Base64 data URL
     if (photoUrl.startsWith('data:image/')) {
       try {
-        // Extract Base64 data from data URL
         final base64String = photoUrl.split(',')[1];
         final bytes = base64Decode(base64String);
         return MemoryImage(bytes);
-      } catch (e) {
-        // If Base64 decoding fails, return null to show fallback
+      } catch (_) {
         return null;
       }
     } else {
-      // Regular network URL, use CachedNetworkImageProvider
       return CachedNetworkImageProvider(photoUrl);
     }
   }

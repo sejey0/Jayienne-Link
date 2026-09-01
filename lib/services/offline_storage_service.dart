@@ -283,6 +283,18 @@ class OfflineStorageService {
     );
   }
 
+  /// Mark all locations for a user as synced
+  Future<void> markAllAsSynced(String ownerId) async {
+    if (kIsWeb) return;
+    final db = await database;
+    await db.update(
+      _locationsTable,
+      {'is_synced': 1},
+      where: 'owner_id = ?',
+      whereArgs: [ownerId],
+    );
+  }
+
   /// Mark multiple locations as synced (batch operation)
   Future<void> markBatchAsSynced(Map<int, String> localToSupabaseIds) async {
     if (kIsWeb) return;

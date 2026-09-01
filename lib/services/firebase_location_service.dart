@@ -253,8 +253,9 @@ class FirebaseLocationService {
     if (DebugProvider.isOfflineForced) return;
 
     try {
+      final localDate = location.timestamp.toLocal();
       final dateKey =
-          '${location.timestamp.year}-${location.timestamp.month.toString().padLeft(2, '0')}-${location.timestamp.day.toString().padLeft(2, '0')}';
+          '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
       final pointNode = _database!
           .ref('$_historyNode/$coupleId/$userId/$dateKey/${location.timestamp.millisecondsSinceEpoch}');
 
@@ -273,8 +274,9 @@ class FirebaseLocationService {
     if (DebugProvider.isOfflineForced) return [];
 
     try {
+      final localDate = date.toLocal();
       final dateKey =
-          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+          '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
       final historyNode =
           _database!.ref('$_historyNode/$coupleId/$userId/$dateKey');
       final snapshot = await historyNode.get();

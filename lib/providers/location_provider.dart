@@ -120,6 +120,7 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
   Position? _lastSavedPosition;
   DateTime? _lastSavedTime;
   int? _lastSavedBattery;
+  LocationModel? _lastPartnerSavedLocation;
 
   // Route playback state
   List<LocationModel> _historyLocations = [];
@@ -318,6 +319,9 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
 
+      if (isOnline) {
+        await _storageService.markAllAsSynced(userId);
+      }
       _pendingSyncCount = await _storageService.getUnsyncedCount(userId);
       _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.synced;
 
@@ -448,15 +452,16 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
         _lastSavedTime = now;
         _lastSavedBattery = _batteryLevel;
 
-        await _storageService.insertLocation(locationModel);
+        final locToSave = locationModel.copyWith(isSynced: isOnline);
+        await _storageService.insertLocation(locToSave);
         _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
-        _syncStatus = SyncStatus.synced;
+        _syncStatus = isOnline ? SyncStatus.synced : SyncStatus.offline;
 
         if (_coupleId != null && _userId != null) {
           _firebaseLocationService.recordHistoryPoint(
             coupleId: _coupleId!,
             userId: _userId!,
-            location: locationModel,
+            location: locToSave,
           );
         }
       }
@@ -524,11 +529,31 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
           if (location.batteryLevel != null) {
             _partnerBatteryLevel = location.batteryLevel;
           }
-          // Store partner location locally in SQLite so history & route playback work
-          await _storageService.insertLocation(location.copyWith(
-            ownerId: _partnerId,
-            source: LocationSource.partner,
-          ));
+          // Store partner location locally with smart deduplication (preventing duplicate stationary points)
+          bool shouldSavePartner = true;
+          if (_lastPartnerSavedLocation != null) {
+            final partnerDistance = Geolocator.distanceBetween(
+              _lastPartnerSavedLocation!.latitude,
+              _lastPartnerSavedLocation!.longitude,
+              location.latitude,
+              location.longitude,
+            );
+            final elapsed = location.timestamp
+                .difference(_lastPartnerSavedLocation!.timestamp)
+                .abs();
+            if (partnerDistance < 15.0 && elapsed < const Duration(seconds: 45)) {
+              shouldSavePartner = false;
+            }
+          }
+
+          if (shouldSavePartner) {
+            _lastPartnerSavedLocation = location;
+            await _storageService.insertLocation(location.copyWith(
+              ownerId: _partnerId,
+              source: LocationSource.partner,
+              isSynced: true,
+            ));
+          }
           notifyListeners();
         }
       },
@@ -608,24 +633,52 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
         timestamp: DateTime.now(),
       );
       _currentLocation = updatedLoc;
-      _lastSavedPosition = Position(
-        latitude: updatedLoc.latitude,
-        longitude: updatedLoc.longitude,
-        timestamp: updatedLoc.timestamp,
-        accuracy: updatedLoc.accuracy,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: updatedLoc.heading ?? 0,
-        headingAccuracy: 0,
-        speed: updatedLoc.speed ?? 0,
-        speedAccuracy: 0,
-      );
-      _lastSavedTime = DateTime.now();
-      _lastSavedBattery = _batteryLevel;
 
-      await _storageService.insertLocation(updatedLoc);
-      _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
+      // Only insert into local SQLite history & Firebase history if moved >= 15m or elapsed >= 5m
+      bool shouldSaveToHistory = true;
+      if (_lastSavedPosition != null) {
+        final distance = Geolocator.distanceBetween(
+          _lastSavedPosition!.latitude,
+          _lastSavedPosition!.longitude,
+          updatedLoc.latitude,
+          updatedLoc.longitude,
+        );
+        final elapsed = DateTime.now().difference(_lastSavedTime ?? DateTime.now()).abs();
+        if (distance < 15.0 && elapsed < const Duration(minutes: 5)) {
+          shouldSaveToHistory = false;
+        }
+      }
 
+      if (shouldSaveToHistory) {
+        _lastSavedPosition = Position(
+          latitude: updatedLoc.latitude,
+          longitude: updatedLoc.longitude,
+          timestamp: updatedLoc.timestamp,
+          accuracy: updatedLoc.accuracy,
+          altitude: 0,
+          altitudeAccuracy: 0,
+          heading: updatedLoc.heading ?? 0,
+          headingAccuracy: 0,
+          speed: updatedLoc.speed ?? 0,
+          speedAccuracy: 0,
+        );
+        _lastSavedTime = DateTime.now();
+        _lastSavedBattery = _batteryLevel;
+
+        final locToSave = updatedLoc.copyWith(isSynced: isOnline);
+        await _storageService.insertLocation(locToSave);
+        _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
+
+        if (_coupleId != null && _userId != null) {
+          _firebaseLocationService.recordHistoryPoint(
+            coupleId: _coupleId!,
+            userId: _userId!,
+            location: locToSave,
+          );
+        }
+      }
+
+      // Always publish current live location & battery to Firebase
       if (_coupleId != null && _userId != null) {
         _firebaseLocationService.publishLiveLocation(
           coupleId: _coupleId!,
@@ -633,11 +686,6 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
           location: updatedLoc,
           batteryLevel: _batteryLevel,
           isCharging: _batteryState == BatteryState.charging,
-        );
-        _firebaseLocationService.recordHistoryPoint(
-          coupleId: _coupleId!,
-          userId: _userId!,
-          location: updatedLoc,
         );
       }
 
@@ -688,9 +736,21 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
 
+    if (isOnline) {
+      final unsynced = await _storageService.getUnsyncedLocations(_userId!);
+      for (final loc in unsynced) {
+        _firebaseLocationService.recordHistoryPoint(
+          coupleId: _coupleId!,
+          userId: _userId!,
+          location: loc.copyWith(isSynced: true),
+        );
+      }
+      await _storageService.markAllAsSynced(_userId!);
+    }
+
     await _refreshLiveBatteryAndSync();
     _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
-    _syncStatus = SyncStatus.synced;
+    _syncStatus = isOnline ? SyncStatus.synced : SyncStatus.offline;
     notifyListeners();
 
     return SyncResult(

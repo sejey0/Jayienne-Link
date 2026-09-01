@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -171,73 +172,74 @@ class LocationHistorySheet extends StatelessWidget {
               ),
             const SizedBox(height: 10),
 
-            // Date Navigation Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.chevron_left_rounded, color: Colors.white),
-                  onPressed: () {
-                    provider.setSelectedHistoryDate(
-                      selectedDate.subtract(const Duration(days: 1)),
-                    );
-                  },
-                ),
-                InkWell(
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime(2023),
-                      lastDate: DateTime.now(),
-                      builder: (context, child) {
-                        return Theme(
-                          data: Theme.of(context).copyWith(
-                            colorScheme: const ColorScheme.dark(
-                              primary: AppColors.softRose,
-                              surface: Color(0xFF1E1A29),
-                            ),
-                          ),
-                          child: child!,
-                        );
-                      },
-                    );
-                    if (picked != null) {
-                      provider.setSelectedHistoryDate(picked);
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.softRose),
-                        const SizedBox(width: 6),
-                        Text(
-                          _formatDateLabel(selectedDate),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+            // Quick Date Selector Pills (Today / Yesterday / Calendar)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildDatePill(
+                    context,
+                    label: 'Today',
+                    isSelected: _isSameDay(selectedDate, DateTime.now()),
+                    onTap: () {
+                      provider.setSelectedHistoryDate(DateTime.now());
+                    },
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right_rounded, color: Colors.white),
-                  onPressed: selectedDate.isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day))
-                      ? () {
-                          provider.setSelectedHistoryDate(
-                            selectedDate.add(const Duration(days: 1)),
+                  const SizedBox(width: 8),
+                  _buildDatePill(
+                    context,
+                    label: 'Yesterday',
+                    isSelected: _isSameDay(
+                      selectedDate,
+                      DateTime.now().subtract(const Duration(days: 1)),
+                    ),
+                    onTap: () {
+                      provider.setSelectedHistoryDate(
+                        DateTime.now().subtract(const Duration(days: 1)),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildDatePill(
+                    context,
+                    label: _isSameDay(selectedDate, DateTime.now()) ||
+                            _isSameDay(
+                                selectedDate,
+                                DateTime.now().subtract(const Duration(days: 1)))
+                        ? 'Calendar'
+                        : DateFormat('MMM d').format(selectedDate),
+                    icon: Icons.calendar_month_rounded,
+                    isSelected: !_isSameDay(selectedDate, DateTime.now()) &&
+                        !_isSameDay(selectedDate,
+                            DateTime.now().subtract(const Duration(days: 1))),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2023),
+                        lastDate: DateTime.now(),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.dark(
+                                primary: AppColors.softRose,
+                                surface: Color(0xFF1E1A29),
+                              ),
+                            ),
+                            child: child!,
                           );
-                        }
-                      : null,
-                ),
-              ],
+                        },
+                      );
+                      if (picked != null) {
+                        provider.setSelectedHistoryDate(picked);
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: 6),
 
             if (isLoading)
               const Padding(
@@ -396,6 +398,70 @@ class LocationHistorySheet extends StatelessWidget {
                 ],
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  Widget _buildDatePill(
+    BuildContext context, {
+    required String label,
+    IconData? icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.softRose
+              : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.softRose
+                : Colors.white.withValues(alpha: 0.15),
+            width: 1.2,
+          ),
+          boxShadow: [
+            if (isSelected)
+              BoxShadow(
+                color: AppColors.softRose.withValues(alpha: 0.4),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 13,
+                color: isSelected ? Colors.white : Colors.white70,
+              ),
+              const SizedBox(width: 4.5),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white70,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),

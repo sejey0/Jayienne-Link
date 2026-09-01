@@ -156,6 +156,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     List<LocationModel> locations,
     bool isMyLocations,
   ) {
+    final provider = context.read<LocationProvider>();
     final filteredLocations = _filterLocationsByDate(locations);
 
     if (filteredLocations.isEmpty) {
@@ -219,6 +220,44 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.grey,
                           ),
+                    ),
+                    const Spacer(),
+                    InkWell(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        final targetOwner = isMyLocations
+                            ? (provider.currentUser?.id ?? provider.userId)
+                            : (provider.partnerUser?.id ?? provider.partnerId);
+                        if (targetOwner != null) {
+                          provider.setSelectedHistoryDate(date, ownerId: targetOwner);
+                          provider.toggleHistoryMode(true, ownerId: targetOwner);
+                        }
+                        Navigator.pop(context);
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.softRose.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.softRose.withValues(alpha: 0.4), width: 1),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.play_arrow_rounded, size: 14, color: AppColors.softRose),
+                            SizedBox(width: 4),
+                            Text(
+                              'Play on Map',
+                              style: TextStyle(
+                                color: AppColors.softRose,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -846,10 +885,11 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     final Map<DateTime, List<LocationModel>> grouped = {};
 
     for (final location in locations) {
+      final local = location.timestamp.toLocal();
       final date = DateTime(
-        location.timestamp.year,
-        location.timestamp.month,
-        location.timestamp.day,
+        local.year,
+        local.month,
+        local.day,
       );
 
       grouped.putIfAbsent(date, () => []).add(location);
@@ -894,7 +934,11 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
   }
 
   bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
+    final aLocal = a.toLocal();
+    final bLocal = b.toLocal();
+    return aLocal.year == bLocal.year &&
+        aLocal.month == bLocal.month &&
+        aLocal.day == bLocal.day;
   }
 
   Future<void> _confirmDeleteHistory(

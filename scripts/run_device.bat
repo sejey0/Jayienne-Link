@@ -777,22 +777,27 @@ echo   4. Click Publish release
 
 :gh_release_done
 echo.
-if not "%IS_WEB%"=="1" if not "%DEVICE_ID%"=="" (
-    echo ====================================================
-    echo   [AUTO] Deploying Release Build to Connected Device
-    echo ====================================================
-    echo Auto-uninstalling previous build from %DEVICE_ID%...
-    "%ADB%" -s %DEVICE_ID% uninstall %PACKAGE% >nul 2>&1
-    
-    echo Installing new Release APK (v!NEW_VERSION!)...
-    "%ADB%" -s %DEVICE_ID% install -r "build\app\outputs\flutter-apk\app-release.apk"
-    if not errorlevel 1 (
-        echo.
-        echo [SUCCESS] App updated on %DEVICE_ID% to Release v!NEW_VERSION!!
-    ) else (
-        echo [WARNING] Automatic installation on %DEVICE_ID% failed.
-    )
-)
+if "%IS_WEB%"=="1" goto skip_auto_deploy
+if "%DEVICE_ID%"=="" goto skip_auto_deploy
+
+echo ====================================================
+echo   [AUTO] Deploying Release Build to Connected Device
+echo ====================================================
+echo Auto-uninstalling previous build from %DEVICE_ID%...
+"%ADB%" -s %DEVICE_ID% uninstall %PACKAGE% >nul 2>&1
+
+echo Installing new Release APK (v!NEW_VERSION!)...
+"%ADB%" -s %DEVICE_ID% install -r "build\app\outputs\flutter-apk\app-release.apk"
+if errorlevel 1 goto deploy_failed
+
+echo.
+echo [SUCCESS] App updated on %DEVICE_ID% to Release v!NEW_VERSION!!
+goto skip_auto_deploy
+
+:deploy_failed
+echo [WARNING] Automatic installation on %DEVICE_ID% failed.
+
+:skip_auto_deploy
 echo.
 pause
 goto releasemenu

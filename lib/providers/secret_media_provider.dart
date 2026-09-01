@@ -45,24 +45,47 @@ class SecretMediaProvider extends ChangeNotifier {
   bool get showHiddenVault => _showHiddenVault;
   bool get isVaultUnlockedSession => _isVaultUnlockedSession;
   bool get isVaultHiddenFromFeatures => _isVaultHiddenFromFeatures;
+  String? get userId => _userId;
 
-  Future<void> loadVaultSettings() async {
+  String _getVaultPrefKey([String? uid]) {
+    final targetUid = (uid != null && uid.isNotEmpty) ? uid : _userId;
+    if (targetUid != null && targetUid.isNotEmpty) {
+      return 'is_vault_hidden_from_features_$targetUid';
+    }
+    return 'is_vault_hidden_from_features';
+  }
+
+  Future<void> loadVaultSettings([String? userId]) async {
     try {
+      if (userId != null && userId.isNotEmpty) {
+        _userId = userId;
+      }
       final prefs = await SharedPreferences.getInstance();
-      _isVaultHiddenFromFeatures =
-          prefs.getBool('is_vault_hidden_from_features') ?? false;
+      final key = _getVaultPrefKey(userId);
+      if (prefs.containsKey(key)) {
+        _isVaultHiddenFromFeatures = prefs.getBool(key) ?? false;
+      } else if (prefs.containsKey('is_vault_hidden_from_features')) {
+        _isVaultHiddenFromFeatures =
+            prefs.getBool('is_vault_hidden_from_features') ?? false;
+      } else {
+        _isVaultHiddenFromFeatures = false;
+      }
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading vault settings: $e');
     }
   }
 
-  Future<void> setVaultHiddenFromFeatures(bool hidden) async {
+  Future<void> setVaultHiddenFromFeatures(bool hidden, {String? userId}) async {
+    if (userId != null && userId.isNotEmpty) {
+      _userId = userId;
+    }
     _isVaultHiddenFromFeatures = hidden;
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_vault_hidden_from_features', hidden);
+      final key = _getVaultPrefKey(userId);
+      await prefs.setBool(key, hidden);
     } catch (e) {
       debugPrint('Error saving vault settings: $e');
     }
@@ -97,8 +120,13 @@ class SecretMediaProvider extends ChangeNotifier {
   }) async {
     final needsRefresh =
         _userId != userId || _coupleId != coupleId || _sharedMedia.isEmpty;
+    final userChanged = _userId != userId;
     _userId = userId;
     _coupleId = coupleId;
+
+    if (userChanged) {
+      await loadVaultSettings(userId);
+    }
 
     if (!needsRefresh) return;
 

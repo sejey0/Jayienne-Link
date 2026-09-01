@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/route_names.dart';
 import '../../../providers/secret_media_provider.dart';
+import '../../../providers/user_provider.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
 import '../../secret_media/screens/hidden_vault_screen.dart';
 import '../screens/decision_spinner_screen.dart';
@@ -35,7 +36,12 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final userProvider = context.watch<UserProvider>();
     final secretMediaProvider = context.watch<SecretMediaProvider>();
+    final currentUserId = userProvider.user?.id;
+    if (currentUserId != null && currentUserId.isNotEmpty && secretMediaProvider.userId != currentUserId) {
+      secretMediaProvider.loadVaultSettings(currentUserId);
+    }
     final isVaultHidden = secretMediaProvider.isVaultHiddenFromFeatures;
 
     // Strict Pink & Purple Palette Tile Items (Hidden Vault is ALWAYS dynamically placed at the very end)

@@ -367,6 +367,9 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 12),
           Consumer<SecretMediaProvider>(
             builder: (context, secretMediaProvider, _) {
+              if (user != null && user.id.isNotEmpty && secretMediaProvider.userId != user.id) {
+                secretMediaProvider.loadVaultSettings(user.id);
+              }
               final isVaultHidden = secretMediaProvider.isVaultHiddenFromFeatures;
               return Container(
                 decoration: BoxDecoration(
@@ -390,12 +393,12 @@ class SettingsScreen extends StatelessWidget {
                   gradientColors: const [Color(0xFFC2185B), Color(0xFF512DA8)],
                   title: 'Hide Vault from Features',
                   subtitle: isVaultHidden
-                      ? 'Hidden Vault is concealed from features menu'
-                      : 'Hidden Vault is visible in features menu',
+                      ? 'Hidden Vault is concealed from your features menu'
+                      : 'Hidden Vault is visible in your features menu',
                   value: isVaultHidden,
                   onChanged: (val) {
                     HapticFeedback.selectionClick();
-                    secretMediaProvider.setVaultHiddenFromFeatures(val);
+                    secretMediaProvider.setVaultHiddenFromFeatures(val, userId: user?.id);
                   },
                 ),
               );

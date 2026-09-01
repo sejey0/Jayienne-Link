@@ -283,7 +283,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     );
   }
 
-  /// Calculates friendly last seen / active status text
+  /// Calculates friendly last online / active status text
   String _getPartnerStatusText({
     required bool isPartnerOnline,
     required LocationModel? partnerLoc,
@@ -295,20 +295,20 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     if (lastTimestamp != null) {
       final diff = DateTime.now().difference(lastTimestamp);
       if (diff.inMinutes < 1) {
-        return 'Last seen just now';
+        return 'Last online just now';
       } else if (diff.inMinutes < 60) {
-        return 'Last seen ${diff.inMinutes}m ago';
+        return 'Last online ${diff.inMinutes}m ago';
       } else if (diff.inHours < 24) {
-        return 'Last seen ${diff.inHours}h ago';
+        return 'Last online ${diff.inHours}h ago';
       } else if (diff.inDays == 1) {
-        return 'Last seen yesterday';
+        return 'Last online yesterday';
       } else if (diff.inDays < 7) {
-        return 'Last seen ${diff.inDays}d ago';
+        return 'Last online ${diff.inDays}d ago';
       } else {
-        return 'Last seen ${DateFormat('MMM d').format(lastTimestamp)}';
+        return 'Last online ${DateFormat('MMM d').format(lastTimestamp)}';
       }
     }
-    return 'Last seen recently';
+    return 'Last online recently';
   }
 
   /// Top Row: Active Status Badge on left, Date & Live Ticking Seconds Pill + Expand Arrow on right

@@ -309,7 +309,7 @@ class PartnerLocationCard extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          isOnline ? 'Last seen' : 'Offline',
+          isOnline ? 'Last online' : 'Offline',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: AppColors.warning,
                 fontWeight: FontWeight.w600,

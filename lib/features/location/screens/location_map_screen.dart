@@ -697,64 +697,108 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                         ),
                       ),
 
-                    // Mapbox Search Result Pin Marker
-                    if (_searchedPlace != null)
-                      Marker(
+                    // Mapbox Search Result Pin Marker with Distance
+                    if (_searchedPlace != null) () {
+                      final metersFromMe = myPos != null
+                          ? Geolocator.distanceBetween(
+                              myPos.latitude,
+                              myPos.longitude,
+                              _searchedPlace!.coordinates.latitude,
+                              _searchedPlace!.coordinates.longitude,
+                            )
+                          : null;
+                      final distanceText = metersFromMe != null
+                          ? (metersFromMe < 1000
+                              ? '${metersFromMe.toStringAsFixed(0)} m away'
+                              : '${(metersFromMe / 1000.0).toStringAsFixed(1)} km away')
+                          : null;
+
+                      return Marker(
                         point: _searchedPlace!.coordinates,
-                        width: 150,
-                        height: 72,
+                        width: 240,
+                        height: 95,
+                        alignment: Alignment.topCenter,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                              constraints: const BoxConstraints(maxWidth: 220),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.softRose, width: 1.2),
+                                color: const Color(0xF51E142B),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: AppColors.softRose.withValues(alpha: 0.8),
+                                  width: 1.2,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.softRose.withValues(alpha: 0.35),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
+                                    color: Colors.black.withValues(alpha: 0.5),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
                                   ),
                                 ],
                               ),
-                              child: Row(
+                              child: Column(
                                 mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Flexible(
-                                    child: Text(
-                                      _searchedPlace!.text,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.bold,
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          _searchedPlace!.text,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                      const SizedBox(width: 6),
+                                      GestureDetector(
+                                        onTap: () => setState(() => _searchedPlace = null),
+                                        child: const Icon(
+                                          Icons.close_rounded,
+                                          color: Colors.white70,
+                                          size: 14,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 4),
-                                  GestureDetector(
-                                    onTap: () => setState(() => _searchedPlace = null),
-                                    child: const Icon(
-                                      Icons.close_rounded,
-                                      color: Colors.white70,
-                                      size: 14,
+                                  if (distanceText != null) ...[
+                                    const SizedBox(height: 3),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.softRose.withValues(alpha: 0.28),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        distanceText,
+                                        style: const TextStyle(
+                                          color: AppColors.softRose,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ],
                               ),
                             ),
                             const Icon(
                               Icons.location_on_rounded,
                               color: AppColors.softRose,
-                              size: 32,
+                              size: 28,
                             ),
                           ],
                         ),
-                      ),
+                      );
+                    }(),
                   ],
                 ],
               ),
@@ -925,8 +969,171 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
               left: 14,
               right: 14,
               bottom: MediaQuery.of(context).padding.bottom + 14,
-              child: _buildRomanticLiveBottomCard(context, locationProvider, partnerLoc, partnerUser),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_searchedPlace != null)
+                    _buildSearchedPlaceBottomCard(context, myPos, partnerPos, partnerUser),
+                  _buildRomanticLiveBottomCard(context, locationProvider, partnerLoc, partnerUser),
+                ],
+              ),
+            )
+          else if (isFullscreen && _searchedPlace != null)
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: MediaQuery.of(context).padding.bottom + 16,
+              child: _buildSearchedPlaceBottomCard(context, myPos, partnerPos, partnerUser),
             ),
+        ],
+      ),
+    );
+  }
+
+  /// Floating Searched Place Info Card showing place name and distance in km from You and Partner
+  Widget _buildSearchedPlaceBottomCard(
+    BuildContext context,
+    LatLng? myPos,
+    LatLng? partnerPos,
+    dynamic partnerUser,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final partnerName = partnerUser?.displayName.isNotEmpty == true
+        ? partnerUser!.displayName
+        : 'Partner';
+
+    final metersFromMe = myPos != null && _searchedPlace != null
+        ? Geolocator.distanceBetween(
+            myPos.latitude,
+            myPos.longitude,
+            _searchedPlace!.coordinates.latitude,
+            _searchedPlace!.coordinates.longitude,
+          )
+        : null;
+
+    final metersFromPartner = partnerPos != null && _searchedPlace != null
+        ? Geolocator.distanceBetween(
+            partnerPos.latitude,
+            partnerPos.longitude,
+            _searchedPlace!.coordinates.latitude,
+            _searchedPlace!.coordinates.longitude,
+          )
+        : null;
+
+    final myDistStr = metersFromMe != null
+        ? (metersFromMe < 1000
+            ? '${metersFromMe.toStringAsFixed(0)} m from you'
+            : '${(metersFromMe / 1000.0).toStringAsFixed(1)} km from you')
+        : null;
+
+    final partnerDistStr = metersFromPartner != null
+        ? (metersFromPartner < 1000
+            ? '${metersFromPartner.toStringAsFixed(0)} m from $partnerName'
+            : '${(metersFromPartner / 1000.0).toStringAsFixed(1)} km from $partnerName')
+        : null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF231A33) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: isDark
+            ? Border.all(
+                color: Colors.white.withValues(alpha: 0.10),
+                width: 1.0,
+              )
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.40 : 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.softRose.withValues(alpha: isDark ? 0.2 : 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.place_rounded,
+              color: AppColors.softRose,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _searchedPlace!.text,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    if (myDistStr != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: AppColors.softRose.withValues(alpha: isDark ? 0.20 : 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          myDistStr,
+                          style: TextStyle(
+                            color: isDark ? AppColors.softRose : const Color(0xFFD81B60),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    if (partnerDistStr != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: AppColors.lavender.withValues(alpha: isDark ? 0.20 : 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          partnerDistStr,
+                          style: TextStyle(
+                            color: isDark ? AppColors.lavender : const Color(0xFF6B63B5),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.close_rounded,
+              color: isDark ? Colors.white60 : Colors.grey.shade600,
+              size: 18,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: () => setState(() => _searchedPlace = null),
+          ),
         ],
       ),
     );

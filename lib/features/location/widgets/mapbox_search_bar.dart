@@ -7,7 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../models/mapbox_place_model.dart';
 import '../../../services/mapbox_service.dart';
 
-/// Floating Mapbox Autocomplete Search Bar & Suggestions Overlay
+/// Clean Floating Mapbox Autocomplete Search Bar & Suggestions Overlay
+/// Designed to blend seamlessly with the app's theme without harsh colored rings or glows.
 class MapboxSearchBar extends StatefulWidget {
   final LatLng? userPosition;
   final ValueChanged<MapboxPlace> onPlaceSelected;
@@ -67,7 +68,7 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
 
     setState(() => _isLoading = true);
 
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () async {
+    _debounceTimer = Timer(const Duration(milliseconds: 280), () async {
       final results = await _mapboxService.searchPlaces(
         trimmed,
         proximity: widget.userPosition,
@@ -151,60 +152,65 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Search Input Pill
+        // Clean Search Input Bar (No Glowing Colored Rings or Light Mode Rings)
         Container(
           height: 48,
           decoration: BoxDecoration(
             color: isDark
-                ? const Color(0xF21C142C)
-                : Colors.white.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: isDark
-                  ? AppColors.softRose.withValues(alpha: 0.38)
-                  : AppColors.softRose.withValues(alpha: 0.32),
-              width: 1.2,
-            ),
+                ? const Color(0xFF231A33)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: isDark
+                ? Border.all(
+                    color: Colors.white.withValues(alpha: 0.10),
+                    width: 1.0,
+                  )
+                : null,
             boxShadow: [
               BoxShadow(
-                color: AppColors.softRose.withValues(alpha: isDark ? 0.16 : 0.12),
+                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
                 blurRadius: 12,
-                spreadRadius: 1,
-                offset: const Offset(0, 2),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Row(
             children: [
-              const SizedBox(width: 12),
-              const Icon(
+              const SizedBox(width: 14),
+              Icon(
                 Icons.search_rounded,
-                color: AppColors.softRose,
-                size: 22,
+                color: isDark ? Colors.white60 : const Color(0xFF6B5F79),
+                size: 20,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: TextField(
                   controller: _searchController,
                   focusNode: _focusNode,
+                  cursorColor: AppColors.softRose,
                   style: TextStyle(
                     color: isDark ? Colors.white : AppColors.deepCharcoal,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Search places, cafes, streets...',
+                    filled: false,
+                    fillColor: Colors.transparent,
+                    hoverColor: Colors.transparent,
+                    hintText: 'Search places, cafes, addresses...',
                     hintStyle: TextStyle(
-                      color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.grey.shade500,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.45)
+                          : Colors.grey.shade500,
                       fontSize: 13.5,
                       fontWeight: FontWeight.normal,
                     ),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -213,7 +219,7 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
               ),
               if (_isLoading)
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  padding: EdgeInsets.symmetric(horizontal: 12),
                   child: SizedBox(
                     width: 16,
                     height: 16,
@@ -231,7 +237,7 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
                     size: 18,
                   ),
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
                   onPressed: _clearSearch,
                 ),
               const SizedBox(width: 4),
@@ -242,38 +248,38 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
         // Autocomplete Dropdown List
         if (_isDropdownVisible && _suggestions.isNotEmpty)
           Container(
-            margin: const EdgeInsets.only(top: 8),
+            margin: const EdgeInsets.only(top: 6),
             constraints: const BoxConstraints(maxHeight: 260),
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xF71F172E)
-                  : Colors.white.withValues(alpha: 0.98),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isDark
-                    ? AppColors.softRose.withValues(alpha: 0.35)
-                    : AppColors.softRose.withValues(alpha: 0.28),
-                width: 1.2,
-              ),
+                  ? const Color(0xFF231A33)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: isDark
+                  ? Border.all(
+                      color: Colors.white.withValues(alpha: 0.10),
+                      width: 1.0,
+                    )
+                  : null,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.65 : 0.12),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
+                  color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 6),
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 shrinkWrap: true,
                 itemCount: _suggestions.length,
                 separatorBuilder: (context, index) => Divider(
                   height: 1,
                   color: isDark
                       ? Colors.white.withValues(alpha: 0.08)
-                      : const Color(0xFFEFE8F5),
+                      : const Color(0xFFF0EBF5),
                 ),
                 itemBuilder: (context, index) {
                   final place = _suggestions[index];
@@ -288,13 +294,15 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
                           Container(
                             padding: const EdgeInsets.all(7),
                             decoration: BoxDecoration(
-                              color: AppColors.softRose.withValues(alpha: isDark ? 0.2 : 0.14),
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : const Color(0xFFF3ECF8),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               _getPlaceIcon(place.placeType, place.text),
-                              color: AppColors.softRose,
-                              size: 16,
+                              color: isDark ? AppColors.lavender : const Color(0xFF6B63B5),
+                              size: 15,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -307,7 +315,7 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
                                   style: TextStyle(
                                     color: isDark ? Colors.white : AppColors.deepCharcoal,
                                     fontSize: 13.5,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -317,7 +325,7 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
                                   place.subtitle,
                                   style: TextStyle(
                                     color: isDark
-                                        ? Colors.white.withValues(alpha: 0.6)
+                                        ? Colors.white.withValues(alpha: 0.55)
                                         : Colors.grey.shade600,
                                     fontSize: 11.5,
                                   ),
@@ -334,7 +342,7 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
                               decoration: BoxDecoration(
                                 color: isDark
                                     ? Colors.white.withValues(alpha: 0.08)
-                                    : const Color(0xFFF2ECF7),
+                                    : const Color(0xFFF3EDF8),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(

@@ -351,7 +351,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final partner = coupleProvider.partner;
     final partnerName = partner?.displayName.isNotEmpty == true
         ? partner!.displayName
-        : 'wifeyyy';
+        : 'Partner';
 
     final res = await MarkWatchedSheet.show(
       context,
@@ -540,7 +540,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final partner = coupleProvider.partner;
     final partnerName = partner?.displayName.isNotEmpty == true
         ? partner!.displayName
-        : 'wifeyyy';
+        : 'Partner';
 
     final res = await ViewMovieDetailsSheet.show(
       context,
@@ -716,7 +716,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final partner = coupleProvider.partner;
     final partnerName = partner?.displayName.isNotEmpty == true
         ? partner!.displayName
-        : 'wifeyyy';
+        : 'Partner';
     final currentUserId = _getCurrentUserId(context);
 
     final watchlistCount = _allMovies.where((m) => m.status == 'watchlist').length;

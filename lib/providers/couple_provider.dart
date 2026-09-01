@@ -72,6 +72,11 @@ class CoupleProvider extends ChangeNotifier {
   List<AnniversaryRequestModel> get outgoingAnniversaryRequests =>
       _outgoingAnniversaryRequests;
 
+  static void clearStaticCache() {
+    _staticCoupleCache = null;
+    _staticPartnerCache = null;
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();
@@ -495,6 +500,8 @@ class CoupleProvider extends ChangeNotifier {
     _outgoingAnniversarySubscription = null;
     _couple = null;
     _partner = null;
+    _staticCoupleCache = null;
+    _staticPartnerCache = null;
     _searchResult = null;
     _inviteCode = null;
     _codeExpiresAt = null;

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../services/supabase_auth_service.dart';
 import '../services/supabase_data_service.dart';
 import '../services/local_cache_service.dart';
+import 'couple_provider.dart';
 
 class AuthProvider extends ChangeNotifier {
   final SupabaseAuthService _authService;
@@ -277,6 +278,7 @@ class AuthProvider extends ChangeNotifier {
     _verificationId = null;
     _pendingPhoneNumber = null;
     _error = null;
+    CoupleProvider.clearStaticCache();
     await LocalCacheService.clearAll();
     await _authService.signOut();
     notifyListeners();

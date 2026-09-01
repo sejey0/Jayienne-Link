@@ -83,7 +83,7 @@ class _InstantLoveNudgeCardState extends State<InstantLoveNudgeCard> {
         ? partner.displayName
         : (couple != null && user != null
             ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
-            : 'wifeyyy');
+            : 'Partner');
 
     return Container(
       margin: const EdgeInsets.symmetric(

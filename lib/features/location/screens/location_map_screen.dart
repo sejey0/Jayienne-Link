@@ -208,7 +208,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     final activeAvatarUrl = isMyRoute ? currentUser?.photoUrl : partnerUser?.photoUrl;
     final activeName = isMyRoute
         ? (currentUser?.displayName.isNotEmpty == true ? currentUser!.displayName : 'You')
-        : (partnerUser?.displayName ?? 'wifeyyy');
+        : (partnerUser?.displayName.isNotEmpty == true ? partnerUser!.displayName : 'Partner');
     final activeAccent = isMyRoute ? AppColors.lavender : AppColors.softRose;
 
     // Auto-center / fit bounds when route or owner changes in History Mode
@@ -627,7 +627,9 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                         height: 86,
                         child: PartnerAvatarMarker(
                           photoUrl: partnerUser?.photoUrl,
-                          partnerName: partnerUser?.displayName ?? 'wifeyyy',
+                          partnerName: partnerUser?.displayName.isNotEmpty == true
+                              ? partnerUser!.displayName
+                              : 'Partner',
                           batteryLevel: partnerLoc?.batteryLevel,
                           batteryState: BatteryState.unknown,
                           heading: partnerLoc?.heading,

@@ -59,9 +59,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ? partner.displayName
         : (couple != null && user != null
             ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
-            : 'lovelove');
+            : '');
 
-    if (coupleProvider.isLinked || partner != null) {
+    if ((coupleProvider.isLinked || partner != null) && partnerName.isNotEmpty) {
       return '$timeGreeting, $myName & $partnerName';
     } else {
       return '$timeGreeting, $myName';

@@ -473,7 +473,7 @@ class _LoveNudgeScreenState extends State<LoveNudgeScreen> {
         ? partner.displayName
         : (couple != null && user != null
             ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
-            : 'wifeyyy');
+            : 'Partner');
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF120E19) : const Color(0xFFFFF7F9),

@@ -104,7 +104,6 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     final locationProvider = context.watch<LocationProvider>();
 
     final user = userProvider.user;
-    final couple = coupleProvider.couple;
     final partner = coupleProvider.partner;
     final outgoingAnniversary = coupleProvider.outgoingAnniversaryRequests;
     final pendingAnniversary =
@@ -122,12 +121,6 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
             partnerLoc != null &&
             partnerLoc.isRecent(threshold: const Duration(minutes: 5)));
 
-    final myName = (user != null && user.displayName.isNotEmpty)
-        ? user.displayName
-        : 'You';
-    final partnerName = couple != null && user != null
-        ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
-        : (partner?.displayName.isNotEmpty == true ? partner!.displayName : 'wifeyyy');
 
     // Distance calculation
     final distanceMeters = locationProvider.distanceInMeters;
@@ -210,15 +203,10 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                     userPhotoUrl: user?.photoUrl,
                     partnerPhotoUrl: partner?.photoUrl,
                     isPartnerOnline: isPartnerOnline,
-                    partnerName: partnerName,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 18),
 
-                  // 3. Intertwined Couple Names Modern Pill (e.g. CJay 💖 Ayen)
-                  _buildCoupleNamesPill(context, myName, partnerName),
-                  const SizedBox(height: 16),
-
-                  // 4. Prominent Live Love Counter
+                  // 3. Prominent Live Love Counter
                   if (hasDate)
                     _buildLoveCounterBody(context, anniversaryProvider)
                   else
@@ -426,7 +414,6 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     required String? userPhotoUrl,
     required String? partnerPhotoUrl,
     required bool isPartnerOnline,
-    required String partnerName,
   }) {
     return FittedBox(
       fit: BoxFit.scaleDown,
@@ -437,7 +424,6 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
           _buildAvatarWithRing(
             context,
             photoUrl: userPhotoUrl,
-            label: 'You',
           ),
 
           const SizedBox(width: 16),
@@ -477,7 +463,6 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
             photoUrl: partnerPhotoUrl,
             isOnline: isPartnerOnline,
             showStatus: true,
-            label: partnerName.isNotEmpty ? partnerName : 'wifeyyy',
           ),
         ],
       ),
@@ -489,7 +474,6 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     required String? photoUrl,
     bool isOnline = false,
     bool showStatus = false,
-    required String label,
   }) {
     return Stack(
       clipBehavior: Clip.none,
@@ -568,56 +552,6 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
             ),
           ),
       ],
-    );
-  }
-
-  /// Intertwined Couple Names Pill (e.g. CJay 💖 Ayen)
-  Widget _buildCoupleNamesPill(
-    BuildContext context,
-    String myName,
-    String partnerName,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.3),
-          width: 1.2,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            myName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 15,
-              letterSpacing: 0.3,
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Icon(
-              Icons.favorite_rounded,
-              color: Colors.white,
-              size: 15,
-            ),
-          ),
-          Text(
-            partnerName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 15,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

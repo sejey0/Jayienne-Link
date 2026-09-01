@@ -27,12 +27,12 @@ class CoupleModel {
       return livePartnerName.trim();
     }
     final myIndex = partnerIds.indexOf(myUid);
-    if (myIndex == -1) return 'wifeyyy';
+    if (myIndex == -1) return '';
     final targetIndex = myIndex == 0 ? 1 : 0;
-    if (targetIndex < partnerNames.length && partnerNames[targetIndex].isNotEmpty) {
-      return partnerNames[targetIndex];
+    if (targetIndex < partnerNames.length && partnerNames[targetIndex].trim().isNotEmpty) {
+      return partnerNames[targetIndex].trim();
     }
-    return 'wifeyyy';
+    return '';
   }
 
   String getPartnerId(String myUid) {

@@ -230,7 +230,9 @@ class PartnerLocationCard extends StatelessWidget {
                   height: 60,
                   child: PartnerAvatarMarker(
                     photoUrl: partnerUser?.photoUrl,
-                    partnerName: partnerUser?.displayName ?? 'wifeyyy',
+                    partnerName: partnerUser?.displayName.isNotEmpty == true
+                        ? partnerUser!.displayName
+                        : 'Partner',
                     batteryLevel: location.batteryLevel,
                     heading: location.heading,
                     speed: location.speed,

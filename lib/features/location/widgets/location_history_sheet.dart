@@ -486,19 +486,75 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
         ),
         const SizedBox(height: 8),
 
-        // 2. Person Selector (My Route vs Partner's Route)
+        // 2. Person Selector (Your Route vs Partner's Route)
         if (partnerId != null)
           Container(
-            height: 36,
-            padding: const EdgeInsets.all(2.5),
+            height: 38,
+            padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : const Color(0xFFF1EBF7),
-              borderRadius: BorderRadius.circular(12),
+                  ? const Color(0xFF1B1426)
+                  : const Color(0xFFEFE8F5),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : const Color(0xFFDED4E7),
+                width: 1.0,
+              ),
             ),
             child: Row(
               children: [
+                if (myId != null)
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        provider.setHistoryOwner(myId);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        decoration: BoxDecoration(
+                          color: !isViewingPartner
+                              ? AppColors.softRose
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(11),
+                          boxShadow: [
+                            if (!isViewingPartner)
+                              BoxShadow(
+                                color: AppColors.softRose.withValues(alpha: 0.40),
+                                blurRadius: 6,
+                                offset: const Offset(0, 1.5),
+                              ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.person_rounded,
+                              size: 13.5,
+                              color: !isViewingPartner
+                                  ? Colors.white
+                                  : (isDark ? Colors.white60 : const Color(0xFF6B5F79)),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Your Route',
+                              style: TextStyle(
+                                color: !isViewingPartner
+                                    ? Colors.white
+                                    : (isDark ? Colors.white60 : const Color(0xFF6B5F79)),
+                                fontSize: 12,
+                                fontWeight: !isViewingPartner ? FontWeight.bold : FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 Expanded(
                   child: GestureDetector(
                     onTap: () {
@@ -511,15 +567,15 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                       duration: const Duration(milliseconds: 180),
                       decoration: BoxDecoration(
                         color: isViewingPartner
-                            ? AppColors.softRose
+                            ? AppColors.lavender
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(11),
                         boxShadow: [
                           if (isViewingPartner)
                             BoxShadow(
-                              color: AppColors.softRose.withValues(alpha: 0.4),
+                              color: AppColors.lavender.withValues(alpha: 0.40),
                               blurRadius: 6,
-                              offset: const Offset(0, 1),
+                              offset: const Offset(0, 1.5),
                             ),
                         ],
                       ),
@@ -529,7 +585,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                         children: [
                           Icon(
                             Icons.favorite_rounded,
-                            size: 13,
+                            size: 13.5,
                             color: isViewingPartner
                                 ? Colors.white
                                 : (isDark ? Colors.white60 : const Color(0xFF6B5F79)),
@@ -543,7 +599,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                                     ? Colors.white
                                     : (isDark ? Colors.white60 : const Color(0xFF6B5F79)),
                                 fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: isViewingPartner ? FontWeight.bold : FontWeight.w600,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -554,56 +610,6 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                     ),
                   ),
                 ),
-                if (myId != null)
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        provider.setHistoryOwner(myId);
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        decoration: BoxDecoration(
-                          color: !isViewingPartner
-                              ? AppColors.lavender
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            if (!isViewingPartner)
-                              BoxShadow(
-                                color: AppColors.lavender.withValues(alpha: 0.4),
-                                blurRadius: 6,
-                                offset: const Offset(0, 1),
-                              ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.person_rounded,
-                              size: 13,
-                              color: !isViewingPartner
-                                  ? Colors.white
-                                  : (isDark ? Colors.white60 : const Color(0xFF6B5F79)),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              'My Route',
-                              style: TextStyle(
-                                color: !isViewingPartner
-                                    ? Colors.white
-                                    : (isDark ? Colors.white60 : const Color(0xFF6B5F79)),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),

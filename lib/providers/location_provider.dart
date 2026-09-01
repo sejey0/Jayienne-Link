@@ -20,14 +20,20 @@ class SyncResult {
   final bool success;
   final String message;
   final int syncedCount;
+  final int failedCount;
   final String? error;
 
   SyncResult({
     required this.success,
     required this.message,
     required this.syncedCount,
+    this.failedCount = 0,
     this.error,
   });
+
+  @override
+  String toString() =>
+      'SyncResult(success: $success, synced: $syncedCount, failed: $failedCount, message: $message)';
 }
 
 /// Senior GIS & Location Provider managing Geolocator streams, battery efficiency,

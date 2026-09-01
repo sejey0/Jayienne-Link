@@ -1237,36 +1237,42 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     final partnerName = partnerUser?.displayName.isNotEmpty == true
         ? partnerUser!.displayName
         : 'Partner';
+    final partnerBattery = isOnline ? (locationProvider.partnerBatteryLevel ?? partnerLoc?.batteryLevel) : null;
+    final isPartnerCharging = locationProvider.isPartnerCharging;
 
     return GestureDetector(
       onTap: () {
-        HapticFeedback.lightImpact();
-        setState(() => _isLiveCardCollapsed = !_isLiveCardCollapsed);
+        HapticFeedback.selectionClick();
+        setState(() {
+          _isLiveCardCollapsed = !_isLiveCardCollapsed;
+        });
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
-        padding: _isLiveCardCollapsed
-            ? const EdgeInsets.symmetric(horizontal: 14, vertical: 9)
-            : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        margin: const EdgeInsets.symmetric(horizontal: 14),
+        padding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: _isLiveCardCollapsed ? 9 : 12,
+        ),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isDark
                 ? [
-                    const Color(0xF21C142C),
-                    const Color(0xF726193A),
+                    const Color(0xF21F172E),
+                    const Color(0xF7281B3D),
                   ]
                 : [
                     Colors.white.withValues(alpha: 0.96),
-                    const Color(0xFFFAF7FC).withValues(alpha: 0.98),
+                    const Color(0xFFFBF7FD),
                   ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(_isLiveCardCollapsed ? 20 : 24),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: isDark
-                ? AppColors.softRose.withValues(alpha: 0.38)
+                ? AppColors.softRose.withValues(alpha: 0.28)
                 : AppColors.softRose.withValues(alpha: 0.32),
             width: 1.2,
           ),
@@ -1329,15 +1335,20 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                           letterSpacing: -0.2,
                         ),
                       ),
-                      if (partnerLoc?.batteryLevel != null && !_isLiveCardCollapsed) ...[
+                      // Fresh Live Battery Badge (Only rendered when partner is strictly ONLINE)
+                      if (isOnline && partnerBattery != null && !_isLiveCardCollapsed) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                           decoration: BoxDecoration(
-                            color: Colors.amberAccent.withValues(alpha: isDark ? 0.18 : 0.14),
+                            color: isPartnerCharging
+                                ? const Color(0xFF00E676).withValues(alpha: isDark ? 0.18 : 0.14)
+                                : Colors.amberAccent.withValues(alpha: isDark ? 0.18 : 0.14),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: Colors.amberAccent.withValues(alpha: 0.4),
+                              color: isPartnerCharging
+                                  ? const Color(0xFF00E676).withValues(alpha: 0.5)
+                                  : Colors.amberAccent.withValues(alpha: 0.4),
                               width: 0.8,
                             ),
                           ),
@@ -1345,15 +1356,25 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.battery_charging_full_rounded,
-                                color: isDark ? Colors.amberAccent : Colors.orange.shade800,
+                                isPartnerCharging
+                                    ? Icons.battery_charging_full_rounded
+                                    : (partnerBattery <= 20
+                                        ? Icons.battery_alert_rounded
+                                        : (partnerBattery <= 60
+                                            ? Icons.battery_4_bar_rounded
+                                            : Icons.battery_full_rounded)),
+                                color: isPartnerCharging
+                                    ? (isDark ? const Color(0xFF00E676) : const Color(0xFF2E7D32))
+                                    : (isDark ? Colors.amberAccent : Colors.orange.shade800),
                                 size: 11,
                               ),
                               const SizedBox(width: 2.5),
                               Text(
-                                '${partnerLoc!.batteryLevel}%',
+                                '$partnerBattery%${isPartnerCharging ? " ⚡" : ""}',
                                 style: TextStyle(
-                                  color: isDark ? Colors.amberAccent : Colors.orange.shade800,
+                                  color: isPartnerCharging
+                                      ? (isDark ? const Color(0xFF00E676) : const Color(0xFF2E7D32))
+                                      : (isDark ? Colors.amberAccent : Colors.orange.shade800),
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.bold,
                                 ),

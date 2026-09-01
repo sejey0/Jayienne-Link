@@ -1020,7 +1020,35 @@ class _LocationMapScreenState extends State<LocationMapScreen>
                               const SizedBox(height: 8),
                             ],
 
-                            // In History Mode: Clean, Non-Duplicate Map Controls
+                            // Route History Playback Toggle Button
+                            _buildFloatingControlButton(
+                              icon: isHistoryMode ? Icons.map_rounded : Icons.route_rounded,
+                              tooltip: isHistoryMode ? 'Back to Live Map' : 'Route History Playback',
+                              color: isHistoryMode ? AppColors.softRose : (isDark ? const Color(0xFF231A33) : Colors.white),
+                              iconColor: isHistoryMode ? Colors.white : (isDark ? Colors.white : const Color(0xFF1E142B)),
+                              isSelected: isHistoryMode,
+                              selectedBorderColor: AppColors.softRose,
+                              onPressed: () {
+                                HapticFeedback.lightImpact();
+                                locationProvider.toggleHistoryMode(!isHistoryMode);
+                              },
+                            ),
+                            const SizedBox(height: 8),
+
+                            // Location History List Button
+                            _buildFloatingControlButton(
+                              icon: Icons.history_rounded,
+                              tooltip: 'Trip History Log',
+                              color: isDark ? const Color(0xFF231A33) : Colors.white,
+                              iconColor: isDark ? Colors.white : const Color(0xFF1E142B),
+                              onPressed: () {
+                                HapticFeedback.lightImpact();
+                                context.push(RouteNames.locationHistory);
+                              },
+                            ),
+                            const SizedBox(height: 8),
+
+                            // In History Mode: Clean Map Controls
                             if (isHistoryMode) ...[
                               // Fit Full Route in View
                               _buildFloatingControlButton(
@@ -1036,19 +1064,6 @@ class _LocationMapScreenState extends State<LocationMapScreen>
                                 },
                               ),
                             ] else ...[
-                              // In Live Mode: Clean Live Map Controls (No duplicate history buttons)
-                              // Location History List Button
-                              _buildFloatingControlButton(
-                                icon: Icons.history_rounded,
-                                tooltip: 'Trip History Log',
-                                color: isDark ? const Color(0xFF231A33) : Colors.white,
-                                iconColor: isDark ? Colors.white : const Color(0xFF1E142B),
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  context.push(RouteNames.locationHistory);
-                                },
-                              ),
-                              const SizedBox(height: 8),
 
                               // Fit Both Button (People Icon)
                               _buildFloatingControlButton(

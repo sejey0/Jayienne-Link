@@ -5,8 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/constants/zodiac_helper.dart';
-import '../../../models/location_model.dart';
-import '../../../models/user_model.dart';
 import '../../../providers/anniversary_provider.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/debug_provider.dart';

@@ -851,6 +851,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     LocationModel? partnerLoc,
     dynamic partnerUser,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOnline = locationProvider.isPartnerOnline();
     final partnerName = partnerUser?.displayName.isNotEmpty == true
         ? partnerUser!.displayName
@@ -868,28 +869,35 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
             ? const EdgeInsets.symmetric(horizontal: 14, vertical: 9)
             : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xF21C142C),
-              Color(0xF726193A),
-            ],
+          gradient: LinearGradient(
+            colors: isDark
+                ? [
+                    const Color(0xF21C142C),
+                    const Color(0xF726193A),
+                  ]
+                : [
+                    Colors.white.withValues(alpha: 0.96),
+                    const Color(0xFFFAF7FC).withValues(alpha: 0.98),
+                  ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(_isLiveCardCollapsed ? 20 : 24),
           border: Border.all(
-            color: AppColors.softRose.withValues(alpha: 0.38),
+            color: isDark
+                ? AppColors.softRose.withValues(alpha: 0.38)
+                : AppColors.softRose.withValues(alpha: 0.32),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.softRose.withValues(alpha: 0.16),
+              color: AppColors.softRose.withValues(alpha: isDark ? 0.16 : 0.12),
               blurRadius: 16,
               spreadRadius: 1,
               offset: const Offset(0, -2),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.55),
+              color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.08),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
@@ -933,8 +941,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                     children: [
                       Text(
                         locationProvider.formattedDistance,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : AppColors.deepCharcoal,
                           fontSize: 15.5,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.2,
@@ -945,26 +953,26 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                           decoration: BoxDecoration(
-                            color: Colors.amberAccent.withValues(alpha: 0.18),
+                            color: Colors.amberAccent.withValues(alpha: isDark ? 0.18 : 0.14),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: Colors.amberAccent.withValues(alpha: 0.3),
+                              color: Colors.amberAccent.withValues(alpha: 0.4),
                               width: 0.8,
                             ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.battery_charging_full_rounded,
-                                color: Colors.amberAccent,
+                                color: isDark ? Colors.amberAccent : Colors.orange.shade800,
                                 size: 11,
                               ),
                               const SizedBox(width: 2.5),
                               Text(
                                 '${partnerLoc!.batteryLevel}%',
-                                style: const TextStyle(
-                                  color: Colors.amberAccent,
+                                style: TextStyle(
+                                  color: isDark ? Colors.amberAccent : Colors.orange.shade800,
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -1006,8 +1014,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                             },
                             style: TextStyle(
                               color: isOnline
-                                  ? const Color(0xFF00E676)
-                                  : Colors.white.withValues(alpha: 0.6),
+                                  ? (isDark ? const Color(0xFF00E676) : const Color(0xFF2E7D32))
+                                  : (isDark ? Colors.white.withValues(alpha: 0.6) : Colors.grey.shade600),
                               fontWeight: FontWeight.w600,
                               fontSize: 11.5,
                             ),
@@ -1017,8 +1025,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                             isOnline ? '$partnerName • Live' : '$partnerName • Offline',
                             style: TextStyle(
                               color: isOnline
-                                  ? const Color(0xFF00E676)
-                                  : Colors.white.withValues(alpha: 0.6),
+                                  ? (isDark ? const Color(0xFF00E676) : const Color(0xFF2E7D32))
+                                  : (isDark ? Colors.white.withValues(alpha: 0.6) : Colors.grey.shade600),
                               fontWeight: FontWeight.w600,
                               fontSize: 11.5,
                             ),
@@ -1035,7 +1043,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
               _isLiveCardCollapsed
                   ? Icons.keyboard_arrow_up_rounded
                   : Icons.keyboard_arrow_down_rounded,
-              color: Colors.white60,
+              color: isDark ? Colors.white60 : const Color(0xFF6B5F79),
               size: 22,
             ),
           ],

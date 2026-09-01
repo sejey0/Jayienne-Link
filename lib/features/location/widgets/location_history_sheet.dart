@@ -8,8 +8,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
 
-/// Premium Redesigned Bottom Sheet for Interactive Route History Playback
-/// Accurately matches romantic dark theme, supports collapsing into a compact mini player,
+/// Premium Bottom Sheet for Interactive Route History Playback
+/// Dynamically adapts to Light & Dark themes, supports collapsing into a compact mini player,
 /// and includes a dedicated Full-Screen Map toggle.
 class LocationHistorySheet extends StatefulWidget {
   final VoidCallback onClose;
@@ -71,6 +71,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<LocationProvider>();
     final locations = provider.historyLocations;
     final currentIndex = provider.playbackIndex;
@@ -134,30 +135,37 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
             ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
             : const EdgeInsets.fromLTRB(16, 10, 16, 14),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xF21F172E),
-              Color(0xF7281B3D),
-            ],
+          gradient: LinearGradient(
+            colors: isDark
+                ? [
+                    const Color(0xF21F172E),
+                    const Color(0xF7281B3D),
+                  ]
+                : [
+                    Colors.white.withValues(alpha: 0.96),
+                    const Color(0xFFFAF7FC).withValues(alpha: 0.98),
+                  ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
           borderRadius: BorderRadius.circular(_isCollapsed ? 22 : 28),
           border: Border.all(
-            color: AppColors.softRose.withValues(alpha: 0.38),
+            color: isDark
+                ? AppColors.softRose.withValues(alpha: 0.38)
+                : AppColors.softRose.withValues(alpha: 0.32),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.softRose.withValues(alpha: 0.20),
+              color: AppColors.softRose.withValues(alpha: isDark ? 0.20 : 0.14),
               blurRadius: 18,
               spreadRadius: 1,
               offset: const Offset(0, -2),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.65),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+              color: Colors.black.withValues(alpha: isDark ? 0.65 : 0.08),
+              blurRadius: 22,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -177,7 +185,9 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.28),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.28)
+                        : Colors.black.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -186,6 +196,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
               if (_isCollapsed)
                 _buildCollapsedBar(
                   context,
+                  isDark: isDark,
                   provider: provider,
                   isPlaying: isPlaying,
                   currentPoint: currentPoint,
@@ -196,6 +207,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
               else
                 _buildExpandedContent(
                   context,
+                  isDark: isDark,
                   provider: provider,
                   locations: locations,
                   currentIndex: currentIndex,
@@ -224,6 +236,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
   /// Compact Mini Bar when collapsed
   Widget _buildCollapsedBar(
     BuildContext context, {
+    required bool isDark,
     required LocationProvider provider,
     required bool isPlaying,
     required LocationModel? currentPoint,
@@ -231,6 +244,8 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
     required int locationsCount,
     required double currentDistanceKm,
   }) {
+    final iconColor = isDark ? Colors.white70 : const Color(0xFF3B2F4C);
+
     return Row(
       children: [
         // Mini Play/Pause Glowing Button
@@ -276,8 +291,8 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                 children: [
                   Text(
                     currentPoint != null ? currentPoint.formattedTime : '00:00',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : AppColors.deepCharcoal,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
@@ -286,7 +301,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                     decoration: BoxDecoration(
-                      color: AppColors.softRose.withValues(alpha: 0.2),
+                      color: AppColors.softRose.withValues(alpha: isDark ? 0.22 : 0.16),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -304,10 +319,14 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
               Text(
                 '${currentDistanceKm.toStringAsFixed(1)} km traveled',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.65),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.65)
+                      : Colors.grey.shade600,
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -318,7 +337,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
           IconButton(
             icon: Icon(
               widget.isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-              color: widget.isFullscreen ? AppColors.softRose : Colors.white70,
+              color: widget.isFullscreen ? AppColors.softRose : iconColor,
               size: 21,
             ),
             padding: EdgeInsets.zero,
@@ -334,7 +353,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
 
         // Expand Button
         IconButton(
-          icon: const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.white70, size: 23),
+          icon: Icon(Icons.keyboard_arrow_up_rounded, color: iconColor, size: 23),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
           tooltip: 'Expand controls',
@@ -347,7 +366,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
 
         // Close Button
         IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 19),
+          icon: Icon(Icons.close_rounded, color: iconColor, size: 19),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
           tooltip: 'Close Playback',
@@ -363,6 +382,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
   /// Full playback controls and telemetry when expanded
   Widget _buildExpandedContent(
     BuildContext context, {
+    required bool isDark,
     required LocationProvider provider,
     required List<LocationModel> locations,
     required int currentIndex,
@@ -381,6 +401,8 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
     required double totalDistanceKm,
     required double? activeHeading,
   }) {
+    final iconColor = isDark ? Colors.white70 : const Color(0xFF3B2F4C);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -400,11 +422,11 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
               ),
             ),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Route History Playback',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: isDark ? Colors.white : AppColors.deepCharcoal,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.2,
@@ -422,7 +444,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                   widget.isFullscreen
                       ? Icons.fullscreen_exit_rounded
                       : Icons.fullscreen_rounded,
-                  color: widget.isFullscreen ? AppColors.softRose : Colors.white70,
+                  color: widget.isFullscreen ? AppColors.softRose : iconColor,
                   size: 21,
                 ),
                 padding: EdgeInsets.zero,
@@ -438,7 +460,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
 
             // Collapse Button
             IconButton(
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white70, size: 23),
+              icon: Icon(Icons.keyboard_arrow_down_rounded, color: iconColor, size: 23),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               tooltip: 'Collapse',
@@ -451,7 +473,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
 
             // Close Button
             IconButton(
-              icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 19),
+              icon: Icon(Icons.close_rounded, color: iconColor, size: 19),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               tooltip: 'Close',
@@ -470,7 +492,9 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
             height: 36,
             padding: const EdgeInsets.all(2.5),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFFF1EBF7),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -506,7 +530,9 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                           Icon(
                             Icons.favorite_rounded,
                             size: 13,
-                            color: isViewingPartner ? Colors.white : Colors.white60,
+                            color: isViewingPartner
+                                ? Colors.white
+                                : (isDark ? Colors.white60 : const Color(0xFF6B5F79)),
                           ),
                           const SizedBox(width: 5),
                           Flexible(
@@ -515,7 +541,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                               style: TextStyle(
                                 color: isViewingPartner
                                     ? Colors.white
-                                    : Colors.white60,
+                                    : (isDark ? Colors.white60 : const Color(0xFF6B5F79)),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -558,7 +584,9 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                             Icon(
                               Icons.person_rounded,
                               size: 13,
-                              color: !isViewingPartner ? Colors.white : Colors.white60,
+                              color: !isViewingPartner
+                                  ? Colors.white
+                                  : (isDark ? Colors.white60 : const Color(0xFF6B5F79)),
                             ),
                             const SizedBox(width: 5),
                             Text(
@@ -566,7 +594,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                               style: TextStyle(
                                 color: !isViewingPartner
                                     ? Colors.white
-                                    : Colors.white60,
+                                    : (isDark ? Colors.white60 : const Color(0xFF6B5F79)),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -587,13 +615,17 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _buildDatePill(
+              context,
               label: 'Today',
+              isDark: isDark,
               isSelected: _isSameDay(selectedDate, DateTime.now()),
               onTap: () => provider.setSelectedHistoryDate(DateTime.now()),
             ),
             const SizedBox(width: 8),
             _buildDatePill(
+              context,
               label: 'Yesterday',
+              isDark: isDark,
               isSelected: _isSameDay(
                 selectedDate,
                 DateTime.now().subtract(const Duration(days: 1)),
@@ -604,11 +636,13 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
             ),
             const SizedBox(width: 8),
             _buildDatePill(
+              context,
               label: _isSameDay(selectedDate, DateTime.now()) ||
                       _isSameDay(selectedDate,
                           DateTime.now().subtract(const Duration(days: 1)))
                   ? 'Pick Date'
                   : DateFormat('MMM d').format(selectedDate),
+              isDark: isDark,
               icon: Icons.calendar_month_rounded,
               isSelected: !_isSameDay(selectedDate, DateTime.now()) &&
                   !_isSameDay(selectedDate,
@@ -622,10 +656,14 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                   builder: (context, child) {
                     return Theme(
                       data: Theme.of(context).copyWith(
-                        colorScheme: const ColorScheme.dark(
-                          primary: AppColors.softRose,
-                          surface: Color(0xFF1E1A29),
-                        ),
+                        colorScheme: isDark
+                            ? const ColorScheme.dark(
+                                primary: AppColors.softRose,
+                                surface: Color(0xFF1E1A29),
+                              )
+                            : const ColorScheme.light(
+                                primary: AppColors.softRose,
+                              ),
                       ),
                       child: child!,
                     );
@@ -657,13 +695,17 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                 Icon(
                   Icons.explore_off_rounded,
                   size: 36,
-                  color: Colors.white.withValues(alpha: 0.35),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.35)
+                      : Colors.grey.shade400,
                 ),
                 const SizedBox(height: 6),
                 Text(
                   'No route points found for ${_formatDateLabel(selectedDate)}',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.65),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.65)
+                        : Colors.grey.shade600,
                     fontSize: 12.5,
                   ),
                 ),
@@ -683,8 +725,8 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                   currentPoint != null
                       ? '${currentPoint.formattedTime}  •  ${currentDistanceKm.toStringAsFixed(1)} km'
                       : '0.0 km',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
                   ),
@@ -692,7 +734,9 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                 Text(
                   '${totalDistanceKm.toStringAsFixed(1)} km total',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.5)
+                        : Colors.grey.shade600,
                     fontSize: 11.5,
                   ),
                 ),
@@ -704,7 +748,9 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: AppColors.softRose,
-              inactiveTrackColor: Colors.white.withValues(alpha: 0.15),
+              inactiveTrackColor: isDark
+                  ? Colors.white.withValues(alpha: 0.15)
+                  : const Color(0xFFE0D4EC),
               thumbColor: AppColors.softRose,
               overlayColor: AppColors.softRose.withValues(alpha: 0.25),
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7.5),
@@ -727,10 +773,14 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : const Color(0xFFF5EFFB),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : const Color(0xFFE6DCF0),
                   width: 1,
                 ),
               ),
@@ -739,27 +789,31 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                 children: [
                   // Speed
                   _buildTelemetryItem(
+                    isDark: isDark,
                     icon: Icons.speed_rounded,
                     label: currentPoint.speed != null && currentPoint.speed! > 0
                         ? '${(currentPoint.speed! * 3.6).toStringAsFixed(0)} km/h'
                         : '0 km/h',
-                    color: AppColors.lavender,
+                    color: isDark ? AppColors.lavender : const Color(0xFF6B63B5),
                   ),
                   // Heading
                   _buildTelemetryItem(
+                    isDark: isDark,
                     icon: Icons.explore_rounded,
                     label: _getHeadingDirection(activeHeading),
-                    color: Colors.greenAccent,
+                    color: isDark ? Colors.greenAccent : const Color(0xFF2E7D32),
                   ),
                   // Battery
                   if (currentPoint.batteryLevel != null)
                     _buildTelemetryItem(
+                      isDark: isDark,
                       icon: Icons.battery_5_bar_rounded,
                       label: '${currentPoint.batteryLevel}%',
-                      color: Colors.amberAccent,
+                      color: isDark ? Colors.amberAccent : Colors.orange.shade700,
                     ),
                   // Stop Index
                   _buildTelemetryItem(
+                    isDark: isDark,
                     icon: Icons.location_on_rounded,
                     label: '${currentIndex + 1}/${locations.length}',
                     color: AppColors.softRose,
@@ -775,7 +829,9 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
               Container(
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : const Color(0xFFF1EBF7),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -799,7 +855,9 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                         child: Text(
                           '${spd.toInt()}x',
                           style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white60,
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark ? Colors.white60 : const Color(0xFF6B5F79)),
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -814,7 +872,11 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
 
               // Rewind Step
               IconButton(
-                icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 24),
+                icon: Icon(
+                  Icons.skip_previous_rounded,
+                  color: isDark ? Colors.white : const Color(0xFF3B2F4C),
+                  size: 24,
+                ),
                 padding: const EdgeInsets.all(4),
                 constraints: const BoxConstraints(),
                 onPressed: currentIndex > 0
@@ -863,7 +925,11 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
 
               // Forward Step
               IconButton(
-                icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 24),
+                icon: Icon(
+                  Icons.skip_next_rounded,
+                  color: isDark ? Colors.white : const Color(0xFF3B2F4C),
+                  size: 24,
+                ),
                 padding: const EdgeInsets.all(4),
                 constraints: const BoxConstraints(),
                 onPressed: currentIndex < locations.length - 1
@@ -878,7 +944,11 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
 
               // Restart Route Action Button
               IconButton(
-                icon: const Icon(Icons.replay_rounded, color: Colors.white70, size: 19),
+                icon: Icon(
+                  Icons.replay_rounded,
+                  color: isDark ? Colors.white70 : const Color(0xFF5A4D6D),
+                  size: 19,
+                ),
                 padding: const EdgeInsets.all(4),
                 constraints: const BoxConstraints(),
                 onPressed: () {
@@ -894,8 +964,10 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
     );
   }
 
-  Widget _buildDatePill({
+  Widget _buildDatePill(
+    BuildContext context, {
     required String label,
+    required bool isDark,
     IconData? icon,
     required bool isSelected,
     required VoidCallback onTap,
@@ -911,12 +983,16 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.softRose
-              : Colors.white.withValues(alpha: 0.08),
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFFF3EDF8)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? AppColors.softRose
-                : Colors.white.withValues(alpha: 0.15),
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.15)
+                    : const Color(0xFFE2D7ED)),
             width: 1.2,
           ),
           boxShadow: [
@@ -935,14 +1011,18 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
               Icon(
                 icon,
                 size: 13,
-                color: isSelected ? Colors.white : Colors.white70,
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? Colors.white70 : const Color(0xFF4C3E5E)),
               ),
               const SizedBox(width: 4.5),
             ],
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white70,
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? Colors.white70 : const Color(0xFF4C3E5E)),
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
               ),
@@ -954,6 +1034,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
   }
 
   Widget _buildTelemetryItem({
+    required bool isDark,
     required IconData icon,
     required String label,
     required Color color,
@@ -965,8 +1046,8 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: isDark ? Colors.white : AppColors.deepCharcoal,
             fontSize: 11.5,
             fontWeight: FontWeight.w600,
           ),

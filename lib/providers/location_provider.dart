@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -38,7 +39,7 @@ class SyncResult {
 
 /// Senior GIS & Location Provider managing Geolocator streams, battery efficiency,
 /// real-time partner location updates, geodesic distance calculations, and Firebase streaming.
-class LocationProvider extends ChangeNotifier {
+class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
   final OfflineLocationService _locationService = OfflineLocationService.instance;
   final OfflineStorageService _storageService = OfflineStorageService.instance;
   final FirebaseLocationService _firebaseLocationService = FirebaseLocationService.instance;
@@ -51,6 +52,7 @@ class LocationProvider extends ChangeNotifier {
   StreamSubscription<bool>? _offlineStreamSub;
 
   LocationProvider(this._userService, [this._debugProvider]) {
+    WidgetsBinding.instance.addObserver(this);
     _debugProvider?.addListener(_onDebugModeChanged);
     _offlineStreamSub = DebugProvider.offlineModeStream.listen((_) => _onDebugModeChanged());
   }
@@ -154,7 +156,7 @@ class LocationProvider extends ChangeNotifier {
   int get batteryLevel => _batteryLevel;
   BatteryState get batteryState => _batteryState;
   bool get isMyCharging => _batteryState == BatteryState.charging;
-  int? get partnerBatteryLevel => _partnerBatteryLevel ?? _partnerLocation?.batteryLevel;
+  int? get partnerBatteryLevel => _partnerBatteryLevel;
   bool get isPartnerCharging => _isPartnerCharging;
   DateTime? get partnerLastSeen => _partnerLastSeen ?? _partnerLocation?.timestamp;
 
@@ -320,12 +322,19 @@ class LocationProvider extends ChangeNotifier {
       _pendingSyncCount = await _storageService.getUnsyncedCount(userId);
       _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.synced;
 
-      // Fallback: If local SQLite has no last known coordinates, fetch partner latest from Firebase
-      if (_partnerLocation == null && _coupleId != null && _partnerId != null) {
-        _partnerLocation = await _firebaseLocationService.getPartnerLatestLocation(
+      // Fetch latest partner state directly from Firebase Realtime Database
+      if (_coupleId != null && _partnerId != null) {
+        final partnerLoc = await _firebaseLocationService.getPartnerLatestLocation(
           coupleId: _coupleId!,
           partnerId: _partnerId!,
         );
+        if (partnerLoc != null) {
+          _partnerLocation = partnerLoc;
+          _partnerLastSeen = partnerLoc.timestamp;
+          if (partnerLoc.batteryLevel != null) {
+            _partnerBatteryLevel = partnerLoc.batteryLevel;
+          }
+        }
       }
 
       _subscribeToStreams();
@@ -981,8 +990,26 @@ class LocationProvider extends ChangeNotifier {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      // App went to background or user backed out -> immediately mark offline with exact lastSeen timestamp
+      if (_coupleId != null && _userId != null) {
+        _firebaseLocationService.markUserOffline(_coupleId!, _userId!);
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      // App returned to foreground -> push current location & battery immediately
+      if (_coupleId != null && _userId != null) {
+        _refreshLiveBatteryAndSync();
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _offlineStreamSub?.cancel();
     _debugProvider?.removeListener(_onDebugModeChanged);
     _devicePositionSubscription?.cancel();

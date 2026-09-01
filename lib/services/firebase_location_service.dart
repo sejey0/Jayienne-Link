@@ -211,11 +211,25 @@ class FirebaseLocationService {
       final data = snapshot.value;
 
       if (data != null && data is Map) {
-        return LocationModel.fromFirebase(
+        final loc = LocationModel.fromFirebase(
           data,
           coupleId: coupleId,
           partnerId: partnerId,
         );
+
+        if (data['batteryLevel'] != null ||
+            data['isOnline'] != null ||
+            data['lastSeen'] != null) {
+          _partnerBatteryController.add({
+            'batteryLevel': (data['batteryLevel'] as num?)?.toInt(),
+            'isCharging': data['isCharging'] == true,
+            'isOnline': data['isOnline'] == true,
+            'lastSeen': data['lastSeen'] ?? data['timestamp'],
+            'timestamp': data['timestamp'],
+          });
+        }
+
+        return loc;
       }
     } catch (e) {
       debugPrint('⚠️ [FirebaseLocationService] getPartnerLatestLocation error: $e');

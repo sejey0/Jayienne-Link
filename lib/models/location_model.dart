@@ -91,7 +91,7 @@ class LocationModel {
     String? coupleId,
     String? partnerId,
   }) {
-    final timestampVal = map['timestamp'];
+    final timestampVal = map['lastSeen'] ?? map['timestamp'];
     DateTime parsedTime;
     if (timestampVal is int) {
       parsedTime = DateTime.fromMillisecondsSinceEpoch(timestampVal);
@@ -272,13 +272,14 @@ class LocationModel {
 
   /// Check if location is recent (within threshold)
   bool isRecent({Duration threshold = const Duration(minutes: 5)}) {
-    return DateTime.now().difference(timestamp) < threshold;
+    final diff = DateTime.now().difference(timestamp.toLocal());
+    return !diff.isNegative && diff < threshold;
   }
 
   /// Get human-readable time ago string
   String get timeAgo {
-    final diff = DateTime.now().difference(timestamp);
-    if (diff.inSeconds < 60) {
+    final diff = DateTime.now().difference(timestamp.toLocal());
+    if (diff.isNegative || diff.inSeconds < 60) {
       final seconds = diff.inSeconds < 1 ? 1 : diff.inSeconds;
       return '$seconds sec ago';
     }

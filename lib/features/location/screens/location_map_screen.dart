@@ -503,11 +503,12 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                         final arc = _generateGeodesicArc(myPos, partnerPos);
                         final midIndex = arc.length ~/ 2;
                         final mid = arc[midIndex];
-                        final compactDistance = locationProvider.distanceInMeters <= 0.0
+                        final dist = locationProvider.distanceInMeters;
+                        final compactDistance = (dist == null || dist <= 0.0)
                             ? '--'
-                            : locationProvider.distanceInMeters < 1000
-                                ? '${locationProvider.distanceInMeters.round()}m'
-                                : '${(locationProvider.distanceInMeters / 1000).toStringAsFixed(1)}km';
+                            : dist < 1000
+                                ? '${dist.round()}m'
+                                : '${(dist / 1000).toStringAsFixed(1)}km';
 
                         // Calculate tangent angle along the geodesic line
                         final p1 = arc[math.max(0, midIndex - 1)];

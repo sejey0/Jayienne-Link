@@ -393,14 +393,6 @@ class SupabaseDataService {
         stats['movies_count'] = 0;
       }
 
-      try {
-        final locationCount =
-            await client.from('locations').select('*').count(CountOption.exact);
-        stats['locations_count'] = locationCount.count;
-      } catch (e) {
-        stats['locations_count'] = 'Error: $e';
-      }
-
       stopwatch.stop();
       stats['latency_ms'] = stopwatch.elapsedMilliseconds;
       stats['database_type'] = 'Supabase PostgreSQL';

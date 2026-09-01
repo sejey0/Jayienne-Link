@@ -126,7 +126,9 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     // Distance calculation
     final distanceMeters = locationProvider.distanceInMeters;
     String distanceString = '';
-    if (locationProvider.myLatLng != null && locationProvider.partnerLatLng != null) {
+    if (distanceMeters != null &&
+        locationProvider.myLatLng != null &&
+        locationProvider.partnerLatLng != null) {
       final km = distanceMeters / 1000.0;
       if (km < 0.05) {
         distanceString = 'Together';

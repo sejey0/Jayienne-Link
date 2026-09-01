@@ -25,6 +25,10 @@ dependencies:
   supabase_flutter: ^2.5.6
   flutter_dotenv: ^5.1.0
 
+  # Firebase Realtime Engine (Live Location & Battery Telemetry)
+  firebase_core: 3.4.0
+  firebase_database: 11.0.0
+
   # Security & Storage
   flutter_secure_storage: ^9.0.0
   local_auth: ^2.2.0

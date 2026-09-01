@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/milestone_model.dart';
+import 'offline_storage_service.dart';
 import 'supabase_data_service.dart';
 
 /// Database and Storage Service Layer for Couple Milestones & Relationship Analytics
@@ -11,7 +12,6 @@ class SupabaseMilestoneService {
   static const String _couplesTable = 'couples';
   static const String _heartbeatsTable = 'heartbeats';
   static const String _photosTable = 'photo_messages';
-  static const String _locationsTable = 'locations';
   static const String _storageBucket = 'milestones';
 
   final SupabaseClient _client = SupabaseDataService.client;
@@ -182,32 +182,33 @@ class SupabaseMilestoneService {
 
     try {
       // 3. Distance traveled calculation between location records
-      final locationRecords = await _client
-          .from(_locationsTable)
-          .select('latitude, longitude, timestamp')
-          .eq('couple_id', coupleId)
-          .order('timestamp', ascending: true)
-          .limit(200);
+      final currentUserId = SupabaseDataService.currentUserId;
+      if (currentUserId != null) {
+        final locationRecords = await OfflineStorageService.instance.getLocationHistory(
+          currentUserId,
+          limit: 200,
+        );
 
-      if (locationRecords.length >= 2) {
-        const distanceCalc = Distance();
-        double metersTotal = 0.0;
-        for (int i = 0; i < locationRecords.length - 1; i++) {
-          final lat1 = (locationRecords[i]['latitude'] as num).toDouble();
-          final lng1 = (locationRecords[i]['longitude'] as num).toDouble();
-          final lat2 = (locationRecords[i + 1]['latitude'] as num).toDouble();
-          final lng2 = (locationRecords[i + 1]['longitude'] as num).toDouble();
+        if (locationRecords.length >= 2) {
+          const distanceCalc = Distance();
+          double metersTotal = 0.0;
+          for (int i = 0; i < locationRecords.length - 1; i++) {
+            final lat1 = locationRecords[i].latitude;
+            final lng1 = locationRecords[i].longitude;
+            final lat2 = locationRecords[i + 1].latitude;
+            final lng2 = locationRecords[i + 1].longitude;
 
-          final d = distanceCalc.as(
-            LengthUnit.Meter,
-            LatLng(lat1, lng1),
-            LatLng(lat2, lng2),
-          );
-          if (d < 100000) { // filter GPS anomaly jumps (>100km per point)
-            metersTotal += d;
+            final d = distanceCalc.as(
+              LengthUnit.Meter,
+              LatLng(lat1, lng1),
+              LatLng(lat2, lng2),
+            );
+            if (d < 100000) { // filter GPS anomaly jumps (>100km per point)
+              metersTotal += d;
+            }
           }
+          distanceTraveledKm = metersTotal / 1000.0;
         }
-        distanceTraveledKm = metersTotal / 1000.0;
       }
     } catch (e) {
       debugPrint('[SupabaseMilestoneService] Distance calc notice: $e');

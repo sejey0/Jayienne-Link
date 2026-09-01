@@ -752,7 +752,6 @@ echo.
 echo ====================================================
 echo   [SUCCESS] GitHub OTA Release v!NEW_VERSION! Published
 echo   Direct APK: https://github.com/%GH_USER%/%GH_REPO%/releases/download/v!NEW_VERSION!/app-release.apk
-echo   All users opening the app will now be forced to update.
 echo ====================================================
 goto gh_release_done
 
@@ -777,6 +776,23 @@ echo   3. Drag app-release.apk into binaries
 echo   4. Click Publish release
 
 :gh_release_done
+echo.
+if not "%IS_WEB%"=="1" if not "%DEVICE_ID%"=="" (
+    echo ====================================================
+    echo   [AUTO] Deploying Release Build to Connected Device
+    echo ====================================================
+    echo Auto-uninstalling previous build from %DEVICE_ID%...
+    "%ADB%" -s %DEVICE_ID% uninstall %PACKAGE% >nul 2>&1
+    
+    echo Installing new Release APK (v!NEW_VERSION!)...
+    "%ADB%" -s %DEVICE_ID% install -r "build\app\outputs\flutter-apk\app-release.apk"
+    if not errorlevel 1 (
+        echo.
+        echo [SUCCESS] App updated on %DEVICE_ID% to Release v!NEW_VERSION!!
+    ) else (
+        echo [WARNING] Automatic installation on %DEVICE_ID% failed.
+    )
+)
 echo.
 pause
 goto releasemenu

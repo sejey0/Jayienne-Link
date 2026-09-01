@@ -30,6 +30,8 @@ import 'package:jayienne_link/providers/anniversary_provider.dart';
 import 'package:jayienne_link/services/supabase_milestone_service.dart';
 import 'package:jayienne_link/providers/couple_links_provider.dart';
 import 'package:jayienne_link/services/supabase_links_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:jayienne_link/services/firebase_location_service.dart';
 import 'package:jayienne_link/providers/voice_notes_provider.dart';
 import 'package:jayienne_link/services/supabase_voice_note_service.dart';
 
@@ -44,6 +46,17 @@ void main() async {
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
+
+  // Initialize Firebase Realtime Engine (Live Locations & Battery Status)
+  try {
+    if (!kIsWeb) {
+      await Firebase.initializeApp();
+      await FirebaseLocationService.instance.initialize();
+      debugPrint('🔥 Firebase Realtime Engine initialized successfully');
+    }
+  } catch (e) {
+    debugPrint('⚠️ Firebase initialization notice: $e');
+  }
 
   // Debug Supabase in development
   if (kDebugMode) {

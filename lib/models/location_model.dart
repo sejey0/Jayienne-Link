@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 /// Supabase LocationModel for PostgreSQL database
 /// Designed for offline-first storage with sync status tracking
@@ -84,7 +85,63 @@ class LocationModel {
     };
   }
 
-  /// Create from Supabase JSON response
+  /// Create from Firebase Realtime Database payload
+  factory LocationModel.fromFirebase(
+    Map<dynamic, dynamic> map, {
+    String? coupleId,
+    String? partnerId,
+  }) {
+    final timestampVal = map['timestamp'];
+    DateTime parsedTime;
+    if (timestampVal is int) {
+      parsedTime = DateTime.fromMillisecondsSinceEpoch(timestampVal);
+    } else if (timestampVal is String) {
+      parsedTime = DateTime.tryParse(timestampVal) ?? DateTime.now();
+    } else {
+      parsedTime = DateTime.now();
+    }
+
+    return LocationModel(
+      coupleId: coupleId ?? map['coupleId'] as String? ?? '',
+      ownerId: map['userId'] as String? ?? partnerId ?? '',
+      partnerId: partnerId,
+      latitude: (map['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (map['longitude'] as num?)?.toDouble() ?? 0.0,
+      accuracy: (map['accuracy'] as num?)?.toDouble() ?? 10.0,
+      speed: (map['speed'] as num?)?.toDouble(),
+      heading: (map['heading'] as num?)?.toDouble(),
+      batteryLevel: map['batteryLevel'] != null
+          ? (map['batteryLevel'] as num).toInt()
+          : null,
+      timestamp: parsedTime,
+      source: LocationSource.partner,
+      isSynced: true,
+    );
+  }
+
+  /// Convert to Firebase Realtime Database payload
+  Map<String, dynamic> toFirebase({
+    int? batteryLevel,
+    bool? isCharging,
+    bool isOnline = true,
+  }) {
+    return {
+      'userId': ownerId,
+      'coupleId': coupleId,
+      'latitude': latitude,
+      'longitude': longitude,
+      'accuracy': accuracy,
+      if (speed != null) 'speed': speed,
+      if (heading != null) 'heading': heading,
+      if (batteryLevel != null || this.batteryLevel != null)
+        'batteryLevel': batteryLevel ?? this.batteryLevel,
+      if (isCharging != null) 'isCharging': isCharging,
+      'isOnline': isOnline,
+      'timestamp': timestamp.millisecondsSinceEpoch,
+    };
+  }
+
+  /// Create from JSON response
   factory LocationModel.fromJson(
     Map<String, dynamic> json, {
     LocationSource source = LocationSource.partner,
@@ -209,6 +266,9 @@ class LocationModel {
       isSynced: true,
     );
   }
+
+  /// Get LatLng representation for FlutterMap
+  LatLng get latLng => LatLng(latitude, longitude);
 
   /// Check if location is recent (within threshold)
   bool isRecent({Duration threshold = const Duration(minutes: 5)}) {

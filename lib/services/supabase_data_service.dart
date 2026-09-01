@@ -304,6 +304,7 @@ class SupabaseDataService {
     final result = await safeExecute(() async {
       // Get basic statistics from each table
       final stats = <String, dynamic>{};
+      final stopwatch = Stopwatch()..start();
 
       try {
         final userCount =
@@ -322,6 +323,22 @@ class SupabaseDataService {
       }
 
       try {
+        final mediaCount =
+            await client.from('secret_media').select('*').count(CountOption.exact);
+        stats['secret_media_count'] = mediaCount.count;
+      } catch (_) {
+        stats['secret_media_count'] = 0;
+      }
+
+      try {
+        final movieCount =
+            await client.from('movies').select('*').count(CountOption.exact);
+        stats['movies_count'] = movieCount.count;
+      } catch (_) {
+        stats['movies_count'] = 0;
+      }
+
+      try {
         final locationCount =
             await client.from('locations').select('*').count(CountOption.exact);
         stats['locations_count'] = locationCount.count;
@@ -329,13 +346,15 @@ class SupabaseDataService {
         stats['locations_count'] = 'Error: $e';
       }
 
+      stopwatch.stop();
+      stats['latency_ms'] = stopwatch.elapsedMilliseconds;
       stats['database_type'] = 'Supabase PostgreSQL';
       stats['connected'] = true;
       stats['timestamp'] = DateTime.now().toIso8601String();
 
       return stats;
     }, context: 'Database health check');
-    return result ?? {};
+    return result ?? {'connected': false, 'error': 'Check failed'};
   }
 
   /// Initialize database and run any setup if needed

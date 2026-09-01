@@ -373,8 +373,8 @@ class _MoodScreenState extends State<MoodScreen> {
   List<_MoodOption> _buildMoodOptions() {
     return const [
       _MoodOption(
-        key: 'like',
-        label: 'Like',
+        key: 'in_love',
+        label: 'In Love',
         icon: Icons.favorite_rounded,
         color: AppColors.softRose,
         gradientColors: [Color(0xFFFF5252), Color(0xFFD81B60)],

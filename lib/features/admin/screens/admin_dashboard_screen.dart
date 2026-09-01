@@ -12,6 +12,8 @@ import '../../../providers/admin_provider.dart';
 import '../../../providers/debug_provider.dart';
 import '../../../providers/secret_media_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../services/supabase_data_service.dart';
+import '../../../services/vault_cache_manager.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
 
@@ -109,7 +111,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
 
-            // 2. Developer & Debug Mode Controls (Works in Release Mode)
+            // 2. Developer, Debug Mode & Sync/Health Controls (Works in Release Mode)
             if (debugProvider != null)
               SliverToBoxAdapter(
                 child: Padding(
@@ -553,30 +555,375 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ],
 
-          // 3. Restore Hidden Vault Action
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: OutlinedButton.icon(
-              onPressed: () => _handleRestoreAllMedia(context),
-              icon: const Icon(Icons.restore_from_trash_rounded, size: 16),
-              label: const Text(
-                'Sync & Restore Hidden Vault',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          const SizedBox(height: 16),
+          Divider(height: 1, color: isDark ? Colors.white10 : Colors.grey.shade200),
+          const SizedBox(height: 14),
+
+          // ── SYNC & RESTORE HEALTH CENTER ───────────────────────────────────
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 16),
               ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFFF758C),
-                side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+              const SizedBox(width: 10),
+              Text(
+                'Sync & System Health',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppColors.deepCharcoal,
                 ),
               ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'HEALTHY',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4CAF50),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // 3. Database & Cloud Health Diagnostic Button
+          Container(
+            width: double.infinity,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: () => _showSystemHealthModal(context, isDark),
+              icon: const Icon(Icons.monitor_heart_rounded, size: 18, color: Colors.white),
+              label: const Text(
+                'Database & Cloud Health Inspector',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // 4. Row with Sync & Restore Vault and Purge Cache
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: OutlinedButton.icon(
+                  onPressed: () => _handleRestoreAllMedia(context),
+                  icon: const Icon(Icons.sync_rounded, size: 16),
+                  label: const Text(
+                    'Sync & Restore Vault',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFFF758C),
+                    side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: OutlinedButton.icon(
+                  onPressed: () => _handlePurgeCache(context),
+                  icon: const Icon(Icons.cleaning_services_rounded, size: 15),
+                  label: const Text(
+                    'Purge Cache',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFA18CD1),
+                    side: const BorderSide(color: Color(0xFFA18CD1), width: 1.2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- SYSTEM HEALTH DIAGNOSTICS MODAL ---
+  void _showSystemHealthModal(BuildContext context, bool isDark) {
+    HapticFeedback.mediumImpact();
+    final cardBg = isDark ? const Color(0xFF1C1427) : Colors.white;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return FutureBuilder<Map<String, dynamic>>(
+          future: SupabaseDataService.getDatabaseHealth(),
+          builder: (context, snapshot) {
+            final isLoading = snapshot.connectionState == ConnectionState.waiting;
+            final data = snapshot.data ?? {};
+            final isConnected = data['connected'] == true;
+            final latency = data['latency_ms'] ?? 0;
+
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Handle
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white24 : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.monitor_heart_rounded, color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'System & Database Health',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                ),
+                              ),
+                              Text(
+                                isConnected
+                                    ? 'Supabase PostgreSQL • Online'
+                                    : 'Supabase PostgreSQL • Checking...',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isConnected ? const Color(0xFF4CAF50) : Colors.orange,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFFF758C).withValues(alpha: 0.4)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.speed_rounded, size: 13, color: Color(0xFFFF758C)),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${latency}ms',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFFF758C),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 18),
+                    Divider(color: isDark ? Colors.white10 : Colors.grey.shade200),
+                    const SizedBox(height: 12),
+
+                    if (isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(28.0),
+                          child: CircularProgressIndicator(color: Color(0xFFFF758C)),
+                        ),
+                      )
+                    else ...[
+                      // Metrics Grid
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isDark ? Colors.white10 : Colors.grey.shade200,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildHealthMetricRow('Database Engine', data['database_type'] ?? 'PostgreSQL', isDark, Icons.storage_rounded),
+                            _buildHealthMetricRow('Registered Users', '${data['users_count'] ?? 0}', isDark, Icons.people_rounded),
+                            _buildHealthMetricRow('Couples Linked', '${data['couples_count'] ?? 0}', isDark, Icons.favorite_rounded),
+                            _buildHealthMetricRow('Secret Vault Media', '${data['secret_media_count'] ?? 0}', isDark, Icons.lock_rounded),
+                            _buildHealthMetricRow('Movie Dates Logged', '${data['movies_count'] ?? 0}', isDark, Icons.movie_rounded),
+                            _buildHealthMetricRow('Storage Buckets', '4 Active (avatars, photos, vault, audio)', isDark, Icons.cloud_done_rounded),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 20),
+
+                    // Actions Row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              Navigator.pop(ctx);
+                              _handleRestoreAllMedia(context);
+                            },
+                            icon: const Icon(Icons.sync_rounded, size: 16),
+                            label: const Text('Sync Vault', style: TextStyle(fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFFF758C),
+                              side: const BorderSide(color: Color(0xFFFF758C)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: const Icon(Icons.check_rounded, size: 18, color: Colors.white),
+                            label: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF758C),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildHealthMetricRow(String label, String value, bool isDark, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFFFF758C)),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.white70 : Colors.grey.shade700,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : AppColors.deepCharcoal,
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _handlePurgeCache(BuildContext context) async {
+    HapticFeedback.mediumImpact();
+    try {
+      await VaultCacheManager.instance.purgeVaultCache();
+      if (context.mounted) {
+        SnackbarHelper.showSuccess(
+          context,
+          'Temporary vault memory & disk cache purged cleanly.',
+          title: 'Cache Purged',
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        SnackbarHelper.showError(context, 'Failed to purge cache: $e');
+      }
+    }
   }
 
   Future<void> _handleRestoreAllMedia(BuildContext context) async {

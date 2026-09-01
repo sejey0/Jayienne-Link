@@ -1383,39 +1383,78 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
-        title: const Text('Profile Image Storage', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const SingleChildScrollView(
+        backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.cloud_done_rounded, color: Colors.white, size: 18),
+            ),
+            const SizedBox(width: 10),
+            const Text('Cloud Storage Architecture', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Supabase Storage System:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Supabase Storage Architecture',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFFF758C)),
+                    ),
+                    SizedBox(height: 6),
+                    Text('• Primary: Supabase Buckets (avatars, photos, vault, audio)'),
+                    Text('• Fallback: Direct Local Encrypted Cache with Base64 sync'),
+                    Text('• Realtime CDN media streaming for couples'),
+                  ],
+                ),
               ),
-              SizedBox(height: 8),
-              Text(
-                  '• Primary: Supabase Storage - Best performance, supports images & videos'),
-              Text(
-                  '• Fallback: Optimized Base64 - Always available, stored in user profile'),
-              SizedBox(height: 16),
-              Text(
-                'Current Status:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Live Pipeline Features',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFA18CD1)),
+                    ),
+                    SizedBox(height: 6),
+                    Text('• Instant Map Marker live avatars'),
+                    Text('• Zero-lag cached video previews'),
+                    Text('• Automatic background upload retry'),
+                  ],
+                ),
               ),
-              SizedBox(height: 8),
-              Text('• Images work regardless of setup'),
-              Text('• Automatic service selection and fallbacks'),
-              Text('• Display on map markers for you and your partner'),
-              Text('• Automatic optimization for best performance'),
             ],
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Got it!'),
+            child: const Text('Got it!', style: TextStyle(color: Color(0xFFFF758C), fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1432,14 +1471,13 @@ class SettingsScreen extends StatelessWidget {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
-        title: const Text('Testing Supabase Storage', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             CircularProgressIndicator(color: Color(0xFFFF758C)),
             SizedBox(height: 16),
-            Text('Checking Supabase connectivity...'),
+            Text('Testing Supabase Cloud Connection...'),
           ],
         ),
       ),
@@ -1460,48 +1498,102 @@ class SettingsScreen extends StatelessWidget {
           context: context,
           builder: (context) => AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
-            title: const Text('Storage Test Results', style: TextStyle(fontWeight: FontWeight.bold)),
+            backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.cloud_sync_rounded, color: Colors.white, size: 18),
+                ),
+                const SizedBox(width: 10),
+                const Text('Storage Health Report', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ],
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    isConnected
-                        ? 'Connection: SUCCESS'
-                        : 'Connection: FAILED',
-                    style: TextStyle(
-                      color: isConnected ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.bold,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isConnected
+                              ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
+                              : Colors.red.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isConnected ? const Color(0xFF4CAF50) : Colors.red,
+                          ),
+                        ),
+                        child: Text(
+                          isConnected ? '🟢 ONLINE' : '🔴 OFFLINE',
+                          style: TextStyle(
+                            color: isConnected ? const Color(0xFF4CAF50) : Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isInitialized
+                              ? const Color(0xFFA18CD1).withValues(alpha: 0.15)
+                              : Colors.orange.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isInitialized ? const Color(0xFFA18CD1) : Colors.orange,
+                          ),
+                        ),
+                        child: Text(
+                          isInitialized ? 'BUCKETS READY' : 'SETUP PENDING',
+                          style: TextStyle(
+                            color: isInitialized ? const Color(0xFFA18CD1) : Colors.orange,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (stats['error'] == null) ...[
+                          Text('• Total Files: ${stats['total_files'] ?? 'N/A'}'),
+                          const SizedBox(height: 4),
+                          Text('• Stored Size: ${stats['total_size_mb'] ?? 'N/A'} MB'),
+                          const SizedBox(height: 4),
+                          Text('• Active Bucket: ${stats['bucket_name'] ?? 'photos'}'),
+                        ] else
+                          Text('Error: ${stats['error']}', style: const TextStyle(color: Colors.red)),
+                      ],
                     ),
                   ),
-                  Text(
-                    isInitialized
-                        ? 'Storage Bucket: READY'
-                        : 'Storage Bucket: SETUP NEEDED',
-                    style: TextStyle(
-                      color: isInitialized ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Storage Statistics:',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  if (stats['error'] == null) ...[
-                    Text('Files: ${stats['total_files'] ?? 'N/A'}'),
-                    Text('Size: ${stats['total_size_mb'] ?? 'N/A'} MB'),
-                    Text('Bucket: ${stats['bucket_name'] ?? 'N/A'}'),
-                  ] else
-                    Text('Error: ${stats['error']}'),
                 ],
               ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
+                child: const Text('Close', style: TextStyle(color: Color(0xFFFF758C), fontWeight: FontWeight.bold)),
               ),
             ],
           ),

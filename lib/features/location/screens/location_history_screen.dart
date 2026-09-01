@@ -1,6 +1,8 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
@@ -9,11 +11,11 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
-import '../../../widgets/common/app_card.dart';
-import '../../../widgets/smart_profile_image.dart';
 import '../widgets/offline_status_indicator.dart';
 
-/// Timeline view of location history showing synced/offline periods.
+/// Redesigned Location History Screen featuring romantic trip summary cards,
+/// person switcher, quick date filter chips, interactive day map previews,
+/// and 1-tap route playback on the main map.
 class LocationHistoryScreen extends StatefulWidget {
   final int initialTab;
 
@@ -26,28 +28,18 @@ class LocationHistoryScreen extends StatefulWidget {
   State<LocationHistoryScreen> createState() => _LocationHistoryScreenState();
 }
 
-class _LocationHistoryScreenState extends State<LocationHistoryScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  DateTime? _selectedDate;
+class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
+  int _selectedPersonIndex = 0; // 0 = Me, 1 = Partner
+  DateTime? _selectedDateFilter;
+  final Set<String> _expandedDays = {};
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-      length: 2,
-      vsync: this,
-      initialIndex: widget.initialTab,
-    );
+    _selectedPersonIndex = widget.initialTab.clamp(0, 1);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadHistory();
     });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadHistory({bool forceRefresh = false}) async {
@@ -56,16 +48,110 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     await provider.loadPartnerLocationHistory();
   }
 
+  double _calculateTotalDistance(List<LocationModel> locations) {
+    if (locations.length < 2) return 0.0;
+    double total = 0.0;
+    for (int i = 0; i < locations.length - 1; i++) {
+      total += Geolocator.distanceBetween(
+        locations[i].latitude,
+        locations[i].longitude,
+        locations[i + 1].latitude,
+        locations[i + 1].longitude,
+      );
+    }
+    return total / 1000.0; // in km
+  }
+
+  Map<DateTime, List<LocationModel>> _groupByDate(List<LocationModel> locations) {
+    final Map<DateTime, List<LocationModel>> grouped = {};
+
+    for (final location in locations) {
+      final local = location.timestamp.toLocal();
+      final date = DateTime(
+        local.year,
+        local.month,
+        local.day,
+      );
+
+      grouped.putIfAbsent(date, () => []).add(location);
+    }
+
+    // Sort locations inside each day chronologically
+    for (final date in grouped.keys) {
+      grouped[date]!.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    }
+
+    return grouped;
+  }
+
+  List<LocationModel> _filterLocationsByDate(List<LocationModel> locations) {
+    if (_selectedDateFilter == null) return locations;
+
+    return locations.where((loc) {
+      final l = loc.timestamp.toLocal();
+      final f = _selectedDateFilter!.toLocal();
+      return l.year == f.year && l.month == f.month && l.day == f.day;
+    }).toList();
+  }
+
+  String _formatDateTitle(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    if (date == today) {
+      return 'Today • ${DateFormat('MMM d').format(date)}';
+    } else if (date == yesterday) {
+      return 'Yesterday • ${DateFormat('MMM d').format(date)}';
+    } else {
+      return DateFormat('EEEE, MMM d, yyyy').format(date);
+    }
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    final aLocal = a.toLocal();
+    final bLocal = b.toLocal();
+    return aLocal.year == bLocal.year &&
+        aLocal.month == bLocal.month &&
+        aLocal.day == bLocal.day;
+  }
+
+  void _launchMapPlayback(DateTime date, bool isMyRoute, LocationProvider provider) {
+    HapticFeedback.mediumImpact();
+    final targetOwner = isMyRoute
+        ? (provider.currentUser?.id ?? provider.userId)
+        : (provider.partnerUser?.id ?? provider.partnerId);
+
+    if (targetOwner != null) {
+      provider.setSelectedHistoryDate(date, ownerId: targetOwner);
+      provider.toggleHistoryMode(true, ownerId: targetOwner);
+    }
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<LocationProvider>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final partnerName = provider.partnerUser?.displayName.isNotEmpty == true
+        ? provider.partnerUser!.displayName
+        : 'Partner';
+
+    final isMyLocations = _selectedPersonIndex == 0;
+    final activeLocationsList =
+        isMyLocations ? provider.locationHistory : provider.partnerLocationHistory;
+    final filteredLocations = _filterLocationsByDate(activeLocationsList);
+    final groupedDays = _groupByDate(filteredLocations);
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF140F1D) : const Color(0xFFF9F7FB),
       appBar: AppBar(
         title: const Text(
           'Location History',
           style: TextStyle(
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            letterSpacing: -0.2,
             color: Colors.white,
           ),
         ),
@@ -87,62 +173,509 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
           },
         ),
         actions: [
-          const OfflineStatusIndicator(),
-          const SizedBox(width: AppDimensions.spacingSm),
           IconButton(
-            icon: const Icon(Icons.calendar_today, color: Colors.white),
+            icon: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 22),
+            tooltip: 'Clear History',
             onPressed: () {
-              HapticFeedback.lightImpact();
-              _selectDate(context);
+              _confirmDeleteHistory(context, provider);
             },
-            tooltip: 'Select date',
           ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            onSelected: (value) {
-              if (value == 'delete') {
-                _confirmDeleteHistory(context, provider);
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline, color: AppColors.error),
-                    SizedBox(width: 8),
-                    Text('Delete all history'),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          const SizedBox(width: 4),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: 'My Locations'),
-            Tab(text: 'Your Person'),
-          ],
-        ),
         elevation: 0,
       ),
       body: Column(
         children: [
           const OfflineBanner(),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildHistoryList(context, provider.locationHistory, true),
-                _buildHistoryList(
-                  context,
-                  provider.partnerLocationHistory,
-                  false,
+
+          // 1. Person Segmented Pill Switcher (You vs Partner)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF221A30)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : const Color(0xFFEBE6F2),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildPersonTab(
+                    title: 'Your Route',
+                    icon: Icons.person_rounded,
+                    isSelected: _selectedPersonIndex == 0,
+                    accentColor: AppColors.softRose,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _selectedPersonIndex = 0);
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: _buildPersonTab(
+                    title: "$partnerName's Route",
+                    icon: Icons.favorite_rounded,
+                    isSelected: _selectedPersonIndex == 1,
+                    accentColor: AppColors.lavender,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _selectedPersonIndex = 1);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 2. Quick Date Filter Chips Row
+          _buildDateFilters(context),
+
+          const SizedBox(height: 6),
+
+          // 3. Daily Trip Cards List
+          Expanded(
+            child: RefreshIndicator(
+              color: AppColors.softRose,
+              onRefresh: () => _loadHistory(forceRefresh: true),
+              child: groupedDays.isEmpty
+                  ? _buildEmptyState(context, isMyLocations, isFiltered: _selectedDateFilter != null)
+                  : ListView.builder(
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        8,
+                        16,
+                        MediaQuery.of(context).padding.bottom + 28,
+                      ),
+                      itemCount: groupedDays.length,
+                      itemBuilder: (context, index) {
+                        final date = groupedDays.keys.elementAt(index);
+                        final dayLocations = groupedDays[date]!;
+                        return _buildDayTripCard(
+                          context,
+                          date: date,
+                          locations: dayLocations,
+                          isMyRoute: isMyLocations,
+                          provider: provider,
+                        );
+                      },
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersonTab({
+    required String title,
+    required IconData icon,
+    required bool isSelected,
+    required Color accentColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected ? accentColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            if (isSelected)
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.35),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: isSelected ? Colors.white : Colors.grey.shade500,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.grey.shade600,
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateFilters(BuildContext context) {
+    final now = DateTime.now();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          _buildFilterChip(
+            label: 'All Days',
+            icon: Icons.all_inclusive_rounded,
+            isSelected: _selectedDateFilter == null,
+            onTap: () => setState(() => _selectedDateFilter = null),
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            label: 'Today',
+            icon: Icons.today_rounded,
+            isSelected: _selectedDateFilter != null && _isSameDay(_selectedDateFilter!, now),
+            onTap: () => setState(() => _selectedDateFilter = now),
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            label: 'Yesterday',
+            icon: Icons.history_toggle_off_rounded,
+            isSelected: _selectedDateFilter != null &&
+                _isSameDay(_selectedDateFilter!, now.subtract(const Duration(days: 1))),
+            onTap: () => setState(() => _selectedDateFilter = now.subtract(const Duration(days: 1))),
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            label: _selectedDateFilter != null &&
+                    !_isSameDay(_selectedDateFilter!, now) &&
+                    !_isSameDay(_selectedDateFilter!, now.subtract(const Duration(days: 1)))
+                ? DateFormat('MMM d').format(_selectedDateFilter!)
+                : 'Pick Date',
+            icon: Icons.calendar_month_rounded,
+            isSelected: _selectedDateFilter != null &&
+                !_isSameDay(_selectedDateFilter!, now) &&
+                !_isSameDay(_selectedDateFilter!, now.subtract(const Duration(days: 1))),
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _selectedDateFilter ?? now,
+                firstDate: now.subtract(const Duration(days: 60)),
+                lastDate: now,
+                builder: (context, child) {
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: isDark
+                          ? const ColorScheme.dark(
+                              primary: AppColors.softRose,
+                              surface: Color(0xFF1E1A29),
+                            )
+                          : const ColorScheme.light(
+                              primary: AppColors.softRose,
+                            ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+              if (picked != null) {
+                setState(() => _selectedDateFilter = picked);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6.5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.softRose
+              : (isDark ? const Color(0xFF221A30) : Colors.white),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.softRose
+                : (isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFEBE6F2)),
+            width: 1.2,
+          ),
+          boxShadow: [
+            if (isSelected)
+              BoxShadow(
+                color: AppColors.softRose.withValues(alpha: 0.35),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13.5,
+              color: isSelected ? Colors.white : Colors.grey.shade600,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey.shade700,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDayTripCard(
+    BuildContext context, {
+    required DateTime date,
+    required List<LocationModel> locations,
+    required bool isMyRoute,
+    required LocationProvider provider,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final totalKm = _calculateTotalDistance(locations);
+    final startTime = locations.first.formattedTime;
+    final endTime = locations.last.formattedTime;
+    final dateKey = '${date.year}-${date.month}-${date.day}';
+    final isExpanded = _expandedDays.contains(dateKey);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1729) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFEDE9F5),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Card Top Bar (Date Title + "Play on Map" Action Button)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.softRose.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.calendar_today_rounded,
+                    color: AppColors.softRose,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _formatDateTitle(date),
+                        style: TextStyle(
+                          color: isDark ? Colors.white : AppColors.deepCharcoal,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14.5,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      Text(
+                        '${locations.length} points recorded',
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Glowing "Play Route" Action Button
+                GestureDetector(
+                  onTap: () => _launchMapPlayback(date, isMyRoute, provider),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.softRose, Color(0xFFE57388)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.softRose.withValues(alpha: 0.45),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
+                        SizedBox(width: 3),
+                        Text(
+                          'Play Route',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 2. Trip Metrics Summary Strip
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : const Color(0xFFF7F5FA),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildMetricItem(
+                  icon: Icons.timeline_rounded,
+                  label: 'Distance',
+                  value: totalKm > 0 ? '${totalKm.toStringAsFixed(1)} km' : '< 1 km',
+                  color: AppColors.softRose,
+                ),
+                Container(width: 1, height: 24, color: Colors.grey.withValues(alpha: 0.2)),
+                _buildMetricItem(
+                  icon: Icons.access_time_rounded,
+                  label: 'Active Times',
+                  value: '$startTime - $endTime',
+                  color: AppColors.lavender,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // 3. Mini Map Route Preview
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                height: 140,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFEBE6F2),
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: _buildMapPreview(locations, isMyRoute),
+              ),
+            ),
+          ),
+
+          // 4. Collapsible Timeline Accordion
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    setState(() {
+                      if (isExpanded) {
+                        _expandedDays.remove(dateKey);
+                      } else {
+                        _expandedDays.add(dateKey);
+                      }
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          isExpanded ? 'Hide Stop Details' : 'View Stop Details (${locations.length})',
+                          style: const TextStyle(
+                            color: AppColors.softRose,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          isExpanded
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.softRose,
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                if (isExpanded) ...[
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+                  ...locations.map((loc) => _buildStopTimelineItem(loc, isDark)),
+                ],
               ],
             ),
           ),
@@ -151,128 +684,162 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     );
   }
 
-  Widget _buildHistoryList(
-    BuildContext context,
-    List<LocationModel> locations,
-    bool isMyLocations,
-  ) {
-    final provider = context.read<LocationProvider>();
-    final filteredLocations = _filterLocationsByDate(locations);
+  Widget _buildMetricItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (filteredLocations.isEmpty) {
-      return _buildEmptyState(
-        context,
-        isMyLocations,
-        isFiltered: _selectedDate != null,
-      );
-    }
-
-    // Group locations by date
-    final grouped = _groupByDate(filteredLocations);
-
-    return RefreshIndicator(
-      onRefresh: () => _loadHistory(forceRefresh: true),
-      child: ListView.builder(
-        padding: EdgeInsets.fromLTRB(
-          AppDimensions.spacingMd,
-          AppDimensions.spacingMd,
-          AppDimensions.spacingMd,
-          MediaQuery.of(context).padding.bottom + 24,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey.shade500,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
-        itemCount: grouped.length,
-        itemBuilder: (context, index) {
-          final date = grouped.keys.elementAt(index);
-          final dayLocations = grouped[date]!;
+      ],
+    );
+  }
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Date header
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppDimensions.spacingMd,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppDimensions.spacingSm,
-                        vertical: AppDimensions.spacingXs,
+  Widget _buildMapPreview(List<LocationModel> locations, bool isMyRoute) {
+    final points = locations.map((l) => LatLng(l.latitude, l.longitude)).toList();
+    final bounds = LatLngBounds.fromPoints(points);
+
+    return FlutterMap(
+      options: MapOptions(
+        initialCenter: bounds.center,
+        initialZoom: 13,
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.none,
+        ),
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.jayiennelink.app',
+        ),
+        PolylineLayer(
+          polylines: [
+            Polyline(
+              points: points,
+              strokeWidth: 4.0,
+              color: isMyRoute ? AppColors.softRose : AppColors.lavender,
+            ),
+          ],
+        ),
+        MarkerLayer(
+          markers: [
+            if (points.isNotEmpty)
+              Marker(
+                point: points.first,
+                width: 22,
+                height: 22,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF00E676),
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 4,
                       ),
-                      decoration: BoxDecoration(
-                        color: AppColors.lavender.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(
-                          AppDimensions.borderRadiusSmall,
-                        ),
-                      ),
-                      child: Text(
-                        _formatDate(date),
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: AppColors.lavender,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                      ),
-                    ),
-                    const SizedBox(width: AppDimensions.spacingSm),
-                    Text(
-                      '${dayLocations.length} locations',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey,
-                          ),
-                    ),
-                    const Spacer(),
-                    InkWell(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        final targetOwner = isMyLocations
-                            ? (provider.currentUser?.id ?? provider.userId)
-                            : (provider.partnerUser?.id ?? provider.partnerId);
-                        if (targetOwner != null) {
-                          provider.setSelectedHistoryDate(date, ownerId: targetOwner);
-                          provider.toggleHistoryMode(true, ownerId: targetOwner);
-                        }
-                        Navigator.pop(context);
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.softRose.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.softRose.withValues(alpha: 0.4), width: 1),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.play_arrow_rounded, size: 14, color: AppColors.softRose),
-                            SizedBox(width: 4),
-                            Text(
-                              'Play on Map',
-                              style: TextStyle(
-                                color: AppColors.softRose,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              // Map preview for the day
-              _buildDayMapPreview(context, dayLocations, isMyLocations),
-              const SizedBox(height: AppDimensions.spacingSm),
-              // Timeline
-              ...dayLocations.map(
-                (loc) => _buildTimelineItem(context, loc, isMyLocations),
+            if (points.length > 1)
+              Marker(
+                point: points.last,
+                width: 24,
+                height: 24,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isMyRoute ? AppColors.softRose : AppColors.lavender,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.flag_rounded, color: Colors.white, size: 12),
+                ),
               ),
-              const SizedBox(height: AppDimensions.spacingMd),
-            ],
-          );
-        },
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStopTimelineItem(LocationModel loc, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.softRose,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            loc.formattedTime,
+            style: TextStyle(
+              color: isDark ? Colors.white : AppColors.deepCharcoal,
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 12),
+          if (loc.speed != null && loc.speed! > 0)
+            Text(
+              '${(loc.speed! * 3.6).toStringAsFixed(0)} km/h',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 11.5),
+            ),
+          const Spacer(),
+          if (loc.batteryLevel != null)
+            Row(
+              children: [
+                Icon(
+                  Icons.battery_5_bar_rounded,
+                  size: 13,
+                  color: Colors.greenAccent.shade700,
+                ),
+                const SizedBox(width: 2),
+                Text(
+                  '${loc.batteryLevel}%',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 11.5),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
@@ -283,662 +850,58 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
     bool isFiltered = false,
   }) {
     final title = isFiltered
-        ? 'No locations on this date'
+        ? 'No locations recorded on this date'
         : isMyLocations
-            ? 'No location history yet'
-            : 'No locations from your person yet';
+            ? 'No location history recorded yet'
+            : 'No location history from your person yet';
+
     final subtitle = isFiltered
-        ? 'Try another date to see saved locations'
+        ? 'Try selecting another day from the filter pills above.'
         : isMyLocations
-            ? 'Enable location sharing to start tracking'
-            : 'Waiting for your person to share their location';
+            ? 'As you move with the app open, your travel routes will appear here!'
+            : 'When your person shares their location, their history will sync automatically.';
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.spacingXl),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.history,
-              size: 64,
-              color: Colors.grey.shade300,
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.softRose.withValues(alpha: 0.12),
+              ),
+              child: const Icon(
+                Icons.explore_off_rounded,
+                size: 48,
+                color: AppColors.softRose,
+              ),
             ),
-            const SizedBox(height: AppDimensions.spacingMd),
+            const SizedBox(height: 16),
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.grey,
-                  ),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            const SizedBox(height: AppDimensions.spacingSm),
+            const SizedBox(height: 8),
             Text(
               subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey,
-                  ),
               textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade500,
+                height: 1.4,
+              ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  Widget _buildDayMapPreview(
-    BuildContext context,
-    List<LocationModel> locations,
-    bool isMyLocations,
-  ) {
-    if (locations.isEmpty) return const SizedBox.shrink();
-
-    // Create route points
-    final points = locations
-        .map((loc) => LatLng(loc.latitude, loc.longitude))
-        .toList()
-        .reversed
-        .toList();
-
-    // Calculate bounds
-    final bounds = LatLngBounds.fromPoints(points);
-
-    return AppCard(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
-        child: SizedBox(
-          height: 150,
-          child: FlutterMap(
-            options: MapOptions(
-              initialCenter: bounds.center,
-              initialZoom: 13,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.none,
-              ),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.jayiennelink.app',
-              ),
-              // Route line
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: points,
-                    strokeWidth: 3,
-                    color:
-                        isMyLocations ? AppColors.lavender : AppColors.softRose,
-                  ),
-                ],
-              ),
-              // Markers at start and end
-              MarkerLayer(
-                markers: [
-                  // Start marker
-                  if (points.isNotEmpty)
-                    Marker(
-                      point: points.first,
-                      width: 20,
-                      height: 20,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.success,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                      ),
-                    ),
-                  // End marker
-                  if (points.length > 1)
-                    Marker(
-                      point: points.last,
-                      width: 24,
-                      height: 24,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isMyLocations
-                              ? AppColors.lavender
-                              : AppColors.softRose,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: const Icon(
-                          Icons.flag,
-                          color: Colors.white,
-                          size: 12,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTimelineItem(
-    BuildContext context,
-    LocationModel location,
-    bool isMyLocations,
-  ) {
-    final isSynced = location.isSynced;
-    final isOfflineCapture = location.source == LocationSource.background;
-
-    return InkWell(
-      onTap: () => _showLocationOnMap(context, location, isMyLocations),
-      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
-      child: Padding(
-        padding: const EdgeInsets.only(left: AppDimensions.spacingMd),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Timeline line and dot
-            Column(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isSynced ? AppColors.success : AppColors.warning,
-                    border: Border.all(
-                      color: Colors.white,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 2,
-                  height: 40,
-                  color: Colors.grey.shade300,
-                ),
-              ],
-            ),
-            const SizedBox(width: AppDimensions.spacingMd),
-            // Content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        location.formattedTime,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                      const SizedBox(width: AppDimensions.spacingSm),
-                      if (!isSynced)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.warning.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Pending sync',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: AppColors.warning,
-                                ),
-                          ),
-                        ),
-                      if (isOfflineCapture)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.lavender.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Background',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: AppColors.lavender,
-                                ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${location.latitude.toStringAsFixed(5)}, ${location.longitude.toStringAsFixed(5)}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.lavender,
-                                    fontFamily: 'monospace',
-                                    decoration: TextDecoration.underline,
-                                  ),
-                        ),
-                      ),
-                      const Icon(
-                        Icons.map_outlined,
-                        color: AppColors.lavender,
-                        size: 16,
-                      ),
-                    ],
-                  ),
-                  Text(
-                    'Accuracy: ${location.accuracy.toStringAsFixed(1)}m',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey.shade400,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            // Tap to view on map indicator
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.lavender,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Show a specific location on a map in a bottom sheet
-  void _showLocationOnMap(
-    BuildContext context,
-    LocationModel location,
-    bool isMyLocations,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final provider = context.watch<LocationProvider>();
-        final currentUser = provider.currentUser;
-        final partnerUser = provider.partnerUser;
-
-        return SafeArea(
-          top: false,
-          child: Container(
-            height: MediaQuery.of(context).size.height * 0.6,
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppDimensions.borderRadiusLarge),
-              ),
-            ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(AppDimensions.spacingMd),
-                child: Row(
-                  children: [
-                    const Icon(Icons.location_on, color: AppColors.softRose),
-                    const SizedBox(width: AppDimensions.spacingSm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            location.formattedTime,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                          Text(
-                            '${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey,
-                                      fontFamily: 'monospace',
-                                    ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: AppDimensions.spacingMd,
-                  right: AppDimensions.spacingMd,
-                  bottom: AppDimensions.spacingSm,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildProfileAvatar(
-                      context,
-                      label: 'You',
-                      photoUrl: currentUser?.photoUrl,
-                      accentColor: AppColors.lavender,
-                      fallbackIcon: Icons.person,
-                      isHighlighted: isMyLocations,
-                    ),
-                    const SizedBox(width: AppDimensions.spacingLg),
-                    _buildProfileAvatar(
-                      context,
-                      label: 'Your Person',
-                      photoUrl: partnerUser?.photoUrl,
-                      accentColor: AppColors.softRose,
-                      fallbackIcon: Icons.favorite,
-                      isHighlighted: !isMyLocations,
-                    ),
-                  ],
-                ),
-              ),
-              // Map
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(AppDimensions.borderRadiusLarge),
-                  ),
-                  child: FlutterMap(
-                    options: MapOptions(
-                      initialCenter:
-                          LatLng(location.latitude, location.longitude),
-                      initialZoom: 16,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.jayiennelink.app',
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point:
-                                LatLng(location.latitude, location.longitude),
-                            width: 38,
-                            height: 38,
-                            child: _buildSingleMapMarker(
-                              photoUrl: isMyLocations
-                                  ? currentUser?.photoUrl
-                                  : partnerUser?.photoUrl,
-                              accentColor: isMyLocations
-                                  ? AppColors.lavender
-                                  : AppColors.softRose,
-                              fallbackIcon:
-                                  isMyLocations ? Icons.person : Icons.favorite,
-                              size: 38,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Info bar
-              Container(
-                padding: const EdgeInsets.all(AppDimensions.spacingMd),
-                decoration: BoxDecoration(
-                  color: AppColors.lavender.withValues(alpha: 0.1),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildInfoItem(
-                      context,
-                      Icons.gps_fixed,
-                      'Accuracy',
-                      '${location.accuracy.toStringAsFixed(1)}m',
-                    ),
-                    _buildInfoItem(
-                      context,
-                      location.isSynced ? Icons.cloud_done : Icons.cloud_off,
-                      'Status',
-                      location.isSynced ? 'Synced' : 'Pending',
-                    ),
-                    _buildInfoItem(
-                      context,
-                      Icons.schedule,
-                      'Time',
-                      location.timeAgo,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-    );
-  }
-
-  Widget _buildProfileAvatar(
-    BuildContext context, {
-    required String label,
-    required String? photoUrl,
-    required Color accentColor,
-    required IconData fallbackIcon,
-    required bool isHighlighted,
-  }) {
-    const size = AppDimensions.avatarSizeSmall;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: accentColor.withValues(alpha: isHighlighted ? 1 : 0.5),
-              width: isHighlighted ? 2 : 1,
-            ),
-          ),
-          child: ClipOval(
-            child: SmartProfileImage(
-              imageUrl: photoUrl,
-              width: size,
-              height: size,
-              placeholder: _buildAvatarPlaceholder(
-                size,
-                fallbackIcon,
-                accentColor,
-              ),
-              errorWidget: _buildAvatarPlaceholder(
-                size,
-                fallbackIcon,
-                accentColor,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: AppDimensions.spacingXs),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: accentColor,
-                fontWeight: isHighlighted ? FontWeight.w600 : FontWeight.w500,
-              ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSingleMapMarker({
-    required String? photoUrl,
-    required Color accentColor,
-    required IconData fallbackIcon,
-    required double size,
-  }) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: accentColor,
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: accentColor.withValues(alpha: 0.35),
-            blurRadius: 8,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: ClipOval(
-        child: SmartProfileImage(
-          imageUrl: photoUrl,
-          width: size,
-          height: size,
-          placeholder: _buildAvatarPlaceholder(
-            size,
-            fallbackIcon,
-            accentColor,
-          ),
-          errorWidget: _buildAvatarPlaceholder(
-            size,
-            fallbackIcon,
-            accentColor,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAvatarPlaceholder(
-    double size,
-    IconData icon,
-    Color accentColor,
-  ) {
-    return Container(
-      width: size,
-      height: size,
-      color: accentColor.withValues(alpha: 0.15),
-      child: Icon(
-        icon,
-        color: accentColor,
-        size: 20,
-      ),
-    );
-  }
-
-  Widget _buildInfoItem(
-    BuildContext context,
-    IconData icon,
-    String label,
-    String value,
-  ) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 20, color: AppColors.lavender),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey,
-              ),
-        ),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-      ],
-    );
-  }
-
-  Map<DateTime, List<LocationModel>> _groupByDate(
-      List<LocationModel> locations) {
-    final Map<DateTime, List<LocationModel>> grouped = {};
-
-    for (final location in locations) {
-      final local = location.timestamp.toLocal();
-      final date = DateTime(
-        local.year,
-        local.month,
-        local.day,
-      );
-
-      grouped.putIfAbsent(date, () => []).add(location);
-    }
-
-    return grouped;
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-
-    if (date == today) {
-      return 'Today';
-    } else if (date == yesterday) {
-      return 'Yesterday';
-    } else {
-      return DateFormat('MMM d, yyyy').format(date);
-    }
-  }
-
-  Future<void> _selectDate(BuildContext context) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime.now().subtract(const Duration(days: 30)),
-      lastDate: DateTime.now(),
-    );
-
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
-    }
-  }
-
-  List<LocationModel> _filterLocationsByDate(List<LocationModel> locations) {
-    if (_selectedDate == null) return locations;
-
-    return locations
-        .where((location) => _isSameDay(location.timestamp, _selectedDate!))
-        .toList();
-  }
-
-  bool _isSameDay(DateTime a, DateTime b) {
-    final aLocal = a.toLocal();
-    final bLocal = b.toLocal();
-    return aLocal.year == bLocal.year &&
-        aLocal.month == bLocal.month &&
-        aLocal.day == bLocal.day;
   }
 
   Future<void> _confirmDeleteHistory(
@@ -947,6 +910,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
   ) async {
     HapticFeedback.heavyImpact();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -978,7 +942,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'Delete Location History?',
+              'Clear Location History?',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,
@@ -988,7 +952,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'This will permanently delete all your recorded location history. This action cannot be undone.',
+              'This will permanently delete all your recorded local location trails.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13.5,
@@ -1058,7 +1022,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen>
       if (context.mounted) {
         SnackbarHelper.showSuccess(
           context,
-          'Location history deleted',
+          'Location history cleared',
         );
       }
     }

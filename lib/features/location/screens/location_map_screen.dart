@@ -50,7 +50,6 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   bool _isSatelliteView = true;
   bool _isFullscreen = false;
   bool _isBothSelected = false;
-  bool _isLiveCardCollapsed = false;
   bool _isSearching = false;
   bool _isSideMenuCollapsed = false;
   MapboxPlace? _searchedPlace;
@@ -1243,18 +1242,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
-        setState(() {
-          _isLiveCardCollapsed = !_isLiveCardCollapsed;
-        });
+        _centerPartner(locationProvider);
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
+      child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 14),
-        padding: EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: _isLiveCardCollapsed ? 9 : 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8.5),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isDark
@@ -1269,7 +1261,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isDark
                 ? AppColors.softRose.withValues(alpha: 0.28)
@@ -1279,22 +1271,22 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
           boxShadow: [
             BoxShadow(
               color: AppColors.softRose.withValues(alpha: isDark ? 0.16 : 0.12),
-              blurRadius: 16,
+              blurRadius: 14,
               spreadRadius: 1,
               offset: const Offset(0, -2),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 6),
+              color: Colors.black.withValues(alpha: isDark ? 0.50 : 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Row(
           children: [
-            // Glowing Heart Pin Icon
+            // Compact Glowing Heart Pin Icon
             Container(
-              padding: const EdgeInsets.all(9),
+              padding: const EdgeInsets.all(7.5),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [AppColors.softRose, Color(0xFFE57388)],
@@ -1304,8 +1296,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.softRose.withValues(alpha: 0.45),
-                    blurRadius: 8,
+                    color: AppColors.softRose.withValues(alpha: 0.40),
+                    blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -1313,12 +1305,12 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
               child: const Icon(
                 Icons.favorite_rounded,
                 color: Colors.white,
-                size: 18,
+                size: 15,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
 
-            // Distance & Status Content
+            // Distance & Status Content (Compressed)
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1330,21 +1322,21 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                         locationProvider.formattedDistance,
                         style: TextStyle(
                           color: isDark ? Colors.white : AppColors.deepCharcoal,
-                          fontSize: 15.5,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.2,
                         ),
                       ),
-                      // Fresh Live Battery Badge (Only rendered when partner is strictly ONLINE)
-                      if (isOnline && partnerBattery != null && !_isLiveCardCollapsed) ...[
-                        const SizedBox(width: 8),
+                      // Fresh Live Battery Badge (Only rendered when strictly ONLINE)
+                      if (isOnline && partnerBattery != null) ...[
+                        const SizedBox(width: 7),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          padding: const EdgeInsets.symmetric(horizontal: 5.5, vertical: 1.2),
                           decoration: BoxDecoration(
                             color: isPartnerCharging
                                 ? const Color(0xFF00E676).withValues(alpha: isDark ? 0.18 : 0.14)
                                 : Colors.amberAccent.withValues(alpha: isDark ? 0.18 : 0.14),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(7),
                             border: Border.all(
                               color: isPartnerCharging
                                   ? const Color(0xFF00E676).withValues(alpha: 0.5)
@@ -1366,16 +1358,16 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                                 color: isPartnerCharging
                                     ? (isDark ? const Color(0xFF00E676) : const Color(0xFF2E7D32))
                                     : (isDark ? Colors.amberAccent : Colors.orange.shade800),
-                                size: 11,
+                                size: 10.5,
                               ),
-                              const SizedBox(width: 2.5),
+                              const SizedBox(width: 2),
                               Text(
                                 '$partnerBattery%${isPartnerCharging ? " ⚡" : ""}',
                                 style: TextStyle(
                                   color: isPartnerCharging
                                       ? (isDark ? const Color(0xFF00E676) : const Color(0xFF2E7D32))
                                       : (isDark ? Colors.amberAccent : Colors.orange.shade800),
-                                  fontSize: 10.5,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -1385,68 +1377,73 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                       ],
                     ],
                   ),
-                  if (!_isLiveCardCollapsed) ...[
-                    const SizedBox(height: 2.5),
-                    Row(
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isOnline ? const Color(0xFF00E676) : Colors.grey.shade400,
-                            boxShadow: [
-                              if (isOnline)
-                                BoxShadow(
-                                  color: const Color(0xFF00E676).withValues(alpha: 0.6),
-                                  blurRadius: 4,
-                                  spreadRadius: 1,
-                                ),
-                            ],
+                  const SizedBox(height: 1.5),
+                  Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isOnline ? const Color(0xFF00E676) : Colors.grey.shade400,
+                          boxShadow: [
+                            if (isOnline)
+                              BoxShadow(
+                                color: const Color(0xFF00E676).withValues(alpha: 0.6),
+                                blurRadius: 3,
+                                spreadRadius: 0.5,
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      if (partnerLoc != null)
+                        LiveTimeText(
+                          textBuilder: () {
+                            if (isOnline) {
+                              return '$partnerName • Live (${partnerLoc.timeAgo})';
+                            }
+                            return '$partnerName • Offline';
+                          },
+                          style: TextStyle(
+                            color: isOnline
+                                ? (isDark ? const Color(0xFF00E676) : const Color(0xFF2E7D32))
+                                : (isDark ? Colors.white.withValues(alpha: 0.6) : Colors.grey.shade600),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        )
+                      else
+                        Text(
+                          isOnline ? '$partnerName • Live' : '$partnerName • Offline',
+                          style: TextStyle(
+                            color: isOnline
+                                ? (isDark ? const Color(0xFF00E676) : const Color(0xFF2E7D32))
+                                : (isDark ? Colors.white.withValues(alpha: 0.6) : Colors.grey.shade600),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        if (partnerLoc != null)
-                          LiveTimeText(
-                            textBuilder: () {
-                              if (isOnline) {
-                                return '$partnerName • Live (${partnerLoc.timeAgo})';
-                              }
-                              return '$partnerName • Offline';
-                            },
-                            style: TextStyle(
-                              color: isOnline
-                                  ? (isDark ? const Color(0xFF00E676) : const Color(0xFF2E7D32))
-                                  : (isDark ? Colors.white.withValues(alpha: 0.6) : Colors.grey.shade600),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 11.5,
-                            ),
-                          )
-                        else
-                          Text(
-                            isOnline ? '$partnerName • Live' : '$partnerName • Offline',
-                            style: TextStyle(
-                              color: isOnline
-                                  ? (isDark ? const Color(0xFF00E676) : const Color(0xFF2E7D32))
-                                  : (isDark ? Colors.white.withValues(alpha: 0.6) : Colors.grey.shade600),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 11.5,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ],
               ),
             ),
 
-            // Collapse / Expand Chevron
-            Icon(
-              _isLiveCardCollapsed
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-              color: isDark ? Colors.white60 : const Color(0xFF6B5F79),
-              size: 22,
+            // Quick Center Partner Button
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : AppColors.softRose.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.my_location_rounded,
+                size: 15,
+                color: isDark ? AppColors.softRose : AppColors.deepCharcoal,
+              ),
             ),
           ],
         ),

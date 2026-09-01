@@ -286,7 +286,6 @@ echo Connecting to %CONNECT_ADDR%...
 "%ADB%" connect %CONNECT_ADDR%
 timeout /t 1 /nobreak >nul
 
-REM Extract base IP from connect address
 set "EXTRACTED_IP="
 for /f "tokens=1 delims=:" %%a in ("%CONNECT_ADDR%") do set "EXTRACTED_IP=%%a"
 
@@ -404,7 +403,6 @@ echo Active Target: %DEVICE_ID% (Android)
 echo ----------------------------------------
 echo.
 
-REM Check if app is installed
 "%ADB%" -s %DEVICE_ID% shell pm list packages | findstr /i "%PACKAGE%" >nul 2>&1
 if errorlevel 1 (
     echo App is not yet installed on %DEVICE_ID%. Building and installing...
@@ -497,7 +495,6 @@ if not "%DEVICE_ID%"=="" (
     )
 )
 
-REM Auto-detect connected Android device
 set "DEVICE_ID="
 "%ADB%" devices > "%~dp0.temp_devices" 2>nul
 if exist "%~dp0.temp_devices" (
@@ -509,7 +506,6 @@ if exist "%~dp0.temp_devices" (
     del "%~dp0.temp_devices" >nul 2>&1
 )
 
-REM If no active device, attempt reconnect to saved IP
 if "%DEVICE_ID%"=="" (
     if not "%SAVED_IP%"=="" (
         echo Attempting to reconnect to saved phone IP %SAVED_IP%:5555...
@@ -645,7 +641,6 @@ echo.
 set "GH_USER=sejey0"
 set "GH_REPO=Jayienne-Link"
 
-REM 1. Get current version if version.json exists
 set "CURRENT_VER=1.0.0"
 set "CURRENT_BUILD=1"
 if exist "version.json" (
@@ -653,7 +648,6 @@ if exist "version.json" (
     for /f "delims=" %%b in ('powershell -NoProfile -Command "(Get-Content 'version.json' -Raw | ConvertFrom-Json).build_number"') do set "CURRENT_BUILD=%%b"
 )
 
-REM Calculate next default patch version (e.g. 1.0.1 -> 1.0.2)
 set "DEFAULT_NEXT_VER=1.0.1"
 for /f "delims=" %%p in ('powershell -NoProfile -Command "$p = '!CURRENT_VER!'.Split('.'); if ($p.Length -ge 3) { $p[2] = [string]([int]$p[2] + 1); $p -join '.' } elseif ($p.Length -eq 2) { $p[0] + '.' + $p[1] + '.1' } else { '!CURRENT_VER!.0.1' }"') do set "DEFAULT_NEXT_VER=%%p"
 
@@ -702,7 +696,6 @@ powershell -NoProfile -Command ^
     "}; " ^
     "$jsonObj | ConvertTo-Json -Depth 4 | Set-Content -Path 'version.json' -Encoding UTF8"
 
-REM Update pubspec.yaml version string
 powershell -NoProfile -Command ^
     "(Get-Content 'pubspec.yaml') -replace '^version:\s*.*$', 'version: !NEW_VERSION!+!NEW_BUILD!' | Set-Content 'pubspec.yaml'"
 
@@ -812,12 +805,18 @@ if exist "build\app\outputs\flutter-apk" (
     explorer "build\app\outputs\flutter-apk"
 )
 echo.
+echo Auto-uninstalling existing build to prevent signature mismatch...
+if not "%IS_WEB%"=="1" if not "%DEVICE_ID%"=="" "%ADB%" -s %DEVICE_ID% uninstall %PACKAGE% >nul 2>&1
+
 echo Step 3/3: Running Release build on device...
 call flutter run --release -d %DEVICE_ID%
 goto handle_run_end
 
 :buildrun
 echo.
+echo Auto-uninstalling existing build to prevent signature mismatch...
+if not "%IS_WEB%"=="1" if not "%DEVICE_ID%"=="" "%ADB%" -s %DEVICE_ID% uninstall %PACKAGE% >nul 2>&1
+
 echo Building and running app (release)...
 echo.
 call flutter run --release -d %DEVICE_ID%
@@ -829,6 +828,10 @@ echo Cleaning and rebuilding app...
 echo.
 call flutter clean
 call flutter pub get
+
+echo Auto-uninstalling existing build to prevent signature mismatch...
+if not "%IS_WEB%"=="1" if not "%DEVICE_ID%"=="" "%ADB%" -s %DEVICE_ID% uninstall %PACKAGE% >nul 2>&1
+
 call flutter run --release -d %DEVICE_ID%
 goto handle_run_end
 
@@ -836,7 +839,6 @@ goto handle_run_end
 echo.
 if "%IS_WEB%"=="1" goto web_menu
 
-REM Verify if device is still reachable
 "%ADB%" -s %DEVICE_ID% get-state >nul 2>&1
 if errorlevel 1 (
     echo ====================================================

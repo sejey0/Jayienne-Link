@@ -1505,10 +1505,10 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
         emptySubtitle = 'Try another movie title or keyword';
       } else if (_ratingFilter == MovieRatingFilter.unrated) {
         emptyTitle = 'All Caught Up!';
-        emptySubtitle = 'All watched movies have both ratings and reviews from both of you!';
+        emptySubtitle = 'All watched movies have both ratings and reviews from both of you.';
       } else if (_ratingFilter == MovieRatingFilter.rated) {
-        emptyTitle = 'No Fully Rated Movies Yet';
-        emptySubtitle = 'Rate and review your watched movies to see them here.';
+        emptyTitle = 'No Fully Reviewed Movies';
+        emptySubtitle = 'Complete your ratings and reviews for watched movies to see them here.';
       }
 
       return Column(
@@ -1566,8 +1566,8 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
 
     final filterItems = [
       (MovieRatingFilter.all, 'All', rawWatched.length, Icons.apps_rounded),
-      (MovieRatingFilter.unrated, 'Not Rated Yet', unratedCount, Icons.star_border_rounded),
-      (MovieRatingFilter.rated, 'Rated', ratedCount, Icons.star_rounded),
+      (MovieRatingFilter.unrated, 'Needs Review', unratedCount, Icons.rate_review_outlined),
+      (MovieRatingFilter.rated, 'Fully Reviewed', ratedCount, Icons.star_rounded),
     ];
 
     return Padding(

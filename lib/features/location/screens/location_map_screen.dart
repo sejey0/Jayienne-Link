@@ -14,7 +14,6 @@ import '../../../providers/user_provider.dart';
 import '../../../services/offline_location_service.dart';
 import '../../../widgets/common/live_time_text.dart';
 import '../widgets/location_history_sheet.dart';
-import '../widgets/location_share_toggle.dart';
 import '../widgets/offline_status_indicator.dart';
 import '../widgets/partner_avatar_marker.dart';
 
@@ -89,11 +88,14 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
       if (!mounted) return;
       final provider = context.read<LocationProvider>();
 
-      // Auto-resume location tracking if sharing is enabled and permissions allow
-      if (provider.isSharingEnabled &&
-          (provider.permissionStatus == LocationPermissionStatus.whileInUse ||
-              provider.permissionStatus == LocationPermissionStatus.always)) {
+      // Auto-start location tracking & live sync without needing to tap anything
+      if (provider.permissionStatus.canTrack) {
         await provider.startTracking();
+      } else {
+        await provider.requestPermission();
+        if (provider.permissionStatus.canTrack) {
+          await provider.startTracking();
+        }
       }
 
       _refreshLocations();
@@ -887,6 +889,17 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                               ),
                             ),
 
+                            // Recenter to My Location
+                            if (myPos != null)
+                              IconButton(
+                                icon: const Icon(Icons.my_location_rounded, color: AppColors.lavender, size: 22),
+                                onPressed: () {
+                                  HapticFeedback.lightImpact();
+                                  _mapController.move(myPos, 16.0);
+                                },
+                                tooltip: 'My Location',
+                              ),
+
                             // Fit Camera Icon Shortcut
                             IconButton(
                               icon: const Icon(Icons.fullscreen_rounded, color: AppColors.softRose, size: 22),
@@ -909,10 +922,6 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-
-                        // Location Sharing Toggle Bar
-                        const LocationShareToggle(),
                       ],
                     ),
                   ),

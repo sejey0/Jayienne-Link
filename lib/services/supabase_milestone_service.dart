@@ -123,17 +123,21 @@ class SupabaseMilestoneService {
     }
   }
 
-  /// Fetch couple's anniversary date from couples table
+  /// Fetch couple's anniversary date from couples table (fallback to created_at)
   Future<DateTime?> fetchAnniversaryDate(String coupleId) async {
     try {
       final response = await _client
           .from(_couplesTable)
-          .select('anniversary')
+          .select('anniversary, created_at')
           .eq('id', coupleId)
           .maybeSingle();
 
-      if (response != null && response['anniversary'] != null) {
-        return DateTime.parse(response['anniversary'] as String);
+      if (response != null) {
+        if (response['anniversary'] != null) {
+          return DateTime.parse(response['anniversary'] as String);
+        } else if (response['created_at'] != null) {
+          return DateTime.parse(response['created_at'] as String);
+        }
       }
     } catch (e) {
       debugPrint('[SupabaseMilestoneService] Error fetching anniversary date: $e');

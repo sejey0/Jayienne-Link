@@ -300,7 +300,7 @@ void main() async {
               coupleId: coupleId,
               userId: user.id,
               partnerId: partnerId,
-              initialAnniversaryDate: couple?.anniversary,
+              initialAnniversaryDate: couple?.anniversary ?? couple?.createdAt,
             );
             return safeProv;
           },

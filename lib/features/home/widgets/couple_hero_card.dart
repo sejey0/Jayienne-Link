@@ -183,19 +183,21 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // 1. Top Romantic Header Bar (Active Status on left, Seconds ticker & arrow on right)
-                  _buildHeaderRow(
-                    context,
-                    anniversaryProvider,
-                    hasDate,
-                    isPartnerOnline: isPartnerOnline,
-                    isLinked: partner != null,
-                    statusText: _getPartnerStatusText(
+                  if (partner != null || hasDate) ...[
+                    _buildHeaderRow(
+                      context,
+                      anniversaryProvider,
+                      hasDate,
                       isPartnerOnline: isPartnerOnline,
-                      partnerLoc: partnerLoc,
-                      partner: partner,
+                      isLinked: partner != null,
+                      statusText: _getPartnerStatusText(
+                        isPartnerOnline: isPartnerOnline,
+                        partnerLoc: partnerLoc,
+                        partner: partner,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
+                    const SizedBox(height: 18),
+                  ],
 
                   // 2. Dual Avatars with Pulsing Beating Heart in Center
                   _buildDualAvatarsSection(
@@ -204,13 +206,12 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                     partnerPhotoUrl: partner?.photoUrl,
                     isPartnerOnline: isPartnerOnline,
                   ),
-                  const SizedBox(height: 18),
 
                   // 3. Prominent Live Love Counter
-                  if (hasDate)
-                    _buildLoveCounterBody(context, anniversaryProvider)
-                  else
-                    _buildSetDatePrompt(context, anniversaryProvider),
+                  if (hasDate) ...[
+                    const SizedBox(height: 18),
+                    _buildLoveCounterBody(context, anniversaryProvider),
+                  ],
 
                   // 5. Expandable Detailed Duration & Milestone Progress
                   if (hasDate && _isExpanded) ...[
@@ -766,52 +767,6 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     );
   }
 
-  /// Prompt to set anniversary if missing
-  Widget _buildSetDatePrompt(
-    BuildContext context,
-    AnniversaryProvider provider,
-  ) {
-    return Column(
-      children: [
-        const Text(
-          'When did your love story begin?',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Set your anniversary date to start the live counter.',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        if (kDebugMode) ...[
-          const SizedBox(height: 10),
-          ElevatedButton.icon(
-            onPressed: () => _showDatePickerDialog(context, provider),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFFFF758C),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-            ),
-            icon: const Icon(Icons.calendar_month_rounded, size: 16),
-            label: const Text(
-              'Set Anniversary Date',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
 
   /// Bottom Partner Vitals Dock (Distance • Battery / Connection)
   Widget _buildPartnerVitalsBar(

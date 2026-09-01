@@ -47,7 +47,7 @@ class MoviePosterWidget extends StatelessWidget {
   bool get _hasValidImage =>
       _isNetworkUrl || _isDataUri || (localFile != null && localFile!.existsSync());
 
-  /// Open high-resolution full-screen pinch-to-zoom viewer with description toggle in header
+  /// Open high-resolution full-screen pinch-to-zoom viewer with description button in header
   static void showPosterZoom(
     BuildContext context, {
     String? posterUrl,
@@ -71,7 +71,7 @@ class MoviePosterWidget extends StatelessWidget {
       barrierColor: Colors.black.withValues(alpha: 0.92),
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogCtx, setDialogState) {
             Widget bigImage;
             if (localFile != null && localFile.existsSync()) {
               bigImage = Image.file(
@@ -129,8 +129,8 @@ class MoviePosterWidget extends StatelessWidget {
                         maxScale: 4.5,
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
-                            maxWidth: MediaQuery.of(ctx).size.width * 0.94,
-                            maxHeight: MediaQuery.of(ctx).size.height * 0.82,
+                            maxWidth: MediaQuery.of(dialogCtx).size.width * 0.94,
+                            maxHeight: MediaQuery.of(dialogCtx).size.height * 0.82,
                           ),
                           child: bigImage,
                         ),
@@ -141,12 +141,12 @@ class MoviePosterWidget extends StatelessWidget {
                   // Floating Description Card Overlay (if toggled on)
                   if (showDescriptionOverlay)
                     Positioned(
-                      top: 70,
+                      top: 68,
                       left: 6,
                       right: 6,
                       child: Container(
                         constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(ctx).size.height * 0.55,
+                          maxHeight: MediaQuery.of(dialogCtx).size.height * 0.55,
                         ),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -181,7 +181,7 @@ class MoviePosterWidget extends StatelessWidget {
                                       ),
                                       SizedBox(width: 6),
                                       Text(
-                                        'Movie Synopsis & Description',
+                                        'Movie Description',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
@@ -207,13 +207,13 @@ class MoviePosterWidget extends StatelessWidget {
                               ),
                               const SizedBox(height: 10),
                               Text(
-                                notes != null && notes.trim().isNotEmpty
+                                hasNotes
                                     ? notes.trim()
-                                    : 'No synopsis or description added for this movie yet.',
+                                    : 'No description or synopsis added for this movie.',
                                 style: TextStyle(
                                   fontSize: 12.5,
                                   height: 1.45,
-                                  color: hasNotes ? Colors.white : Colors.white54,
+                                  color: hasNotes ? Colors.white : Colors.white60,
                                   fontStyle: hasNotes ? FontStyle.normal : FontStyle.italic,
                                 ),
                               ),
@@ -277,41 +277,39 @@ class MoviePosterWidget extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
 
-                          // Movie Title with Year / Date
+                          // Movie Title with Year only (no dates)
                           Expanded(
-                            child: Text.rich(
-                              TextSpan(
-                                text: title != null && title.trim().isNotEmpty
-                                    ? title.trim()
-                                    : 'Movie Poster',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  title != null && title.trim().isNotEmpty
+                                      ? title.trim()
+                                      : 'Movie Poster',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                children: [
-                                  if (year != null && year.trim().isNotEmpty)
-                                    TextSpan(
-                                      text: ' (${year.trim()})',
-                                      style: TextStyle(
-                                        fontSize: 12,
+                                if (year != null && year.trim().isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 1.5),
+                                    child: Text(
+                                      year.trim(),
+                                      style: const TextStyle(
+                                        fontSize: 11,
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.white.withValues(alpha: 0.75),
+                                        color: Color(0xFFFF758C),
                                       ),
-                                    )
-                                  else if (date != null && date.trim().isNotEmpty)
-                                    TextSpan(
-                                      text: ' • ${date.trim()}',
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w500,
-                                        color: const Color(0xFFFF758C).withValues(alpha: 0.9),
-                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                ],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
                             ),
                           ),
 
@@ -323,27 +321,28 @@ class MoviePosterWidget extends StatelessWidget {
                                 showDescriptionOverlay = !showDescriptionOverlay;
                               });
                             },
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(10),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
-                                vertical: 4,
+                                vertical: 4.5,
                               ),
                               margin: const EdgeInsets.only(right: 8),
                               decoration: BoxDecoration(
                                 color: showDescriptionOverlay
                                     ? const Color(0xFFFF758C)
-                                    : const Color(0xFFFF758C).withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
+                                    : const Color(0xFFFF758C).withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                   color: const Color(0xFFFF758C).withValues(alpha: 0.5),
+                                  width: 1,
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    Icons.description_rounded,
+                                    Icons.description_outlined,
                                     size: 13,
                                     color: showDescriptionOverlay
                                         ? Colors.white
@@ -351,7 +350,7 @@ class MoviePosterWidget extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'Synopsis',
+                                    'Description',
                                     style: TextStyle(
                                       color: showDescriptionOverlay
                                           ? Colors.white
@@ -367,7 +366,7 @@ class MoviePosterWidget extends StatelessWidget {
 
                           // Romantic Circular Close Button
                           InkWell(
-                            onTap: () => Navigator.pop(ctx),
+                            onTap: () => Navigator.pop(dialogCtx),
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
                               padding: const EdgeInsets.all(6),
@@ -390,49 +389,49 @@ class MoviePosterWidget extends StatelessWidget {
                     ),
                   ),
 
-              // Bottom hint
-              Positioned(
-                bottom: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E162B).withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.zoom_in_rounded, size: 13, color: Color(0xFFFF758C)),
-                      SizedBox(width: 5),
-                      Text(
-                        'Pinch or drag to zoom & explore',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                  // Bottom hint
+                  Positioned(
+                    bottom: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E162B).withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            blurRadius: 8,
+                          ),
+                        ],
                       ),
-                    ],
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.zoom_in_rounded, size: 13, color: Color(0xFFFF758C)),
+                          SizedBox(width: 5),
+                          Text(
+                            'Pinch or drag to zoom & explore',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
-  },
-);
-}
+  }
 
   @override
   Widget build(BuildContext context) {

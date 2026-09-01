@@ -465,6 +465,7 @@ class _MarkWatchedSheetState extends State<MarkWatchedSheet> {
                           title: widget.movie.title,
                           year: widget.movie.year,
                           date: widget.movie.isWatched ? widget.movie.formattedWatchedDate : null,
+                          notes: widget.movie.notes,
                           width: 48,
                           height: 68,
                           borderRadius: BorderRadius.circular(8),

@@ -1157,6 +1157,9 @@ class _AddMovieSheetState extends State<AddMovieSheet> {
                         children: [
                           MoviePosterWidget(
                             posterUrl: widget.movieToEdit!.posterUrl,
+                            title: widget.movieToEdit?.title,
+                            year: widget.movieToEdit?.year,
+                            notes: widget.movieToEdit?.notes,
                             width: 38,
                             height: 54,
                             borderRadius: BorderRadius.circular(8),

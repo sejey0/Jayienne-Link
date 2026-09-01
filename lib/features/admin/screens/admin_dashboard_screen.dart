@@ -1,19 +1,21 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_dimensions.dart';
+import '../../../core/constants/zodiac_helper.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/admin_provider.dart';
-import '../../../providers/user_provider.dart';
+import '../../../providers/debug_provider.dart';
 import '../../../providers/secret_media_provider.dart';
+import '../../../providers/user_provider.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
 
-/// Senior Admin Dashboard Screen accurately aligned with Jayienne Link design system
+/// Senior Admin Dashboard Screen redesigned to match Jayienne Link's signature romantic theme
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
@@ -44,21 +46,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final adminProvider = context.watch<AdminProvider>();
     final currentUser = context.watch<UserProvider>().user;
+    final debugProvider = context.watch<DebugProvider?>();
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF120E19) : const Color(0xFFFFF7F9),
       appBar: AppBar(
-        title: const Text(
-          'Admin Dashboard',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+        title: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.admin_panel_settings_rounded, color: Colors.white, size: 22),
+            SizedBox(width: 8),
+            Text(
+              'Admin Console',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontSize: 18,
+              ),
+            ),
+          ],
         ),
         centerTitle: true,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [AppColors.softRose, AppColors.lavender],
+              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -75,7 +87,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            tooltip: 'Refresh Users',
+            tooltip: 'Refresh Data',
             onPressed: () {
               HapticFeedback.lightImpact();
               adminProvider.loadUsers();
@@ -85,22 +97,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () => adminProvider.loadUsers(),
-        color: AppColors.softRose,
+        color: const Color(0xFFFF758C),
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             // 1. Stats Overview Section
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(AppDimensions.spacingMd),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: _buildStatsHeader(context, adminProvider, isDark),
               ),
             ),
 
-            // 2. Search & Filter Bar
+            // 2. Developer & Debug Mode Controls (Works in Release Mode)
+            if (debugProvider != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: _buildDebugControlsCard(context, debugProvider, isDark),
+                ),
+              ),
+
+            // 3. Search & Filter Bar
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppDimensions.spacingMd),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
                     _buildSearchBar(context, adminProvider, isDark),
@@ -112,11 +133,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
 
-            // 3. User List
+            // 4. User List
             if (adminProvider.isLoading && adminProvider.allUsers.isEmpty)
               const SliverFillRemaining(
                 child: Center(
-                  child: CircularProgressIndicator(color: AppColors.softRose),
+                  child: CircularProgressIndicator(color: Color(0xFFFF758C)),
                 ),
               )
             else if (adminProvider.filteredUsers.isEmpty)
@@ -129,21 +150,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       Icon(
                         Icons.people_outline_rounded,
                         size: 64,
-                        color: Colors.grey.shade400,
+                        color: isDark ? Colors.white30 : Colors.grey.shade400,
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'No users found',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.grey.shade600,
+                        style: TextStyle(
+                          color: isDark ? Colors.white70 : Colors.grey.shade700,
                           fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         'Try adjusting your search query or filter criteria.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey.shade500,
+                        style: TextStyle(
+                          color: isDark ? Colors.white38 : Colors.grey.shade500,
+                          fontSize: 13,
                         ),
                       ),
                     ],
@@ -152,10 +175,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimensions.spacingMd,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -174,7 +194,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ),
             const SliverToBoxAdapter(
-              child: SizedBox(height: 32),
+              child: SizedBox(height: 36),
             ),
           ],
         ),
@@ -199,7 +219,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 title: 'Total Users',
                 value: provider.totalUsersCount.toString(),
                 icon: Icons.groups_rounded,
-                gradientColors: const [Color(0xFFFF4081), Color(0xFFAB47BC)],
+                gradientColors: const [Color(0xFFFF758C), Color(0xFFA18CD1)],
                 isDark: isDark,
               ),
             ),
@@ -210,7 +230,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 title: 'Active Users',
                 value: provider.activeUsersCount.toString(),
                 icon: Icons.check_circle_rounded,
-                gradientColors: const [Color(0xFF66BB6A), Color(0xFF2E7D32)],
+                gradientColors: const [Color(0xFF4CAF50), Color(0xFF2E7D32)],
                 isDark: isDark,
               ),
             ),
@@ -236,267 +256,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 title: 'Admins',
                 value: provider.adminUsersCount.toString(),
                 icon: Icons.security_rounded,
-                gradientColors: const [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                gradientColors: const [Color(0xFF8E24AA), Color(0xFF5E35B1)],
                 isDark: isDark,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 14),
-        _buildAdminToolsSection(context, isDark),
       ],
     );
-  }
-
-  // --- ADMIN TOOLS / HIDDEN VAULT RECOVERY SECTION ---
-  Widget _buildAdminToolsSection(
-    BuildContext context,
-    bool isDark,
-  ) {
-    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: const Color(0xFFFF758C).withValues(alpha: 0.35),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFF758C).withValues(alpha: 0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFC2185B), Color(0xFF512DA8)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFC2185B).withValues(alpha: 0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.restore_from_trash_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Restore Hidden Vault',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : AppColors.deepCharcoal,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Restore private vault photos & videos (including partner)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white70 : Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton.icon(
-              onPressed: () => _handleRestoreAllMedia(context),
-              icon: const Icon(Icons.sync_rounded, size: 18),
-              label: const Text(
-                'Sync & Restore Hidden Vault',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF758C),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _handleRestoreAllMedia(BuildContext context) async {
-    HapticFeedback.mediumImpact();
-    final user = context.read<UserProvider>().user;
-    final coupleId = user?.coupleId;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          backgroundColor: isDark ? const Color(0xFF1E142B) : Colors.white,
-          contentPadding: const EdgeInsets.all(24),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Icon Badge
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.softRose.withValues(alpha: 0.15),
-                      AppColors.lavender.withValues(alpha: 0.2),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.restore_from_trash_rounded,
-                  color: Color(0xFFFF758C),
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Restore Hidden Vault Media?',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : const Color(0xFF2D4059),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'This will restore all deleted private photos and videos uploaded by you and your partner back to the Hidden Vault.',
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.4,
-                  color: isDark ? Colors.white70 : Colors.grey.shade700,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              // Restore Button
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  icon: const Icon(Icons.sync_rounded, size: 20),
-                  label: const Text(
-                    'Sync & Restore Vault',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF758C),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Center Cancel Button
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: isDark ? Colors.white60 : Colors.grey.shade600,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (confirmed != true) return;
-    if (!context.mounted) return;
-
-    final secretMediaProvider = context.read<SecretMediaProvider>();
-
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFFFF758C)),
-        ),
-      );
-
-      final restoredCount = await secretMediaProvider
-          .restoreHiddenVaultMedia(targetCoupleId: coupleId);
-
-      if (context.mounted) {
-        Navigator.pop(context); // Close loading dialog
-        if (restoredCount > 0) {
-          SnackbarHelper.showSuccess(
-            context,
-            'Successfully restored $restoredCount hidden vault items (including partner media)!',
-            title: 'Vault Restored',
-          );
-        } else {
-          SnackbarHelper.showInfo(
-            context,
-            'All hidden vault photos & videos are active and synced!',
-            title: 'Vault Status',
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.pop(context); // Close loading dialog
-        SnackbarHelper.showError(
-          context,
-          'Failed to restore hidden vault media: $e',
-        );
-      }
-    }
   }
 
   Widget _buildStatCard(
@@ -507,20 +274,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required List<Color> gradientColors,
     required bool isDark,
   }) {
-    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
+    final cardBg = isDark ? const Color(0xFF1C1427) : Colors.white;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: gradientColors.first.withValues(alpha: 0.25),
-          width: 1.5,
+          color: gradientColors.first.withValues(alpha: 0.3),
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: gradientColors.first.withValues(alpha: 0.06),
-            blurRadius: 10,
+            color: gradientColors.first.withValues(alpha: 0.08),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -563,6 +330,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   title,
                   style: TextStyle(
                     fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     color: isDark ? Colors.white60 : Colors.grey.shade600,
                   ),
                 ),
@@ -572,6 +340,382 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
     );
+  }
+
+  // --- DEVELOPER & DEBUG MODE CONTROLS CARD (Available in Release Mode) ---
+  Widget _buildDebugControlsCard(
+    BuildContext context,
+    DebugProvider debugProvider,
+    bool isDark,
+  ) {
+    final cardBg = isDark ? const Color(0xFF1C1427) : Colors.white;
+    final isDebugActive = debugProvider.isDebugMode;
+    final isOverridden = debugProvider.isDebugModeOverride;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDebugActive
+              ? const Color(0xFFFF758C).withValues(alpha: 0.45)
+              : (isDark ? Colors.white12 : Colors.grey.shade300),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF758C).withValues(alpha: isDebugActive ? 0.12 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row with Title and Status Badge
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.bug_report_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Developer & Debug Mode',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppColors.deepCharcoal,
+                      ),
+                    ),
+                    Text(
+                      isOverridden
+                          ? 'Debug tools active via Release Override'
+                          : kDebugMode
+                              ? 'Native Flutter debug build'
+                              : 'Release mode active',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDebugActive
+                      ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
+                      : (isDark ? Colors.white10 : Colors.grey.shade200),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDebugActive
+                        ? const Color(0xFF4CAF50).withValues(alpha: 0.4)
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 7,
+                      color: isDebugActive ? const Color(0xFF4CAF50) : Colors.grey,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isDebugActive ? 'DEBUG ON' : 'OFF',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDebugActive
+                            ? const Color(0xFF4CAF50)
+                            : (isDark ? Colors.white60 : Colors.grey.shade600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+          Divider(height: 1, color: isDark ? Colors.white10 : Colors.grey.shade200),
+          const SizedBox(height: 14),
+
+          // 1. Primary Debug Mode Switch (Release Override)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Enable Debug Mode in Release',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Unlocks developer simulation tools and test menus across the entire app.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: debugProvider.isDebugModeOverride,
+                activeThumbColor: const Color(0xFFFF758C),
+                activeTrackColor: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                onChanged: (val) {
+                  HapticFeedback.lightImpact();
+                  debugProvider.setDebugModeOverride(val);
+                  SnackbarHelper.showSuccess(
+                    context,
+                    val
+                        ? 'Debug mode enabled! Developer tools and simulations are now active.'
+                        : 'Debug mode disabled.',
+                    title: 'Debug Mode',
+                  );
+                },
+              ),
+            ],
+          ),
+
+          // 2. Offline Simulation Toggle
+          if (isDebugActive) ...[
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Simulate Offline Mode',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        debugProvider.forceOfflineMode
+                            ? 'Simulating disconnected state'
+                            : 'Normal live network',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: debugProvider.forceOfflineMode,
+                  activeThumbColor: const Color(0xFFA18CD1),
+                  activeTrackColor: const Color(0xFFA18CD1).withValues(alpha: 0.35),
+                  onChanged: (_) {
+                    HapticFeedback.lightImpact();
+                    debugProvider.toggleOfflineMode();
+                  },
+                ),
+              ],
+            ),
+          ],
+
+          // 3. Restore Hidden Vault Action
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: OutlinedButton.icon(
+              onPressed: () => _handleRestoreAllMedia(context),
+              icon: const Icon(Icons.restore_from_trash_rounded, size: 16),
+              label: const Text(
+                'Sync & Restore Hidden Vault',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFFF758C),
+                side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleRestoreAllMedia(BuildContext context) async {
+    HapticFeedback.mediumImpact();
+    final user = context.read<UserProvider>().user;
+    final coupleId = user?.coupleId;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+          contentPadding: const EdgeInsets.all(24),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFFF758C).withValues(alpha: 0.15),
+                      const Color(0xFFA18CD1).withValues(alpha: 0.20),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.restore_from_trash_rounded,
+                  color: Color(0xFFFF758C),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Restore Hidden Vault Media?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppColors.deepCharcoal,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'This will restore all deleted private photos and videos uploaded by you and your partner back to the Hidden Vault.',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  icon: const Icon(Icons.sync_rounded, size: 20, color: Colors.white),
+                  label: const Text(
+                    'Sync & Restore Vault',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF758C),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+
+    final secretMediaProvider = context.read<SecretMediaProvider>();
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFFFF758C)),
+        ),
+      );
+
+      final restoredCount = await secretMediaProvider.restoreHiddenVaultMedia(
+        targetCoupleId: coupleId,
+      );
+
+      if (context.mounted) {
+        Navigator.pop(context);
+        if (restoredCount > 0) {
+          SnackbarHelper.showSuccess(
+            context,
+            'Successfully restored $restoredCount hidden vault items!',
+            title: 'Vault Restored',
+          );
+        } else {
+          SnackbarHelper.showInfo(
+            context,
+            'All hidden vault photos & videos are active and synced!',
+            title: 'Vault Status',
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        SnackbarHelper.showError(
+          context,
+          'Failed to restore hidden vault media: $e',
+        );
+      }
+    }
   }
 
   // --- SEARCH BAR ---
@@ -627,7 +771,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     bool isDark,
   ) {
     final isSelected = provider.selectedFilter == filter;
-    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
+    final cardBg = isDark ? const Color(0xFF1C1427) : Colors.white;
 
     return ChoiceChip(
       label: Text(label),
@@ -636,18 +780,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         HapticFeedback.selectionClick();
         provider.setFilter(filter);
       },
-      selectedColor: AppColors.softRose.withValues(alpha: 0.2),
+      selectedColor: const Color(0xFFFF758C).withValues(alpha: 0.18),
       backgroundColor: cardBg,
       labelStyle: TextStyle(
         color: isSelected
-            ? AppColors.softRose
+            ? const Color(0xFFFF758C)
             : (isDark ? Colors.white70 : Colors.black87),
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         fontSize: 13,
       ),
       side: BorderSide(
         color: isSelected
-            ? AppColors.softRose
+            ? const Color(0xFFFF758C)
             : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade300),
         width: isSelected ? 1.5 : 1.0,
       ),
@@ -663,7 +807,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     AdminProvider provider,
     bool isDark,
   ) {
-    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
+    final cardBg = isDark ? const Color(0xFF1C1427) : Colors.white;
+    final zodiacInfo = ZodiacHelper.getZodiac(user.zodiacSign);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -673,7 +819,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           color: user.isDeactivated
               ? AppColors.error.withValues(alpha: 0.4)
               : (user.isAdmin
-                  ? AppColors.softRose.withValues(alpha: 0.4)
+                  ? const Color(0xFFFF758C).withValues(alpha: 0.4)
                   : (isDark
                       ? Colors.white.withValues(alpha: 0.08)
                       : Colors.grey.shade200)),
@@ -698,14 +844,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // User Avatar via SmartProfileImage
+                  // User Avatar
                   Container(
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: user.isAdmin ? AppColors.softRose : AppColors.lavender,
+                        color: user.isAdmin
+                            ? const Color(0xFFFF758C)
+                            : const Color(0xFFA18CD1),
                         width: 2,
                       ),
                     ),
@@ -715,14 +863,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         width: 48,
                         height: 48,
                         placeholder: Container(
-                          color: AppColors.softRose.withValues(alpha: 0.15),
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.15),
                           child: Center(
                             child: Text(
                               user.displayName.isNotEmpty
                                   ? user.displayName[0].toUpperCase()
                                   : 'U',
                               style: const TextStyle(
-                                color: AppColors.softRose,
+                                color: Color(0xFFFF758C),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,
                               ),
@@ -730,15 +878,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
                         errorWidget: Container(
-                          color: AppColors.softRose.withValues(alpha: 0.15),
-                          child: const Icon(Icons.person, color: AppColors.softRose, size: 24),
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                          child: const Icon(Icons.person, color: Color(0xFFFF758C), size: 24),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
 
-                  // Name and Email
+                  // Name, Email and Zodiac
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -752,7 +900,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     : 'Unnamed User',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  fontSize: 15.5,
                                   color: isDark ? Colors.white : AppColors.deepCharcoal,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -761,33 +909,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             if (isCurrentAdmin) ...[
                               const SizedBox(width: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppColors.softRose.withValues(alpha: 0.15),
+                                  color: const Color(0xFFFF758C).withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: AppColors.softRose.withValues(alpha: 0.5),
+                                    color: const Color(0xFFFF758C).withValues(alpha: 0.5),
                                     width: 1,
                                   ),
                                 ),
                                 child: const Text(
                                   'YOU',
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 9.5,
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.softRose,
+                                    color: Color(0xFFFF758C),
                                   ),
                                 ),
                               ),
                             ],
                           ],
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 2),
                         Text(
                           user.email,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12.5,
                             color: isDark ? Colors.white60 : Colors.grey.shade600,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -816,7 +963,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         value: 'details',
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline_rounded, size: 18, color: AppColors.softRose),
+                            Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFFFF758C)),
                             SizedBox(width: 8),
                             Text('View Details'),
                           ],
@@ -854,13 +1001,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     ? Icons.person_outline_rounded
                                     : Icons.admin_panel_settings_outlined,
                                 size: 18,
-                                color: AppColors.lavender,
+                                color: const Color(0xFFA18CD1),
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 user.isAdmin ? 'Demote to User' : 'Promote to Admin',
                                 style: const TextStyle(
-                                  color: AppColors.lavender,
+                                  color: Color(0xFFA18CD1),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -875,7 +1022,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
               const SizedBox(height: 12),
               Divider(height: 1, color: isDark ? Colors.white10 : Colors.grey.shade200),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               // Badges Row & Quick Action Switch
               Row(
@@ -894,22 +1041,58 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ? Icons.check_circle_rounded
                                 : Icons.block_rounded,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
 
                           // Role Badge
                           _buildBadge(
                             label: user.isAdmin ? 'Admin' : 'User',
-                            color: user.isAdmin ? AppColors.lavender : AppColors.softRose,
+                            color: user.isAdmin ? const Color(0xFFA18CD1) : const Color(0xFFFF758C),
                             icon: user.isAdmin
                                 ? Icons.security_rounded
                                 : Icons.person_rounded,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
+
+                          // Zodiac Badge (Vector Icon)
+                          if (user.zodiacSign != null && user.zodiacSign!.isNotEmpty) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                              decoration: BoxDecoration(
+                                color: (zodiacInfo?.color ?? const Color(0xFFA18CD1)).withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: (zodiacInfo?.color ?? const Color(0xFFA18CD1)).withValues(alpha: 0.35),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ZodiacIcon(
+                                    zodiac: user.zodiacSign!,
+                                    size: 11,
+                                    color: zodiacInfo?.color ?? const Color(0xFFA18CD1),
+                                    strokeWidth: 2.0,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    user.zodiacSign!,
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: zodiacInfo?.color ?? const Color(0xFFA18CD1),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
 
                           // Couple Status Badge
                           _buildBadge(
                             label: user.hasRealPartner ? 'Coupled' : 'Single',
-                            color: user.hasRealPartner ? AppColors.softRose : Colors.grey,
+                            color: user.hasRealPartner ? const Color(0xFFFF758C) : Colors.grey,
                             icon: user.hasRealPartner
                                 ? Icons.favorite_rounded
                                 : Icons.person_outline_rounded,
@@ -922,30 +1105,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   // Quick Action Activation Switch
                   if (!isCurrentAdmin) ...[
                     const SizedBox(width: 8),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          user.isActive ? 'Active' : 'Off',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: user.isActive ? const Color(0xFF4CAF50) : AppColors.error,
-                          ),
-                        ),
-                        Transform.scale(
-                          scale: 0.8,
-                          child: Switch(
-                            value: user.isActive,
-                            activeThumbColor: const Color(0xFF4CAF50),
-                            activeTrackColor: const Color(0xFF4CAF50).withValues(alpha: 0.35),
-                            inactiveTrackColor: AppColors.error.withValues(alpha: 0.2),
-                            inactiveThumbColor: AppColors.error,
-                            onChanged: (_) =>
-                                _confirmToggleActive(context, user, provider),
-                          ),
-                        ),
-                      ],
+                    Transform.scale(
+                      scale: 0.78,
+                      child: Switch(
+                        value: user.isActive,
+                        activeThumbColor: const Color(0xFF4CAF50),
+                        activeTrackColor: const Color(0xFF4CAF50).withValues(alpha: 0.35),
+                        inactiveTrackColor: AppColors.error.withValues(alpha: 0.2),
+                        inactiveThumbColor: AppColors.error,
+                        onChanged: (_) => _confirmToggleActive(context, user, provider),
+                      ),
                     ),
                   ],
                 ],
@@ -963,7 +1132,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required IconData icon,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
@@ -972,12 +1141,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 3.5),
           Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -1034,7 +1203,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               backgroundColor: willDeactivate ? AppColors.error : const Color(0xFF4CAF50),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: Text(willDeactivate ? 'Deactivate' : 'Activate'),
+            child: Text(willDeactivate ? 'Deactivate' : 'Activate', style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -1084,10 +1253,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.softRose,
+              backgroundColor: const Color(0xFFFF758C),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: Text(willBeAdmin ? 'Promote' : 'Demote'),
+            child: Text(willBeAdmin ? 'Promote' : 'Demote', style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -1097,7 +1266,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // --- USER DETAILS MODAL ---
   void _showUserDetailsModal(BuildContext context, UserModel user, bool isDark) {
     final dateFormat = DateFormat('MMM dd, yyyy - hh:mm a');
-    final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
+    final cardBg = isDark ? const Color(0xFF1C1427) : Colors.white;
+    final zodiacInfo = ZodiacHelper.getZodiac(user.zodiacSign);
 
     showModalBottomSheet(
       context: context,
@@ -1112,117 +1282,152 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(2),
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: user.isAdmin ? AppColors.softRose : AppColors.lavender,
-                      width: 2,
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: user.isAdmin ? const Color(0xFFFF758C) : const Color(0xFFA18CD1),
+                        width: 2,
+                      ),
                     ),
-                  ),
-                  child: ClipOval(
-                    child: SmartProfileImage(
-                      imageUrl: user.photoUrl,
-                      width: 56,
-                      height: 56,
-                      placeholder: Container(
-                        color: AppColors.softRose.withValues(alpha: 0.15),
-                        child: Center(
-                          child: Text(
-                            user.displayName.isNotEmpty
-                                ? user.displayName[0].toUpperCase()
-                                : 'U',
-                            style: const TextStyle(
-                              color: AppColors.softRose,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 22,
+                    child: ClipOval(
+                      child: SmartProfileImage(
+                        imageUrl: user.photoUrl,
+                        width: 56,
+                        height: 56,
+                        placeholder: Container(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                          child: Center(
+                            child: Text(
+                              user.displayName.isNotEmpty
+                                  ? user.displayName[0].toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                color: Color(0xFFFF758C),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 22,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      errorWidget: Container(
-                        color: AppColors.softRose.withValues(alpha: 0.15),
-                        child: const Icon(Icons.person, color: AppColors.softRose, size: 28),
+                        errorWidget: Container(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                          child: const Icon(Icons.person, color: Color(0xFFFF758C), size: 28),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.displayName,
+                          style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppColors.deepCharcoal,
+                          ),
+                        ),
+                        Text(
+                          user.email,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? Colors.white60 : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Divider(color: isDark ? Colors.white10 : Colors.grey.shade200),
+              const SizedBox(height: 12),
+              _buildDetailRow('User ID', user.id, isDark),
+              _buildDetailRow('Role', user.role.toUpperCase(), isDark),
+              _buildDetailRow('Account Status', user.isActive ? 'Active' : 'Deactivated', isDark),
+              if (user.zodiacSign != null && user.zodiacSign!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6.0),
+                  child: Row(
                     children: [
-                      Text(
-                        user.displayName,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : AppColors.deepCharcoal,
+                      SizedBox(
+                        width: 130,
+                        child: Text(
+                          'Zodiac Sign',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white60 : Colors.grey.shade600,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
+                      ZodiacIcon(
+                        zodiac: user.zodiacSign!,
+                        size: 14,
+                        color: zodiacInfo?.color ?? const Color(0xFFFF758C),
+                        strokeWidth: 2.0,
+                      ),
+                      const SizedBox(width: 6),
                       Text(
-                        user.email,
+                        user.zodiacSign!,
                         style: TextStyle(
-                          color: isDark ? Colors.white60 : Colors.grey.shade600,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : AppColors.deepCharcoal,
+                          fontSize: 13,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Divider(color: isDark ? Colors.white10 : Colors.grey.shade200),
-            const SizedBox(height: 12),
-            _buildDetailRow('User ID', user.id, isDark),
-            _buildDetailRow('Role', user.role.toUpperCase(), isDark),
-            _buildDetailRow('Account Status', user.isActive ? 'Active' : 'Deactivated', isDark),
-            _buildDetailRow('Phone', user.phoneNumber ?? 'Not provided', isDark),
-            _buildDetailRow('Couple ID', user.coupleId ?? 'Not linked', isDark),
-            _buildDetailRow('Profile Complete', user.profileComplete ? 'Yes' : 'No', isDark),
-            _buildDetailRow('Created At', dateFormat.format(user.createdAt), isDark),
-            _buildDetailRow('Updated At', dateFormat.format(user.updatedAt), isDark),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.softRose),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+              _buildDetailRow('Phone', user.phoneNumber ?? 'Not provided', isDark),
+              _buildDetailRow('Couple ID', user.coupleId ?? 'Not linked', isDark),
+              _buildDetailRow('Profile Complete', user.profileComplete ? 'Yes' : 'No', isDark),
+              _buildDetailRow('Created At', dateFormat.format(user.createdAt), isDark),
+              _buildDetailRow('Updated At', dateFormat.format(user.updatedAt), isDark),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFFF758C)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text(
-                  'Close',
-                  style: TextStyle(color: AppColors.softRose, fontWeight: FontWeight.bold),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text(
+                    'Close',
+                    style: TextStyle(color: Color(0xFFFF758C), fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _buildDetailRow(String label, String value, bool isDark) {

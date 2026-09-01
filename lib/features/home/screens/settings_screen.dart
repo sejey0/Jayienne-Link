@@ -1,9 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
@@ -391,8 +389,8 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
 
-          // 7. Developer Diagnostics (Debug Mode Only)
-          if (kDebugMode) ...[
+          // 7. Developer Diagnostics (Debug Mode & Release Override)
+          if (context.watch<DebugProvider?>()?.isDebugMode == true) ...[
             const SizedBox(height: 20),
             _buildSectionHeader('DEVELOPER DIAGNOSTICS', isDark),
             const SizedBox(height: 8),

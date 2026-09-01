@@ -201,14 +201,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  z.symbol,
-                                  style: TextStyle(
-                                    fontSize: 30,
-                                    color: isSelected ? z.color : (isDark ? Colors.white70 : Colors.grey.shade600),
-                                  ),
+                                ZodiacIcon(
+                                  zodiac: z.name,
+                                  size: 28,
+                                  color: isSelected ? z.color : (isDark ? Colors.white70 : Colors.grey.shade600),
+                                  strokeWidth: 2.2,
                                 ),
-                                const SizedBox(height: 5),
+                                const SizedBox(height: 7),
                                 Text(
                                   z.name,
                                   style: TextStyle(
@@ -217,6 +216,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     color: isSelected ? z.color : (isDark ? Colors.white : AppColors.deepCharcoal),
                                   ),
                                 ),
+                                const SizedBox(height: 2),
                                 Text(
                                   z.dateRange,
                                   style: TextStyle(
@@ -833,7 +833,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       border: Border.all(color: zodiac.color.withValues(alpha: 0.4)),
                                     ),
                                     child: Center(
-                                      child: Text(zodiac.symbol, style: TextStyle(fontSize: 20, color: zodiac.color)),
+                                      child: ZodiacIcon(
+                                        zodiac: zodiac.name,
+                                        size: 20,
+                                        color: zodiac.color,
+                                        strokeWidth: 2.2,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 12),

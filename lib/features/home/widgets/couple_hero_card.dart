@@ -509,14 +509,13 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            info?.symbol ?? '✨',
-            style: const TextStyle(
-              fontSize: 11,
-              color: Colors.white,
-            ),
+          ZodiacIcon(
+            zodiac: zodiacName,
+            size: 12,
+            color: Colors.white,
+            strokeWidth: 2.0,
           ),
-          const SizedBox(width: 3.5),
+          const SizedBox(width: 4.5),
           Text(
             info?.name ?? zodiacName,
             style: const TextStyle(

@@ -284,14 +284,13 @@ class _ProfileViewScreenState extends State<ProfileViewScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    zodiacInfo?.symbol ?? '✨',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: color,
-                                    ),
+                                  ZodiacIcon(
+                                    zodiac: user.zodiacSign!,
+                                    size: 14,
+                                    color: color,
+                                    strokeWidth: 2.0,
                                   ),
-                                  const SizedBox(width: 5),
+                                  const SizedBox(width: 6),
                                   Text(
                                     user.zodiacSign!,
                                     style: TextStyle(
@@ -390,6 +389,9 @@ class _ProfileViewScreenState extends State<ProfileViewScreen> {
         ? coupleProvider.outgoingAnniversaryRequests.first
         : null;
 
+    final partnerZodiac = coupleProvider.partner?.zodiacSign;
+    final userZodiac = user.zodiacSign;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -439,12 +441,22 @@ class _ProfileViewScreenState extends State<ProfileViewScreen> {
             ),
             const SizedBox(height: 18),
 
-            // Dual avatars with heart
+            // Dual avatars with heart & zodiac badges
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // My avatar
-                _buildHeroAvatar(photoUrl: user.photoUrl),
+                // My avatar + zodiac
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildHeroAvatar(photoUrl: user.photoUrl),
+                    if (userZodiac != null && userZodiac.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      _buildZodiacPill(userZodiac),
+                    ],
+                  ],
+                ),
                 const SizedBox(width: 16),
                 // Heart
                 Container(
@@ -467,8 +479,17 @@ class _ProfileViewScreenState extends State<ProfileViewScreen> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Partner avatar
-                _buildHeroAvatar(photoUrl: partnerPhotoUrl),
+                // Partner avatar + zodiac
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildHeroAvatar(photoUrl: partnerPhotoUrl),
+                    if (partnerZodiac != null && partnerZodiac.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      _buildZodiacPill(partnerZodiac),
+                    ],
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -622,6 +643,42 @@ class _ProfileViewScreenState extends State<ProfileViewScreen> {
           fontWeight: FontWeight.bold,
           color: Colors.white,
         ),
+      ),
+    );
+  }
+
+  Widget _buildZodiacPill(String zodiacName) {
+    final info = ZodiacHelper.getZodiac(zodiacName);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.20),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.35),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ZodiacIcon(
+            zodiac: zodiacName,
+            size: 11,
+            color: Colors.white,
+            strokeWidth: 2.0,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            info?.name ?? zodiacName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -15,6 +15,7 @@ import '../../../services/update_service.dart';
 import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/love_nudge_overlay_listener.dart';
+import '../../../widgets/common/romantic_loading_indicator.dart';
 import '../widgets/couple_hero_card.dart';
 import '../widgets/daily_quote_card.dart';
 import '../widgets/open_features_card.dart';
@@ -75,6 +76,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = userProvider.user;
     final couple = coupleProvider.couple;
     final incomingAnniversary = coupleProvider.incomingAnniversaryRequests;
+
+    if (user == null && userProvider.isLoading) {
+      return const RomanticLoadingScreen(
+        message: 'Opening your love space...',
+      );
+    }
 
     final greetingText = _getDynamicGreeting(user, coupleProvider);
 

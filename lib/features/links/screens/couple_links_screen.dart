@@ -12,6 +12,7 @@ import '../../../providers/user_provider.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../widgets/add_edit_link_sheet.dart';
 import '../widgets/platform_brand_icon.dart';
+import '../../../widgets/common/romantic_loading_indicator.dart';
 
 enum _LinkFilterTab { all, mine, partner }
 
@@ -169,7 +170,12 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
               if (linksProvider.isLoading && displayedLinks.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(48.0),
-                  child: Center(child: CircularProgressIndicator(color: AppColors.softRose)),
+                  child: Center(
+                    child: RomanticLoadingIndicator(
+                      size: 56,
+                      message: 'Loading links...',
+                    ),
+                  ),
                 )
               else if (displayedLinks.isEmpty)
                 _buildEmptyState(context, isDark, partnerName)

@@ -13,6 +13,7 @@ import '../../../models/milestone_model.dart';
 import '../../../providers/anniversary_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../widgets/common/app_text_field.dart';
+import '../../../widgets/common/romantic_loading_indicator.dart';
 
 /// Interactive Relationship Memory Timeline Screen
 class RelationshipTimelineScreen extends StatefulWidget {
@@ -110,7 +111,12 @@ class _RelationshipTimelineScreenState
               if (provider.isLoading && milestones.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(40.0),
-                  child: Center(child: CircularProgressIndicator()),
+                  child: Center(
+                    child: RomanticLoadingIndicator(
+                      size: 56,
+                      message: 'Loading memories...',
+                    ),
+                  ),
                 )
               else if (milestones.isEmpty)
                 _buildEmptyTimelineState(context, provider)

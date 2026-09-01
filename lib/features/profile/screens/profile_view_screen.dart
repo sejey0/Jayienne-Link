@@ -15,6 +15,8 @@ import '../../../providers/couple_provider.dart';
 import '../../links/widgets/add_edit_link_sheet.dart';
 import '../../links/widgets/platform_brand_icon.dart';
 
+import '../../../widgets/common/romantic_loading_indicator.dart';
+
 class ProfileViewScreen extends StatelessWidget {
   const ProfileViewScreen({super.key});
 
@@ -25,8 +27,8 @@ class ProfileViewScreen extends StatelessWidget {
     final user = userProvider.user;
 
     if (user == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return const RomanticLoadingScreen(
+        message: 'Loading your profile...',
       );
     }
 

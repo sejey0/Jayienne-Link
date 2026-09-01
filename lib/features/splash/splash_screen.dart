@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/router/route_names.dart';
-import '../../widgets/common/heart_animation.dart';
 import '../../services/local_cache_service.dart';
+import '../../widgets/common/romantic_loading_indicator.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,13 +20,11 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _navigateAfterDelay() async {
-    // Check if this is the first launch
-    final isFirstLaunch = await LocalCacheService.isFirstLaunch();
+    // Show smooth startup splash so user experiences the romantic launch transition
+    await Future.delayed(const Duration(milliseconds: 1400));
 
-    // Only add delay on first launch
+    final isFirstLaunch = await LocalCacheService.isFirstLaunch();
     if (isFirstLaunch) {
-      await Future.delayed(const Duration(seconds: 2));
-      // Mark first launch as complete
       await LocalCacheService.markFirstLaunchComplete();
     }
 
@@ -39,27 +35,42 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor:
+          isDark ? const Color(0xFF140E1B) : const Color(0xFFFFF7F9),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const HeartAnimation(size: 80),
-            const SizedBox(height: 24),
-            Text(
-              AppStrings.appName,
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    color: AppColors.softRose,
-                  ),
-            ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
-            const SizedBox(height: 8),
-            Text(
-              AppStrings.appTagline,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.lavender,
-                  ),
-            ).animate().fadeIn(duration: 600.ms),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const RomanticLoadingIndicator(
+                size: 88,
+                message: 'Connecting to your love space',
+              ),
+              const SizedBox(height: 28),
+              Text(
+                AppStrings.appName,
+                style: TextStyle(
+                  color: isDark ? Colors.white : const Color(0xFF2C1930),
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                AppStrings.appTagline,
+                style: TextStyle(
+                  color: isDark ? Colors.white60 : const Color(0xFF8E7C93),
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

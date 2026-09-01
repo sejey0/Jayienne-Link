@@ -357,6 +357,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
             options: MapOptions(
               initialCenter: initialCenter,
               initialZoom: partnerPos != null ? 14.5 : 12.0,
+              minZoom: 3.0,
+              maxZoom: 20.0,
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all,
               ),
@@ -377,7 +379,10 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                     ? MapboxService().getSatelliteTileUrl()
                     : MapboxService().getStreetsTileUrl(),
                 userAgentPackageName: 'com.jayiennelink.app',
-                maxZoom: 20,
+                maxNativeZoom: 18,
+                maxZoom: 22,
+                keepBuffer: 3,
+                panBuffer: 1,
               ),
 
               // Overlay Layer for Hybrid Satellite View (Boundaries & Places fallback if Mapbox token is not configured)
@@ -386,7 +391,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   urlTemplate:
                       'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
                   userAgentPackageName: 'com.jayiennelink.app',
-                  maxZoom: 19,
+                  maxNativeZoom: 18,
+                  maxZoom: 22,
                 ),
 
               // Aura Radar Ripple Circles (Live Mode)

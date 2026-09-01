@@ -775,6 +775,8 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
         TileLayer(
           urlTemplate: MapboxService().getStreetsTileUrl(),
           userAgentPackageName: 'com.jayiennelink.app',
+          maxNativeZoom: 18,
+          maxZoom: 22,
         ),
         PolylineLayer(
           polylines: [

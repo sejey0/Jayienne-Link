@@ -937,15 +937,15 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
               color: Colors.white24,
             ),
 
-            // Right: Partner Battery / Live Status
-            if (partnerBatteryLevel != null)
+            // Right: Partner Live Battery (Only When Online) or Offline Status
+            if (isPartnerOnline && partnerBatteryLevel != null)
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     getBatIcon(partnerBatteryLevel, partnerIsCharging),
                     color: partnerIsCharging ? const Color(0xFF69F0AE) : Colors.white,
-                    size: 13,
+                    size: 13.5,
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -959,21 +959,19 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                 ],
               )
             else
-              Row(
+              const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    isPartnerOnline
-                        ? Icons.wifi_rounded
-                        : Icons.wifi_off_rounded,
-                    color: Colors.white,
+                    Icons.wifi_off_rounded,
+                    color: Colors.white70,
                     size: 13,
                   ),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   Text(
-                    isPartnerOnline ? 'Live' : 'Offline',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    'Offline',
+                    style: TextStyle(
+                      color: Colors.white70,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
                     ),

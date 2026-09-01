@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
 import '../../../models/location_model.dart';
 import '../../../models/mapbox_place_model.dart';
@@ -18,7 +17,6 @@ import '../../../services/offline_location_service.dart';
 import '../../../widgets/common/live_time_text.dart';
 import '../widgets/location_history_sheet.dart';
 import '../widgets/mapbox_search_bar.dart';
-import '../widgets/offline_status_indicator.dart';
 import '../widgets/partner_avatar_marker.dart';
 
 /// Senior GIS Live Location & Mapping Screen built with flutter_map, latlong2, and geolocator.
@@ -319,36 +317,6 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   Navigator.pop(context);
                 },
               ),
-              actions: [
-                if (!isHistoryMode)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4),
-                      child: OfflineStatusIndicator(),
-                    ),
-                  ),
-                const SizedBox(width: AppDimensions.spacingSm),
-                // Toggle History Mode Button
-                IconButton(
-                  icon: Icon(
-                    isHistoryMode ? Icons.map_rounded : Icons.route_rounded,
-                    color: Colors.white,
-                  ),
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    locationProvider.toggleHistoryMode(!isHistoryMode);
-                  },
-                  tooltip: isHistoryMode ? 'Back to Live Map' : 'Route History Playback',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.history, color: Colors.white),
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    context.push(RouteNames.locationHistory);
-                  },
-                  tooltip: 'Location history list',
-                ),
-              ],
               elevation: 0,
             ),
       body: Stack(
@@ -936,6 +904,34 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                             setState(() {
                               _isFullscreen = !isFullscreen;
                             });
+                          },
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Route History Playback Toggle Button
+                        _buildFloatingControlButton(
+                          icon: isHistoryMode ? Icons.map_rounded : Icons.route_rounded,
+                          tooltip: isHistoryMode ? 'Back to Live Map' : 'Route History Playback',
+                          color: isHistoryMode ? AppColors.softRose : (isDark ? const Color(0xFF231A33) : Colors.white),
+                          iconColor: isHistoryMode ? Colors.white : (isDark ? Colors.white : const Color(0xFF1E142B)),
+                          isSelected: isHistoryMode,
+                          selectedBorderColor: AppColors.softRose,
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            locationProvider.toggleHistoryMode(!isHistoryMode);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Location History List Button
+                        _buildFloatingControlButton(
+                          icon: Icons.history_rounded,
+                          tooltip: 'Trip History Log',
+                          color: isDark ? const Color(0xFF231A33) : Colors.white,
+                          iconColor: isDark ? Colors.white : const Color(0xFF1E142B),
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            context.push(RouteNames.locationHistory);
                           },
                         ),
                         const SizedBox(height: 8),

@@ -10,11 +10,14 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
 import '../../../models/location_model.dart';
+import '../../../models/mapbox_place_model.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../services/mapbox_service.dart';
 import '../../../services/offline_location_service.dart';
 import '../../../widgets/common/live_time_text.dart';
 import '../widgets/location_history_sheet.dart';
+import '../widgets/mapbox_search_bar.dart';
 import '../widgets/offline_status_indicator.dart';
 import '../widgets/partner_avatar_marker.dart';
 
@@ -48,6 +51,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   bool _isFullscreen = false;
   bool _isBothSelected = false;
   bool _isLiveCardCollapsed = false;
+  MapboxPlace? _searchedPlace;
 
   /// Generates a smooth, graceful geodesic curved arc between two points
   List<LatLng> _generateGeodesicArc(LatLng start, LatLng end, {int segments = 24}) {
@@ -367,17 +371,17 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
               },
             ),
             children: [
-              // Base Map Layer (OpenStreetMap / Satellite Imagery)
+              // Base Map Layer (Mapbox Satellite Streets Hybrid / Mapbox Streets / Fallbacks)
               TileLayer(
                 urlTemplate: isSatelliteView
-                    ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-                    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    ? MapboxService().getSatelliteTileUrl()
+                    : MapboxService().getStreetsTileUrl(),
                 userAgentPackageName: 'com.jayiennelink.app',
-                maxZoom: 19,
+                maxZoom: 20,
               ),
 
-              // Overlay Layer for Hybrid Satellite View (Boundaries, Roads & Place Names)
-              if (isSatelliteView)
+              // Overlay Layer for Hybrid Satellite View (Boundaries & Places fallback if Mapbox token is not configured)
+              if (isSatelliteView && !MapboxService().hasToken)
                 TileLayer(
                   urlTemplate:
                       'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
@@ -686,6 +690,65 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                           },
                         ),
                       ),
+
+                    // Mapbox Search Result Pin Marker
+                    if (_searchedPlace != null)
+                      Marker(
+                        point: _searchedPlace!.coordinates,
+                        width: 150,
+                        height: 72,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.softRose, width: 1.2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.softRose.withValues(alpha: 0.35),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      _searchedPlace!.text,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  GestureDetector(
+                                    onTap: () => setState(() => _searchedPlace = null),
+                                    child: const Icon(
+                                      Icons.close_rounded,
+                                      color: Colors.white70,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.location_on_rounded,
+                              color: AppColors.softRose,
+                              size: 32,
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ],
               ),
@@ -706,6 +769,24 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   setState(() {
                     _isFullscreen = false;
                   });
+                },
+              ),
+            ),
+
+          // Mapbox Autocomplete Search Bar (Top Floating Overlay in Live Mode)
+          if (!isHistoryMode)
+            Positioned(
+              top: isFullscreen ? (MediaQuery.of(context).padding.top + 10) : 12,
+              left: isFullscreen ? 68 : 14,
+              right: 14,
+              child: MapboxSearchBar(
+                userPosition: myPos,
+                onPlaceSelected: (place) {
+                  setState(() => _searchedPlace = place);
+                  _mapController.move(place.coordinates, 16.5);
+                },
+                onClear: () {
+                  setState(() => _searchedPlace = null);
                 },
               ),
             ),

@@ -8,6 +8,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../services/mapbox_service.dart';
 import 'partner_avatar_marker.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/live_time_text.dart';
@@ -161,7 +162,7 @@ class PartnerLocationCard extends StatelessWidget {
           ),
           children: [
             TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              urlTemplate: MapboxService().getStreetsTileUrl(),
               userAgentPackageName: 'com.jayiennelink.app',
             ),
             // Connecting line between the two couple locations

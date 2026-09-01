@@ -9,6 +9,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
+import '../../../services/mapbox_service.dart';
 import '../widgets/offline_status_indicator.dart';
 
 /// Redesigned Location History Screen featuring romantic trip summary cards,
@@ -772,7 +773,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
       ),
       children: [
         TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          urlTemplate: MapboxService().getStreetsTileUrl(),
           userAgentPackageName: 'com.jayiennelink.app',
         ),
         PolylineLayer(

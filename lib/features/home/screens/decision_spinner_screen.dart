@@ -12,6 +12,7 @@ import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/movie_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../services/online_filipino_suggestion_service.dart';
 import '../../../services/supabase_data_service.dart';
 import '../../../services/supabase_movie_service.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
@@ -48,7 +49,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   int _selectedCategoryIndex = 0; // 0: Movie Watchlist (Front), 1: Dates & Activities, 2: Food & Drinks
   int _spinnerModeIndex = 0; // 0: Spin Wheel, 1: Quick Roulette
-  int _sourceFilterIndex = 0; // 0: All Ideas (Merged), 1: Custom Only, 2: Online Only
   bool _isSpinning = false;
   bool _isInitialized = false;
   bool _isMoviesLoading = true; // True until Supabase stream delivers first batch
@@ -112,37 +112,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     'Pizza & Pasta Date',
     'Dessert & Ice Cream',
     'Jollibee Chickenjoy',
-  ];
-
-  // Dynamic Online Filipino Suggestions (picked online dynamically)
-  static const List<String> _onlineFilipinoFood = [
-    'Sinigang na Baboy',
-    'Crispy Pork Sisig',
-    'Beef Pares & Mami',
-    'Chicken Inasal',
-    'Kare-Kareng Baka',
-    'Lechon Kawali',
-    'Samgyupsal & K-BBQ',
-    'Halo-Halo & Ice Cream',
-    'Milk Tea & Street Food',
-    'Pancit Canton & Dimsum',
-    'Ramen & Gyoza Date',
-    'Pizza & Pasta Treat',
-  ];
-
-  static const List<String> _onlineFilipinoActivities = [
-    'Sunset Walk in Seaside / Baywalk',
-    'Videoke & Karaoke Night',
-    'Night Market & Street Food Crawl',
-    'Intramuros Historic Stroll',
-    'Coffee Date & Pastries',
-    'BGC / Park Picnic & Photos',
-    'Arcade & Bowling Match',
-    'Roadtrip to Tagaytay Overlook',
-    'Board Games & Netflix Marathon',
-    'Late Night Drive & Snacks',
-    'Co-op Video Game Session',
-    'Cook Dinner Together',
   ];
 
   static const List<IconData> _onlineSliceIcons = [
@@ -238,71 +207,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
 
     final customList = _currentOptions;
-
-    // Custom Only Mode (Filter 1)
-    if (_sourceFilterIndex == 1) {
-      if (customList.isEmpty) {
-        return List.generate(
-          8,
-          (i) => const _WheelSliceItem(
-            label: '',
-            isCustom: true,
-            onlineIcon: Icons.star_rounded,
-          ),
-        );
-      }
-      if (customList.length == 1) {
-        return List.generate(
-          6,
-          (i) => _WheelSliceItem(
-            label: customList[0],
-            isCustom: true,
-            onlineIcon: Icons.star_rounded,
-          ),
-        );
-      }
-      if (customList.length == 2) {
-        return List.generate(
-          6,
-          (i) => _WheelSliceItem(
-            label: customList[i % 2],
-            isCustom: true,
-            onlineIcon: Icons.star_rounded,
-          ),
-        );
-      }
-      if (customList.length == 3) {
-        return List.generate(
-          6,
-          (i) => _WheelSliceItem(
-            label: customList[i % 3],
-            isCustom: true,
-            onlineIcon: Icons.star_rounded,
-          ),
-        );
-      }
-      return customList
-          .map((item) => _WheelSliceItem(
-                label: item,
-                isCustom: true,
-                onlineIcon: Icons.star_rounded,
-              ))
-          .toList();
-    }
-
-    // Online Only Mode (Filter 2)
-    if (_sourceFilterIndex == 2) {
-      return List.generate(
-        8,
-        (i) => _WheelSliceItem(
-          label: '',
-          isCustom: false,
-          onlineIcon: _onlineSliceIcons[i % _onlineSliceIcons.length],
-        ),
-      );
-    }
-
-    // All Ideas (Merged Mode 0)
     if (customList.isEmpty) {
       // Pure online icon slices (8 slices)
       return List.generate(
@@ -562,6 +466,44 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       );
 
       _spinnerChannel!.onBroadcast(
+        event: 'reset_custom_pool',
+        callback: (payload) {
+          if (!mounted) return;
+          final catIndex =
+              payload['categoryIndex'] as int? ?? _selectedCategoryIndex;
+          setState(() {
+            if (catIndex == 1) {
+              _activityHistory
+                  .removeWhere((item) => _activityOptions.contains(item));
+            } else if (catIndex == 2) {
+              _foodHistory
+                  .removeWhere((item) => _foodOptions.contains(item));
+            }
+          });
+          _savePersistentData();
+        },
+      );
+
+      _spinnerChannel!.onBroadcast(
+        event: 'reset_online_pool',
+        callback: (payload) {
+          if (!mounted) return;
+          final catIndex =
+              payload['categoryIndex'] as int? ?? _selectedCategoryIndex;
+          setState(() {
+            if (catIndex == 1) {
+              _activityHistory
+                  .removeWhere((item) => !_activityOptions.contains(item));
+            } else if (catIndex == 2) {
+              _foodHistory
+                  .removeWhere((item) => !_foodOptions.contains(item));
+            }
+          });
+          _savePersistentData();
+        },
+      );
+
+      _spinnerChannel!.onBroadcast(
         event: 'pool_updated',
         callback: (_) {
           if (!mounted) return;
@@ -790,6 +732,74 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       SnackbarHelper.showSuccess(
         context,
         'Decision reset! Ready to spin again.',
+      );
+    }
+  }
+
+  /// Reset only the custom couple options from the anti-repeat exclusion pool
+  Future<void> _resetCustomPool() async {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _currentHistory.removeWhere((item) => _currentOptions.contains(item));
+      if (_selectedCategoryIndex == 1 &&
+          _lastActivityResult != null &&
+          _currentOptions.contains(_lastActivityResult)) {
+        _lastActivityResult = null;
+        _currentDisplayResult = 'Tap Spin to Decide!';
+      } else if (_selectedCategoryIndex == 2 &&
+          _lastFoodResult != null &&
+          _currentOptions.contains(_lastFoodResult)) {
+        _lastFoodResult = null;
+        _currentDisplayResult = 'Tap Spin to Decide!';
+      }
+    });
+    await _savePersistentData();
+
+    _spinnerChannel?.sendBroadcastMessage(
+      event: 'reset_custom_pool',
+      payload: {
+        'categoryIndex': _selectedCategoryIndex,
+      },
+    );
+
+    if (mounted) {
+      SnackbarHelper.showSuccess(
+        context,
+        'Custom options pool reset! All custom ideas are ready to spin.',
+      );
+    }
+  }
+
+  /// Reset only the online web suggestions from the anti-repeat exclusion pool
+  Future<void> _resetOnlinePool() async {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _currentHistory.removeWhere((item) => !_currentOptions.contains(item));
+      if (_selectedCategoryIndex == 1 &&
+          _lastActivityResult != null &&
+          !_currentOptions.contains(_lastActivityResult)) {
+        _lastActivityResult = null;
+        _currentDisplayResult = 'Tap Spin to Decide!';
+      } else if (_selectedCategoryIndex == 2 &&
+          _lastFoodResult != null &&
+          !_currentOptions.contains(_lastFoodResult)) {
+        _lastFoodResult = null;
+        _currentDisplayResult = 'Tap Spin to Decide!';
+      }
+    });
+    await _savePersistentData();
+
+    _spinnerChannel?.sendBroadcastMessage(
+      event: 'reset_online_pool',
+      payload: {
+        'categoryIndex': _selectedCategoryIndex,
+      },
+    );
+
+    if (mounted) {
+      SnackbarHelper.showSuccess(
+        context,
+        'Online suggestions pool reset! Ready for new web ideas.',
       );
     }
   }
@@ -1237,10 +1247,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   /// Weighted winner selection algorithm:
   /// - If 0 (Movie Watchlist): uniform distribution from watch options
-  /// - If _sourceFilterIndex == 1: 100% custom couple options
-  /// - If _sourceFilterIndex == 2: 100% online dynamic Filipino suggestions
-  /// - If _sourceFilterIndex == 0 (All Ideas): 80% custom / 20% online (or 100% online if 0 custom)
-  String _pickWinner() {
+  /// Weighted winner selection algorithm:
+  /// - If 0 (Movie Watchlist): uniform distribution from watch options
+  /// - If custom options exist: 80% chance to pick custom option, 20% to connect live to web for super-random Filipino culture suggestion.
+  /// - If 0 custom options: 100% live web online Filipino culture suggestion.
+  Future<String> _pickWinner() async {
     if (_selectedCategoryIndex == 0) {
       // Movie Watchlist: uniform distribution
       final available = _watchOptions
@@ -1258,62 +1269,33 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         .where((item) => !_currentHistory.contains(item))
         .toList();
 
-    final onlinePool = (_selectedCategoryIndex == 2
-            ? _onlineFilipinoFood
-            : _onlineFilipinoActivities)
-        .where((item) => !_currentHistory.contains(item))
-        .toList();
-
-    final activeOnlineList = onlinePool.isNotEmpty
-        ? onlinePool
-        : (_selectedCategoryIndex == 2
-            ? _onlineFilipinoFood
-            : _onlineFilipinoActivities);
-
-    // Custom Only Mode (Filter 1)
-    if (_sourceFilterIndex == 1) {
-      if (availableCustom.isNotEmpty) {
-        return availableCustom[_random.nextInt(availableCustom.length)];
-      } else if (_currentOptions.isNotEmpty) {
-        _currentHistory.removeWhere((h) => _currentOptions.contains(h));
-        _savePersistentData();
-        return _currentOptions[_random.nextInt(_currentOptions.length)];
-      } else {
-        return 'Please add a custom option!';
-      }
-    }
-
-    // Online Only Mode (Filter 2)
-    if (_sourceFilterIndex == 2) {
-      if (onlinePool.isNotEmpty) {
-        return onlinePool[_random.nextInt(onlinePool.length)];
-      } else {
-        _currentHistory.removeWhere((h) => activeOnlineList.contains(h));
-        _savePersistentData();
-        return activeOnlineList[_random.nextInt(activeOnlineList.length)];
-      }
-    }
-
-    // All Ideas / Merged Mode (Filter 0)
     if (availableCustom.isNotEmpty) {
       final roll = _random.nextDouble(); // 0.0 to 1.0
-      if (roll < 0.80 || activeOnlineList.isEmpty) {
+      if (roll < 0.80) {
         // 80% weighted chance: Pick one of the couple's custom options!
         return availableCustom[_random.nextInt(availableCustom.length)];
       } else {
-        // 20% chance: Fetch an online suggestion!
-        return activeOnlineList[_random.nextInt(activeOnlineList.length)];
+        // 20% chance: Connect live to online web API to fetch super-random Filipino culture idea!
+        final liveOnlinePick =
+            await OnlineFilipinoSuggestionService.fetchRandomOnlineSuggestion(
+          isFood: _selectedCategoryIndex == 2,
+        );
+        return liveOnlinePick;
       }
     } else {
-      // 0 custom options: Picks directly from online suggestions
-      return activeOnlineList[_random.nextInt(activeOnlineList.length)];
+      // 0 custom options: Connects live to web to fetch a super-random Filipino suggestion
+      final liveOnlinePick =
+          await OnlineFilipinoSuggestionService.fetchRandomOnlineSuggestion(
+        isFood: _selectedCategoryIndex == 2,
+      );
+      return liveOnlinePick;
     }
   }
 
   /// Pick winner and calculate target wedge index on the merged wheel
-  ({String winner, int targetSliceIndex}) _pickWinnerWithTarget() {
+  Future<({String winner, int targetSliceIndex})> _pickWinnerWithTarget() async {
     final slices = _wheelDisplaySlices;
-    final winner = _pickWinner();
+    final winner = await _pickWinner();
 
     if (_selectedCategoryIndex == 0) {
       final idx = slices.indexWhere((s) => s.label == winner);
@@ -1348,7 +1330,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   }
 
   /// Trigger the appropriate spin mode
-  void _onSpinPressed() {
+  Future<void> _onSpinPressed() async {
     if (_isSpinning) return;
     if (_selectedCategoryIndex == 0) {
       if (_pickedMovie != null) {
@@ -1367,24 +1349,17 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         );
         return;
       }
-    } else if (_sourceFilterIndex == 1 && _currentOptions.isEmpty) {
-      HapticFeedback.vibrate();
-      SnackbarHelper.showError(
-        context,
-        'Please add at least 1 custom option to spin in Custom Only mode, or switch to All Ideas / Online mode!',
-      );
-      return;
     }
 
     if (_spinnerModeIndex == 0) {
-      _startVisualWheelSpin();
+      await _startVisualWheelSpin();
     } else {
-      _startQuickSlotSpin();
+      await _startQuickSlotSpin();
     }
   }
 
   /// Interactive Visual Wheel Physics Spin on the merged wheel
-  void _startVisualWheelSpin({
+  Future<void> _startVisualWheelSpin({
     bool fromRemote = false,
     String? remoteWinner,
     int? remoteTargetSliceIndex,
@@ -1393,7 +1368,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     String? remoteMediaType,
     int? remoteWatchCount,
     String? remoteMovieId,
-  }) {
+  }) async {
     final slices = _wheelDisplaySlices;
     if (slices.isEmpty) return;
 
@@ -1406,7 +1381,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     String? finalMovieId = remoteMovieId;
 
     if (!fromRemote) {
-      final decision = _pickWinnerWithTarget();
+      final myUserId =
+          Provider.of<UserProvider>(context, listen: false).user?.uid;
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _isSpinning = true;
+      });
+
+      final decision = await _pickWinnerWithTarget();
+      if (!mounted) return;
       finalWinner = decision.winner;
       targetSliceIndex = decision.targetSliceIndex;
       extraTurns = 5 + _random.nextInt(3); // 5 to 7 full rotations
@@ -1423,14 +1406,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         } catch (_) {}
       }
 
-      final myUserId =
-          Provider.of<UserProvider>(context, listen: false).user?.uid;
       _spinnerChannel?.sendBroadcastMessage(
         event: 'spin_start',
         payload: {
           'categoryIndex': _selectedCategoryIndex,
           'modeIndex': 0,
-          'sourceFilterIndex': _sourceFilterIndex,
           'userId': myUserId,
           'winner': finalWinner,
           'targetSliceIndex': targetSliceIndex,
@@ -1442,7 +1422,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         },
       );
     } else {
-      finalWinner = remoteWinner ?? _pickWinner();
+      finalWinner = remoteWinner ?? await _pickWinner();
       if (remoteTargetSliceIndex != null &&
           remoteTargetSliceIndex >= 0 &&
           remoteTargetSliceIndex < slices.length) {
@@ -1453,12 +1433,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         targetSliceIndex = idx >= 0 ? idx : 0;
       }
       extraTurns = remoteExtraTurns ?? 5;
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _isSpinning = true;
+      });
     }
-
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _isSpinning = true;
-    });
 
     final sliceCount = slices.length;
     final sliceAngle = (2 * pi) / sliceCount;
@@ -1512,33 +1491,24 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   }
 
   /// Quick Slot-Machine Carousel Spin
-  void _startQuickSlotSpin({
+  Future<void> _startQuickSlotSpin({
     bool fromRemote = false,
     String? remoteWinner,
     String? remotePosterUrl,
     String? remoteMediaType,
     int? remoteWatchCount,
     String? remoteMovieId,
-  }) {
-    final List<String> displayPool;
-    if (_selectedCategoryIndex == 0) {
-      displayPool = _watchOptions;
-    } else if (_sourceFilterIndex == 1) {
-      displayPool = _currentOptions.isNotEmpty
-          ? _currentOptions
-          : const ['Add Custom Options to Spin!'];
-    } else if (_sourceFilterIndex == 2) {
-      displayPool = _selectedCategoryIndex == 2
-          ? _onlineFilipinoFood
-          : _onlineFilipinoActivities;
-    } else {
-      displayPool = [
-        if (_currentOptions.isNotEmpty) ..._currentOptions,
-        ...(_selectedCategoryIndex == 2
-            ? _onlineFilipinoFood
-            : _onlineFilipinoActivities),
-      ];
-    }
+  }) async {
+    final displayPool = _selectedCategoryIndex == 0
+        ? _watchOptions
+        : (_currentOptions.isNotEmpty
+            ? _currentOptions
+            : const [
+                'Deciding Online Selection...',
+                'Spinning Online Suggestions...',
+                'Exploring Online Ideas...',
+                'Selecting Online Choice...'
+              ]);
 
     if (displayPool.isEmpty) return;
 
@@ -1549,7 +1519,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     String? finalMovieId = remoteMovieId;
 
     if (!fromRemote) {
-      finalWinner = _pickWinner();
+      final myUserId =
+          Provider.of<UserProvider>(context, listen: false).user?.uid;
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _isSpinning = true;
+      });
+
+      finalWinner = await _pickWinner();
+      if (!mounted) return;
       if (_selectedCategoryIndex == 0) {
         try {
           final m = _watchMovies.firstWhere(
@@ -1562,8 +1540,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         } catch (_) {}
       }
 
-      final myUserId =
-          Provider.of<UserProvider>(context, listen: false).user?.uid;
       _spinnerChannel?.sendBroadcastMessage(
         event: 'spin_start',
         payload: {
@@ -1578,13 +1554,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         },
       );
     } else {
-      finalWinner = remoteWinner ?? _pickWinner();
+      finalWinner = remoteWinner ?? await _pickWinner();
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _isSpinning = true;
+      });
     }
-
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _isSpinning = true;
-    });
 
     int ticks = 0;
     const totalTicks = 20;
@@ -1903,6 +1878,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final excludedCustomCount = _selectedCategoryIndex == 0
+        ? 0
+        : _currentOptions.where((opt) => _currentHistory.contains(opt)).length;
+    final excludedOnlineCount = _selectedCategoryIndex == 0
+        ? 0
+        : _currentHistory.where((opt) => !_currentOptions.contains(opt)).length;
 
     return Scaffold(
       backgroundColor:
@@ -2065,44 +2046,20 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              _selectedCategoryIndex == 0
-                                  ? 'Watchlist Movies (${_watchMovies.length})'
-                                  : 'Custom Options (${_currentOptions.length})',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: isDark
-                                    ? Colors.white
-                                    : AppColors.deepCharcoal,
-                              ),
+                    if (_selectedCategoryIndex == 0) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Watchlist Movies (${_watchMovies.length})',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppColors.deepCharcoal,
                             ),
-                            if (_selectedCategoryIndex != 0) ...[
-                              const SizedBox(width: 6),
-                              const Icon(
-                                Icons.cloud_done_rounded,
-                                size: 15,
-                                color: Color(0xFFFF758C),
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (_selectedCategoryIndex != 0)
-                          TextButton.icon(
-                            onPressed: _showAddCustomOptionDialog,
-                            icon: const Icon(Icons.add_rounded, size: 16),
-                            label: const Text('Add Custom'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFFFF758C),
-                              padding: EdgeInsets.zero,
-                            ),
-                          )
-                        else
+                          ),
                           TextButton.icon(
                             onPressed: () {
                               HapticFeedback.lightImpact();
@@ -2120,11 +2077,82 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                               padding: EdgeInsets.zero,
                             ),
                           ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ] else ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star_rounded,
+                                size: 16,
+                                color: Color(0xFFFF758C),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Custom Couple Options (${_currentOptions.length})',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13.5,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppColors.deepCharcoal,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (excludedCustomCount > 0) ...[
+                                TextButton.icon(
+                                  onPressed: _resetCustomPool,
+                                  icon: const Icon(Icons.refresh_rounded,
+                                      size: 13),
+                                  label: Text('Reset ($excludedCustomCount)'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFFFF758C),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    textStyle: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                              ],
+                              TextButton.icon(
+                                onPressed: _showAddCustomOptionDialog,
+                                icon: const Icon(Icons.add_rounded, size: 15),
+                                label: const Text('Add Custom'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFFFF758C),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
 
                     // Persistent Reset Excluded Options Banner
-                    if (_currentHistory.isNotEmpty ||
+                    if ((_selectedCategoryIndex != 0 &&
+                            _currentHistory.isNotEmpty) ||
                         (_selectedCategoryIndex == 0 &&
                             _pickedMovie != null)) ...[
                       const SizedBox(height: 10),
@@ -2152,142 +2180,276 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             width: 1.2,
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(7),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFF758C)
-                                    .withValues(alpha: 0.15),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                _selectedCategoryIndex == 0 &&
-                                        _pickedMovie != null
-                                    ? Icons.movie_rounded
-                                    : Icons.history_rounded,
-                                size: 16,
-                                color: const Color(0xFFFF758C),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        child: _selectedCategoryIndex == 0 &&
+                                _pickedMovie != null
+                            ? Row(
                                 children: [
-                                  Text(
-                                    _selectedCategoryIndex == 0 &&
-                                            _pickedMovie != null
-                                        ? 'Current Pick: ${_pickedMovie!.title}'
-                                        : 'Anti-Repeat Exclusion Pool',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark
-                                          ? Colors.white
-                                          : AppColors.deepCharcoal,
+                                  Container(
+                                    padding: const EdgeInsets.all(7),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFF758C)
+                                          .withValues(alpha: 0.15),
+                                      shape: BoxShape.circle,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                    child: const Icon(
+                                      Icons.movie_rounded,
+                                      size: 16,
+                                      color: Color(0xFFFF758C),
+                                    ),
                                   ),
-                                  if (_selectedCategoryIndex != 0)
-                                    Text(
-                                      '${_currentHistory.length} recently picked items temporarily excluded',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        color: isDark
-                                            ? Colors.white60
-                                            : Colors.grey.shade600,
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Current Pick: ${_pickedMovie!.title}',
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDark
+                                                ? Colors.white
+                                                : AppColors.deepCharcoal,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (kDebugMode)
+                                    TextButton.icon(
+                                      onPressed: _forceResetMoviePick,
+                                      icon: const Icon(
+                                          Icons.restart_alt_rounded,
+                                          size: 14),
+                                      label: const Text('Reset (Debug)'),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor:
+                                            Colors.amberAccent.shade400,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        textStyle: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
                                       ),
+                                    )
+                                  else
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.lock_rounded,
+                                            size: 12, color: Color(0xFFFF758C)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Locked',
+                                          style: TextStyle(
+                                            color: isDark
+                                                ? Colors.white38
+                                                : Colors.grey.shade500,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                 ],
-                              ),
-                            ),
-                            if (_selectedCategoryIndex == 0 &&
-                                _pickedMovie != null) ...[
-                              if (kDebugMode)
-                                TextButton.icon(
-                                  onPressed: _forceResetMoviePick,
-                                  icon: const Icon(Icons.restart_alt_rounded,
-                                      size: 14),
-                                  label: const Text('Reset (Debug)'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor:
-                                        Colors.amberAccent.shade400,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    textStyle: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                )
-                              else
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.lock_rounded,
-                                        size: 12, color: Color(0xFFFF758C)),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Locked',
-                                      style: TextStyle(
-                                        color: isDark
-                                            ? Colors.white38
-                                            : Colors.grey.shade500,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(7),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFF758C)
+                                              .withValues(alpha: 0.15),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.history_rounded,
+                                          size: 16,
+                                          color: Color(0xFFFF758C),
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                            ] else
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFFFF758C),
-                                      Color(0xFFA18CD1)
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Anti-Repeat Exclusion Pool',
+                                              style: TextStyle(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: isDark
+                                                    ? Colors.white
+                                                    : AppColors.deepCharcoal,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              excludedCustomCount > 0 &&
+                                                      excludedOnlineCount > 0
+                                                  ? '$excludedCustomCount Custom • $excludedOnlineCount Online temporarily excluded'
+                                                  : (excludedCustomCount > 0
+                                                      ? '$excludedCustomCount Custom ${excludedCustomCount == 1 ? "option" : "options"} temporarily excluded'
+                                                      : '$excludedOnlineCount Online ${excludedOnlineCount == 1 ? "suggestion" : "suggestions"} temporarily excluded'),
+                                              style: TextStyle(
+                                                fontSize: 10.5,
+                                                color: isDark
+                                                    ? Colors.white60
+                                                    : Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFFFF758C)
-                                          .withValues(alpha: 0.25),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: ElevatedButton.icon(
-                                  onPressed: _resetCurrentHistory,
-                                  icon: const Icon(Icons.refresh_rounded,
-                                      size: 13, color: Colors.white),
-                                  label: const Text(
-                                    'Reset Pool',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    children: [
+                                      if (excludedCustomCount > 0)
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [
+                                                Color(0xFFFF758C),
+                                                Color(0xFFFF8DA1),
+                                              ],
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(9),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFFFF758C)
+                                                    .withValues(alpha: 0.25),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 1.5),
+                                              ),
+                                            ],
+                                          ),
+                                          child: ElevatedButton.icon(
+                                            onPressed: _resetCustomPool,
+                                            icon: const Icon(
+                                                Icons.refresh_rounded,
+                                                size: 13,
+                                                color: Colors.white),
+                                            label: Text(
+                                              'Reset Custom Pool ($excludedCustomCount)',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.transparent,
+                                              shadowColor:
+                                                  Colors.transparent,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                            ),
+                                          ),
+                                        ),
+                                      if (excludedOnlineCount > 0)
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [
+                                                Color(0xFFA18CD1),
+                                                Color(0xFF8A72BE),
+                                              ],
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(9),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFFA18CD1)
+                                                    .withValues(alpha: 0.25),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 1.5),
+                                              ),
+                                            ],
+                                          ),
+                                          child: ElevatedButton.icon(
+                                            onPressed: _resetOnlinePool,
+                                            icon: const Icon(
+                                                Icons.refresh_rounded,
+                                                size: 13,
+                                                color: Colors.white),
+                                            label: Text(
+                                              'Reset Online Pool ($excludedOnlineCount)',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.transparent,
+                                              shadowColor:
+                                                  Colors.transparent,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                            ),
+                                          ),
+                                        ),
+                                      if (excludedCustomCount > 0 &&
+                                          excludedOnlineCount > 0)
+                                        TextButton.icon(
+                                          onPressed: _resetCurrentHistory,
+                                          icon: const Icon(
+                                              Icons.restore_rounded,
+                                              size: 13),
+                                          label: const Text('Reset All'),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: isDark
+                                                ? Colors.white70
+                                                : Colors.grey.shade700,
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 6),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            textStyle: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 6),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                ),
+                                ],
                               ),
-                          ],
-                        ),
                       ),
                     ],
 
@@ -2633,194 +2795,70 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 18),
-                      Divider(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : Colors.grey.shade200,
-                        height: 1,
-                      ),
-                      const SizedBox(height: 14),
-
-                      // SECTION 2: Curated Online Suggestions Pool
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.public_rounded,
-                            size: 15,
-                            color: Color(0xFFA18CD1),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.04)
+                              : const Color(0xFFF9F6FC),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFFA18CD1)
+                                .withValues(alpha: 0.25),
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _selectedCategoryIndex == 1
-                                ? 'Online Suggestions (${_onlineFilipinoActivities.length})'
-                                : 'Online Suggestions (${_onlineFilipinoFood.length})',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: isDark
-                                  ? Colors.white
-                                  : AppColors.deepCharcoal,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Pre-curated popular Filipino ideas available in "All Ideas" & "Online" modes.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? Colors.white60 : Colors.grey.shade600,
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: (_selectedCategoryIndex == 1
-                                ? _onlineFilipinoActivities
-                                : _onlineFilipinoFood)
-                            .map((onlineOpt) {
-                          final isPickedRecently =
-                              _currentHistory.contains(onlineOpt);
-
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 9, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: isPickedRecently
-                                  ? (isDark
-                                      ? Colors.white.withValues(alpha: 0.03)
-                                      : Colors.grey.shade100)
-                                  : (isDark
-                                      ? const Color(0xFFA18CD1)
-                                          .withValues(alpha: 0.12)
-                                      : const Color(0xFFA18CD1)
-                                          .withValues(alpha: 0.08)),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: isPickedRecently
-                                    ? Colors.transparent
-                                    : const Color(0xFFA18CD1)
-                                        .withValues(alpha: 0.3),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFA18CD1)
+                                    .withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.public_rounded,
+                                size: 18,
+                                color: Color(0xFFA18CD1),
                               ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.public_rounded,
-                                  size: 11,
-                                  color: isPickedRecently
-                                      ? (isDark ? Colors.white30 : Colors.grey)
-                                      : const Color(0xFFA18CD1),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  onlineOpt,
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: isPickedRecently
-                                        ? FontWeight.normal
-                                        : FontWeight.w600,
-                                    color: isPickedRecently
-                                        ? (isDark
-                                            ? Colors.white38
-                                            : Colors.grey.shade500)
-                                        : (isDark
-                                            ? Colors.white70
-                                            : AppColors.deepCharcoal),
-                                    decoration: isPickedRecently
-                                        ? TextDecoration.lineThrough
-                                        : null,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedCategoryIndex == 1
+                                        ? 'Live Web Filipino Date Search'
+                                        : 'Live Web Filipino Food Search',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark
+                                          ? Colors.white
+                                          : AppColors.deepCharcoal,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Connected live to online web search for super-random authentic Filipino culture ideas every time you spin.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark
+                                          ? Colors.white60
+                                          : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          );
-                        }).toList(),
+                          ],
+                        ),
                       ),
                     ],
                   ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Source Filter Segment Tab (All Ideas | Custom Only | Online Only)
-  Widget _buildSourceFilterTab({
-    required int index,
-    required String label,
-    required IconData icon,
-    int? count,
-    required bool isDark,
-  }) {
-    final isSelected = _sourceFilterIndex == index;
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          if (_isSpinning) return;
-          HapticFeedback.selectionClick();
-          setState(() {
-            _sourceFilterIndex = index;
-          });
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
-          decoration: BoxDecoration(
-            gradient: isSelected
-                ? const LinearGradient(
-                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: isSelected
-                ? null
-                : (isDark
-                    ? Colors.white.withValues(alpha: 0.04)
-                    : Colors.white),
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 13,
-                color: isSelected
-                    ? Colors.white
-                    : (isDark ? Colors.white60 : Colors.grey.shade600),
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  count != null ? '$label ($count)' : label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-                    color: isSelected
-                        ? Colors.white
-                        : (isDark ? Colors.white70 : AppColors.deepCharcoal),
-                  ),
                 ),
               ),
             ],
@@ -2977,52 +3015,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       return _buildPickedMovieView(context, isDark);
     }
 
-    final onlinePoolCount = _selectedCategoryIndex == 2
-        ? _onlineFilipinoFood.length
-        : _onlineFilipinoActivities.length;
-
     return Column(
       children: [
-        // Source Filter Switcher (All Ideas | Custom Only | Online Only)
-        if (_selectedCategoryIndex != 0) ...[
-          Container(
-            padding: const EdgeInsets.all(3),
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.05)
-                  : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: const Color(0xFFFF758C).withValues(alpha: 0.2),
-              ),
-            ),
-            child: Row(
-              children: [
-                _buildSourceFilterTab(
-                  index: 0,
-                  label: 'All Ideas',
-                  icon: Icons.auto_awesome_rounded,
-                  isDark: isDark,
-                ),
-                _buildSourceFilterTab(
-                  index: 1,
-                  label: 'Custom',
-                  icon: Icons.star_rounded,
-                  count: _currentOptions.length,
-                  isDark: isDark,
-                ),
-                _buildSourceFilterTab(
-                  index: 2,
-                  label: 'Online',
-                  icon: Icons.public_rounded,
-                  isDark: isDark,
-                ),
-              ],
-            ),
-          ),
-        ],
-
         if (_spinnerModeIndex == 0)
           // Visual Physical Wheel Mode
           _buildVisualWheel(context, isDark)

@@ -1153,10 +1153,10 @@ class _VaultImagePageItemState extends State<_VaultImagePageItem> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. Image View (Blurred if hidden, Crisp InteractiveViewer if revealed)
+        // 1. Image View (Deeply Blurred if hidden, Crisp InteractiveViewer if revealed)
         if (!widget.isRevealed)
           ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+            imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
             child: Image.network(
               widget.media.mediaUrl,
               fit: BoxFit.cover,
@@ -1574,10 +1574,10 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
       return Stack(
         fit: StackFit.expand,
         children: [
-          // Blurred Thumbnail
+          // Blurred Thumbnail (Deeply masked)
           if (displayThumbnail.isNotEmpty)
             ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+              imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
               child: Image.network(
                 displayThumbnail,
                 fit: BoxFit.cover,
@@ -1589,13 +1589,13 @@ class _VaultVideoPageItemState extends State<_VaultVideoPageItem> {
           else
             Container(color: const Color(0xFF150D20)),
 
-          // Dark frosted privacy mask (ONLY button reveals)
+          // Heavy dark frosted privacy mask (ONLY button reveals)
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.black.withValues(alpha: 0.65),
-                  Colors.black.withValues(alpha: 0.85),
+                  const Color(0xFF140D1D).withValues(alpha: 0.85),
+                  const Color(0xFF0C0712).withValues(alpha: 0.95),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,

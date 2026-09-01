@@ -1041,11 +1041,11 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // 1. Background Media Content (Blurred if hidden, live preview or image if revealed)
+              // 1. Background Media Content (Deeply Blurred if hidden, live preview or image if revealed)
               if (!isRevealedInPlace)
                 if (displayImageUrl.isNotEmpty)
                   ImageFiltered(
-                    imageFilter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                    imageFilter: ImageFilter.blur(sigmaX: 55, sigmaY: 55),
                     child: Image.network(
                       displayImageUrl,
                       fit: BoxFit.cover,
@@ -1083,17 +1083,22 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                         ),
                       ),
 
-              // 2. Dark frosted gradient overlay when hidden
+              // 2. Heavy dark frosted privacy mask overlay when hidden
               if (!isRevealedInPlace)
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.black.withValues(alpha: 0.55),
-                        Colors.black.withValues(alpha: 0.82),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF140D1D).withValues(alpha: 0.85),
+                            const Color(0xFF0C0712).withValues(alpha: 0.95),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
                     ),
                   ),
                 ),

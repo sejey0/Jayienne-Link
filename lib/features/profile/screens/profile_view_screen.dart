@@ -272,34 +272,46 @@ class _ProfileViewScreenState extends State<ProfileViewScreen> {
                           builder: (context) {
                             final zodiacInfo = ZodiacHelper.getZodiac(user.zodiacSign);
                             final color = zodiacInfo?.color ?? const Color(0xFFA18CD1);
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: isDark ? 0.18 : 0.10),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: color.withValues(alpha: 0.35),
+                            return GestureDetector(
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                context.push(RouteNames.editProfile);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: isDark ? 0.18 : 0.10),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: color.withValues(alpha: 0.35),
+                                  ),
                                 ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ZodiacIcon(
-                                    zodiac: user.zodiacSign!,
-                                    size: 14,
-                                    color: color,
-                                    strokeWidth: 2.0,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    user.zodiacSign!,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ZodiacIcon(
+                                      zodiac: user.zodiacSign!,
+                                      size: 14,
                                       color: color,
+                                      strokeWidth: 2.0,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      user.zodiacSign!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: color,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Icon(
+                                      Icons.edit_rounded,
+                                      size: 11,
+                                      color: color.withValues(alpha: 0.7),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           },
@@ -325,7 +337,7 @@ class _ProfileViewScreenState extends State<ProfileViewScreen> {
                                 Icon(Icons.auto_awesome_rounded, size: 13, color: Color(0xFFA18CD1)),
                                 SizedBox(width: 5),
                                 Text(
-                                  'Set Zodiac Sign',
+                                  'Set Zodiac',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,

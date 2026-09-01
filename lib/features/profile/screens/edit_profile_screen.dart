@@ -40,10 +40,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!_initialized) {
       final user = context.read<UserProvider>().user;
       _nameController = TextEditingController(text: user?.displayName ?? '');
+      _nameController.addListener(() {
+        if (mounted) setState(() {});
+      });
       _birthday = user?.birthday;
       _selectedZodiac = user?.zodiacSign;
       _initialized = true;
     }
+  }
+
+  bool get _hasChanges {
+    final user = context.read<UserProvider>().user;
+    final initialName = user?.displayName ?? '';
+    final initialBirthday = user?.birthday;
+    final initialZodiac = user?.zodiacSign;
+
+    final nameChanged = _nameController.text.trim() != initialName;
+    final photoChanged = _selectedPhoto != null;
+    final birthdayChanged = _birthday != initialBirthday;
+    final zodiacChanged = _selectedZodiac != initialZodiac;
+
+    return nameChanged || photoChanged || birthdayChanged || zodiacChanged;
+  }
+
+  void _resetToDefault() {
+    HapticFeedback.mediumImpact();
+    final user = context.read<UserProvider>().user;
+    setState(() {
+      _nameController.text = user?.displayName ?? '';
+      _birthday = user?.birthday;
+      _selectedZodiac = user?.zodiacSign;
+      _selectedPhoto = null;
+      _nameEditable = false;
+    });
+    SnackbarHelper.showInfo(context, 'Reset to original profile values');
   }
 
   @override
@@ -121,22 +151,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Title row
+                  // Title row with Back button
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.fromLTRB(10, 0, 16, 0),
                     child: Row(
                       children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                          color: isDark ? Colors.white70 : Colors.grey.shade700,
+                          tooltip: 'Back',
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.pop(ctx);
+                          },
+                        ),
                         ShaderMask(
                           shaderCallback: (bounds) => const LinearGradient(
                             colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
                           ).createShader(bounds),
-                          child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
+                          child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Text(
                           'Select Zodiac Sign',
                           style: TextStyle(
-                            fontSize: 17,
+                            fontSize: 16.5,
                             fontWeight: FontWeight.bold,
                             color: isDark ? Colors.white : AppColors.deepCharcoal,
                           ),
@@ -896,40 +935,101 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                         const SizedBox(height: 28),
 
-                        // ── Save Button ────────────────────────────────────
-                        Container(
-                          width: double.infinity,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFFF758C).withValues(alpha: 0.35),
-                                blurRadius: 14,
-                                offset: const Offset(0, 5),
+                        // ── Action Buttons: Reset + Save ────────────────────
+                        Row(
+                          children: [
+                            if (_hasChanges) ...[
+                              Expanded(
+                                flex: 2,
+                                child: SizedBox(
+                                  height: 52,
+                                  child: OutlinedButton.icon(
+                                    onPressed: userProvider.isLoading ? null : _resetToDefault,
+                                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                                    label: const Text(
+                                      'Reset',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: isDark ? Colors.white70 : Colors.grey.shade700,
+                                      side: BorderSide(
+                                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                                        width: 1.2,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
+                              const SizedBox(width: 12),
                             ],
-                          ),
-                          child: ElevatedButton.icon(
-                            onPressed: userProvider.isLoading ? null : _save,
-                            icon: const Icon(Icons.check_rounded, size: 20, color: Colors.white),
-                            label: const Text(
-                              'Save Changes',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: Colors.white),
+                            Expanded(
+                              flex: 3,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  gradient: (_hasChanges && !userProvider.isLoading)
+                                      ? const LinearGradient(
+                                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        )
+                                      : null,
+                                  color: (_hasChanges && !userProvider.isLoading)
+                                      ? null
+                                      : (isDark
+                                          ? Colors.white.withValues(alpha: 0.08)
+                                          : Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: (_hasChanges && !userProvider.isLoading)
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                                            blurRadius: 14,
+                                            offset: const Offset(0, 5),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: ElevatedButton.icon(
+                                  onPressed: (_hasChanges && !userProvider.isLoading) ? _save : null,
+                                  icon: Icon(
+                                    Icons.check_rounded,
+                                    size: 20,
+                                    color: (_hasChanges && !userProvider.isLoading)
+                                        ? Colors.white
+                                        : (isDark ? Colors.white30 : Colors.grey.shade500),
+                                  ),
+                                  label: Text(
+                                    'Save Changes',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: (_hasChanges && !userProvider.isLoading)
+                                          ? Colors.white
+                                          : (isDark ? Colors.white30 : Colors.grey.shade500),
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    disabledBackgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                ),
+                              ),
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              elevation: 0,
-                            ),
-                          ),
+                          ],
                         ),
                         const SizedBox(height: 24),
                       ],

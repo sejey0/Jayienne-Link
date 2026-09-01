@@ -1022,6 +1022,10 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (_isPlayingRoute) {
       pauseRoutePlayback();
     } else {
+      if (_historyLocations.isNotEmpty &&
+          _playbackIndex >= _historyLocations.length - 1) {
+        _playbackIndex = 0;
+      }
       startRoutePlayback();
     }
   }

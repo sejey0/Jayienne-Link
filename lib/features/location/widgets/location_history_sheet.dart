@@ -1,19 +1,34 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
 
-/// Bottom panel for controlling Location History & Route Playback
-class LocationHistorySheet extends StatelessWidget {
+/// Premium Redesigned Bottom Sheet for Interactive Route History Playback
+/// Accurately matches romantic dark theme, supports collapsing into a compact mini player,
+/// and includes a dedicated Full-Screen Map toggle.
+class LocationHistorySheet extends StatefulWidget {
   final VoidCallback onClose;
+  final VoidCallback? onToggleFullscreen;
+  final bool isFullscreen;
 
   const LocationHistorySheet({
     super.key,
     required this.onClose,
+    this.onToggleFullscreen,
+    this.isFullscreen = false,
   });
+
+  @override
+  State<LocationHistorySheet> createState() => _LocationHistorySheetState();
+}
+
+class _LocationHistorySheetState extends State<LocationHistorySheet> {
+  bool _isCollapsed = false;
 
   String _formatDateLabel(DateTime date) {
     final now = DateTime.now();
@@ -28,12 +43,30 @@ class LocationHistorySheet extends StatelessWidget {
     return DateFormat('EEE, MMM d, yyyy').format(date);
   }
 
-
   String _getHeadingDirection(double? heading) {
-    if (heading == null) return '';
+    if (heading == null || heading < 0) return 'Moving';
     final directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'N'];
     final index = ((heading % 360) / 45).round() % 8;
     return '${heading.toStringAsFixed(0)}° ${directions[index]}';
+  }
+
+  double _calculateDistanceUpTo(List<LocationModel> locations, int upToIndex) {
+    if (locations.length < 2 || upToIndex <= 0) return 0.0;
+    double total = 0.0;
+    final maxIdx = math.min(upToIndex, locations.length - 1);
+    for (int i = 0; i < maxIdx; i++) {
+      total += Geolocator.distanceBetween(
+        locations[i].latitude,
+        locations[i].longitude,
+        locations[i + 1].latitude,
+        locations[i + 1].longitude,
+      );
+    }
+    return total / 1000.0;
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   @override
@@ -45,6 +78,7 @@ class LocationHistorySheet extends StatelessWidget {
     final selectedDate = provider.selectedHistoryDate;
     final isLoading = provider.isLoadingHistory;
     final currentPoint = provider.currentPlaybackLocation;
+    final currentSpeed = provider.playbackSpeed;
 
     final myId = provider.currentUser?.id ?? provider.userId;
     final partnerId = provider.partnerUser?.id ?? provider.partnerId;
@@ -54,362 +88,813 @@ class LocationHistorySheet extends StatelessWidget {
     final isViewingPartner = provider.historyOwnerId == partnerId;
 
     final maxIndex = math.max(0, locations.length - 1).toDouble();
-    final sliderVal = currentIndex.clamp(0, locations.isEmpty ? 0 : locations.length - 1).toDouble();
+    final sliderVal = currentIndex
+        .clamp(0, locations.isEmpty ? 0 : locations.length - 1)
+        .toDouble();
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1A29).withValues(alpha: 0.96),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: AppColors.softRose.withValues(alpha: 0.3), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 18,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Top Bar: Mode Title & Exit Button
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.softRose.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.history_rounded,
-                    color: AppColors.softRose,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Route History Playback',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: onClose,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
+    final currentDistanceKm = _calculateDistanceUpTo(locations, currentIndex);
+    final totalDistanceKm = _calculateDistanceUpTo(locations, locations.length - 1);
 
-            // Person Selector (My Route vs Partner's Route)
-            if (partnerId != null)
-              Container(
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          if (partnerId.isNotEmpty) {
-                            provider.setHistoryOwner(partnerId);
-                          }
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: isViewingPartner ? AppColors.softRose : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            "$partnerName's Route",
-                            style: TextStyle(
-                              color: isViewingPartner ? Colors.white : Colors.white60,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (myId != null)
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            provider.setHistoryOwner(myId);
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: !isViewingPartner ? AppColors.lavender : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              'My Route',
-                              style: TextStyle(
-                                color: !isViewingPartner ? Colors.white : Colors.white60,
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 10),
+    // Compute dynamic heading direction if point heading is 0 or null
+    double? activeHeading = currentPoint?.heading;
+    if ((activeHeading == null || activeHeading == 0.0) &&
+        currentIndex < locations.length - 1 &&
+        locations.isNotEmpty) {
+      final nextLoc = locations[currentIndex + 1];
+      if (currentPoint != null) {
+        activeHeading = Geolocator.bearingBetween(
+          currentPoint.latitude,
+          currentPoint.longitude,
+          nextLoc.latitude,
+          nextLoc.longitude,
+        );
+        if (activeHeading < 0) activeHeading += 360;
+      }
+    }
 
-            // Quick Date Selector Pills (Today / Yesterday / Calendar)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildDatePill(
-                    context,
-                    label: 'Today',
-                    isSelected: _isSameDay(selectedDate, DateTime.now()),
-                    onTap: () {
-                      provider.setSelectedHistoryDate(DateTime.now());
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  _buildDatePill(
-                    context,
-                    label: 'Yesterday',
-                    isSelected: _isSameDay(
-                      selectedDate,
-                      DateTime.now().subtract(const Duration(days: 1)),
-                    ),
-                    onTap: () {
-                      provider.setSelectedHistoryDate(
-                        DateTime.now().subtract(const Duration(days: 1)),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  _buildDatePill(
-                    context,
-                    label: _isSameDay(selectedDate, DateTime.now()) ||
-                            _isSameDay(
-                                selectedDate,
-                                DateTime.now().subtract(const Duration(days: 1)))
-                        ? 'Calendar'
-                        : DateFormat('MMM d').format(selectedDate),
-                    icon: Icons.calendar_month_rounded,
-                    isSelected: !_isSameDay(selectedDate, DateTime.now()) &&
-                        !_isSameDay(selectedDate,
-                            DateTime.now().subtract(const Duration(days: 1))),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime(2023),
-                        lastDate: DateTime.now(),
-                        builder: (context, child) {
-                          return Theme(
-                            data: Theme.of(context).copyWith(
-                              colorScheme: const ColorScheme.dark(
-                                primary: AppColors.softRose,
-                                surface: Color(0xFF1E1A29),
-                              ),
-                            ),
-                            child: child!,
-                          );
-                        },
-                      );
-                      if (picked != null) {
-                        provider.setSelectedHistoryDate(picked);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 6),
-
-            if (isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Center(
-                  child: CircularProgressIndicator(color: AppColors.softRose, strokeWidth: 2.5),
-                ),
-              )
-            else if (locations.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                child: Column(
-                  children: [
-                    Icon(Icons.route_rounded, size: 36, color: Colors.white.withValues(alpha: 0.3)),
-                    const SizedBox(height: 6),
-                    Text(
-                      'No recorded points for ${_formatDateLabel(selectedDate)}',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else ...[
-              // Timeline Slider & Point Count
-              Row(
-                children: [
-                  Expanded(
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: AppColors.softRose,
-                        inactiveTrackColor: Colors.white.withValues(alpha: 0.15),
-                        thumbColor: AppColors.softRose,
-                        overlayColor: AppColors.softRose.withValues(alpha: 0.2),
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                        trackHeight: 3.5,
-                      ),
-                      child: Slider(
-                        value: sliderVal,
-                        min: 0,
-                        max: maxIndex,
-                        divisions: locations.length > 1 ? locations.length - 1 : 1,
-                        onChanged: (val) {
-                          provider.seekPlayback(val.toInt());
-                        },
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '${currentIndex + 1}/${locations.length}',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-
-              // Point Info Badge
-              if (currentPoint != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      // Time
-                      Row(
-                        children: [
-                          const Icon(Icons.access_time_rounded, size: 14, color: AppColors.softRose),
-                          const SizedBox(width: 4),
-                          Text(
-                            currentPoint.formattedTime,
-                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                      // Speed
-                      Row(
-                        children: [
-                          const Icon(Icons.speed_rounded, size: 14, color: AppColors.lavender),
-                          const SizedBox(width: 4),
-                          Text(
-                            currentPoint.speed != null && currentPoint.speed! > 0
-                                ? '${(currentPoint.speed! * 3.6).toStringAsFixed(1)} km/h'
-                                : '0.0 km/h',
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                      // Heading
-                      if (currentPoint.heading != null && currentPoint.heading! >= 0)
-                        Row(
-                          children: [
-                            const Icon(Icons.explore_rounded, size: 14, color: Colors.greenAccent),
-                            const SizedBox(width: 4),
-                            Text(
-                              _getHeadingDirection(currentPoint.heading),
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      // Battery
-                      if (currentPoint.batteryLevel != null)
-                        Row(
-                          children: [
-                            const Icon(Icons.battery_charging_full_rounded, size: 14, color: Colors.amberAccent),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${currentPoint.batteryLevel}%',
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ),
-
-              // Playback Controls (Rewind, Play/Pause, Forward)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 28),
-                    onPressed: currentIndex > 0
-                        ? () => provider.seekPlayback(math.max(0, currentIndex - 5))
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  FloatingActionButton.small(
-                    backgroundColor: AppColors.softRose,
-                    foregroundColor: Colors.white,
-                    onPressed: () {
-                      provider.toggleRoutePlayback();
-                    },
-                    child: Icon(
-                      isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 28),
-                    onPressed: currentIndex < locations.length - 1
-                        ? () => provider.seekPlayback(math.min(locations.length - 1, currentIndex + 5))
-                        : null,
-                  ),
-                ],
-              ),
+    return GestureDetector(
+      onVerticalDragEnd: (details) {
+        if (details.primaryVelocity != null) {
+          if (details.primaryVelocity! > 200 && !_isCollapsed) {
+            // Swipe down -> collapse card
+            HapticFeedback.lightImpact();
+            setState(() => _isCollapsed = true);
+          } else if (details.primaryVelocity! < -200 && _isCollapsed) {
+            // Swipe up -> expand card
+            HapticFeedback.lightImpact();
+            setState(() => _isCollapsed = false);
+          }
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        padding: _isCollapsed
+            ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
+            : const EdgeInsets.fromLTRB(16, 10, 16, 14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xF21F172E),
+              Color(0xF7281B3D),
             ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius: BorderRadius.circular(_isCollapsed ? 22 : 28),
+          border: Border.all(
+            color: AppColors.softRose.withValues(alpha: 0.38),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.softRose.withValues(alpha: 0.20),
+              blurRadius: 18,
+              spreadRadius: 1,
+              offset: const Offset(0, -2),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.65),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
           ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag / Tap Pill Handle
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  setState(() => _isCollapsed = !_isCollapsed);
+                },
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.28),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              if (_isCollapsed)
+                _buildCollapsedBar(
+                  context,
+                  provider: provider,
+                  isPlaying: isPlaying,
+                  currentPoint: currentPoint,
+                  currentIndex: currentIndex,
+                  locationsCount: locations.length,
+                  currentDistanceKm: currentDistanceKm,
+                )
+              else
+                _buildExpandedContent(
+                  context,
+                  provider: provider,
+                  locations: locations,
+                  currentIndex: currentIndex,
+                  isPlaying: isPlaying,
+                  selectedDate: selectedDate,
+                  isLoading: isLoading,
+                  currentPoint: currentPoint,
+                  currentSpeed: currentSpeed,
+                  partnerId: partnerId,
+                  partnerName: partnerName,
+                  isViewingPartner: isViewingPartner,
+                  myId: myId,
+                  sliderVal: sliderVal,
+                  maxIndex: maxIndex,
+                  currentDistanceKm: currentDistanceKm,
+                  totalDistanceKm: totalDistanceKm,
+                  activeHeading: activeHeading,
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
+  /// Compact Mini Bar when collapsed
+  Widget _buildCollapsedBar(
+    BuildContext context, {
+    required LocationProvider provider,
+    required bool isPlaying,
+    required LocationModel? currentPoint,
+    required int currentIndex,
+    required int locationsCount,
+    required double currentDistanceKm,
+  }) {
+    return Row(
+      children: [
+        // Mini Play/Pause Glowing Button
+        GestureDetector(
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            provider.toggleRoutePlayback();
+          },
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.softRose, Color(0xFFE57388)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.softRose.withValues(alpha: 0.5),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(
+              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+
+        // Telemetry Summary Strip
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    currentPoint != null ? currentPoint.formattedTime : '00:00',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: AppColors.softRose.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      locationsCount > 0 ? '${currentIndex + 1}/$locationsCount' : '0/0',
+                      style: const TextStyle(
+                        color: AppColors.softRose,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${currentDistanceKm.toStringAsFixed(1)} km traveled',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.65),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Fullscreen Toggle Button
+        if (widget.onToggleFullscreen != null) ...[
+          IconButton(
+            icon: Icon(
+              widget.isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+              color: widget.isFullscreen ? AppColors.softRose : Colors.white70,
+              size: 21,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Map',
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              widget.onToggleFullscreen!();
+            },
+          ),
+          const SizedBox(width: 12),
+        ],
+
+        // Expand Button
+        IconButton(
+          icon: const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.white70, size: 23),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          tooltip: 'Expand controls',
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            setState(() => _isCollapsed = false);
+          },
+        ),
+        const SizedBox(width: 12),
+
+        // Close Button
+        IconButton(
+          icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 19),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          tooltip: 'Close Playback',
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            widget.onClose();
+          },
+        ),
+      ],
+    );
   }
 
-  Widget _buildDatePill(
+  /// Full playback controls and telemetry when expanded
+  Widget _buildExpandedContent(
     BuildContext context, {
+    required LocationProvider provider,
+    required List<LocationModel> locations,
+    required int currentIndex,
+    required bool isPlaying,
+    required DateTime selectedDate,
+    required bool isLoading,
+    required LocationModel? currentPoint,
+    required double currentSpeed,
+    required String? partnerId,
+    required String partnerName,
+    required bool isViewingPartner,
+    required String? myId,
+    required double sliderVal,
+    required double maxIndex,
+    required double currentDistanceKm,
+    required double totalDistanceKm,
+    required double? activeHeading,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 1. Top Header (Title + Fullscreen + Collapse + Exit)
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5.5),
+              decoration: BoxDecoration(
+                color: AppColors.softRose.withValues(alpha: 0.22),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.route_rounded,
+                color: AppColors.softRose,
+                size: 15,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Route History Playback',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Fullscreen Map Button
+            if (widget.onToggleFullscreen != null) ...[
+              IconButton(
+                icon: Icon(
+                  widget.isFullscreen
+                      ? Icons.fullscreen_exit_rounded
+                      : Icons.fullscreen_rounded,
+                  color: widget.isFullscreen ? AppColors.softRose : Colors.white70,
+                  size: 21,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Map',
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  widget.onToggleFullscreen!();
+                },
+              ),
+              const SizedBox(width: 12),
+            ],
+
+            // Collapse Button
+            IconButton(
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white70, size: 23),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Collapse',
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                setState(() => _isCollapsed = true);
+              },
+            ),
+            const SizedBox(width: 12),
+
+            // Close Button
+            IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 19),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Close',
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                widget.onClose();
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // 2. Person Selector (My Route vs Partner's Route)
+        if (partnerId != null)
+          Container(
+            height: 36,
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      if (partnerId.isNotEmpty) {
+                        provider.setHistoryOwner(partnerId);
+                      }
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      decoration: BoxDecoration(
+                        color: isViewingPartner
+                            ? AppColors.softRose
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          if (isViewingPartner)
+                            BoxShadow(
+                              color: AppColors.softRose.withValues(alpha: 0.4),
+                              blurRadius: 6,
+                              offset: const Offset(0, 1),
+                            ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.favorite_rounded,
+                            size: 13,
+                            color: isViewingPartner ? Colors.white : Colors.white60,
+                          ),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              "$partnerName's Route",
+                              style: TextStyle(
+                                color: isViewingPartner
+                                    ? Colors.white
+                                    : Colors.white60,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                if (myId != null)
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        provider.setHistoryOwner(myId);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        decoration: BoxDecoration(
+                          color: !isViewingPartner
+                              ? AppColors.lavender
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            if (!isViewingPartner)
+                              BoxShadow(
+                                color: AppColors.lavender.withValues(alpha: 0.4),
+                                blurRadius: 6,
+                                offset: const Offset(0, 1),
+                              ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.person_rounded,
+                              size: 13,
+                              color: !isViewingPartner ? Colors.white : Colors.white60,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'My Route',
+                              style: TextStyle(
+                                color: !isViewingPartner
+                                    ? Colors.white
+                                    : Colors.white60,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+        const SizedBox(height: 8),
+
+        // 3. Date Quick Selector Pills
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildDatePill(
+              label: 'Today',
+              isSelected: _isSameDay(selectedDate, DateTime.now()),
+              onTap: () => provider.setSelectedHistoryDate(DateTime.now()),
+            ),
+            const SizedBox(width: 8),
+            _buildDatePill(
+              label: 'Yesterday',
+              isSelected: _isSameDay(
+                selectedDate,
+                DateTime.now().subtract(const Duration(days: 1)),
+              ),
+              onTap: () => provider.setSelectedHistoryDate(
+                DateTime.now().subtract(const Duration(days: 1)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildDatePill(
+              label: _isSameDay(selectedDate, DateTime.now()) ||
+                      _isSameDay(selectedDate,
+                          DateTime.now().subtract(const Duration(days: 1)))
+                  ? 'Pick Date'
+                  : DateFormat('MMM d').format(selectedDate),
+              icon: Icons.calendar_month_rounded,
+              isSelected: !_isSameDay(selectedDate, DateTime.now()) &&
+                  !_isSameDay(selectedDate,
+                      DateTime.now().subtract(const Duration(days: 1))),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: selectedDate,
+                  firstDate: DateTime(2023),
+                  lastDate: DateTime.now(),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.dark(
+                          primary: AppColors.softRose,
+                          surface: Color(0xFF1E1A29),
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (picked != null) {
+                  provider.setSelectedHistoryDate(picked);
+                }
+              },
+            ),
+          ],
+        ),
+
+        if (isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: CircularProgressIndicator(
+                color: AppColors.softRose,
+                strokeWidth: 2.5,
+              ),
+            ),
+          )
+        else if (locations.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.explore_off_rounded,
+                  size: 36,
+                  color: Colors.white.withValues(alpha: 0.35),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'No route points found for ${_formatDateLabel(selectedDate)}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else ...[
+          const SizedBox(height: 6),
+
+          // 4. Time & Distance Progress Indicator
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  currentPoint != null
+                      ? '${currentPoint.formattedTime}  •  ${currentDistanceKm.toStringAsFixed(1)} km'
+                      : '0.0 km',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '${totalDistanceKm.toStringAsFixed(1)} km total',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 5. Interactive Timeline Scrubber Slider
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: AppColors.softRose,
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.15),
+              thumbColor: AppColors.softRose,
+              overlayColor: AppColors.softRose.withValues(alpha: 0.25),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7.5),
+              trackHeight: 3.5,
+            ),
+            child: Slider(
+              value: sliderVal,
+              min: 0,
+              max: maxIndex,
+              divisions: locations.length > 1 ? locations.length - 1 : 1,
+              onChanged: (val) {
+                provider.seekPlayback(val.toInt());
+              },
+            ),
+          ),
+
+          // 6. Live Telemetry Data Strip (Speed, Heading, Battery, Stop Count)
+          if (currentPoint != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  // Speed
+                  _buildTelemetryItem(
+                    icon: Icons.speed_rounded,
+                    label: currentPoint.speed != null && currentPoint.speed! > 0
+                        ? '${(currentPoint.speed! * 3.6).toStringAsFixed(0)} km/h'
+                        : '0 km/h',
+                    color: AppColors.lavender,
+                  ),
+                  // Heading
+                  _buildTelemetryItem(
+                    icon: Icons.explore_rounded,
+                    label: _getHeadingDirection(activeHeading),
+                    color: Colors.greenAccent,
+                  ),
+                  // Battery
+                  if (currentPoint.batteryLevel != null)
+                    _buildTelemetryItem(
+                      icon: Icons.battery_5_bar_rounded,
+                      label: '${currentPoint.batteryLevel}%',
+                      color: Colors.amberAccent,
+                    ),
+                  // Stop Index
+                  _buildTelemetryItem(
+                    icon: Icons.location_on_rounded,
+                    label: '${currentIndex + 1}/${locations.length}',
+                    color: AppColors.softRose,
+                  ),
+                ],
+              ),
+            ),
+
+          // 7. Playback Controls & Speed Multiplier
+          Row(
+            children: [
+              // Speed Selector Pills (1x, 2x, 5x, 10x)
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [1.0, 2.0, 5.0, 10.0].map((spd) {
+                    final isSelected = currentSpeed == spd;
+                    return GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        provider.setPlaybackSpeed(spd);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.softRose
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${spd.toInt()}x',
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white60,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+
+              const Spacer(),
+
+              // Rewind Step
+              IconButton(
+                icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 24),
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(),
+                onPressed: currentIndex > 0
+                    ? () {
+                        HapticFeedback.lightImpact();
+                        provider.seekPlayback(math.max(0, currentIndex - 1));
+                      }
+                    : null,
+                tooltip: 'Previous Point',
+              ),
+              const SizedBox(width: 4),
+
+              // Main Play / Pause Glowing FAB
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  provider.toggleRoutePlayback();
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.softRose, Color(0xFFE57388)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.softRose.withValues(alpha: 0.55),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+
+              // Forward Step
+              IconButton(
+                icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 24),
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(),
+                onPressed: currentIndex < locations.length - 1
+                    ? () {
+                        HapticFeedback.lightImpact();
+                        provider.seekPlayback(math.min(locations.length - 1, currentIndex + 1));
+                      }
+                    : null,
+                tooltip: 'Next Point',
+              ),
+              const SizedBox(width: 4),
+
+              // Restart Route Action Button
+              IconButton(
+                icon: const Icon(Icons.replay_rounded, color: Colors.white70, size: 19),
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(),
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  provider.seekPlayback(0);
+                },
+                tooltip: 'Restart from start',
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDatePill({
     required String label,
     IconData? icon,
     required bool isSelected,
@@ -422,7 +907,7 @@ class LocationHistorySheet extends StatelessWidget {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5.5),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.softRose
@@ -465,6 +950,28 @@ class LocationHistorySheet extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTelemetryItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13.5, color: color),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

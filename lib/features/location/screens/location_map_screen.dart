@@ -1,14 +1,15 @@
 import 'dart:math' as math;
-import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/router/route_names.dart';
+import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/offline_location_service.dart';
@@ -46,6 +47,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   bool _isSatelliteView = true;
   bool _isFullscreen = false;
   bool _isBothSelected = false;
+  bool _isLiveCardCollapsed = false;
 
   /// Generates a smooth, graceful geodesic curved arc between two points
   List<LatLng> _generateGeodesicArc(LatLng start, LatLng end, {int segments = 24}) {
@@ -190,10 +192,10 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     final partnerPos = locationProvider.interpolatedPartnerLatLng;
     final partnerUser = locationProvider.partnerUser;
     final partnerLoc = locationProvider.partnerLocation;
-    final isOnline = locationProvider.isOnline;
 
     final isHistoryMode = locationProvider.isHistoryMode;
     final historyPoints = locationProvider.historyPolylinePoints;
+    final historyLocations = locationProvider.historyLocations;
     final playbackPos = locationProvider.playbackLatLng;
     final playbackLoc = locationProvider.currentPlaybackLocation;
 
@@ -211,6 +213,32 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
         ? (currentUser?.displayName.isNotEmpty == true ? currentUser!.displayName : 'You')
         : (partnerUser?.displayName.isNotEmpty == true ? partnerUser!.displayName : 'Partner');
     final activeAccent = isMyRoute ? AppColors.lavender : AppColors.softRose;
+
+    // Traveled path (up to current playback index) vs Remaining path
+    final playbackIdx = locationProvider.playbackIndex;
+    final traveledPoints = isHistoryMode && historyPoints.isNotEmpty
+        ? historyPoints.take(playbackIdx + 1).toList()
+        : <LatLng>[];
+    final remainingPoints = isHistoryMode && historyPoints.isNotEmpty
+        ? historyPoints.skip(playbackIdx).toList()
+        : <LatLng>[];
+
+    // Compute dynamic heading direction if point heading is missing/zero
+    double? activePlaybackHeading = playbackLoc?.heading;
+    if ((activePlaybackHeading == null || activePlaybackHeading == 0.0) &&
+        historyLocations.isNotEmpty &&
+        playbackIdx < historyLocations.length - 1) {
+      final nextLoc = historyLocations[playbackIdx + 1];
+      if (playbackLoc != null) {
+        activePlaybackHeading = Geolocator.bearingBetween(
+          playbackLoc.latitude,
+          playbackLoc.longitude,
+          nextLoc.latitude,
+          nextLoc.longitude,
+        );
+        if (activePlaybackHeading < 0) activePlaybackHeading += 360;
+      }
+    }
 
     // Auto-center / fit bounds when route or owner changes in History Mode
     if (isHistoryMode && historyPoints.isNotEmpty) {
@@ -392,17 +420,35 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   ],
                 ),
 
-              // Polyline Layer for History Mode OR Live connection line
+              // Polyline Layer for History Mode (Traveled Path & Upcoming Path)
               if (isHistoryMode && historyPoints.isNotEmpty)
                 PolylineLayer(
                   polylines: [
-                    Polyline(
-                      points: historyPoints,
-                      strokeWidth: 4.5,
-                      color: Colors.purpleAccent,
-                      borderColor: Colors.deepPurple.shade900,
-                      borderStrokeWidth: 1.5,
-                    ),
+                    // 1. Upcoming Route Ahead (Subtle Context Line)
+                    if (remainingPoints.length > 1)
+                      Polyline(
+                        points: remainingPoints,
+                        strokeWidth: 3.5,
+                        color: Colors.white.withValues(alpha: 0.35),
+                        borderColor: Colors.black.withValues(alpha: 0.25),
+                        borderStrokeWidth: 1.0,
+                      ),
+                    // 2. Traveled Route Outer Soft Glow Aura
+                    if (traveledPoints.length > 1)
+                      Polyline(
+                        points: traveledPoints,
+                        strokeWidth: 7.5,
+                        color: activeAccent.withValues(alpha: 0.32),
+                      ),
+                    // 3. Traveled Route Crisp Core Line
+                    if (traveledPoints.length > 1)
+                      Polyline(
+                        points: traveledPoints,
+                        strokeWidth: 4.2,
+                        color: activeAccent,
+                        borderColor: Colors.white.withValues(alpha: 0.95),
+                        borderStrokeWidth: 1.0,
+                      ),
                   ],
                 )
               else if (!isHistoryMode && myPos != null && partnerPos != null) ...[
@@ -433,42 +479,42 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
               MarkerLayer(
                 markers: [
                   if (isHistoryMode) ...[
-                    // Start Point Marker
+                    // Start Point Marker (Green 🟢)
                     if (historyPoints.isNotEmpty)
                       Marker(
                         point: historyPoints.first,
-                        width: 24,
-                        height: 24,
+                        width: 26,
+                        height: 26,
                         child: Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.greenAccent.shade700,
+                            color: const Color(0xFF00E676),
                             border: Border.all(color: Colors.white, width: 2),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
+                                color: Colors.black.withValues(alpha: 0.35),
                                 blurRadius: 4,
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 14),
+                          child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 15),
                         ),
                       ),
 
-                    // End Point Marker
+                    // End Point Marker (Destination Flag 🏁)
                     if (historyPoints.length > 1)
                       Marker(
                         point: historyPoints.last,
-                        width: 24,
-                        height: 24,
+                        width: 26,
+                        height: 26,
                         child: Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.redAccent,
+                            color: isMyRoute ? AppColors.lavender : AppColors.softRose,
                             border: Border.all(color: Colors.white, width: 2),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
+                                color: Colors.black.withValues(alpha: 0.35),
                                 blurRadius: 4,
                               ),
                             ],
@@ -477,7 +523,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                         ),
                       ),
 
-                    // Active Playback Marker
+                    // Active Moving Playback Avatar Marker
                     if (playbackPos != null)
                       Marker(
                         point: playbackPos,
@@ -486,14 +532,14 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                         child: PartnerAvatarMarker(
                           photoUrl: activeAvatarUrl,
                           partnerName: activeName,
-                          batteryLevel: null,
-                          isOnline: false,
-                          heading: playbackLoc?.heading,
+                          batteryLevel: playbackLoc?.batteryLevel,
+                          isOnline: true,
+                          heading: activePlaybackHeading,
                           speed: playbackLoc?.speed,
                           accentColor: activeAccent,
                           isSelected: true,
                           onTap: () {
-                            _mapController.move(playbackPos, 16.0);
+                            _mapController.move(playbackPos, 16.5);
                           },
                         ),
                       ),
@@ -771,120 +817,229 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
           ),
 
           // 3. Bottom Panel: Location History Sheet (in History Mode) OR Live Info Card (in Live Mode)
-          if (!isFullscreen) ...[
-            if (isHistoryMode)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: LocationHistorySheet(
-                  onClose: () {
-                    locationProvider.toggleHistoryMode(false);
-                  },
+          if (isHistoryMode)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: LocationHistorySheet(
+                isFullscreen: isFullscreen,
+                onToggleFullscreen: () {
+                  HapticFeedback.lightImpact();
+                  setState(() => _isFullscreen = !isFullscreen);
+                },
+                onClose: () {
+                  locationProvider.toggleHistoryMode(false);
+                },
+              ),
+            )
+          else if (!isFullscreen)
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: MediaQuery.of(context).padding.bottom + 14,
+              child: _buildRomanticLiveBottomCard(context, locationProvider, partnerLoc, partnerUser),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRomanticLiveBottomCard(
+    BuildContext context,
+    LocationProvider locationProvider,
+    LocationModel? partnerLoc,
+    dynamic partnerUser,
+  ) {
+    final isOnline = locationProvider.isPartnerOnline();
+    final partnerName = partnerUser?.displayName.isNotEmpty == true
+        ? partnerUser!.displayName
+        : 'Partner';
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setState(() => _isLiveCardCollapsed = !_isLiveCardCollapsed);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: _isLiveCardCollapsed
+            ? const EdgeInsets.symmetric(horizontal: 14, vertical: 9)
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xF21C142C),
+              Color(0xF726193A),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(_isLiveCardCollapsed ? 20 : 24),
+          border: Border.all(
+            color: AppColors.softRose.withValues(alpha: 0.38),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.softRose.withValues(alpha: 0.16),
+              blurRadius: 16,
+              spreadRadius: 1,
+              offset: const Offset(0, -2),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.55),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Glowing Heart Pin Icon
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.softRose, Color(0xFFE57388)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              )
-            else
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.of(context).padding.bottom + 16,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: Colors.white,
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.softRose.withValues(alpha: 0.45),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  child: Row(
+                ],
+              ),
+              child: const Icon(
+                Icons.favorite_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Distance & Status Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.softRose.withValues(alpha: 0.18),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.location_on_rounded,
-                          color: AppColors.softRose,
-                          size: 22,
+                      Text(
+                        locationProvider.formattedDistance,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              locationProvider.formattedDistance,
-                              style: const TextStyle(
-                                color: Color(0xFF1E142B),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.2,
-                              ),
+                      if (partnerLoc?.batteryLevel != null && !_isLiveCardCollapsed) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: Colors.amberAccent.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.amberAccent.withValues(alpha: 0.3),
+                              width: 0.8,
                             ),
-                            const SizedBox(height: 2),
-                            if (partnerLoc != null)
-                              Row(
-                                children: [
-                                  Icon(
-                                    locationProvider.isPartnerOnline()
-                                        ? Icons.access_time_rounded
-                                        : Icons.wifi_off_rounded,
-                                    size: 13,
-                                    color: locationProvider.isPartnerOnline()
-                                        ? const Color(0xFF2E7D32)
-                                        : Colors.grey.shade600,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  LiveTimeText(
-                                    textBuilder: () {
-                                      if (locationProvider.isPartnerOnline()) {
-                                        return 'Live • ${partnerLoc.timeAgo}';
-                                      }
-                                      return 'Offline';
-                                    },
-                                    style: TextStyle(
-                                      color: locationProvider.isPartnerOnline()
-                                          ? const Color(0xFF2E7D32)
-                                          : Colors.grey.shade600,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.battery_charging_full_rounded,
+                                color: Colors.amberAccent,
+                                size: 11,
+                              ),
+                              const SizedBox(width: 2.5),
                               Text(
-                                locationProvider.isPartnerOnline() ? 'Live' : 'Offline',
-                                style: TextStyle(
-                                  color: locationProvider.isPartnerOnline()
-                                      ? const Color(0xFF2E7D32)
-                                      : Colors.grey.shade600,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
+                                '${partnerLoc!.batteryLevel}%',
+                                style: const TextStyle(
+                                  color: Colors.amberAccent,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
-                ),
+                  if (!_isLiveCardCollapsed) ...[
+                    const SizedBox(height: 2.5),
+                    Row(
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isOnline ? const Color(0xFF00E676) : Colors.grey.shade400,
+                            boxShadow: [
+                              if (isOnline)
+                                BoxShadow(
+                                  color: const Color(0xFF00E676).withValues(alpha: 0.6),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        if (partnerLoc != null)
+                          LiveTimeText(
+                            textBuilder: () {
+                              if (isOnline) {
+                                return '$partnerName • Live (${partnerLoc.timeAgo})';
+                              }
+                              return '$partnerName • Offline';
+                            },
+                            style: TextStyle(
+                              color: isOnline
+                                  ? const Color(0xFF00E676)
+                                  : Colors.white.withValues(alpha: 0.6),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11.5,
+                            ),
+                          )
+                        else
+                          Text(
+                            isOnline ? '$partnerName • Live' : '$partnerName • Offline',
+                            style: TextStyle(
+                              color: isOnline
+                                  ? const Color(0xFF00E676)
+                                  : Colors.white.withValues(alpha: 0.6),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
+            ),
+
+            // Collapse / Expand Chevron
+            Icon(
+              _isLiveCardCollapsed
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              color: Colors.white60,
+              size: 22,
+            ),
           ],
-        ],
+        ),
       ),
     );
   }

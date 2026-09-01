@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -7,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
@@ -32,6 +30,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
   int _selectedPersonIndex = 0; // 0 = Me, 1 = Partner
   DateTime? _selectedDateFilter;
   final Set<String> _expandedDays = {};
+  final Set<String> _collapsedCards = {};
 
   @override
   void initState() {
@@ -475,20 +474,27 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
     final startTime = locations.first.formattedTime;
     final endTime = locations.last.formattedTime;
     final dateKey = '${date.year}-${date.month}-${date.day}';
+    final isCardCollapsed = _collapsedCards.contains(dateKey);
     final isExpanded = _expandedDays.contains(dateKey);
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1729) : Colors.white,
+        color: isDark ? const Color(0xFF1E172B) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFEDE9F5),
+          color: isDark
+              ? AppColors.softRose.withValues(alpha: 0.22)
+              : const Color(0xFFEDE8F5),
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+            color: isDark
+                ? AppColors.softRose.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.05),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -497,188 +503,218 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Card Top Bar (Date Title + "Play on Map" Action Button)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.softRose.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.calendar_today_rounded,
-                    color: AppColors.softRose,
-                    size: 16,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _formatDateTitle(date),
-                        style: TextStyle(
-                          color: isDark ? Colors.white : AppColors.deepCharcoal,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14.5,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                      Text(
-                        '${locations.length} points recorded',
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Glowing "Play Route" Action Button
-                GestureDetector(
-                  onTap: () => _launchMapPlayback(date, isMyRoute, provider),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          // 1. Card Top Bar (Date Title + Collapse toggle + "Play on Map" Action Button)
+          InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                if (isCardCollapsed) {
+                  _collapsedCards.remove(dateKey);
+                } else {
+                  _collapsedCards.add(dateKey);
+                }
+              });
+            },
+            borderRadius: BorderRadius.circular(24),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.softRose, Color(0xFFE57388)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.softRose.withValues(alpha: 0.45),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      color: AppColors.softRose.withValues(alpha: 0.16),
+                      shape: BoxShape.circle,
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: const Icon(
+                      Icons.calendar_today_rounded,
+                      color: AppColors.softRose,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
-                        SizedBox(width: 3),
+                        Row(
+                          children: [
+                            Text(
+                              _formatDateTitle(date),
+                              style: TextStyle(
+                                color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14.5,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              isCardCollapsed
+                                  ? Icons.keyboard_arrow_down_rounded
+                                  : Icons.keyboard_arrow_up_rounded,
+                              color: Colors.grey.shade400,
+                              size: 18,
+                            ),
+                          ],
+                        ),
                         Text(
-                          'Play Route',
+                          totalKm > 0
+                              ? '${totalKm.toStringAsFixed(1)} km • ${locations.length} points'
+                              : '${locations.length} points recorded',
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade500,
+                            fontSize: 11.5,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // 2. Trip Metrics Summary Strip
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.04)
-                  : const Color(0xFFF7F5FA),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildMetricItem(
-                  icon: Icons.timeline_rounded,
-                  label: 'Distance',
-                  value: totalKm > 0 ? '${totalKm.toStringAsFixed(1)} km' : '< 1 km',
-                  color: AppColors.softRose,
-                ),
-                Container(width: 1, height: 24, color: Colors.grey.withValues(alpha: 0.2)),
-                _buildMetricItem(
-                  icon: Icons.access_time_rounded,
-                  label: 'Active Times',
-                  value: '$startTime - $endTime',
-                  color: AppColors.lavender,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // 3. Mini Map Route Preview
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                height: 140,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFEBE6F2),
+                  // Glowing "Play Route" Action Button
+                  GestureDetector(
+                    onTap: () => _launchMapPlayback(date, isMyRoute, provider),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.softRose, Color(0xFFE57388)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.softRose.withValues(alpha: 0.45),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
+                          SizedBox(width: 3),
+                          Text(
+                            'Play Route',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: _buildMapPreview(locations, isMyRoute),
+                ],
               ),
             ),
           ),
 
-          // 4. Collapsible Timeline Accordion
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-            child: Column(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    setState(() {
-                      if (isExpanded) {
-                        _expandedDays.remove(dateKey);
-                      } else {
-                        _expandedDays.add(dateKey);
-                      }
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          isExpanded ? 'Hide Stop Details' : 'View Stop Details (${locations.length})',
-                          style: const TextStyle(
-                            color: AppColors.softRose,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.bold,
+          // Collapsible Body (Metrics Strip + Mini Map Preview + Stop Timeline)
+          if (!isCardCollapsed) ...[
+            // 2. Trip Metrics Summary Strip
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.04)
+                    : const Color(0xFFF7F5FA),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildMetricItem(
+                    icon: Icons.timeline_rounded,
+                    label: 'Distance',
+                    value: totalKm > 0 ? '${totalKm.toStringAsFixed(1)} km' : '< 1 km',
+                    color: AppColors.softRose,
+                  ),
+                  Container(width: 1, height: 24, color: Colors.grey.withValues(alpha: 0.2)),
+                  _buildMetricItem(
+                    icon: Icons.access_time_rounded,
+                    label: 'Active Times',
+                    value: '$startTime - $endTime',
+                    color: AppColors.lavender,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // 3. Mini Map Route Preview
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  height: 140,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFEBE6F2),
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: _buildMapPreview(locations, isMyRoute),
+                ),
+              ),
+            ),
+
+            // 4. Collapsible Timeline Accordion
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              child: Column(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() {
+                        if (isExpanded) {
+                          _expandedDays.remove(dateKey);
+                        } else {
+                          _expandedDays.add(dateKey);
+                        }
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            isExpanded ? 'Hide Stop Details' : 'View Stop Details (${locations.length})',
+                            style: const TextStyle(
+                              color: AppColors.softRose,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          isExpanded
-                              ? Icons.keyboard_arrow_up_rounded
-                              : Icons.keyboard_arrow_down_rounded,
-                          color: AppColors.softRose,
-                          size: 18,
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Icon(
+                            isExpanded
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            color: AppColors.softRose,
+                            size: 18,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
-                if (isExpanded) ...[
-                  const Divider(height: 1),
-                  const SizedBox(height: 8),
-                  ...locations.map((loc) => _buildStopTimelineItem(loc, isDark)),
+                  if (isExpanded) ...[
+                    const Divider(height: 1),
+                    const SizedBox(height: 8),
+                    ...locations.map((loc) => _buildStopTimelineItem(loc, isDark)),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

@@ -826,11 +826,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
               ),
             ),
 
-          // Mapbox Autocomplete Search Bar (Top Floating Overlay in Live Mode)
-          if (!isHistoryMode)
+          // Mapbox Autocomplete Search Bar (Top Floating Overlay in Live Mode - Hidden in Fullscreen)
+          if (!isHistoryMode && !isFullscreen)
             Positioned(
-              top: isFullscreen ? (MediaQuery.of(context).padding.top + 10) : 12,
-              left: isFullscreen ? 68 : 14,
+              top: 12,
+              left: 14,
               right: 14,
               child: MapboxSearchBar(
                 userPosition: myPos,

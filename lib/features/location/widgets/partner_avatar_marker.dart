@@ -11,6 +11,8 @@ class PartnerAvatarMarker extends StatefulWidget {
   final String partnerName;
   final int? batteryLevel;
   final BatteryState? batteryState;
+  final bool isCharging;
+  final bool isOnline;
   final double? heading;
   final double? speed;
   final bool isSelected;
@@ -23,6 +25,8 @@ class PartnerAvatarMarker extends StatefulWidget {
     required this.partnerName,
     this.batteryLevel,
     this.batteryState,
+    this.isCharging = false,
+    this.isOnline = true,
     this.heading,
     this.speed,
     this.isSelected = false,
@@ -58,31 +62,36 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
     super.dispose();
   }
 
-  IconData _getBatteryIcon(int? level, BatteryState? state) {
-    if (state == BatteryState.charging) {
+  IconData _getBatteryIcon(int? level, bool isCharging) {
+    if (isCharging) {
       return Icons.battery_charging_full_rounded;
     }
     if (level == null) return Icons.battery_unknown_rounded;
-    if (level <= 15) return Icons.battery_1_bar_rounded;
-    if (level <= 45) return Icons.battery_3_bar_rounded;
+    if (level <= 15) return Icons.battery_alert_rounded;
+    if (level <= 40) return Icons.battery_2_bar_rounded;
     if (level <= 75) return Icons.battery_5_bar_rounded;
     return Icons.battery_full_rounded;
   }
 
-  Color _getBatteryColor(int? level, BatteryState? state) {
-    if (state == BatteryState.charging) return Colors.greenAccent;
+  Color _getBatteryColor(int? level, bool isCharging) {
+    if (isCharging) return const Color(0xFF69F0AE);
     if (level == null) return Colors.grey;
     if (level <= 20) return AppColors.error;
     if (level <= 50) return AppColors.warning;
-    return Colors.greenAccent;
+    return const Color(0xFF69F0AE);
   }
 
   @override
   Widget build(BuildContext context) {
-    final batteryLvlText = widget.batteryLevel != null ? '${widget.batteryLevel}%' : '--%';
-    final batteryColor = _getBatteryColor(widget.batteryLevel, widget.batteryState);
+    final isCharging = widget.isCharging || widget.batteryState == BatteryState.charging;
+    final showBattery = widget.isOnline && widget.batteryLevel != null;
+    final batteryLvlText = widget.batteryLevel != null
+        ? '${widget.batteryLevel}%${isCharging ? ' ⚡' : ''}'
+        : '';
+    final batteryColor = _getBatteryColor(widget.batteryLevel, isCharging);
 
-    final accent = widget.accentColor ?? (widget.isSelected ? AppColors.softRose : AppColors.lavender);
+    final accent = widget.accentColor ??
+        (widget.isSelected ? AppColors.softRose : AppColors.lavender);
     final bool showHeading = widget.heading != null &&
         widget.heading! >= 0 &&
         (widget.speed == null || widget.speed! > 0.5);
@@ -95,44 +104,52 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Battery level badge floating on top
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.75),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: batteryColor.withValues(alpha: 0.6), width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+            // 1. Live Battery Badge floating on top (Only rendered when online)
+            if (showBattery) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E142B).withValues(alpha: 0.88),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isCharging
+                        ? const Color(0xFF69F0AE)
+                        : accent.withValues(alpha: 0.6),
+                    width: 1.2,
                   ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _getBatteryIcon(widget.batteryLevel, widget.batteryState),
-                    color: batteryColor,
-                    size: 11,
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    batteryLvlText,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _getBatteryIcon(widget.batteryLevel, isCharging),
+                      color: batteryColor,
+                      size: 11.5,
+                    ),
+                    const SizedBox(width: 3.5),
+                    Text(
+                      batteryLvlText,
+                      style: TextStyle(
+                        color: isCharging ? const Color(0xFF69F0AE) : Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
+              const SizedBox(height: 3),
+            ],
 
-            // Avatar Ring with Rotated Direction Arrow
+            // 2. Avatar Profile Ring with Direction Arrow & Online Status Dot
             Stack(
               alignment: Alignment.center,
               clipBehavior: Clip.none,
@@ -159,24 +176,40 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
                     ),
                   ),
 
-                // Glowing animated Avatar Ring
+                // Glowing Animated Avatar Ring (Matches Profile Style)
                 ScaleTransition(
-                  scale: _pulseAnimation,
+                  scale: (widget.isSelected || widget.isOnline)
+                      ? _pulseAnimation
+                      : const AlwaysStoppedAnimation(1.0),
                   child: Container(
-                    width: 48,
-                    height: 48,
+                    width: 50,
+                    height: 50,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: accent.withValues(alpha: 0.25),
+                      gradient: LinearGradient(
+                        colors: widget.isOnline
+                            ? [
+                                accent,
+                                accent.withValues(alpha: 0.7),
+                              ]
+                            : [
+                                Colors.grey.shade400,
+                                Colors.grey.shade600,
+                              ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       border: Border.all(
-                        color: accent,
-                        width: 2.5,
+                        color: Colors.white,
+                        width: 2.0,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: accent.withValues(alpha: 0.5),
-                          blurRadius: 8,
-                          spreadRadius: 1.5,
+                          color: widget.isOnline
+                              ? accent.withValues(alpha: 0.5)
+                              : Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 10,
+                          spreadRadius: widget.isOnline ? 2 : 0,
                         ),
                       ],
                     ),
@@ -185,8 +218,8 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
                       child: ClipOval(
                         child: SmartProfileImage(
                           imageUrl: widget.photoUrl,
-                          width: 40,
-                          height: 40,
+                          width: 42,
+                          height: 42,
                           placeholder: Container(
                             color: accent.withValues(alpha: 0.3),
                             child: Icon(Icons.person, color: accent, size: 22),
@@ -200,14 +233,42 @@ class _PartnerAvatarMarkerState extends State<PartnerAvatarMarker>
                     ),
                   ),
                 ),
+
+                // Status Indicator Dot on bottom-right of avatar
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 13,
+                    height: 13,
+                    decoration: BoxDecoration(
+                      color: widget.isOnline
+                          ? const Color(0xFF00E676)
+                          : Colors.grey.shade400,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 2.0,
+                      ),
+                      boxShadow: [
+                        if (widget.isOnline)
+                          BoxShadow(
+                            color: const Color(0xFF00E676).withValues(alpha: 0.6),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
 
-            // Bottom Map Pin Triangle Indicator
+            // 3. Bottom Map Pin Triangle Indicator
             CustomPaint(
               size: const Size(10, 5),
               painter: _PinTrianglePainter(
-                color: accent,
+                color: widget.isOnline ? accent : Colors.grey.shade500,
               ),
             ),
           ],

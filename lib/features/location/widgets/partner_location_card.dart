@@ -218,6 +218,8 @@ class PartnerLocationCard extends StatelessWidget {
                           : 'You',
                       batteryLevel: locationProvider.batteryLevel,
                       batteryState: locationProvider.batteryState,
+                      isCharging: locationProvider.isMyCharging,
+                      isOnline: true,
                       heading: locationProvider.currentLocation?.heading,
                       speed: locationProvider.currentLocation?.speed,
                       accentColor: AppColors.softRose,
@@ -233,7 +235,11 @@ class PartnerLocationCard extends StatelessWidget {
                     partnerName: partnerUser?.displayName.isNotEmpty == true
                         ? partnerUser!.displayName
                         : 'Partner',
-                    batteryLevel: location.batteryLevel,
+                    batteryLevel: locationProvider.isPartnerOnline()
+                        ? locationProvider.partnerBatteryLevel
+                        : null,
+                    isCharging: locationProvider.isPartnerCharging,
+                    isOnline: locationProvider.isPartnerOnline(),
                     heading: location.heading,
                     speed: location.speed,
                     accentColor: AppColors.lavender,
@@ -338,24 +344,26 @@ class PartnerLocationCard extends StatelessWidget {
     LocationModel location,
     bool isOnline,
   ) {
+    final provider = context.watch<LocationProvider>();
+    final isLive = provider.isPartnerOnline();
     return Row(
       children: [
         Icon(
-          Icons.access_time,
+          isLive ? Icons.access_time_rounded : Icons.wifi_off_rounded,
           size: 12,
-          color: Colors.grey.shade500,
+          color: isLive ? const Color(0xFF2E7D32) : Colors.grey.shade500,
         ),
         const SizedBox(width: 4),
         LiveTimeText(
           textBuilder: () {
-            final timeAgo = location.timeAgo;
-            if (!isOnline) {
-              return '$timeAgo (offline mode)';
+            if (isLive) {
+              return 'Live • ${location.timeAgo}';
             }
-            return timeAgo;
+            return 'Offline';
           },
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey.shade500,
+                color: isLive ? const Color(0xFF2E7D32) : Colors.grey.shade500,
+                fontWeight: FontWeight.w600,
               ),
         ),
       ],
@@ -376,7 +384,7 @@ class PartnerLocationCardCompact extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<LocationProvider>();
     final location = provider.partnerLocation;
-    final isOnline = provider.isOnline;
+    final isLive = provider.isPartnerOnline();
 
     return GestureDetector(
       onTap: onTap,
@@ -391,9 +399,7 @@ class PartnerLocationCardCompact extends StatelessWidget {
                 Icons.location_on_outlined,
                 size: 28,
                 color: location != null
-                    ? (location.isRecent() && isOnline
-                        ? AppColors.softRose
-                        : AppColors.warning)
+                    ? (isLive ? AppColors.softRose : AppColors.warning)
                     : AppColors.lavender,
               ),
               const SizedBox(height: 4),
@@ -404,22 +410,22 @@ class PartnerLocationCardCompact extends StatelessWidget {
                     ),
               ),
               const SizedBox(height: 2),
-              if (location != null)
+              if (location != null && isLive)
                 LiveTimeText(
-                  textBuilder: () => location.timeAgo,
+                  textBuilder: () => 'Live • ${location.timeAgo}',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: location.isRecent() && isOnline
-                            ? AppColors.success
-                            : AppColors.warning,
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w600,
                       ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 )
               else
                 Text(
-                  'Not available',
+                  'Offline',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: Colors.grey.shade400,
+                        fontWeight: FontWeight.w600,
                       ),
                 ),
             ],

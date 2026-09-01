@@ -235,12 +235,11 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   String get partnerTimeAgo {
-    if (_partnerLocation == null) return 'Unknown';
-    final diff = DateTime.now().difference(_partnerLocation!.timestamp);
+    if (_partnerLocation == null || !isPartnerOnline()) return 'Offline';
+    final diff = DateTime.now().difference(_partnerLocation!.timestamp.toLocal());
     if (diff.inSeconds < 60) return 'Just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    return 'Offline';
   }
 
   // =====================

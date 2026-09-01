@@ -202,8 +202,6 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                       isLinked: partner != null,
                       statusText: _getPartnerStatusText(
                         isPartnerOnline: isPartnerOnline,
-                        partnerLoc: partnerLoc,
-                        partner: partner,
                         partnerLastSeen: partnerLastSeen,
                       ),
                     ),
@@ -297,16 +295,13 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
   /// Calculates friendly last online / active status text
   String _getPartnerStatusText({
     required bool isPartnerOnline,
-    required LocationModel? partnerLoc,
-    required UserModel? partner,
     required DateTime? partnerLastSeen,
   }) {
     if (isPartnerOnline) return 'Active Now';
 
-    final lastTimestamp = partnerLastSeen ?? partnerLoc?.timestamp ?? partner?.updatedAt;
-    if (lastTimestamp != null) {
+    if (partnerLastSeen != null) {
       final now = DateTime.now();
-      final localLast = lastTimestamp.toLocal();
+      final localLast = partnerLastSeen.toLocal();
       final diff = now.difference(localLast);
       final totalSeconds = diff.inSeconds;
 
@@ -314,17 +309,9 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
         return 'Last online just now';
       } else if (diff.inMinutes < 60) {
         return 'Last online ${diff.inMinutes}m ago';
-      } else if (diff.inHours < 24) {
-        return 'Last online ${diff.inHours}h ago';
-      } else if (diff.inDays == 1) {
-        return 'Last online yesterday';
-      } else if (diff.inDays < 7) {
-        return 'Last online ${diff.inDays}d ago';
-      } else {
-        return 'Last online ${DateFormat('MMM d').format(localLast)}';
       }
     }
-    return 'Last online recently';
+    return 'Offline';
   }
 
   /// Top Row: Active Status Badge on left, Date & Live Ticking Seconds Pill + Expand Arrow on right

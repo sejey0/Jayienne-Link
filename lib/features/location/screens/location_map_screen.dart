@@ -485,8 +485,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                         child: PartnerAvatarMarker(
                           photoUrl: activeAvatarUrl,
                           partnerName: activeName,
-                          batteryLevel: playbackLoc?.batteryLevel,
-                          batteryState: BatteryState.unknown,
+                          batteryLevel: null,
+                          isOnline: false,
                           heading: playbackLoc?.heading,
                           speed: playbackLoc?.speed,
                           accentColor: activeAccent,
@@ -510,83 +510,71 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                                 ? '${dist.round()}m'
                                 : '${(dist / 1000).toStringAsFixed(1)}km';
 
-                        // Calculate tangent angle along the geodesic line
-                        final p1 = arc[math.max(0, midIndex - 1)];
-                        final p2 = arc[math.min(arc.length - 1, midIndex + 1)];
-                        final latRad = mid.latitude * math.pi / 180.0;
-                        final dy = -(p2.latitude - p1.latitude);
-                        final dx = (p2.longitude - p1.longitude) * math.cos(latRad);
-                        final lineAngle = math.atan2(dy, dx);
-                        final heartRotation = lineAngle + (math.pi / 2);
-
                         return Marker(
                           point: mid,
-                          width: 74,
-                          height: 74,
+                          width: 76,
+                          height: 76,
                           alignment: Alignment.center,
                           child: GestureDetector(
                             onTap: () {
                               HapticFeedback.lightImpact();
                               _fitBoth(locationProvider);
                             },
-                            child: Transform.rotate(
-                              angle: heartRotation,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  // Glowing Aura matching the line
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.softRose.withValues(alpha: 0.6),
-                                          blurRadius: 10,
-                                          spreadRadius: 2,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Aligned Crisp White Border Heart
-                                  const Icon(
-                                    Icons.favorite,
-                                    color: Colors.white,
-                                    size: 60,
-                                  ),
-                                  // Inner SoftRose Heart (matching polyline color)
-                                  const Icon(
-                                    Icons.favorite,
-                                    color: AppColors.softRose,
-                                    size: 54,
-                                  ),
-                                  // Distance Text Aligned to Heart Orientation & Matched to Heart
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 4, left: 6, right: 6),
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        compactDistance,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 0.2,
-                                          shadows: [
-                                            Shadow(
-                                              color: Color(0xFF7A1D32),
-                                              blurRadius: 3,
-                                              offset: Offset(0, 1),
-                                            ),
-                                          ],
-                                        ),
-                                        maxLines: 1,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                // Glowing Aura matching the line
+                                Container(
+                                  width: 46,
+                                  height: 46,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.softRose.withValues(alpha: 0.6),
+                                        blurRadius: 12,
+                                        spreadRadius: 2,
                                       ),
+                                    ],
+                                  ),
+                                ),
+                                // Outer White Border Heart for depth
+                                const Icon(
+                                  Icons.favorite,
+                                  color: Colors.white,
+                                  size: 62,
+                                ),
+                                // Inner SoftRose Heart (always upright & beautiful)
+                                const Icon(
+                                  Icons.favorite,
+                                  color: AppColors.softRose,
+                                  size: 54,
+                                ),
+                                // Distance Text Centered Upright Inside Heart
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2, left: 6, right: 6),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      compactDistance,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -0.2,
+                                        shadows: [
+                                          Shadow(
+                                            color: Color(0xFF7A1D32),
+                                            blurRadius: 3,
+                                            offset: Offset(0, 1),
+                                          ),
+                                        ],
+                                      ),
+                                      maxLines: 1,
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -606,6 +594,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                               : 'You',
                           batteryLevel: locationProvider.batteryLevel,
                           batteryState: locationProvider.batteryState,
+                          isCharging: locationProvider.isMyCharging,
+                          isOnline: true,
                           heading: locationProvider.currentLocation?.heading,
                           speed: locationProvider.currentLocation?.speed,
                           accentColor: AppColors.softRose,
@@ -631,8 +621,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                           partnerName: partnerUser?.displayName.isNotEmpty == true
                               ? partnerUser!.displayName
                               : 'Partner',
-                          batteryLevel: partnerLoc?.batteryLevel,
-                          batteryState: BatteryState.unknown,
+                          batteryLevel: locationProvider.isPartnerOnline()
+                              ? locationProvider.partnerBatteryLevel
+                              : null,
+                          isCharging: locationProvider.isPartnerCharging,
+                          isOnline: locationProvider.isPartnerOnline(),
                           heading: partnerLoc?.heading,
                           speed: partnerLoc?.speed,
                           accentColor: AppColors.lavender,
@@ -853,15 +846,26 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                                     Row(
                                       children: [
                                         Icon(
-                                          Icons.access_time_rounded,
+                                          locationProvider.isPartnerOnline()
+                                              ? Icons.access_time_rounded
+                                              : Icons.wifi_off_rounded,
                                           size: 13,
-                                          color: Colors.grey.shade600,
+                                          color: locationProvider.isPartnerOnline()
+                                              ? const Color(0xFF2E7D32)
+                                              : Colors.grey.shade600,
                                         ),
                                         const SizedBox(width: 4),
                                         LiveTimeText(
-                                          textBuilder: () => 'Updated ${partnerLoc.timeAgo}',
+                                          textBuilder: () {
+                                            if (locationProvider.isPartnerOnline()) {
+                                              return 'Live • ${partnerLoc.timeAgo}';
+                                            }
+                                            return 'Offline';
+                                          },
                                           style: TextStyle(
-                                            color: isOnline ? const Color(0xFF2E7D32) : const Color(0xFFE65100),
+                                            color: locationProvider.isPartnerOnline()
+                                                ? const Color(0xFF2E7D32)
+                                                : Colors.grey.shade600,
                                             fontWeight: FontWeight.w600,
                                             fontSize: 12,
                                           ),
@@ -870,9 +874,11 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                                     )
                                   else
                                     Text(
-                                      isOnline ? 'Online' : 'Offline',
+                                      locationProvider.isPartnerOnline() ? 'Live' : 'Offline',
                                       style: TextStyle(
-                                        color: isOnline ? const Color(0xFF2E7D32) : Colors.grey.shade600,
+                                        color: locationProvider.isPartnerOnline()
+                                            ? const Color(0xFF2E7D32)
+                                            : Colors.grey.shade600,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
                                       ),

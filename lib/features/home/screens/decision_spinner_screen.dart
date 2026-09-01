@@ -2023,7 +2023,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                   Text(
                                     _selectedCategoryIndex == 0 &&
                                             _pickedMovie != null
-                                        ? 'Tonight\'s Pick: ${_pickedMovie!.title}'
+                                        ? 'Current Pick: ${_pickedMovie!.title}'
                                         : 'Anti-Repeat Exclusion Pool',
                                     style: TextStyle(
                                       fontSize: 12.5,
@@ -2789,17 +2789,18 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  /// Redesigned Centerpiece View when a Movie is Picked
+  /// Redesigned Minimalist & Aesthetic View when a Movie is Picked
   Widget _buildPickedMovieView(BuildContext context, bool isDark) {
     if (_pickedMovie == null) return const SizedBox.shrink();
 
     final movie = _pickedMovie!;
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // 1. Romantic Glowing Pill Header
+        // 1. Ongoing Pick Header Badge
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
@@ -2809,33 +2810,31 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFF758C).withValues(alpha: 0.4),
+                color: const Color(0xFFFF758C).withValues(alpha: 0.35),
                 blurRadius: 10,
-                offset: const Offset(0, 3),
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.favorite_rounded, color: Colors.white, size: 14),
-              SizedBox(width: 6),
+              Icon(Icons.stars_rounded, color: Colors.white, size: 14),
+              SizedBox(width: 5),
               Text(
-                'DATE NIGHT MOVIE LOCKED IN',
+                'ONGOING MOVIE PICK',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
-                  fontSize: 11.5,
-                  letterSpacing: 0.8,
+                  fontSize: 11,
+                  letterSpacing: 0.6,
                 ),
               ),
-              SizedBox(width: 6),
-              Icon(Icons.movie_filter_rounded, color: Colors.white, size: 14),
             ],
           ),
         ),
 
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
 
         // 2. Cinematic Glowing Poster Showcase
         Stack(
@@ -2849,16 +2848,16 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF758C).withValues(alpha: 0.45),
-                    blurRadius: 28,
-                    spreadRadius: 4,
-                    offset: const Offset(0, 8),
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.4),
+                    blurRadius: 26,
+                    spreadRadius: 3,
+                    offset: const Offset(0, 6),
                   ),
                   BoxShadow(
-                    color: const Color(0xFFA18CD1).withValues(alpha: 0.35),
-                    blurRadius: 24,
-                    spreadRadius: 2,
-                    offset: const Offset(0, -4),
+                    color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
+                    blurRadius: 22,
+                    spreadRadius: 1,
+                    offset: const Offset(0, -3),
                   ),
                 ],
               ),
@@ -2869,8 +2868,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: const Color(0xFFFF758C).withValues(alpha: 0.8),
-                  width: 2.5,
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.75),
+                  width: 2.2,
                 ),
               ),
               child: ClipRRect(
@@ -2913,21 +2912,23 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ],
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
 
-        // 3. Movie Title & Tags
+        // 3. Movie Title & Media Tags
         Text(
           movie.title,
           textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 19,
             fontWeight: FontWeight.w900,
             color: isDark ? Colors.white : AppColors.deepCharcoal,
-            letterSpacing: -0.3,
+            letterSpacing: -0.2,
           ),
         ),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -2990,25 +2991,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ],
         ),
 
-        const SizedBox(height: 12),
-
-        // Romantic Narrative
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'The Decision Wheel chose this for tonight\'s date night! Grab the popcorn, snuggle up with your love, and enjoy.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.35,
-              color: isDark ? Colors.white60 : Colors.grey.shade600,
-            ),
-          ),
-        ),
-
         const SizedBox(height: 18),
 
-        // Primary Action: Open Movie Diary to Mark as Watched
+        // 4. Primary Action Button
         Container(
           width: double.infinity,
           height: 50,
@@ -3047,73 +3032,38 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             ),
             icon: const Icon(Icons.play_circle_filled_rounded, size: 20),
             label: const Text(
-              'Open in Movie Diary & Rate',
+              'Open in Movie Diary',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 14.5,
+                fontSize: 15,
+                letterSpacing: 0.3,
               ),
             ),
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // Notice: Pool is locked until watched
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.04)
-                : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDark ? Colors.white12 : Colors.grey.shade300,
-            ),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.lock_rounded,
-                size: 14,
-                color: Color(0xFFFF758C),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Wheel is locked until marked as watched in Movie Diary.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white70 : Colors.grey.shade700,
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
 
         // Debug Force Reset Button (Debug Mode Only)
         if (kDebugMode) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _forceResetMoviePick,
-              icon: const Icon(Icons.restart_alt_rounded, size: 16),
+              icon: const Icon(Icons.restart_alt_rounded, size: 15),
               label: const Text(
                 'Force Reset Spinner (Debug Mode)',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.amberAccent.shade400,
                 side: BorderSide(
                   color: Colors.amberAccent.shade400.withValues(alpha: 0.7),
-                  width: 1.2,
+                  width: 1.1,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: 8),
               ),
             ),
           ),

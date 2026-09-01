@@ -63,6 +63,7 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
         _isDropdownVisible = false;
         _isLoading = false;
       });
+      widget.onClear?.call();
       return;
     }
 

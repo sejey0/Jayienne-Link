@@ -760,7 +760,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                                       ),
                                       const SizedBox(width: 6),
                                       GestureDetector(
-                                        onTap: () => setState(() => _searchedPlace = null),
+                                        onTap: () => _clearSearchedPlaceAndCenterMe(locationProvider, myPos),
                                         child: const Icon(
                                           Icons.close_rounded,
                                           color: Colors.white70,
@@ -836,7 +836,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                   _mapController.move(place.coordinates, 16.5);
                 },
                 onClear: () {
-                  setState(() => _searchedPlace = null);
+                  _clearSearchedPlaceAndCenterMe(locationProvider, myPos);
                 },
               ),
             ),
@@ -973,7 +973,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_searchedPlace != null)
-                    _buildSearchedPlaceBottomCard(context, myPos, partnerPos, partnerUser),
+                    _buildSearchedPlaceBottomCard(context, locationProvider, myPos, partnerPos, partnerUser),
                   _buildRomanticLiveBottomCard(context, locationProvider, partnerLoc, partnerUser),
                 ],
               ),
@@ -983,16 +983,25 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
               left: 14,
               right: 14,
               bottom: MediaQuery.of(context).padding.bottom + 16,
-              child: _buildSearchedPlaceBottomCard(context, myPos, partnerPos, partnerUser),
+              child: _buildSearchedPlaceBottomCard(context, locationProvider, myPos, partnerPos, partnerUser),
             ),
         ],
       ),
     );
   }
 
+  void _clearSearchedPlaceAndCenterMe(LocationProvider locationProvider, LatLng? myPos) {
+    HapticFeedback.lightImpact();
+    setState(() => _searchedPlace = null);
+    if (myPos != null) {
+      _centerMe(locationProvider);
+    }
+  }
+
   /// Floating Searched Place Info Card showing place name and distance in km from You and Partner
   Widget _buildSearchedPlaceBottomCard(
     BuildContext context,
+    LocationProvider locationProvider,
     LatLng? myPos,
     LatLng? partnerPos,
     dynamic partnerUser,
@@ -1132,7 +1141,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
             ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            onPressed: () => setState(() => _searchedPlace = null),
+            onPressed: () => _clearSearchedPlaceAndCenterMe(locationProvider, myPos),
           ),
         ],
       ),

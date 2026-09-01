@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/constants/zodiac_helper.dart';
 import '../../../core/router/route_names.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../core/utils/url_launcher_helper.dart';
@@ -231,34 +232,116 @@ class _ProfileViewScreenState extends State<ProfileViewScreen> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  if (user.birthday != null) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF758C).withValues(alpha: isDark ? 0.12 : 0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.cake_outlined, size: 13, color: Color(0xFFFF758C)),
-                          const SizedBox(width: 5),
-                          Text(
-                            _formatDate(user.birthday!),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFFF758C),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      // Birthday Badge
+                      if (user.birthday != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF758C).withValues(alpha: isDark ? 0.12 : 0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.cake_outlined, size: 13, color: Color(0xFFFF758C)),
+                              const SizedBox(width: 5),
+                              Text(
+                                _formatDate(user.birthday!),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFFF758C),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // Zodiac Badge or Set Button
+                      if (user.zodiacSign != null && user.zodiacSign!.isNotEmpty) ...[
+                        Builder(
+                          builder: (context) {
+                            final zodiacInfo = ZodiacHelper.getZodiac(user.zodiacSign);
+                            final color = zodiacInfo?.color ?? const Color(0xFFA18CD1);
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: isDark ? 0.18 : 0.10),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: color.withValues(alpha: 0.35),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    zodiacInfo?.symbol ?? '✨',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: color,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    user.zodiacSign!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: color,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ] else ...[
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            context.push(RouteNames.editProfile);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFA18CD1).withValues(alpha: isDark ? 0.16 : 0.09),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFFA18CD1).withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.auto_awesome_rounded, size: 13, color: Color(0xFFA18CD1)),
+                                SizedBox(width: 5),
+                                Text(
+                                  'Set Zodiac Sign',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFFA18CD1),
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFFA18CD1)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),

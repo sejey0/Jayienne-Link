@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/constants/zodiac_helper.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../providers/auth_provider.dart';
@@ -16,6 +17,7 @@ import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/loading_overlay.dart';
 
+// ── Screen ─────────────────────────────────────────────────────────────────────
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -28,7 +30,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _nameController;
   File? _selectedPhoto;
   DateTime? _birthday;
+  String? _selectedZodiac;
   bool _initialized = false;
+  bool _nameEditable = false; // pencil-icon toggle
 
   @override
   void didChangeDependencies() {
@@ -37,6 +41,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final user = context.read<UserProvider>().user;
       _nameController = TextEditingController(text: user?.displayName ?? '');
       _birthday = user?.birthday;
+      _selectedZodiac = user?.zodiacSign;
       _initialized = true;
     }
   }
@@ -47,16 +52,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  // ── Pickers ────────────────────────────────────────────────────────────────
   Future<void> _pickPhoto() async {
     HapticFeedback.lightImpact();
     final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-    );
-    if (picked != null) {
-      setState(() => _selectedPhoto = File(picked.path));
-    }
+    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 512);
+    if (picked != null) setState(() => _selectedPhoto = File(picked.path));
   }
 
   Future<void> _pickBirthday() async {
@@ -67,32 +68,221 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       initialDate: _birthday ?? DateTime(2000),
       firstDate: DateTime(1940),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: isDark
-                ? const ColorScheme.dark(
-                    primary: Color(0xFFFF758C),
-                    onPrimary: Colors.white,
-                    surface: Color(0xFF1C1427),
-                    onSurface: Colors.white,
-                  )
-                : const ColorScheme.light(
-                    primary: Color(0xFFFF758C),
-                    onPrimary: Colors.white,
-                    surface: Colors.white,
-                    onSurface: Color(0xFF2D4059),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: isDark
+              ? const ColorScheme.dark(
+                  primary: Color(0xFFFF758C),
+                  onPrimary: Colors.white,
+                  surface: Color(0xFF1C1427),
+                  onSurface: Colors.white,
+                )
+              : const ColorScheme.light(
+                  primary: Color(0xFFFF758C),
+                  onPrimary: Colors.white,
+                  surface: Colors.white,
+                  onSurface: Color(0xFF2D4059),
+                ),
+        ),
+        child: child!,
+      ),
+    );
+    if (date != null) setState(() => _birthday = date);
+  }
+
+  void _showZodiacPicker() {
+    HapticFeedback.lightImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        String? tempSelected = _selectedZodiac;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.72,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1427) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                children: [
+                  // Handle
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-          ),
-          child: child!,
+                  const SizedBox(height: 16),
+                  // Title row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          ).createShader(bounds),
+                          child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Select Zodiac Sign',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppColors.deepCharcoal,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (tempSelected != null)
+                          GestureDetector(
+                            onTap: () => setModalState(() => tempSelected = null),
+                            child: const Text(
+                              'Clear',
+                              style: TextStyle(
+                                color: Color(0xFFFF758C),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13.5,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Zodiac grid
+                  Expanded(
+                    child: GridView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: 0.85,
+                      ),
+                      itemCount: kZodiacSigns.length,
+                      itemBuilder: (context, i) {
+                        final z = kZodiacSigns[i];
+                        final isSelected = tempSelected == z.name;
+                        return GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setModalState(() => tempSelected = isSelected ? null : z.name);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? z.color.withValues(alpha: isDark ? 0.25 : 0.12)
+                                  : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSelected ? z.color : (isDark ? Colors.white12 : Colors.grey.shade200),
+                                width: isSelected ? 2 : 1,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: z.color.withValues(alpha: 0.25),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  z.symbol,
+                                  style: TextStyle(
+                                    fontSize: 30,
+                                    color: isSelected ? z.color : (isDark ? Colors.white70 : Colors.grey.shade600),
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  z.name,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                    color: isSelected ? z.color : (isDark ? Colors.white : AppColors.deepCharcoal),
+                                  ),
+                                ),
+                                Text(
+                                  z.dateRange,
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  // Confirm button
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+                    child: Container(
+                      width: double.infinity,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          setState(() => _selectedZodiac = tempSelected);
+                          Navigator.pop(ctx);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          tempSelected != null ? 'Set ${tempSelected!}' : 'Confirm',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
-    if (date != null) {
-      setState(() => _birthday = date);
-    }
   }
 
+  // ── Save ───────────────────────────────────────────────────────────────────
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -175,15 +365,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     final success = await userProvider.updateProfile(
       uid: userId,
-      displayName: _nameController.text.trim(),
+      displayName: _nameEditable ? _nameController.text.trim() : null,
       photoFile: _selectedPhoto,
       birthday: _birthday,
+      zodiacSign: _selectedZodiac,
+      clearZodiacSign: _selectedZodiac == null && (currentUser?.zodiacSign != null),
     );
 
-    if (showingUploadDialog && mounted) {
-      Navigator.of(context).pop();
-    }
-
+    if (showingUploadDialog && mounted) Navigator.of(context).pop();
     if (!mounted) return;
 
     if (success) {
@@ -244,45 +433,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Text(
               error,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.4,
-                color: isDark ? Colors.white70 : Colors.grey.shade700,
-              ),
+              style: TextStyle(fontSize: 13, height: 1.4, color: isDark ? Colors.white70 : Colors.grey.shade700),
             ),
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.grey.shade50,
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.grey.shade200,
-                ),
+                border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Troubleshooting steps:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: isDark ? Colors.white : AppColors.deepCharcoal,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white : AppColors.deepCharcoal),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     '• Check your internet connection\n• Try selecting a different photo\n• Make sure the photo is under 10MB',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      height: 1.5,
-                      color: isDark ? Colors.white60 : Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 11.5, height: 1.5, color: isDark ? Colors.white60 : Colors.grey.shade600),
                   ),
                 ],
               ),
@@ -298,14 +469,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 11),
                     ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: Color(0xFFFF758C),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.5,
-                      ),
-                    ),
+                    child: const Text('Cancel', style: TextStyle(color: Color(0xFFFF758C), fontWeight: FontWeight.w600, fontSize: 13.5)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -313,31 +477,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: Container(
                     height: 44,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      gradient: const LinearGradient(colors: [Color(0xFFFF758C), Color(0xFFA18CD1)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        _save();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: Colors.white,
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Try Again',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                      ),
+                      onPressed: () { Navigator.of(ctx).pop(); _save(); },
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, foregroundColor: Colors.white, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
+                      child: const Text('Try Again', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                     ),
                   ),
                 ),
@@ -349,6 +495,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
   ImageProvider? _getProfileImageProvider(String? photoUrl) {
     if (photoUrl == null) return null;
     if (photoUrl.startsWith('data:image/')) {
@@ -372,11 +519,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
+  ZodiacInfo? get _currentZodiacInfo =>
+      _selectedZodiac == null ? null : kZodiacSigns.firstWhere((z) => z.name == _selectedZodiac, orElse: () => kZodiacSigns[0]);
+
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final user = userProvider.user;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final zodiac = _currentZodiacInfo;
 
     return LoadingOverlay(
       isLoading: userProvider.isLoading,
@@ -385,11 +537,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         appBar: AppBar(
           title: const Text(
             AppStrings.editProfile,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              fontSize: 18,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18),
           ),
           centerTitle: true,
           flexibleSpace: Container(
@@ -403,10 +551,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              Navigator.pop(context);
-            },
+            onPressed: () { HapticFeedback.lightImpact(); Navigator.pop(context); },
           ),
           elevation: 0,
         ),
@@ -475,11 +620,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                               end: Alignment.bottomRight,
                                             ),
                                           ),
-                                          child: const Icon(
-                                            Icons.person_rounded,
-                                            size: 48,
-                                            color: Colors.white,
-                                          ),
+                                          child: const Icon(Icons.person_rounded, size: 48, color: Colors.white),
                                         )
                                       : null,
                                 ),
@@ -509,11 +650,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     ),
                                   ],
                                 ),
-                                child: const Icon(
-                                  Icons.camera_alt_rounded,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
+                                child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
                               ),
                             ),
                           ],
@@ -561,68 +698,94 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                           child: Column(
                             children: [
-                              AppTextField(
-                                controller: _nameController,
-                                hintText: AppStrings.displayName,
-                                prefixIcon: Icons.person_outlined,
-                                textCapitalization: TextCapitalization.words,
-                                validator: Validators.validateDisplayName,
+                              // ── Name field with pencil toggle ──────────────
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: AppTextField(
+                                      controller: _nameController,
+                                      hintText: AppStrings.displayName,
+                                      prefixIcon: Icons.person_outlined,
+                                      textCapitalization: TextCapitalization.words,
+                                      validator: _nameEditable ? Validators.validateDisplayName : null,
+                                      enabled: _nameEditable,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Pencil toggle button
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        HapticFeedback.selectionClick();
+                                        setState(() => _nameEditable = !_nameEditable);
+                                        if (_nameEditable) {
+                                          Future.delayed(const Duration(milliseconds: 80), () {
+                                            _nameController.selection = TextSelection.fromPosition(
+                                              TextPosition(offset: _nameController.text.length),
+                                            );
+                                          });
+                                        }
+                                      },
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 200),
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          gradient: _nameEditable
+                                              ? const LinearGradient(
+                                                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                )
+                                              : null,
+                                          color: _nameEditable ? null : (isDark ? Colors.white.withValues(alpha: 0.07) : Colors.grey.shade100),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: _nameEditable
+                                              ? null
+                                              : Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
+                                        ),
+                                        child: Icon(
+                                          _nameEditable ? Icons.edit_off_rounded : Icons.edit_rounded,
+                                          size: 18,
+                                          color: _nameEditable ? Colors.white : (isDark ? Colors.white54 : Colors.grey.shade500),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 12),
-                              // Birthday picker
+
+                              // ── Birthday picker ────────────────────────────
                               InkWell(
                                 onTap: _pickBirthday,
                                 borderRadius: BorderRadius.circular(14),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 14,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                   decoration: BoxDecoration(
-                                    color: isDark
-                                        ? Colors.white.withValues(alpha: 0.05)
-                                        : Colors.grey.shade50,
+                                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
-                                      color: isDark
-                                          ? Colors.white.withValues(alpha: 0.12)
-                                          : Colors.grey.shade300,
+                                      color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.grey.shade300,
                                     ),
                                   ),
                                   child: Row(
                                     children: [
-                                      Icon(
-                                        Icons.calendar_today_rounded,
-                                        size: 18,
-                                        color: isDark
-                                            ? Colors.white54
-                                            : Colors.grey.shade600,
-                                      ),
+                                      Icon(Icons.calendar_today_rounded, size: 18, color: isDark ? Colors.white54 : Colors.grey.shade600),
                                       const SizedBox(width: 12),
                                       Text(
-                                        _birthday != null
-                                            ? _formatBirthday(_birthday!)
-                                            : AppStrings.birthday,
+                                        _birthday != null ? _formatBirthday(_birthday!) : AppStrings.birthday,
                                         style: TextStyle(
                                           fontSize: 15,
-                                          fontWeight: _birthday != null
-                                              ? FontWeight.w500
-                                              : FontWeight.normal,
+                                          fontWeight: _birthday != null ? FontWeight.w500 : FontWeight.normal,
                                           color: _birthday != null
                                               ? (isDark ? Colors.white : AppColors.deepCharcoal)
-                                              : (isDark
-                                                  ? Colors.white38
-                                                  : Colors.grey.shade400),
+                                              : (isDark ? Colors.white38 : Colors.grey.shade400),
                                         ),
                                       ),
                                       const Spacer(),
-                                      Icon(
-                                        Icons.chevron_right_rounded,
-                                        size: 20,
-                                        color: isDark
-                                            ? Colors.white30
-                                            : Colors.grey.shade400,
-                                      ),
+                                      Icon(Icons.chevron_right_rounded, size: 20, color: isDark ? Colors.white30 : Colors.grey.shade400),
                                     ],
                                   ),
                                 ),
@@ -630,8 +793,105 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ],
                           ),
                         ),
+
+                        const SizedBox(height: 20),
+
+                        // ── Zodiac Sign Section ────────────────────────────
+                        _buildSectionLabel('Zodiac Sign', isDark),
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: _showZodiacPicker,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1C1427) : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: zodiac != null
+                                    ? zodiac.color.withValues(alpha: 0.45)
+                                    : const Color(0xFFA18CD1).withValues(alpha: 0.25),
+                                width: 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (zodiac?.color ?? const Color(0xFFA18CD1)).withValues(alpha: 0.07),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            child: Row(
+                              children: [
+                                // Symbol circle
+                                if (zodiac != null) ...[
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: zodiac.color.withValues(alpha: isDark ? 0.2 : 0.1),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: zodiac.color.withValues(alpha: 0.4)),
+                                    ),
+                                    child: Center(
+                                      child: Text(zodiac.symbol, style: TextStyle(fontSize: 20, color: zodiac.color)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          zodiac.name,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                          ),
+                                        ),
+                                        Text(
+                                          zodiac.dateRange,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade50,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
+                                    ),
+                                    child: Center(
+                                      child: Icon(Icons.auto_awesome_rounded, size: 18, color: isDark ? Colors.white38 : Colors.grey.shade400),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Select your zodiac sign',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        color: isDark ? Colors.white38 : Colors.grey.shade400,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                Icon(Icons.chevron_right_rounded, size: 20, color: isDark ? Colors.white30 : Colors.grey.shade400),
+                              ],
+                            ),
+                          ),
+                        ),
+
                         const SizedBox(height: 28),
-                        // Save button
+
+                        // ── Save Button ────────────────────────────────────
                         Container(
                           width: double.infinity,
                           height: 52,
@@ -655,19 +915,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             icon: const Icon(Icons.check_rounded, size: 20, color: Colors.white),
                             label: const Text(
                               'Save Changes',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15.5,
-                                color: Colors.white,
-                              ),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: Colors.white),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               elevation: 0,
                             ),
                           ),

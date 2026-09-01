@@ -6,6 +6,7 @@ class UserModel {
   final String displayName;
   final String? photoUrl;
   final DateTime? birthday;
+  final String? zodiacSign;
   final String? coupleId;
   final String? inviteCode;
   final String bubbleTheme;
@@ -22,6 +23,7 @@ class UserModel {
     required this.displayName,
     this.photoUrl,
     this.birthday,
+    this.zodiacSign,
     this.coupleId,
     this.inviteCode,
     this.bubbleTheme = 'capybara',
@@ -48,6 +50,8 @@ class UserModel {
     String? displayName,
     String? photoUrl,
     DateTime? birthday,
+    String? zodiacSign,
+    bool clearZodiacSign = false,
     String? coupleId,
     String? inviteCode,
     String? bubbleTheme,
@@ -64,6 +68,7 @@ class UserModel {
       displayName: displayName ?? this.displayName,
       photoUrl: photoUrl ?? this.photoUrl,
       birthday: birthday ?? this.birthday,
+      zodiacSign: clearZodiacSign ? null : (zodiacSign ?? this.zodiacSign),
       coupleId: coupleId ?? this.coupleId,
       inviteCode: inviteCode ?? this.inviteCode,
       bubbleTheme: bubbleTheme ?? this.bubbleTheme,
@@ -92,6 +97,7 @@ class UserModel {
       birthday: json['birthday'] != null
           ? DateTime.parse(json['birthday'] as String)
           : null,
+      zodiacSign: json['zodiac_sign'] as String?,
       coupleId: json['couple_id'] as String?,
       inviteCode: json['invite_code'] as String?,
       bubbleTheme: json['bubble_theme'] as String? ?? 'capybara',
@@ -116,6 +122,7 @@ class UserModel {
       'display_name': displayName,
       'photo_url': photoUrl,
       'birthday': birthday?.toIso8601String(),
+      'zodiac_sign': zodiacSign,
       'couple_id': coupleId,
       'invite_code': inviteCode,
       'bubble_theme': bubbleTheme,

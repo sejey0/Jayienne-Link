@@ -192,6 +192,8 @@ class UserProvider extends ChangeNotifier {
     String? displayName,
     File? photoFile,
     DateTime? birthday,
+    String? zodiacSign,
+    bool clearZodiacSign = false,
   }) async {
     _isLoading = true;
     _error = null;
@@ -203,6 +205,9 @@ class UserProvider extends ChangeNotifier {
       if (displayName != null) updates['displayName'] = displayName;
       if (birthday != null) {
         updates['birthday'] = birthday;
+      }
+      if (zodiacSign != null || clearZodiacSign) {
+        updates['zodiacSign'] = clearZodiacSign ? null : zodiacSign;
       }
 
       if (photoFile != null) {
@@ -232,6 +237,8 @@ class UserProvider extends ChangeNotifier {
           _user = _user!.copyWith(
             displayName: displayName ?? _user!.displayName,
             birthday: birthday ?? _user!.birthday,
+            zodiacSign: zodiacSign ?? (clearZodiacSign ? null : _user!.zodiacSign),
+            clearZodiacSign: clearZodiacSign,
             photoUrl: updates.containsKey('photoUrl') ? updates['photoUrl'] as String? : _user!.photoUrl,
           );
           await LocalCacheService.saveUser(_user!);

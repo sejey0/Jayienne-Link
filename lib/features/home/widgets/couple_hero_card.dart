@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/constants/zodiac_helper.dart';
 import '../../../models/location_model.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/anniversary_provider.dart';
@@ -199,11 +200,13 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                     const SizedBox(height: 18),
                   ],
 
-                  // 2. Dual Avatars with Pulsing Beating Heart in Center
+                  // 2. Dual Avatars with Pulsing Beating Heart in Center & Zodiac Badges
                   _buildDualAvatarsSection(
                     context,
                     userPhotoUrl: user?.photoUrl,
                     partnerPhotoUrl: partner?.photoUrl,
+                    userZodiac: user?.zodiacSign,
+                    partnerZodiac: partner?.zodiacSign,
                     isPartnerOnline: isPartnerOnline,
                   ),
 
@@ -409,22 +412,34 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     );
   }
 
-  /// Dual Glowing Avatars with Beating Heart Pulse
+  /// Dual Glowing Avatars with Beating Heart Pulse and Zodiac Badges
   Widget _buildDualAvatarsSection(
     BuildContext context, {
     required String? userPhotoUrl,
     required String? partnerPhotoUrl,
+    required String? userZodiac,
+    required String? partnerZodiac,
     required bool isPartnerOnline,
   }) {
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // User Avatar (Left)
-          _buildAvatarWithRing(
-            context,
-            photoUrl: userPhotoUrl,
+          // User Avatar + Zodiac (Left)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildAvatarWithRing(
+                context,
+                photoUrl: userPhotoUrl,
+              ),
+              if (userZodiac != null && userZodiac.isNotEmpty) ...[
+                const SizedBox(height: 7),
+                _buildZodiacBadge(userZodiac),
+              ],
+            ],
           ),
 
           const SizedBox(width: 16),
@@ -458,12 +473,58 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
 
           const SizedBox(width: 16),
 
-          // Partner Avatar (Right) with Online Status Ring
-          _buildAvatarWithRing(
-            context,
-            photoUrl: partnerPhotoUrl,
-            isOnline: isPartnerOnline,
-            showStatus: true,
+          // Partner Avatar + Zodiac (Right) with Online Status Ring
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildAvatarWithRing(
+                context,
+                photoUrl: partnerPhotoUrl,
+                isOnline: isPartnerOnline,
+                showStatus: true,
+              ),
+              if (partnerZodiac != null && partnerZodiac.isNotEmpty) ...[
+                const SizedBox(height: 7),
+                _buildZodiacBadge(partnerZodiac),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildZodiacBadge(String zodiacName) {
+    final info = ZodiacHelper.getZodiac(zodiacName);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.38),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            info?.symbol ?? '✨',
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 3.5),
+          Text(
+            info?.name ?? zodiacName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
           ),
         ],
       ),

@@ -45,7 +45,6 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   bool _isRefreshing = false;
   bool _isSatelliteView = true;
   bool _isFullscreen = false;
-  bool _isCardHidden = false;
   bool _isBothSelected = false;
 
   /// Generates a smooth, graceful geodesic curved arc between two points
@@ -672,7 +671,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                 ? (MediaQuery.of(context).padding.bottom + 24)
                 : (isHistoryMode
                     ? (MediaQuery.of(context).padding.bottom + 300)
-                    : (MediaQuery.of(context).padding.bottom + 220)),
+                    : (MediaQuery.of(context).padding.bottom + 98)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -789,193 +788,98 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                 left: 16,
                 right: 16,
                 bottom: MediaQuery.of(context).padding.bottom + 16,
-                child: AnimatedCrossFade(
-                  duration: const Duration(milliseconds: 250),
-                  crossFadeState: _isCardHidden
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  firstChild: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 1.5,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Distance & Status Header Row
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppColors.softRose.withValues(alpha: 0.18),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.location_on_rounded,
-                                color: AppColors.softRose,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    locationProvider.formattedDistance,
-                                    style: const TextStyle(
-                                      color: Color(0xFF1E142B),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  if (partnerLoc != null)
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          locationProvider.isPartnerOnline()
-                                              ? Icons.access_time_rounded
-                                              : Icons.wifi_off_rounded,
-                                          size: 13,
-                                          color: locationProvider.isPartnerOnline()
-                                              ? const Color(0xFF2E7D32)
-                                              : Colors.grey.shade600,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        LiveTimeText(
-                                          textBuilder: () {
-                                            if (locationProvider.isPartnerOnline()) {
-                                              return 'Live • ${partnerLoc.timeAgo}';
-                                            }
-                                            return 'Offline';
-                                          },
-                                          style: TextStyle(
-                                            color: locationProvider.isPartnerOnline()
-                                                ? const Color(0xFF2E7D32)
-                                                : Colors.grey.shade600,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  else
-                                    Text(
-                                      locationProvider.isPartnerOnline() ? 'Live' : 'Offline',
-                                      style: TextStyle(
-                                        color: locationProvider.isPartnerOnline()
-                                            ? const Color(0xFF2E7D32)
-                                            : Colors.grey.shade600,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-
-                            // Recenter to My Location
-                            if (myPos != null)
-                              IconButton(
-                                icon: const Icon(Icons.my_location_rounded, color: AppColors.lavender, size: 22),
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  _mapController.move(myPos, 16.0);
-                                },
-                                tooltip: 'My Location',
-                              ),
-
-                            // Fit Camera Icon Shortcut
-                            IconButton(
-                              icon: const Icon(Icons.fullscreen_rounded, color: AppColors.softRose, size: 22),
-                              onPressed: () => _fitBoth(locationProvider),
-                              tooltip: 'Fit Both in View',
-                            ),
-
-                            // Hide Card Button
-                            IconButton(
-                              icon: const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                color: Color(0xFF1E142B),
-                                size: 24,
-                              ),
-                              onPressed: () {
-                                HapticFeedback.lightImpact();
-                                setState(() => _isCardHidden = true);
-                              },
-                              tooltip: 'Hide Card',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
-                  secondChild: Align(
-                    alignment: Alignment.bottomRight,
-                    child: GestureDetector(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        setState(() => _isCardHidden = false);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 12,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
+                          color: AppColors.softRose.withValues(alpha: 0.18),
+                          shape: BoxShape.circle,
                         ),
-                        child: Row(
+                        child: const Icon(
+                          Icons.location_on_rounded,
+                          color: AppColors.softRose,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
-                              Icons.favorite_rounded,
-                              color: AppColors.softRose,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
                             Text(
                               locationProvider.formattedDistance,
                               style: const TextStyle(
                                 color: Color(0xFF1E142B),
+                                fontSize: 16,
                                 fontWeight: FontWeight.w800,
-                                fontSize: 13,
+                                letterSpacing: -0.2,
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            const Icon(
-                              Icons.keyboard_arrow_up_rounded,
-                              color: Color(0xFF1E142B),
-                              size: 20,
-                            ),
+                            const SizedBox(height: 2),
+                            if (partnerLoc != null)
+                              Row(
+                                children: [
+                                  Icon(
+                                    locationProvider.isPartnerOnline()
+                                        ? Icons.access_time_rounded
+                                        : Icons.wifi_off_rounded,
+                                    size: 13,
+                                    color: locationProvider.isPartnerOnline()
+                                        ? const Color(0xFF2E7D32)
+                                        : Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  LiveTimeText(
+                                    textBuilder: () {
+                                      if (locationProvider.isPartnerOnline()) {
+                                        return 'Live • ${partnerLoc.timeAgo}';
+                                      }
+                                      return 'Offline';
+                                    },
+                                    style: TextStyle(
+                                      color: locationProvider.isPartnerOnline()
+                                          ? const Color(0xFF2E7D32)
+                                          : Colors.grey.shade600,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Text(
+                                locationProvider.isPartnerOnline() ? 'Live' : 'Offline',
+                                style: TextStyle(
+                                  color: locationProvider.isPartnerOnline()
+                                      ? const Color(0xFF2E7D32)
+                                      : Colors.grey.shade600,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
                           ],
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),

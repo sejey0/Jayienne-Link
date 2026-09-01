@@ -101,6 +101,8 @@ class LocationProvider extends ChangeNotifier {
   // Battery monitoring
   int _batteryLevel = 100;
   BatteryState _batteryState = BatteryState.unknown;
+  int? _partnerBatteryLevel;
+  bool _isPartnerCharging = false;
   StreamSubscription<BatteryState>? _batterySubscription;
   Timer? _foregroundCaptureTimer;
 
@@ -149,6 +151,9 @@ class LocationProvider extends ChangeNotifier {
   UserModel? get partnerUser => _partnerUser;
   int get batteryLevel => _batteryLevel;
   BatteryState get batteryState => _batteryState;
+  bool get isMyCharging => _batteryState == BatteryState.charging;
+  int? get partnerBatteryLevel => _partnerBatteryLevel ?? _partnerLocation?.batteryLevel;
+  bool get isPartnerCharging => _isPartnerCharging;
 
   // History Getters
   List<LocationModel> get historyLocations => _historyLocations;
@@ -503,6 +508,9 @@ class LocationProvider extends ChangeNotifier {
       (location) async {
         if (location != null) {
           _partnerLocation = location;
+          if (location.batteryLevel != null) {
+            _partnerBatteryLevel = location.batteryLevel;
+          }
           // Store partner location locally in SQLite so history & route playback work
           await _storageService.insertLocation(location.copyWith(
             ownerId: _partnerId,
@@ -516,12 +524,16 @@ class LocationProvider extends ChangeNotifier {
     _partnerBatterySubscription =
         _firebaseLocationService.partnerBatteryStream.listen(
       (batteryData) {
-        if (_partnerLocation != null && batteryData['batteryLevel'] != null) {
+        final level = batteryData['batteryLevel'] as int?;
+        final isCharging = batteryData['isCharging'] == true;
+        _partnerBatteryLevel = level;
+        _isPartnerCharging = isCharging;
+        if (_partnerLocation != null && level != null) {
           _partnerLocation = _partnerLocation!.copyWith(
-            batteryLevel: batteryData['batteryLevel'] as int?,
+            batteryLevel: level,
           );
-          notifyListeners();
         }
+        notifyListeners();
       },
     );
   }

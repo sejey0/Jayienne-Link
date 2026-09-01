@@ -139,6 +139,12 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
       }
     }
 
+    // Battery statuses
+    final myBatteryLevel = locationProvider.batteryLevel;
+    final myIsCharging = locationProvider.isMyCharging;
+    final partnerBatteryLevel = locationProvider.partnerBatteryLevel;
+    final partnerIsCharging = locationProvider.isPartnerCharging;
+
     return Container(
       margin: const EdgeInsets.symmetric(
         horizontal: AppDimensions.spacingMd,
@@ -224,14 +230,17 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                     _buildExpandedContent(context, anniversaryProvider),
                   ],
 
-                  // 6. Bottom Partner Vitals Bar (Distance, Battery, Status)
+                  // 6. Bottom Vitals Bar (My Battery • Centered KM Apart • Partner Battery)
                   if (partner != null) ...[
                     const SizedBox(height: 16),
                     _buildPartnerVitalsBar(
                       context,
                       isPartnerOnline: isPartnerOnline,
                       distanceString: distanceString,
-                      partnerLoc: partnerLoc,
+                      myBatteryLevel: myBatteryLevel,
+                      myIsCharging: myIsCharging,
+                      partnerBatteryLevel: partnerBatteryLevel,
+                      partnerIsCharging: partnerIsCharging,
                     ),
                   ],
 
@@ -830,76 +839,142 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
   }
 
 
-  /// Bottom Partner Vitals Dock (Distance • Connection Status)
+  /// Bottom Vitals Dock (My Battery • Centered KM Apart • Partner Battery)
   Widget _buildPartnerVitalsBar(
     BuildContext context, {
     required bool isPartnerOnline,
     required String distanceString,
-    required LocationModel? partnerLoc,
+    required int myBatteryLevel,
+    required bool myIsCharging,
+    required int? partnerBatteryLevel,
+    required bool partnerIsCharging,
   }) {
+    IconData getBatIcon(int level, bool isCharging) {
+      if (isCharging) return Icons.battery_charging_full_rounded;
+      if (level > 80) return Icons.battery_full_rounded;
+      if (level > 40) return Icons.battery_5_bar_rounded;
+      if (level > 15) return Icons.battery_2_bar_rounded;
+      return Icons.battery_alert_rounded;
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.2),
+          color: Colors.white.withValues(alpha: 0.22),
           width: 1.0,
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          // Distance
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.location_on_rounded,
-                color: Colors.white,
-                size: 13,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                distanceString.isNotEmpty ? distanceString : 'Location active',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Left: My Battery
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  getBatIcon(myBatteryLevel, myIsCharging),
+                  color: myIsCharging ? const Color(0xFF69F0AE) : Colors.white,
+                  size: 13,
                 ),
-              ),
-            ],
-          ),
-
-          Container(
-            width: 1,
-            height: 14,
-            color: Colors.white24,
-          ),
-
-          // Live Connection Status
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isPartnerOnline
-                    ? Icons.wifi_rounded
-                    : Icons.wifi_off_rounded,
-                color: Colors.white,
-                size: 13,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                isPartnerOnline ? 'Live Connected' : 'Offline',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(width: 4),
+                Text(
+                  '$myBatteryLevel%${myIsCharging ? ' ⚡' : ''}',
+                  style: TextStyle(
+                    color: myIsCharging ? const Color(0xFF69F0AE) : Colors.white,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
+              ],
+            ),
+
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              width: 1,
+              height: 14,
+              color: Colors.white24,
+            ),
+
+            // Center: KM Apart / Distance
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.location_on_rounded,
+                  color: Colors.white,
+                  size: 13.5,
+                ),
+                const SizedBox(width: 4.5),
+                Text(
+                  distanceString.isNotEmpty ? distanceString : 'Location active',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              width: 1,
+              height: 14,
+              color: Colors.white24,
+            ),
+
+            // Right: Partner Battery / Live Status
+            if (partnerBatteryLevel != null)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    getBatIcon(partnerBatteryLevel, partnerIsCharging),
+                    color: partnerIsCharging ? const Color(0xFF69F0AE) : Colors.white,
+                    size: 13,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$partnerBatteryLevel%${partnerIsCharging ? ' ⚡' : ''}',
+                    style: TextStyle(
+                      color: partnerIsCharging ? const Color(0xFF69F0AE) : Colors.white,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPartnerOnline
+                        ? Icons.wifi_rounded
+                        : Icons.wifi_off_rounded,
+                    color: Colors.white,
+                    size: 13,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isPartnerOnline ? 'Live' : 'Offline',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

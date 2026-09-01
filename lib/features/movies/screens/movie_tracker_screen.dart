@@ -105,13 +105,22 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
 
     // 1. Real-time Stream of Couple's Movies
     _moviesSubscription = _movieService.streamMovies(coupleId).listen(
-      (movies) {
+      (movies) async {
         if (!mounted) return;
         setState(() {
           _allMovies = movies;
           _isLoading = false;
           _errorMessage = null;
         });
+        final movieIds = movies.map((m) => m.id).whereType<String>().toList();
+        if (movieIds.isNotEmpty) {
+          final ratings = await _movieService.fetchMovieRatings(movieIds);
+          if (mounted) {
+            setState(() {
+              _allRatings = ratings;
+            });
+          }
+        }
       },
       onError: (error) {
         debugPrint('Error streaming movies: $error');
@@ -188,28 +197,53 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     }).toList();
   }
 
-  bool _isMovieUnrated(MovieModel movie, String currentUserId) {
+  /// Returns true if either you or your partner is missing a rating score (> 0) OR review text
+  bool _isMovieUnrated(MovieModel movie, String currentUserId, {bool hasPartner = true}) {
     final myRating = movie.getRatingForUser(currentUserId);
     final partnerRating = movie.getPartnerRating(currentUserId);
-    final hasMyScore = myRating != null && myRating.rating > 0;
-    final hasPartnerScore = partnerRating != null && partnerRating.rating > 0;
-    final hasMyReview = myRating?.notes != null && myRating!.notes!.trim().isNotEmpty;
-    final hasPartnerReview = partnerRating?.notes != null && partnerRating!.notes!.trim().isNotEmpty;
-    final hasFallbackRating = movie.rating != null && movie.rating! > 0;
 
-    return !hasMyScore && !hasPartnerScore && !hasMyReview && !hasPartnerReview && !hasFallbackRating;
+    final hasMyScore = myRating != null && myRating.rating > 0;
+    final hasMyReview = myRating?.notes != null && myRating!.notes!.trim().isNotEmpty;
+    final myComplete = hasMyScore && hasMyReview;
+
+    if (!hasPartner) {
+      if (movie.ratings.isNotEmpty) {
+        return !myComplete;
+      }
+      final hasFallbackScore = movie.rating != null && movie.rating! > 0;
+      final hasFallbackReview = movie.notes != null && movie.notes!.trim().isNotEmpty;
+      return !(hasFallbackScore && hasFallbackReview);
+    }
+
+    final hasPartnerScore = partnerRating != null && partnerRating.rating > 0;
+    final hasPartnerReview = partnerRating?.notes != null && partnerRating!.notes!.trim().isNotEmpty;
+    final partnerComplete = hasPartnerScore && hasPartnerReview;
+
+    if (movie.ratings.isNotEmpty) {
+      // If either user is missing a rating or review, put it in "Not Rated Yet"
+      return !(myComplete && partnerComplete);
+    }
+
+    final hasFallbackScore = movie.rating != null && movie.rating! > 0;
+    final hasFallbackReview = movie.notes != null && movie.notes!.trim().isNotEmpty;
+    return !(hasFallbackScore && hasFallbackReview);
   }
 
   List<MovieModel> get _watchedMovies {
     final currentUserId = _getCurrentUserId(context);
+    final coupleProvider = context.read<CoupleProvider>();
+    final hasPartner = coupleProvider.partner != null;
+
     return _moviesWithRatings.where((m) {
       final matchesStatus = m.status == 'watched';
       if (!matchesStatus) return false;
 
-      if (_ratingFilter == MovieRatingFilter.unrated && !_isMovieUnrated(m, currentUserId)) {
+      final isUnrated = _isMovieUnrated(m, currentUserId, hasPartner: hasPartner);
+
+      if (_ratingFilter == MovieRatingFilter.unrated && !isUnrated) {
         return false;
       }
-      if (_ratingFilter == MovieRatingFilter.rated && _isMovieUnrated(m, currentUserId)) {
+      if (_ratingFilter == MovieRatingFilter.rated && isUnrated) {
         return false;
       }
 
@@ -1470,10 +1504,10 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
         emptyTitle = 'No matching watched movies';
         emptySubtitle = 'Try another movie title or keyword';
       } else if (_ratingFilter == MovieRatingFilter.unrated) {
-        emptyTitle = 'No Unrated Movies';
-        emptySubtitle = 'All watched movies have been rated and reviewed!';
+        emptyTitle = 'All Caught Up!';
+        emptySubtitle = 'All watched movies have both ratings and reviews from both of you!';
       } else if (_ratingFilter == MovieRatingFilter.rated) {
-        emptyTitle = 'No Rated Movies Yet';
+        emptyTitle = 'No Fully Rated Movies Yet';
         emptySubtitle = 'Rate and review your watched movies to see them here.';
       }
 
@@ -1524,9 +1558,11 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   }
 
   Widget _buildFilterChips(bool isDark, String currentUserId) {
+    final coupleProvider = context.watch<CoupleProvider>();
+    final hasPartner = coupleProvider.partner != null;
     final rawWatched = _moviesWithRatings.where((m) => m.status == 'watched').toList();
-    final unratedCount = rawWatched.where((m) => _isMovieUnrated(m, currentUserId)).length;
-    final ratedCount = rawWatched.where((m) => !_isMovieUnrated(m, currentUserId)).length;
+    final unratedCount = rawWatched.where((m) => _isMovieUnrated(m, currentUserId, hasPartner: hasPartner)).length;
+    final ratedCount = rawWatched.where((m) => !_isMovieUnrated(m, currentUserId, hasPartner: hasPartner)).length;
 
     final filterItems = [
       (MovieRatingFilter.all, 'All', rawWatched.length, Icons.apps_rounded),
@@ -1761,7 +1797,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                     ),
                     const SizedBox(height: 3),
 
-                    // Badges Row (Media Type, Watches)
+                    // Badges Row (Media Type, Watches, Needs Rating)
                     Row(
                       children: [
                         Container(
@@ -1798,6 +1834,37 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFFFF758C),
                               ),
+                            ),
+                          ),
+                        ],
+                        if (_isMovieUnrated(movie, currentUserId, hasPartner: coupleProvider.partner != null)) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF8A65).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(
+                                color: const Color(0xFFFF8A65).withValues(alpha: 0.3),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.rate_review_outlined, size: 9.5, color: Color(0xFFFF8A65)),
+                                const SizedBox(width: 2.5),
+                                Text(
+                                  (myRating == null || myRating.rating <= 0 || !hasMyReview)
+                                      ? 'Needs Your Review'
+                                      : 'Waiting for $partnerName',
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFFF8A65),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -1869,6 +1936,20 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                              ] else if (myRating != null && myRating.rating > 0) ...[
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'No review written',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontStyle: FontStyle.italic,
+                                      color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ],
                             ],
                           ),
@@ -1914,6 +1995,20 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                       fontSize: 9.5,
                                       fontStyle: FontStyle.italic,
                                       color: isDark ? Colors.white70 : Colors.black87,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ] else if (partnerRating != null && partnerRating.rating > 0) ...[
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'No review written',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontStyle: FontStyle.italic,
+                                      color: isDark ? Colors.white38 : Colors.grey.shade500,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,

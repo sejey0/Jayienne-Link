@@ -103,6 +103,8 @@ class LocationProvider extends ChangeNotifier {
   BatteryState _batteryState = BatteryState.unknown;
   int? _partnerBatteryLevel;
   bool _isPartnerCharging = false;
+  bool _isPartnerOnline = false;
+  DateTime? _partnerLastSeen;
   StreamSubscription<BatteryState>? _batterySubscription;
   Timer? _foregroundCaptureTimer;
 
@@ -154,6 +156,7 @@ class LocationProvider extends ChangeNotifier {
   bool get isMyCharging => _batteryState == BatteryState.charging;
   int? get partnerBatteryLevel => _partnerBatteryLevel ?? _partnerLocation?.batteryLevel;
   bool get isPartnerCharging => _isPartnerCharging;
+  DateTime? get partnerLastSeen => _partnerLastSeen ?? _partnerLocation?.timestamp;
 
   // History Getters
   List<LocationModel> get historyLocations => _historyLocations;
@@ -223,8 +226,9 @@ class LocationProvider extends ChangeNotifier {
     if (_debugProvider?.simulatedPartnerOnlineStatus != null) {
       return _debugProvider!.simulatedPartnerOnlineStatus!;
     }
+    if (_isPartnerOnline) return true;
     if (_partnerLocation == null) return false;
-    final diff = DateTime.now().difference(_partnerLocation!.timestamp);
+    final diff = DateTime.now().difference(_partnerLocation!.timestamp.toLocal());
     return diff.inMinutes < 5;
   }
 
@@ -508,6 +512,7 @@ class LocationProvider extends ChangeNotifier {
       (location) async {
         if (location != null) {
           _partnerLocation = location;
+          _partnerLastSeen = location.timestamp;
           if (location.batteryLevel != null) {
             _partnerBatteryLevel = location.batteryLevel;
           }
@@ -526,7 +531,16 @@ class LocationProvider extends ChangeNotifier {
       (batteryData) {
         final level = batteryData['batteryLevel'] as int?;
         final isCharging = batteryData['isCharging'] == true;
-        _partnerBatteryLevel = level;
+        _isPartnerOnline = batteryData['isOnline'] == true;
+        final lastSeenVal = batteryData['lastSeen'] ?? batteryData['timestamp'];
+        if (lastSeenVal is int) {
+          _partnerLastSeen = DateTime.fromMillisecondsSinceEpoch(lastSeenVal);
+        } else if (lastSeenVal is String) {
+          _partnerLastSeen = DateTime.tryParse(lastSeenVal);
+        }
+        if (level != null) {
+          _partnerBatteryLevel = level;
+        }
         _isPartnerCharging = isCharging;
         if (_partnerLocation != null && level != null) {
           _partnerLocation = _partnerLocation!.copyWith(

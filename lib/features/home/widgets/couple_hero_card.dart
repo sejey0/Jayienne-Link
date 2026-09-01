@@ -117,11 +117,12 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     final isAppOnline = locationProvider.isOnline;
     final debugProvider = context.watch<DebugProvider?>();
     final isPartnerOnline = debugProvider?.simulatedPartnerOnlineStatus ??
-        (partner != null &&
-            isAppOnline &&
-            partnerLoc != null &&
-            partnerLoc.isRecent(threshold: const Duration(minutes: 5)));
-
+        (locationProvider.isPartnerOnline() ||
+            (partner != null &&
+                isAppOnline &&
+                partnerLoc != null &&
+                partnerLoc.isRecent(threshold: const Duration(minutes: 3))));
+    final partnerLastSeen = locationProvider.partnerLastSeen;
 
     // Distance calculation
     final distanceMeters = locationProvider.distanceInMeters;
@@ -203,6 +204,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                         isPartnerOnline: isPartnerOnline,
                         partnerLoc: partnerLoc,
                         partner: partner,
+                        partnerLastSeen: partnerLastSeen,
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -297,13 +299,18 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     required bool isPartnerOnline,
     required LocationModel? partnerLoc,
     required UserModel? partner,
+    required DateTime? partnerLastSeen,
   }) {
     if (isPartnerOnline) return 'Active Now';
 
-    final lastTimestamp = partnerLoc?.timestamp ?? partner?.updatedAt;
+    final lastTimestamp = partnerLastSeen ?? partnerLoc?.timestamp ?? partner?.updatedAt;
     if (lastTimestamp != null) {
-      final diff = DateTime.now().difference(lastTimestamp);
-      if (diff.inMinutes < 1) {
+      final now = DateTime.now();
+      final localLast = lastTimestamp.toLocal();
+      final diff = now.difference(localLast);
+      final totalSeconds = diff.inSeconds;
+
+      if (diff.isNegative || totalSeconds < 60) {
         return 'Last online just now';
       } else if (diff.inMinutes < 60) {
         return 'Last online ${diff.inMinutes}m ago';
@@ -314,7 +321,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
       } else if (diff.inDays < 7) {
         return 'Last online ${diff.inDays}d ago';
       } else {
-        return 'Last online ${DateFormat('MMM d').format(lastTimestamp)}';
+        return 'Last online ${DateFormat('MMM d').format(localLast)}';
       }
     }
     return 'Last online recently';

@@ -171,11 +171,12 @@ class FirebaseLocationService {
 
               _partnerLocationController.add(location);
 
-              if (data['batteryLevel'] != null) {
+              if (data['batteryLevel'] != null || data['isOnline'] != null) {
                 _partnerBatteryController.add({
-                  'batteryLevel': (data['batteryLevel'] as num).toInt(),
+                  'batteryLevel': (data['batteryLevel'] as num?)?.toInt(),
                   'isCharging': data['isCharging'] == true,
                   'isOnline': data['isOnline'] == true,
+                  'lastSeen': data['lastSeen'] ?? data['timestamp'],
                   'timestamp': data['timestamp'],
                 });
               }

@@ -997,8 +997,16 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   void startRoutePlayback() {
     if (_historyLocations.isEmpty) return;
+    if (_playbackIndex >= _historyLocations.length - 1) {
+      _playbackIndex = 0;
+    }
     _isPlayingRoute = true;
     _playbackTimer?.cancel();
+
+    // Step to the next point immediately if starting at beginning
+    if (_playbackIndex < _historyLocations.length - 1) {
+      _playbackIndex++;
+    }
 
     final intervalMs = (1000 / _playbackSpeed).round();
     _playbackTimer = Timer.periodic(Duration(milliseconds: intervalMs), (_) {

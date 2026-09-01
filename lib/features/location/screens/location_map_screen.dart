@@ -1,10 +1,11 @@
 import 'dart:math' as math;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/route_names.dart';
@@ -34,7 +35,8 @@ class LocationMapScreen extends StatefulWidget {
   State<LocationMapScreen> createState() => _LocationMapScreenState();
 }
 
-class _LocationMapScreenState extends State<LocationMapScreen> {
+class _LocationMapScreenState extends State<LocationMapScreen>
+    with SingleTickerProviderStateMixin {
   final MapController _mapController = MapController();
 
   bool _isPartnerSelected = false;
@@ -51,6 +53,15 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
   bool _isSearching = false;
   bool _isSideMenuCollapsed = false;
   MapboxPlace? _searchedPlace;
+
+  // Driving Car Animation State
+  late AnimationController _driveAnimationController;
+  LatLng? _interpolatedCarPos;
+  double _interpolatedCarHeading = 0.0;
+  LatLng? _driveStartPos;
+  LatLng? _driveEndPos;
+  double _driveStartHeading = 0.0;
+  double _driveTargetHeading = 0.0;
 
   /// Generates a smooth, graceful geodesic curved arc between two points
   List<LatLng> _generateGeodesicArc(LatLng start, LatLng end, {int segments = 24}) {
@@ -84,9 +95,97 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
     return points;
   }
 
+  double _calculateBearing(LatLng from, LatLng to) {
+    if (from.latitude == to.latitude && from.longitude == to.longitude) {
+      return _interpolatedCarHeading;
+    }
+    final bearing = Geolocator.bearingBetween(
+      from.latitude,
+      from.longitude,
+      to.latitude,
+      to.longitude,
+    );
+    return (bearing + 360) % 360;
+  }
+
+  void _syncDrivingAnimation(LocationProvider provider, List<LatLng> historyPoints) {
+    if (!provider.isHistoryMode || historyPoints.isEmpty) {
+      if (_driveAnimationController.isAnimating) {
+        _driveAnimationController.stop();
+      }
+      _interpolatedCarPos = null;
+      return;
+    }
+
+    final currentIndex = provider.playbackIndex.clamp(0, historyPoints.length - 1);
+    final isPlaying = provider.isPlayingRoute;
+
+    if (!isPlaying) {
+      if (_driveAnimationController.isAnimating) {
+        _driveAnimationController.stop();
+      }
+      _interpolatedCarPos = historyPoints[currentIndex];
+      _lastPlaybackIndex = currentIndex;
+
+      if (currentIndex < historyPoints.length - 1) {
+        _interpolatedCarHeading = _calculateBearing(
+          historyPoints[currentIndex],
+          historyPoints[currentIndex + 1],
+        );
+      }
+      return;
+    }
+
+    // If playing and index stepped forward to a new destination
+    if (_lastPlaybackIndex != currentIndex) {
+      final prevIndex = _lastPlaybackIndex >= 0
+          ? _lastPlaybackIndex
+          : (currentIndex > 0 ? currentIndex - 1 : 0);
+      _lastPlaybackIndex = currentIndex;
+
+      final startPos = _interpolatedCarPos ?? historyPoints[prevIndex.clamp(0, historyPoints.length - 1)];
+      final endPos = historyPoints[currentIndex];
+
+      _driveStartPos = startPos;
+      _driveEndPos = endPos;
+      _driveStartHeading = _interpolatedCarHeading;
+      _driveTargetHeading = _calculateBearing(startPos, endPos);
+
+      final speed = provider.playbackSpeed > 0 ? provider.playbackSpeed : 1.0;
+      final durationMs = (1000 / speed).round().clamp(150, 3000);
+
+      _driveAnimationController.duration = Duration(milliseconds: durationMs);
+      _driveAnimationController.forward(from: 0.0);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+
+    _driveAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..addListener(() {
+        if (!mounted) return;
+        final t = _driveAnimationController.value;
+        if (_driveStartPos != null && _driveEndPos != null) {
+          final lat = _driveStartPos!.latitude +
+              (_driveEndPos!.latitude - _driveStartPos!.latitude) * t;
+          final lng = _driveStartPos!.longitude +
+              (_driveEndPos!.longitude - _driveStartPos!.longitude) * t;
+          _interpolatedCarPos = LatLng(lat, lng);
+
+          final diff = ((_driveTargetHeading - _driveStartHeading + 540) % 360) - 180;
+          _interpolatedCarHeading = ((_driveStartHeading + diff * t) + 360) % 360;
+
+          // Camera smooth follow during driving playback
+          if (_isFullscreen || !_isSideMenuCollapsed) {
+            _mapController.move(_interpolatedCarPos!, _mapController.camera.zoom);
+          }
+          setState(() {});
+        }
+      });
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -120,6 +219,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
 
   @override
   void dispose() {
+    _driveAnimationController.dispose();
     _mapController.dispose();
     super.dispose();
   }
@@ -199,9 +299,6 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
 
     final isHistoryMode = locationProvider.isHistoryMode;
     final historyPoints = locationProvider.historyPolylinePoints;
-    final historyLocations = locationProvider.historyLocations;
-    final playbackPos = locationProvider.playbackLatLng;
-    final playbackLoc = locationProvider.currentPlaybackLocation;
 
     final isSatelliteView = _isSatelliteView == true;
     final isFullscreen = _isFullscreen == true;
@@ -218,30 +315,34 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
         : (partnerUser?.displayName.isNotEmpty == true ? partnerUser!.displayName : 'Partner');
     final activeAccent = isMyRoute ? AppColors.lavender : AppColors.softRose;
 
-    // Traveled path (up to current playback index) vs Remaining path
+    // Traveled path (up to current car position) vs Remaining path
     final playbackIdx = locationProvider.playbackIndex;
-    final traveledPoints = isHistoryMode && historyPoints.isNotEmpty
-        ? historyPoints.take(playbackIdx + 1).toList()
-        : <LatLng>[];
-    final remainingPoints = isHistoryMode && historyPoints.isNotEmpty
-        ? historyPoints.skip(playbackIdx).toList()
-        : <LatLng>[];
+    if (isHistoryMode && historyPoints.isNotEmpty) {
+      _syncDrivingAnimation(locationProvider, historyPoints);
+    }
 
-    // Compute dynamic heading direction if point heading is missing/zero
-    double? activePlaybackHeading = playbackLoc?.heading;
-    if ((activePlaybackHeading == null || activePlaybackHeading == 0.0) &&
-        historyLocations.isNotEmpty &&
-        playbackIdx < historyLocations.length - 1) {
-      final nextLoc = historyLocations[playbackIdx + 1];
-      if (playbackLoc != null) {
-        activePlaybackHeading = Geolocator.bearingBetween(
-          playbackLoc.latitude,
-          playbackLoc.longitude,
-          nextLoc.latitude,
-          nextLoc.longitude,
-        );
-        if (activePlaybackHeading < 0) activePlaybackHeading += 360;
+    final activeCarPos = _interpolatedCarPos ??
+        (playbackIdx < historyPoints.length ? historyPoints[playbackIdx] : null);
+
+    final List<LatLng> traveledPoints;
+    final List<LatLng> remainingPoints;
+    if (isHistoryMode && historyPoints.isNotEmpty) {
+      if (activeCarPos != null && playbackIdx < historyPoints.length) {
+        traveledPoints = [
+          ...historyPoints.take(playbackIdx),
+          activeCarPos,
+        ];
+        remainingPoints = [
+          activeCarPos,
+          ...historyPoints.skip(playbackIdx),
+        ];
+      } else {
+        traveledPoints = historyPoints.take(playbackIdx + 1).toList();
+        remainingPoints = historyPoints.skip(playbackIdx).toList();
       }
+    } else {
+      traveledPoints = <LatLng>[];
+      remainingPoints = <LatLng>[];
     }
 
     // Auto-center / fit bounds when route or owner changes in History Mode
@@ -275,19 +376,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
       _lastPlaybackIndex = -1;
     }
 
-    // Follow camera during route playback
-    if (isHistoryMode &&
-        locationProvider.isPlayingRoute &&
-        playbackPos != null &&
-        _lastPlaybackIndex != locationProvider.playbackIndex) {
-      _lastPlaybackIndex = locationProvider.playbackIndex;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _mapController.move(playbackPos, _mapController.camera.zoom);
-      });
-    }
-
-    final initialCenter = playbackPos ?? partnerPos ?? myPos ?? const LatLng(0, 0);
+    final initialCenter = activeCarPos ?? partnerPos ?? myPos ?? const LatLng(0, 0);
 
     return Scaffold(
       appBar: isFullscreen
@@ -404,14 +493,15 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
               if (isHistoryMode && historyPoints.isNotEmpty)
                 PolylineLayer(
                   polylines: [
-                    // 1. Upcoming Route Ahead (Subtle Context Line)
+                    // 1. Upcoming Route Ahead (Dashed / Dotted Gap Line)
                     if (remainingPoints.length > 1)
                       Polyline(
                         points: remainingPoints,
                         strokeWidth: 3.5,
-                        color: Colors.white.withValues(alpha: 0.35),
-                        borderColor: Colors.black.withValues(alpha: 0.25),
-                        borderStrokeWidth: 1.0,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.55)
+                            : const Color(0xFF6B5F7F),
+                        isDotted: true,
                       ),
                     // 2. Traveled Route Outer Soft Glow Aura
                     if (traveledPoints.length > 1)
@@ -463,8 +553,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                     if (historyPoints.isNotEmpty)
                       Marker(
                         point: historyPoints.first,
-                        width: 26,
-                        height: 26,
+                        width: 24,
+                        height: 24,
                         child: Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
@@ -477,7 +567,7 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 15),
+                          child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 14),
                         ),
                       ),
 
@@ -485,8 +575,8 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                     if (historyPoints.length > 1)
                       Marker(
                         point: historyPoints.last,
-                        width: 26,
-                        height: 26,
+                        width: 24,
+                        height: 24,
                         child: Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
@@ -499,28 +589,23 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.flag_rounded, color: Colors.white, size: 14),
+                          child: const Icon(Icons.flag_rounded, color: Colors.white, size: 13),
                         ),
                       ),
 
-                    // Active Moving Playback Avatar Marker
-                    if (playbackPos != null)
+                    // Active Moving Driving Vehicle Marker (Fit to road line)
+                    if (activeCarPos != null)
                       Marker(
-                        point: playbackPos,
-                        width: 76,
-                        height: 86,
-                        child: PartnerAvatarMarker(
+                        point: activeCarPos,
+                        width: 44,
+                        height: 48,
+                        child: _buildDrivingCarMarker(
                           photoUrl: activeAvatarUrl,
-                          partnerName: activeName,
-                          batteryLevel: playbackLoc?.batteryLevel,
-                          isOnline: true,
-                          heading: activePlaybackHeading,
-                          speed: playbackLoc?.speed,
+                          name: activeName,
                           accentColor: activeAccent,
-                          isSelected: true,
-                          onTap: () {
-                            _mapController.move(playbackPos, 16.5);
-                          },
+                          heading: _interpolatedCarHeading,
+                          isPlaying: locationProvider.isPlayingRoute,
+                          isDark: isDark,
                         ),
                       ),
                   ] else ...[
@@ -1628,4 +1713,134 @@ class _LocationMapScreenState extends State<LocationMapScreen> {
       ),
     );
   }
+
+  Widget _buildDrivingCarMarker({
+    required String? photoUrl,
+    required String name,
+    required Color accentColor,
+    required double heading,
+    required bool isPlaying,
+    required bool isDark,
+  }) {
+    final headingRad = heading * (math.pi / 180.0);
+
+    return Center(
+      child: Transform.rotate(
+        angle: headingRad,
+        child: SizedBox(
+          width: 44,
+          height: 48,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // 1. Glowing animated aura ring behind the vehicle puck (when driving)
+              if (isPlaying)
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: accentColor.withValues(alpha: 0.65),
+                        blurRadius: 10,
+                        spreadRadius: 1.5,
+                      ),
+                    ],
+                  ),
+                ),
+
+              // 2. Sleek Directional Pointer Nose / Car Arrow (pointing forward)
+              Positioned(
+                top: 0,
+                child: CustomPaint(
+                  size: const Size(12, 9),
+                  painter: _VehicleNosePainter(color: accentColor),
+                ),
+              ),
+
+              // 3. Compact Profile Disc (fits road line directly, 30px)
+              Container(
+                width: 30,
+                height: 30,
+                margin: const EdgeInsets.only(top: 4),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isDark ? const Color(0xFF1B1426) : Colors.white,
+                  border: Border.all(
+                    color: accentColor,
+                    width: 2.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipOval(
+                  child: photoUrl != null && photoUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: photoUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => _buildFallbackPuckAvatar(name, accentColor),
+                          errorWidget: (_, __, ___) => _buildFallbackPuckAvatar(name, accentColor),
+                        )
+                      : _buildFallbackPuckAvatar(name, accentColor),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFallbackPuckAvatar(String name, Color accentColor) {
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '♥';
+    return Container(
+      color: accentColor.withValues(alpha: 0.18),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+          color: accentColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _VehicleNosePainter extends CustomPainter {
+  final Color color;
+  const _VehicleNosePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..moveTo(size.width / 2, 0) // Peak tip
+      ..lineTo(size.width, size.height) // Bottom right
+      ..lineTo(size.width / 2, size.height * 0.65) // Inner notch
+      ..lineTo(0, size.height) // Bottom left
+      ..close();
+
+    canvas.drawPath(path, paint);
+    canvas.drawPath(path, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _VehicleNosePainter oldDelegate) =>
+      oldDelegate.color != color;
 }

@@ -19,6 +19,7 @@ class MoviePosterWidget extends StatelessWidget {
   final String? title;
   final String? year;
   final String? date;
+  final String? notes;
 
   const MoviePosterWidget({
     super.key,
@@ -33,6 +34,7 @@ class MoviePosterWidget extends StatelessWidget {
     this.title,
     this.year,
     this.date,
+    this.notes,
   });
 
   bool get _isDataUri =>
@@ -45,7 +47,7 @@ class MoviePosterWidget extends StatelessWidget {
   bool get _hasValidImage =>
       _isNetworkUrl || _isDataUri || (localFile != null && localFile!.existsSync());
 
-  /// Open high-resolution full-screen pinch-to-zoom viewer
+  /// Open high-resolution full-screen pinch-to-zoom viewer with description toggle in header
   static void showPosterZoom(
     BuildContext context, {
     String? posterUrl,
@@ -53,6 +55,7 @@ class MoviePosterWidget extends StatelessWidget {
     String? title,
     String? year,
     String? date,
+    String? notes,
   }) {
     if ((posterUrl == null || posterUrl.trim().isEmpty) &&
         (localFile == null || !localFile.existsSync())) {
@@ -60,188 +63,332 @@ class MoviePosterWidget extends StatelessWidget {
     }
 
     HapticFeedback.lightImpact();
+    final hasNotes = notes != null && notes.trim().isNotEmpty;
+    bool showDescriptionOverlay = false;
+
     showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.92),
       builder: (ctx) {
-        Widget bigImage;
-        if (localFile != null && localFile.existsSync()) {
-          bigImage = Image.file(
-            localFile,
-            fit: BoxFit.contain,
-          );
-        } else if (posterUrl != null && posterUrl.startsWith('data:image/')) {
-          try {
-            final base64Data = posterUrl.split(',').last;
-            final bytes = base64Decode(base64Data);
-            bigImage = Image.memory(
-              bytes,
-              fit: BoxFit.contain,
-            );
-          } catch (_) {
-            bigImage = const Center(
-              child: Icon(Icons.broken_image_rounded, color: Colors.white60, size: 48),
-            );
-          }
-        } else if (posterUrl != null &&
-            (posterUrl.startsWith('http://') || posterUrl.startsWith('https://'))) {
-          bigImage = CachedNetworkImage(
-            imageUrl: posterUrl,
-            fit: BoxFit.contain,
-            placeholder: (context, url) => const Center(
-              child: SizedBox(
-                width: 32,
-                height: 32,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Color(0xFFFF758C),
-                ),
-              ),
-            ),
-            errorWidget: (context, url, error) => const Center(
-              child: Icon(Icons.broken_image_rounded, color: Colors.white60, size: 48),
-            ),
-          );
-        } else {
-          return const SizedBox.shrink();
-        }
-
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Zoomable Interactive Image
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: InteractiveViewer(
-                    minScale: 0.8,
-                    maxScale: 4.5,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(ctx).size.width * 0.94,
-                        maxHeight: MediaQuery.of(ctx).size.height * 0.82,
-                      ),
-                      child: bigImage,
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Widget bigImage;
+            if (localFile != null && localFile.existsSync()) {
+              bigImage = Image.file(
+                localFile,
+                fit: BoxFit.contain,
+              );
+            } else if (posterUrl != null && posterUrl.startsWith('data:image/')) {
+              try {
+                final base64Data = posterUrl.split(',').last;
+                final bytes = base64Decode(base64Data);
+                bigImage = Image.memory(
+                  bytes,
+                  fit: BoxFit.contain,
+                );
+              } catch (_) {
+                bigImage = const Center(
+                  child: Icon(Icons.broken_image_rounded, color: Colors.white60, size: 48),
+                );
+              }
+            } else if (posterUrl != null &&
+                (posterUrl.startsWith('http://') || posterUrl.startsWith('https://'))) {
+              bigImage = CachedNetworkImage(
+                imageUrl: posterUrl,
+                fit: BoxFit.contain,
+                placeholder: (context, url) => const Center(
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Color(0xFFFF758C),
                     ),
                   ),
                 ),
-              ),
+                errorWidget: (context, url, error) => const Center(
+                  child: Icon(Icons.broken_image_rounded, color: Colors.white60, size: 48),
+                ),
+              );
+            } else {
+              return const SizedBox.shrink();
+            }
 
-              // Floating Header Bar matched to Jayienne Link romantic theme
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E162B).withValues(alpha: 0.88),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFF758C).withValues(alpha: 0.2),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      // Gradient Icon Container
-                      Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Zoomable Interactive Image
+                  Center(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: InteractiveViewer(
+                        minScale: 0.8,
+                        maxScale: 4.5,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(ctx).size.width * 0.94,
+                            maxHeight: MediaQuery.of(ctx).size.height * 0.82,
                           ),
-                          borderRadius: BorderRadius.circular(10),
+                          child: bigImage,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Floating Description Card Overlay (if toggled on)
+                  if (showDescriptionOverlay)
+                    Positioned(
+                      top: 70,
+                      left: 6,
+                      right: 6,
+                      child: Container(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(ctx).size.height * 0.55,
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E1428).withValues(alpha: 0.95),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.4),
+                            width: 1.2,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFFF758C).withValues(alpha: 0.35),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                              color: Colors.black.withValues(alpha: 0.6),
+                              blurRadius: 20,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.movie_filter_rounded, size: 16, color: Colors.white),
-                      ),
-                      const SizedBox(width: 10),
-
-                      // Movie Title with Year / Date
-                      Expanded(
-                        child: Text.rich(
-                          TextSpan(
-                            text: title != null && title.trim().isNotEmpty
-                                ? title.trim()
-                                : 'Movie Poster',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (year != null && year.trim().isNotEmpty)
-                                TextSpan(
-                                  text: ' (${year.trim()})',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white.withValues(alpha: 0.75),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.description_rounded,
+                                        size: 16,
+                                        color: Color(0xFFFF758C),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Movie Synopsis & Description',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                )
-                              else if (date != null && date.trim().isNotEmpty)
-                                TextSpan(
-                                  text: ' • ${date.trim()}',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: const Color(0xFFFF758C).withValues(alpha: 0.9),
+                                  InkWell(
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setDialogState(() {
+                                        showDescriptionOverlay = false;
+                                      });
+                                    },
+                                    child: const Icon(
+                                      Icons.close_rounded,
+                                      color: Colors.white70,
+                                      size: 18,
+                                    ),
                                   ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                notes != null && notes.trim().isNotEmpty
+                                    ? notes.trim()
+                                    : 'No synopsis or description added for this movie yet.',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.45,
+                                  color: hasNotes ? Colors.white : Colors.white54,
+                                  fontStyle: hasNotes ? FontStyle.normal : FontStyle.italic,
                                 ),
+                              ),
                             ],
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                    ),
 
-                      // Romantic Circular Close Button
-                      InkWell(
-                        onTap: () => Navigator.pop(ctx),
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.15),
+                  // Floating Header Bar matched to Jayienne Link romantic theme
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E162B).withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.2),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          // Gradient Icon Container
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.movie_filter_rounded,
+                              size: 16,
+                              color: Colors.white,
                             ),
                           ),
-                          child: const Icon(
-                            Icons.close_rounded,
-                            color: Colors.white,
-                            size: 17,
+                          const SizedBox(width: 10),
+
+                          // Movie Title with Year / Date
+                          Expanded(
+                            child: Text.rich(
+                              TextSpan(
+                                text: title != null && title.trim().isNotEmpty
+                                    ? title.trim()
+                                    : 'Movie Poster',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                children: [
+                                  if (year != null && year.trim().isNotEmpty)
+                                    TextSpan(
+                                      text: ' (${year.trim()})',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white.withValues(alpha: 0.75),
+                                      ),
+                                    )
+                                  else if (date != null && date.trim().isNotEmpty)
+                                    TextSpan(
+                                      text: ' • ${date.trim()}',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: const Color(0xFFFF758C).withValues(alpha: 0.9),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
+
+                          // Description Button in Header
+                          InkWell(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              setDialogState(() {
+                                showDescriptionOverlay = !showDescriptionOverlay;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color: showDescriptionOverlay
+                                    ? const Color(0xFFFF758C)
+                                    : const Color(0xFFFF758C).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFFF758C).withValues(alpha: 0.5),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.description_rounded,
+                                    size: 13,
+                                    color: showDescriptionOverlay
+                                        ? Colors.white
+                                        : const Color(0xFFFF758C),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Synopsis',
+                                    style: TextStyle(
+                                      color: showDescriptionOverlay
+                                          ? Colors.white
+                                          : const Color(0xFFFF758C),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Romantic Circular Close Button
+                          InkWell(
+                            onTap: () => Navigator.pop(ctx),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.close_rounded,
+                                color: Colors.white,
+                                size: 17,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
 
               // Bottom hint
               Positioned(
@@ -283,7 +430,9 @@ class MoviePosterWidget extends StatelessWidget {
         );
       },
     );
-  }
+  },
+);
+}
 
   @override
   Widget build(BuildContext context) {
@@ -380,6 +529,7 @@ class MoviePosterWidget extends StatelessWidget {
             title: title,
             year: year,
             date: date,
+            notes: notes,
           ),
           borderRadius: effectiveRadius,
           child: posterContainer,

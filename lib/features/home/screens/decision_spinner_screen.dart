@@ -2836,80 +2836,135 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
         const SizedBox(height: 16),
 
-        // 2. Cinematic Glowing Poster Showcase
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            // Ambient Aura Glow behind poster
-            Container(
-              width: 140,
-              height: 200,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF758C).withValues(alpha: 0.4),
-                    blurRadius: 26,
-                    spreadRadius: 3,
-                    offset: const Offset(0, 6),
-                  ),
-                  BoxShadow(
-                    color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
-                    blurRadius: 22,
-                    spreadRadius: 1,
-                    offset: const Offset(0, -3),
-                  ),
-                ],
-              ),
-            ),
-
-            // Actual Poster Container
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFFFF758C).withValues(alpha: 0.75),
-                  width: 2.2,
+        // 2. Cinematic Glowing Poster Showcase (Tap to View Fullscreen with Description in Header)
+        GestureDetector(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            MoviePosterWidget.showPosterZoom(
+              context,
+              posterUrl: movie.posterUrl,
+              title: movie.title,
+              year: movie.year,
+              notes: movie.notes,
+            );
+          },
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Ambient Aura Glow behind poster
+              Container(
+                width: 140,
+                height: 200,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.4),
+                      blurRadius: 26,
+                      spreadRadius: 3,
+                      offset: const Offset(0, 6),
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
+                      blurRadius: 22,
+                      spreadRadius: 1,
+                      offset: const Offset(0, -3),
+                    ),
+                  ],
                 ),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: movie.posterUrl != null && movie.posterUrl!.isNotEmpty
-                    ? MoviePosterWidget(
-                        posterUrl: movie.posterUrl,
-                        width: 135,
-                        height: 195,
-                        fit: BoxFit.cover,
-                      )
-                    : Container(
-                        width: 135,
-                        height: 195,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: isDark
-                                ? [
-                                    const Color(0xFF2E1C38),
-                                    const Color(0xFF1B1124)
-                                  ]
-                                : [
-                                    const Color(0xFFFFE4E8),
-                                    const Color(0xFFF3E7F7)
-                                  ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+
+              // Actual Poster Container
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.75),
+                    width: 2.2,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Stack(
+                    children: [
+                      movie.posterUrl != null && movie.posterUrl!.isNotEmpty
+                          ? MoviePosterWidget(
+                              posterUrl: movie.posterUrl,
+                              width: 135,
+                              height: 195,
+                              fit: BoxFit.cover,
+                            )
+                          : Container(
+                              width: 135,
+                              height: 195,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: isDark
+                                      ? [
+                                          const Color(0xFF2E1C38),
+                                          const Color(0xFF1B1124)
+                                        ]
+                                      : [
+                                          const Color(0xFFFFE4E8),
+                                          const Color(0xFFF3E7F7)
+                                        ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.movie_creation_rounded,
+                                  size: 48,
+                                  color: Color(0xFFFF758C),
+                                ),
+                              ),
+                            ),
+
+                      // Info overlay chip on the poster
+                      Positioned(
+                        bottom: 6,
+                        right: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
                           ),
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.movie_creation_rounded,
-                            size: 48,
-                            color: Color(0xFFFF758C),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                color: Colors.white,
+                                size: 10.5,
+                              ),
+                              SizedBox(width: 3),
+                              Text(
+                                'Info',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
 
         const SizedBox(height: 14),
@@ -2988,6 +3043,47 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 ),
               ),
             ],
+
+            // Synopsis / Description Button
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                _showMovieDescriptionSheet(context, movie, isDark);
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.description_outlined,
+                      size: 11,
+                      color: Color(0xFFFF758C),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Synopsis',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white70 : AppColors.deepCharcoal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
 
@@ -3069,6 +3165,252 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ),
         ],
       ],
+    );
+  }
+
+  /// Displays a romantic bottom sheet showing the movie's synopsis, description & details
+  void _showMovieDescriptionSheet(
+    BuildContext context,
+    MovieModel movie,
+    bool isDark,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final hasNotes = movie.notes != null && movie.notes!.trim().isNotEmpty;
+
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.75,
+            maxWidth: 440,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1428) : Colors.white,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(26),
+            ),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : const Color(0xFFFF758C).withValues(alpha: 0.2),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Top drag pill
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 38,
+                height: 4.5,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Row with Poster thumbnail & Title
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (movie.posterUrl != null &&
+                              movie.posterUrl!.isNotEmpty)
+                            Container(
+                              width: 60,
+                              height: 90,
+                              margin: const EdgeInsets.only(right: 14),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(0xFFFF758C)
+                                      .withValues(alpha: 0.4),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(9),
+                                child: MoviePosterWidget(
+                                  posterUrl: movie.posterUrl,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  movie.title,
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w900,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppColors.deepCharcoal,
+                                    height: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2.5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFF758C)
+                                            .withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        movie.mediaType == 'series' ||
+                                                movie.mediaType == 'tv'
+                                            ? 'TV Series'
+                                            : 'Movie',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFFFF758C),
+                                        ),
+                                      ),
+                                    ),
+                                    if (movie.year != null &&
+                                        movie.year!.isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        movie.year!,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDark
+                                              ? Colors.white60
+                                              : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // Section Title
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.description_rounded,
+                            size: 16,
+                            color: Color(0xFFFF758C),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Synopsis & Description',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? Colors.white70
+                                  : Colors.grey.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Description Content Box
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.04)
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : Colors.grey.shade200,
+                          ),
+                        ),
+                        child: Text(
+                          hasNotes
+                              ? movie.notes!.trim()
+                              : 'No synopsis or description added for this movie yet.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.45,
+                            color: hasNotes
+                                ? (isDark
+                                    ? Colors.white
+                                    : AppColors.deepCharcoal)
+                                : (isDark
+                                    ? Colors.white38
+                                    : Colors.grey.shade500),
+                            fontStyle:
+                                hasNotes ? FontStyle.normal : FontStyle.italic,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // Close Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isDark
+                                ? Colors.white70
+                                : AppColors.deepCharcoal,
+                            side: BorderSide(
+                              color: isDark
+                                  ? Colors.white24
+                                  : Colors.grey.shade300,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: const Text(
+                            'Close',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

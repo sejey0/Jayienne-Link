@@ -9,6 +9,7 @@ import '../../../core/utils/snackbar_helper.dart';
 import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/providers/auth_provider.dart';
 import 'package:jayienne_link/providers/user_provider.dart';
+import 'package:jayienne_link/providers/couple_provider.dart';
 import 'package:jayienne_link/models/secret_media_model.dart';
 import 'add_secret_media_screen.dart';
 import 'secret_media_detail_screen.dart';
@@ -38,7 +39,8 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
     '517c69a3-79c3-4b46-9786-e046431fe008',
   };
 
-  String _selectedType = 'all';
+  String _selectedUploader = 'all'; // 'all', 'me', 'partner'
+  String _selectedType = 'all'; // 'all', 'image', 'video'
   bool _isUnlocked = false;
   final Set<String> _revealedMediaIds = <String>{};
   final Set<String> _failedImageIds = <String>{};
@@ -134,7 +136,14 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
     SnackbarHelper.showInfo(context, 'Vault bypassed (Debug Mode)');
   }
 
-  List<SecretMediaModel> _filteredHiddenMedia(SecretMediaProvider provider) {
+  List<SecretMediaModel> _filteredHiddenMedia(
+    SecretMediaProvider provider, {
+    String? currentUserId,
+  }) {
+    final effectiveUserId = currentUserId ??
+        context.read<AuthProvider>().currentUserId ??
+        context.read<UserProvider>().user?.id;
+
     final seenIds = <String>{};
     final seenUrls = <String>{};
     final validMedia = <SecretMediaModel>[];
@@ -155,12 +164,25 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
       validMedia.add(m);
     }
 
-    if (_selectedType == 'image') {
-      return validMedia.where((m) => m.mediaType == 'image').toList();
-    } else if (_selectedType == 'video') {
-      return validMedia.where((m) => m.mediaType == 'video').toList();
-    }
-    return validMedia;
+    validMedia.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+
+    return validMedia.where((m) {
+      // 1. Parent filter: Uploader (All / Me / Partner)
+      if (_selectedUploader == 'me') {
+        if (effectiveUserId == null || m.uploadedById != effectiveUserId) return false;
+      } else if (_selectedUploader == 'partner') {
+        if (effectiveUserId == null || m.uploadedById == effectiveUserId) return false;
+      }
+
+      // 2. Child filter: Media Type (All / Photos / Videos)
+      if (_selectedType == 'image') {
+        return m.mediaType == 'image';
+      } else if (_selectedType == 'video') {
+        return m.mediaType == 'video';
+      }
+
+      return true;
+    }).toList();
   }
 
   Widget _buildLockGate(bool isSessionUnlocked) {
@@ -735,14 +757,56 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                     uniqueHidden.add(m);
                   }
 
-                  final imageCount = uniqueHidden
+                  final authProvider = context.watch<AuthProvider>();
+                  final coupleProvider = context.watch<CoupleProvider>();
+                  final userProvider = context.watch<UserProvider>();
+                  final currentUserId =
+                      authProvider.currentUserId ?? userProvider.user?.id;
+                  final partner = coupleProvider.partner;
+                  final partnerName =
+                      partner != null && partner.displayName.trim().isNotEmpty
+                          ? partner.displayName.trim()
+                          : 'Partner';
+                  final partnerPhoto = partner?.photoUrl;
+                  final myPhoto = userProvider.user?.photoUrl;
+
+                  // 1. Parent (Uploader) Filter Counts
+                  final allUploaderCount = uniqueHidden.length;
+                  final myTotalCount = uniqueHidden
+                      .where((m) =>
+                          currentUserId != null &&
+                          m.uploadedById == currentUserId)
+                      .length;
+                  final partnerTotalCount = uniqueHidden
+                      .where((m) =>
+                          currentUserId != null &&
+                          m.uploadedById != currentUserId)
+                      .length;
+
+                  // 2. Child (Media Type) Filter Scope based on selected uploader
+                  final uploaderScopeMedia = uniqueHidden.where((m) {
+                    if (_selectedUploader == 'me') {
+                      return currentUserId != null &&
+                          m.uploadedById == currentUserId;
+                    } else if (_selectedUploader == 'partner') {
+                      return currentUserId != null &&
+                          m.uploadedById != currentUserId;
+                    }
+                    return true;
+                  }).toList();
+
+                  final childAllCount = uploaderScopeMedia.length;
+                  final childImageCount = uploaderScopeMedia
                       .where((m) => m.mediaType == 'image')
                       .length;
-                  final videoCount = uniqueHidden
+                  final childVideoCount = uploaderScopeMedia
                       .where((m) => m.mediaType == 'video')
                       .length;
-                  final totalCount = uniqueHidden.length;
-                  final filteredMedia = _filteredHiddenMedia(provider);
+
+                  final filteredMedia = _filteredHiddenMedia(
+                    provider,
+                    currentUserId: currentUserId,
+                  );
 
                   if (provider.isLoading) {
                     return const Center(
@@ -844,21 +908,80 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
 
                   return Column(
                     children: [
-                      // Category Filter Chips Row
+                      // Two-Tier Filter: Parent (Uploader) -> Child (Media Type)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          child: Row(
-                            children: [
-                              _buildCategoryChip('all', 'All Media', totalCount, Icons.apps_rounded, isDark),
-                              const SizedBox(width: 8),
-                              _buildCategoryChip('image', 'Photos', imageCount, Icons.photo_library_rounded, isDark),
-                              const SizedBox(width: 8),
-                              _buildCategoryChip('video', 'Videos', videoCount, Icons.videocam_rounded, isDark),
-                            ],
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Tier 1: Parent Filter (Who Uploaded)
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              child: Row(
+                                children: [
+                                  _buildUploaderChip(
+                                    'all',
+                                    'Everyone',
+                                    allUploaderCount,
+                                    Icons.people_alt_rounded,
+                                    isDark,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildUploaderChip(
+                                    'me',
+                                    'Me',
+                                    myTotalCount,
+                                    Icons.person_rounded,
+                                    isDark,
+                                    photoUrl: myPhoto,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildUploaderChip(
+                                    'partner',
+                                    partnerName,
+                                    partnerTotalCount,
+                                    Icons.favorite_rounded,
+                                    isDark,
+                                    photoUrl: partnerPhoto,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // Tier 2: Child Filter (Media Type)
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              child: Row(
+                                children: [
+                                  _buildCategoryChip(
+                                    'all',
+                                    'All Media',
+                                    childAllCount,
+                                    Icons.grid_view_rounded,
+                                    isDark,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildCategoryChip(
+                                    'image',
+                                    'Photos',
+                                    childImageCount,
+                                    Icons.photo_library_rounded,
+                                    isDark,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildCategoryChip(
+                                    'video',
+                                    'Videos',
+                                    childVideoCount,
+                                    Icons.videocam_rounded,
+                                    isDark,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
 
@@ -872,19 +995,26 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                                     Icon(
                                       _selectedType == 'image'
                                           ? Icons.image_outlined
-                                          : Icons.videocam_outlined,
+                                          : (_selectedType == 'video'
+                                              ? Icons.videocam_outlined
+                                              : Icons.folder_open_rounded),
                                       size: 52,
                                       color: Colors.grey.shade400,
                                     ),
                                     const SizedBox(height: 12),
-                                    Text(
-                                      _selectedType == 'image'
-                                          ? 'No hidden photos yet'
-                                          : 'No hidden videos yet',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 24),
+                                      child: Text(
+                                        _getEmptyFilterMessage(partnerName),
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDark
+                                              ? Colors.white60
+                                              : Colors.grey.shade600,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -933,28 +1063,36 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
     );
   }
 
-  Widget _buildCategoryChip(
-    String type,
+  Widget _buildUploaderChip(
+    String uploaderKey,
     String label,
     int count,
     IconData icon,
-    bool isDark,
-  ) {
-    final isSelected = _selectedType == type;
+    bool isDark, {
+    String? photoUrl,
+  }) {
+    final isSelected = _selectedUploader == uploaderKey;
     return InkWell(
       onTap: () {
         HapticFeedback.selectionClick();
         setState(() {
-          _selectedType = type;
+          _selectedUploader = uploaderKey;
         });
       },
       borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6.5),
         decoration: BoxDecoration(
+          gradient: isSelected
+              ? const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
           color: isSelected
-              ? const Color(0xFFFF758C)
+              ? null
               : (isDark ? const Color(0xFF1E142B) : Colors.white),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
@@ -978,14 +1116,41 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isSelected
-                  ? Colors.white
-                  : (isDark ? const Color(0xFFA18CD1) : const Color(0xFFFF758C)),
-            ),
-            const SizedBox(width: 6),
+            if (photoUrl != null && photoUrl.isNotEmpty)
+              Container(
+                width: 17,
+                height: 17,
+                margin: const EdgeInsets.only(right: 6),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? Colors.white : const Color(0xFFFF758C),
+                    width: 1.0,
+                  ),
+                ),
+                child: ClipOval(
+                  child: Image.network(
+                    photoUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(
+                      icon,
+                      size: 13,
+                      color: isSelected ? Colors.white : const Color(0xFFFF758C),
+                    ),
+                  ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Icon(
+                  icon,
+                  size: 14,
+                  color: isSelected
+                      ? Colors.white
+                      : (isDark ? const Color(0xFFA18CD1) : const Color(0xFFFF758C)),
+                ),
+              ),
             Text(
               label,
               style: TextStyle(
@@ -1024,6 +1189,113 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
     );
   }
 
+  Widget _buildCategoryChip(
+    String type,
+    String label,
+    int count,
+    IconData icon,
+    bool isDark,
+  ) {
+    final isSelected = _selectedType == type;
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _selectedType = type;
+        });
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? const Color(0xFF2E1C44) : const Color(0xFFFFEFF2))
+              : (isDark ? const Color(0xFF160D20) : const Color(0xFFF9F7FA)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFFFF758C)
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.grey.withValues(alpha: 0.18)),
+            width: isSelected ? 1.2 : 1.0,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: isSelected
+                  ? const Color(0xFFFF758C)
+                  : (isDark ? Colors.white60 : Colors.grey.shade600),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected
+                    ? (isDark ? Colors.white : const Color(0xFFFF758C))
+                    : (isDark ? Colors.white70 : Colors.grey.shade700),
+              ),
+            ),
+            const SizedBox(width: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFFFF758C).withValues(alpha: 0.2)
+                    : (isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.05)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected
+                      ? const Color(0xFFFF758C)
+                      : (isDark ? Colors.white60 : Colors.grey.shade600),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getEmptyFilterMessage(String partnerName) {
+    if (_selectedUploader == 'me') {
+      if (_selectedType == 'image') return 'You haven\'t uploaded any hidden photos yet';
+      if (_selectedType == 'video') return 'You haven\'t uploaded any hidden videos yet';
+      return 'You haven\'t uploaded any hidden media yet';
+    } else if (_selectedUploader == 'partner') {
+      if (_selectedType == 'image') return '$partnerName hasn\'t uploaded any hidden photos yet';
+      if (_selectedType == 'video') return '$partnerName hasn\'t uploaded any hidden videos yet';
+      return '$partnerName hasn\'t uploaded any hidden media yet';
+    } else {
+      if (_selectedType == 'image') return 'No hidden photos found';
+      if (_selectedType == 'video') return 'No hidden videos found';
+      return 'No hidden media found';
+    }
+  }
+
   Widget _buildMediaCard(
     BuildContext context,
     SecretMediaModel media,
@@ -1033,7 +1305,8 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
     List<SecretMediaModel> filteredMedia,
   ) {
     final currentUserId = context.read<AuthProvider>().currentUserId;
-    final canDelete = currentUserId != null;
+    final canDelete =
+        currentUserId != null && currentUserId == media.uploadedById;
 
     final displayImageUrl = media.mediaType == 'video'
         ? (media.thumbnail?.isNotEmpty == true

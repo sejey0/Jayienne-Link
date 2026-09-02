@@ -28,7 +28,8 @@ class SupabaseSecretMediaService {
           .from(_tableName)
           .select()
           .eq('couple_id', coupleId)
-          .isFilter('deleted_at', null);
+          .isFilter('deleted_at', null)
+          .order('uploaded_at', ascending: false);
 
       debugPrint('📸 FOUND ACTIVE SECRET MEDIA COUNT: ${response.length}');
 
@@ -64,6 +65,7 @@ class SupabaseSecretMediaService {
         result.add(media);
       }
 
+      result.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
       return result;
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
@@ -94,7 +96,8 @@ class SupabaseSecretMediaService {
           .from(_tableName)
           .select()
           .eq('couple_id', coupleId)
-          .isFilter('deleted_at', null);
+          .isFilter('deleted_at', null)
+          .order('uploaded_at', ascending: false);
 
       debugPrint('🔒 FOUND ACTIVE HIDDEN VAULT COUNT: ${response.length}');
 
@@ -128,6 +131,8 @@ class SupabaseSecretMediaService {
         seenUrls.add(url);
         hiddenResult.add(media);
       }
+
+      hiddenResult.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
 
       debugPrint('🔒 FOUND ACTIVE FILTERED HIDDEN VAULT COUNT: ${hiddenResult.length}');
       for (int i = 0; i < hiddenResult.length; i++) {

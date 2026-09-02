@@ -158,7 +158,8 @@ class _SecretMediaGalleryScreenState extends State<SecretMediaGalleryScreen> {
             if (_selectedFilter == 'image') return item.mediaType == 'image';
             if (_selectedFilter == 'video') return item.mediaType == 'video';
             return true;
-          }).toList();
+          }).toList()
+            ..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
 
           return RefreshIndicator(
             onRefresh: () => secretMediaProvider.refresh(),

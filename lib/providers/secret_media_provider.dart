@@ -168,6 +168,9 @@ class SecretMediaProvider extends ChangeNotifier {
           final newShared = activeMedia.where((m) => !m.isHidden).toList();
           final newHidden = activeMedia.where((m) => m.isHidden).toList();
 
+          newShared.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+          newHidden.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+
           // Evict any database-deleted cards from image memory cache
           _evictRemovedMediaFromCache(activeMedia);
 
@@ -278,9 +281,11 @@ class SecretMediaProvider extends ChangeNotifier {
       );
 
       if (isHidden) {
-        _hiddenMedia.add(media);
+        _hiddenMedia.insert(0, media);
+        _hiddenMedia.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
       } else {
-        _sharedMedia.add(media);
+        _sharedMedia.insert(0, media);
+        _sharedMedia.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
       }
 
       return media;

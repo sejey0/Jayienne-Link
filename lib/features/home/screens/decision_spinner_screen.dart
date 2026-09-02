@@ -49,6 +49,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   int _selectedCategoryIndex = 0; // 0: Movie Watchlist (Front), 1: Dates & Activities, 2: Food & Drinks
   int _spinnerModeIndex = 0; // 0: Spin Wheel, 1: Quick Roulette
+  int? _spinSourceIndex; // null: must select before spin, 0: Custom Ideas, 1: Online Ideas
   bool _isSpinning = false;
   bool _isInitialized = false;
   bool _isMoviesLoading = true; // True until Supabase stream delivers first batch
@@ -207,8 +208,55 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
 
     final customList = _currentOptions;
-    if (customList.isEmpty) {
-      // Pure online icon slices (8 slices)
+
+    // 1. Custom Ideas Mode (0): Wheel displays strictly custom couple choices
+    if (_spinSourceIndex == 0 && customList.isNotEmpty) {
+      if (customList.length == 1) {
+        return List.generate(
+          6,
+          (i) => _WheelSliceItem(
+            label: customList[0],
+            isCustom: true,
+            onlineIcon: Icons.star_rounded,
+          ),
+        );
+      }
+      if (customList.length == 2) {
+        return List.generate(
+          6,
+          (i) => _WheelSliceItem(
+            label: customList[i % 2],
+            isCustom: true,
+            onlineIcon: Icons.star_rounded,
+          ),
+        );
+      }
+      if (customList.length == 3) {
+        return List.generate(
+          6,
+          (i) => _WheelSliceItem(
+            label: customList[i % 3],
+            isCustom: true,
+            onlineIcon: Icons.star_rounded,
+          ),
+        );
+      }
+      final repeat = customList.length < 6 ? (6 / customList.length).ceil() : 1;
+      final fullList = <String>[];
+      for (int r = 0; r < repeat; r++) {
+        fullList.addAll(customList);
+      }
+      return fullList
+          .map((item) => _WheelSliceItem(
+                label: item,
+                isCustom: true,
+                onlineIcon: Icons.star_rounded,
+              ))
+          .toList();
+    }
+
+    // 2. Online Suggestions Mode (1) or no custom options exist: Pure online icon slices (8 slices)
+    if (_spinSourceIndex == 1 || customList.isEmpty) {
       return List.generate(
         8,
         (i) => _WheelSliceItem(
@@ -219,6 +267,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       );
     }
 
+    // 3. Mixed Mode (Both Custom + Online suggestions alternating)
     if (customList.length == 1) {
       return List.generate(
         6,
@@ -372,6 +421,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           }
           if (poolChanged) {
             _savePersistentData();
+          }
+
+          final remoteSource = payload['spinSourceIndex'] as int?;
+          if (remoteSource != null) {
+            _spinSourceIndex = remoteSource;
           }
 
           setState(() {
@@ -568,6 +622,26 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               }
             }
           }
+          if (payload['action'] == 'edit') {
+            final oldTitle = payload['oldTitle']?.toString();
+            final newTitle = payload['newTitle']?.toString();
+            if (oldTitle != null && newTitle != null && newTitle.isNotEmpty) {
+              final fIdx = _foodOptions.indexOf(oldTitle);
+              if (fIdx >= 0) _foodOptions[fIdx] = newTitle;
+              final aIdx = _activityOptions.indexOf(oldTitle);
+              if (aIdx >= 0) _activityOptions[aIdx] = newTitle;
+
+              final hfIdx = _foodHistory.indexOf(oldTitle);
+              if (hfIdx >= 0) _foodHistory[hfIdx] = newTitle;
+              final haIdx = _activityHistory.indexOf(oldTitle);
+              if (haIdx >= 0) _activityHistory[haIdx] = newTitle;
+
+              if (_lastActivityResult == oldTitle) _lastActivityResult = newTitle;
+              if (_lastFoodResult == oldTitle) _lastFoodResult = newTitle;
+              if (_currentDisplayResult == oldTitle) _currentDisplayResult = newTitle;
+              changed = true;
+            }
+          }
           if (payload['removed'] != null) {
             final rem = payload['removed'].toString();
             if (_foodOptions.remove(rem) || _activityOptions.remove(rem)) {
@@ -725,6 +799,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           );
         }
 
+        _spinSourceIndex = null; // Always require explicit selection before spin
+
         // Initial display result for Movie Watchlist (Front tab)
         _currentDisplayResult = _pickedMovie?.title ?? 'Tap Spin to Decide!';
 
@@ -767,6 +843,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             'decision_spinner_last_food_result', _lastFoodResult!);
       } else {
         await prefs.remove('decision_spinner_last_food_result');
+      }
+
+      if (_spinSourceIndex != null) {
+        await prefs.setInt(
+            'decision_spinner_spin_source_index', _spinSourceIndex!);
+      } else {
+        await prefs.remove('decision_spinner_spin_source_index');
       }
 
       if (_pickedMovie != null) {
@@ -849,6 +932,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       } else if (_selectedCategoryIndex == 2) {
         _lastFoodResult = null;
       }
+      _spinSourceIndex = null;
       _currentDisplayResult = 'Tap Spin to Decide!';
     });
     await _savePersistentData();
@@ -1453,27 +1537,32 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     final availableCustom = _currentOptions
         .where((item) => !_currentHistory.contains(item))
         .toList();
+    final customPool =
+        availableCustom.isNotEmpty ? availableCustom : _currentOptions;
 
-    if (availableCustom.isNotEmpty) {
-      final roll = _random.nextDouble(); // 0.0 to 1.0
-      if (roll < 0.80) {
-        // 80% weighted chance: Pick one of the couple's custom options!
-        return availableCustom[_random.nextInt(availableCustom.length)];
-      } else {
-        // 20% chance: Connect live to online web API to fetch super-random Filipino culture idea!
-        final liveOnlinePick =
-            await OnlineFilipinoSuggestionService.fetchRandomOnlineSuggestion(
-          isFood: _selectedCategoryIndex == 2,
-        );
-        return liveOnlinePick;
+    // 1. Custom Ideas Mode (0): strictly picks from couple's custom options
+    if (_spinSourceIndex == 0 && customPool.isNotEmpty) {
+      if (availableCustom.isEmpty) {
+        _currentHistory.removeWhere((item) => _currentOptions.contains(item));
+        _savePersistentData();
       }
-    } else {
-      // 0 custom options: Connects live to web to fetch a super-random Filipino suggestion
-      final liveOnlinePick =
-          await OnlineFilipinoSuggestionService.fetchRandomOnlineSuggestion(
+      return customPool[_random.nextInt(customPool.length)];
+    }
+
+    // 2. Online Suggestions Mode (1) or no custom options available: strictly fetches authentic online Filipino ideas
+    if (_spinSourceIndex == 1 || customPool.isEmpty) {
+      return await OnlineFilipinoSuggestionService.fetchRandomOnlineSuggestion(
         isFood: _selectedCategoryIndex == 2,
       );
-      return liveOnlinePick;
+    }
+
+    // Fallback if not explicitly selected yet
+    if (customPool.isNotEmpty) {
+      return customPool[_random.nextInt(customPool.length)];
+    } else {
+      return await OnlineFilipinoSuggestionService.fetchRandomOnlineSuggestion(
+        isFood: _selectedCategoryIndex == 2,
+      );
     }
   }
 
@@ -1490,6 +1579,26 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       );
     }
 
+    // If Custom Ideas Mode (0): All slices are custom
+    if (_spinSourceIndex == 0) {
+      final idx = slices.indexWhere(
+          (s) => s.label.trim().toLowerCase() == winner.trim().toLowerCase());
+      return (
+        winner: winner,
+        targetSliceIndex: idx >= 0 ? idx : 0,
+      );
+    }
+
+    // If Online Ideas Mode (1): All slices are online
+    if (_spinSourceIndex == 1) {
+      final targetIdx = slices.isNotEmpty ? _random.nextInt(slices.length) : 0;
+      return (
+        winner: winner,
+        targetSliceIndex: targetIdx,
+      );
+    }
+
+    // Unselected preview mode
     if (_currentOptions.contains(winner)) {
       // Winner is a custom option -> land on its custom slice
       final idx = slices.indexWhere(
@@ -1534,6 +1643,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         );
         return;
       }
+    } else if (_spinSourceIndex == null) {
+      HapticFeedback.vibrate();
+      SnackbarHelper.showInfo(
+        context,
+        'Please select Custom Ideas or Online Ideas button above before spinning!',
+      );
+      return;
     }
 
     if (_spinnerModeIndex == 0) {
@@ -1606,6 +1722,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'movieId': finalMovieId,
           'foodOptions': _foodOptions,
           'activityOptions': _activityOptions,
+          'spinSourceIndex': _spinSourceIndex,
         },
       );
     } else {
@@ -1689,16 +1806,28 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     int? remoteWatchCount,
     String? remoteMovieId,
   }) async {
-    final displayPool = _selectedCategoryIndex == 0
-        ? _watchOptions
-        : (_currentOptions.isNotEmpty
-            ? _currentOptions
-            : const [
-                'Deciding Online Selection...',
-                'Spinning Online Suggestions...',
-                'Exploring Online Ideas...',
-                'Selecting Online Choice...'
-              ]);
+    final List<String> displayPool;
+    if (_selectedCategoryIndex == 0) {
+      displayPool = _watchOptions;
+    } else if (_spinSourceIndex == 0 && _currentOptions.isNotEmpty) {
+      displayPool = _currentOptions;
+    } else if (_spinSourceIndex == 1 || _currentOptions.isEmpty) {
+      displayPool = const [
+        'Deciding Online Selection...',
+        'Spinning Online Suggestions...',
+        'Exploring Authentic Filipino Ideas...',
+        'Selecting Online Choice...',
+      ];
+    } else {
+      displayPool = _currentOptions.isNotEmpty
+          ? _currentOptions
+          : const [
+              'Deciding Online Selection...',
+              'Spinning Online Suggestions...',
+              'Exploring Authentic Filipino Ideas...',
+              'Selecting Online Choice...',
+            ];
+    }
 
     if (displayPool.isEmpty) return;
 
@@ -1743,6 +1872,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'movieId': finalMovieId,
           'foodOptions': _foodOptions,
           'activityOptions': _activityOptions,
+          'spinSourceIndex': _spinSourceIndex,
         },
       );
     } else {
@@ -1986,6 +2116,184 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
+  /// Edit custom option dialog
+  void _showEditCustomOptionDialog(String oldText) {
+    final controller = TextEditingController(text: oldText);
+    controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: oldText.length,
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: Text(
+          'Edit Custom ${_selectedCategoryIndex == 2 ? "Food & Drink" : "Date & Activity"}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        content: AppTextField(
+          controller: controller,
+          autofocus: true,
+          hintText: _selectedCategoryIndex == 2
+              ? 'e.g. Samgyupsal, Crispy Sisig, Milk Tea...'
+              : 'e.g. Sunset in Manila Bay, Arcade Night...',
+          borderRadius: BorderRadius.circular(14),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(
+                          color: Color(0xFFFF758C), width: 1.2),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: Color(0xFFFF758C),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final text = controller.text.trim();
+                        if (text.isNotEmpty && text != oldText) {
+                          Navigator.pop(ctx);
+                          await _editCustomOption(oldText, text);
+                        } else if (text == oldText) {
+                          Navigator.pop(ctx);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'Save Changes',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Update existing custom option in lists, local cache, and online Supabase database
+  Future<void> _editCustomOption(String oldText, String newText) async {
+    final category = _selectedCategoryIndex == 2 ? 'food' : 'activity';
+
+    HapticFeedback.lightImpact();
+    setState(() {
+      if (_selectedCategoryIndex == 2) {
+        final idx = _foodOptions.indexOf(oldText);
+        if (idx >= 0) {
+          _foodOptions[idx] = newText;
+        } else {
+          _foodOptions.insert(0, newText);
+        }
+      } else {
+        final idx = _activityOptions.indexOf(oldText);
+        if (idx >= 0) {
+          _activityOptions[idx] = newText;
+        } else {
+          _activityOptions.insert(0, newText);
+        }
+      }
+
+      final hFoodIdx = _foodHistory.indexOf(oldText);
+      if (hFoodIdx >= 0) _foodHistory[hFoodIdx] = newText;
+
+      final hActIdx = _activityHistory.indexOf(oldText);
+      if (hActIdx >= 0) _activityHistory[hActIdx] = newText;
+
+      if (_currentDisplayResult == oldText) {
+        _currentDisplayResult = newText;
+      }
+      if (_lastActivityResult == oldText) {
+        _lastActivityResult = newText;
+      }
+      if (_lastFoodResult == oldText) {
+        _lastFoodResult = newText;
+      }
+    });
+
+    await _savePersistentData();
+
+    if (mounted) {
+      SnackbarHelper.showSuccess(
+        context,
+        'Updated to "$newText"!',
+      );
+    }
+
+    // Broadcast edit immediately so partner's device updates instantly
+    try {
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'pool_updated',
+        payload: {
+          'category': category,
+          'action': 'edit',
+          'oldTitle': oldText,
+          'newTitle': newText,
+          'foodOptions': _foodOptions,
+          'activityOptions': _activityOptions,
+        },
+      );
+    } catch (e) {
+      debugPrint('Error broadcasting edit option: $e');
+    }
+
+    // Update in Supabase database
+    try {
+      final coupleId = _getCoupleId();
+      if (coupleId.isNotEmpty) {
+        await SupabaseDataService.client
+            .from('decision_ideas')
+            .update({'title': newText})
+            .eq('title', oldText)
+            .eq('couple_id', coupleId);
+      } else {
+        await SupabaseDataService.client
+            .from('decision_ideas')
+            .update({'title': newText})
+            .eq('title', oldText);
+      }
+    } catch (e) {
+      debugPrint('Error updating custom idea in Supabase: $e');
+    }
+  }
+
   /// Save custom option to local cache (SharedPreferences) and online Supabase database
   Future<void> _saveCustomOption(String text) async {
     final category = _selectedCategoryIndex == 2 ? 'food' : 'activity';
@@ -2050,6 +2358,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _foodOptions.remove(option);
       }
       _currentHistory.remove(option);
+
+      if (_currentOptions.isEmpty && _spinSourceIndex == 0) {
+        _spinSourceIndex = 1;
+      }
     });
 
     await _savePersistentData();
@@ -2206,7 +2518,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Main Spinner Card
               Container(
@@ -2343,25 +2655,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 2),
                               ],
-                              TextButton.icon(
-                                onPressed: _showAddCustomOptionDialog,
-                                icon: const Icon(Icons.add_rounded, size: 15),
-                                label: const Text('Add Custom'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: const Color(0xFFFF758C),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  textStyle: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11.5,
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ],
@@ -2673,47 +2967,75 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
                     const SizedBox(height: 10),
 
-                    // Empty State
+                    // Redesigned Modern Empty State
                     if (_currentOptions.isEmpty)
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
-                            vertical: 24, horizontal: 16),
+                            vertical: 24, horizontal: 18),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isDark
+                                ? [
+                                    const Color(0xFF261934),
+                                    const Color(0xFF1A1124)
+                                  ]
+                                : [
+                                    const Color(0xFFFFF5F8),
+                                    const Color(0xFFF9F0FD)
+                                  ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: const Color(0xFFFF758C)
+                                .withValues(alpha: 0.3),
+                            width: 1.2,
+                          ),
+                        ),
                         child: Column(
                           children: [
-                            Icon(
-                              _selectedCategoryIndex == 0
-                                  ? Icons.movie_outlined
-                                  : _selectedCategoryIndex == 1
-                                      ? Icons.local_activity_outlined
-                                      : Icons.restaurant_outlined,
-                              size: 38,
-                              color: const Color(0xFFFF758C)
-                                  .withValues(alpha: 0.5),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF758C)
+                                    .withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                _selectedCategoryIndex == 0
+                                    ? Icons.movie_outlined
+                                    : (_selectedCategoryIndex == 1
+                                        ? Icons.local_activity_rounded
+                                        : Icons.restaurant_rounded),
+                                size: 30,
+                                color: const Color(0xFFFF758C),
+                              ),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 12),
                             Text(
                               _selectedCategoryIndex == 0
                                   ? 'No unwatched movies in Watchlist'
-                                  : _selectedCategoryIndex == 1
-                                      ? 'No custom activity options added'
-                                      : 'No custom food options added',
+                                  : (_selectedCategoryIndex == 1
+                                      ? 'No Custom Date Ideas Yet'
+                                      : 'No Custom Food Ideas Yet'),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                                fontSize: 14.5,
                                 color: isDark
                                     ? Colors.white
                                     : AppColors.deepCharcoal,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 5),
                             Text(
                               _selectedCategoryIndex != 0
-                                  ? 'Spinning suggests dynamic online Filipino ideas. Tap Add Custom to include your own!'
+                                  ? 'Add your own couple ideas so they appear on the wheel and roulette!'
                                   : 'Add movies to your Watchlist in Movie Diary.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 11.5,
                                 color: isDark
                                     ? Colors.white60
                                     : Colors.grey.shade600,
@@ -2721,19 +3043,35 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             ),
                             const SizedBox(height: 14),
                             if (_selectedCategoryIndex != 0)
-                              OutlinedButton.icon(
-                                onPressed: _showAddCustomOptionDialog,
-                                icon: const Icon(Icons.add_rounded, size: 16),
-                                label: const Text('Add Custom Option'),
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(
-                                      color: Color(0xFFFF758C)),
-                                  foregroundColor: const Color(0xFFFF758C),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 10),
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: ElevatedButton.icon(
+                                  onPressed: _showAddCustomOptionDialog,
+                                  icon: const Icon(Icons.add_rounded, size: 16, color: Colors.white),
+                                  label: const Text('Add Custom Option', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 18, vertical: 10),
+                                  ),
                                 ),
                               )
                             else
@@ -2956,62 +3294,263 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         ),
                       )
                     else ...[
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: _currentOptions.map((opt) {
+                      // Redesigned Modern Custom Options Cards List
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _currentOptions.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final opt = _currentOptions[index];
                           final isPickedRecently =
                               _currentHistory.contains(opt);
 
-                          return Chip(
-                            avatar: const Icon(
-                              Icons.star_rounded,
-                              color: Color(0xFFFF758C),
-                              size: 16,
-                            ),
-                            label: Text(
-                              opt,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: isPickedRecently
-                                    ? FontWeight.normal
-                                    : FontWeight.bold,
+                          return Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: isDark
+                                    ? (isPickedRecently
+                                        ? [
+                                            Colors.white.withValues(alpha: 0.03),
+                                            Colors.white.withValues(alpha: 0.01),
+                                          ]
+                                        : [
+                                            const Color(0xFF271935),
+                                            const Color(0xFF1C1326),
+                                          ])
+                                    : (isPickedRecently
+                                        ? [
+                                            Colors.grey.shade100,
+                                            Colors.grey.shade50,
+                                          ]
+                                        : [
+                                            const Color(0xFFFFF6F8),
+                                            const Color(0xFFFAF2FD),
+                                          ]),
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
                                 color: isPickedRecently
                                     ? (isDark
-                                        ? Colors.white38
-                                        : Colors.grey.shade500)
-                                    : (isDark
-                                        ? const Color(0xFFFF8DA1)
-                                        : const Color(0xFFC2185B)),
-                                decoration: isPickedRecently
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                              ),
-                            ),
-                            deleteIcon: const Icon(
-                              Icons.close_rounded,
-                              size: 14,
-                            ),
-                            deleteIconColor: const Color(0xFFFF758C),
-                            onDeleted: () => _removeOption(opt),
-                            backgroundColor: isPickedRecently
-                                ? (isDark
-                                    ? Colors.white.withValues(alpha: 0.04)
-                                    : Colors.grey.shade100)
-                                : (isDark
-                                    ? const Color(0xFFFF758C)
-                                        .withValues(alpha: 0.25)
+                                        ? Colors.white.withValues(alpha: 0.06)
+                                        : Colors.grey.shade200)
                                     : const Color(0xFFFF758C)
-                                        .withValues(alpha: 0.16)),
-                            side: BorderSide(
-                              color: isPickedRecently
-                                  ? Colors.transparent
-                                  : const Color(0xFFFF758C)
-                                      .withValues(alpha: 0.6),
-                              width: 1.4,
+                                        .withValues(alpha: 0.35),
+                                width: 1.2,
+                              ),
+                              boxShadow: isPickedRecently
+                                  ? null
+                                  : [
+                                      BoxShadow(
+                                        color: const Color(0xFFFF758C)
+                                            .withValues(alpha: 0.08),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 11),
+                            child: Row(
+                              children: [
+                                // Number / Star Gradient Badge
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    gradient: isPickedRecently
+                                        ? null
+                                        : const LinearGradient(
+                                            colors: [
+                                              Color(0xFFFF758C),
+                                              Color(0xFFA18CD1)
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                    color: isPickedRecently
+                                        ? (isDark
+                                            ? Colors.white.withValues(alpha: 0.08)
+                                            : Colors.grey.shade300)
+                                        : null,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      isPickedRecently
+                                          ? Icons.history_rounded
+                                          : Icons.star_rounded,
+                                      color: isPickedRecently
+                                          ? (isDark
+                                              ? Colors.white38
+                                              : Colors.grey.shade600)
+                                          : Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Title and Subtitle Info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        opt,
+                                        style: TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: isPickedRecently
+                                              ? FontWeight.w500
+                                              : FontWeight.bold,
+                                          color: isPickedRecently
+                                              ? (isDark
+                                                  ? Colors.white38
+                                                  : Colors.grey.shade500)
+                                              : (isDark
+                                                  ? Colors.white
+                                                  : AppColors.deepCharcoal),
+                                          decoration: isPickedRecently
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 5,
+                                            height: 5,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: isPickedRecently
+                                                  ? Colors.grey
+                                                  : const Color(0xFFFF758C),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            isPickedRecently
+                                                ? 'Excluded this round (anti-repeat)'
+                                                : 'Active in wheel & roulette',
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              color: isPickedRecently
+                                                  ? (isDark
+                                                      ? Colors.white38
+                                                      : Colors.grey.shade500)
+                                                  : const Color(0xFFFF758C),
+                                              fontWeight: isPickedRecently
+                                                  ? FontWeight.normal
+                                                  : FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Edit & Delete Action Buttons
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Edit Option Button
+                                    Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(10),
+                                        onTap: () =>
+                                            _showEditCustomOptionDialog(opt),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(7),
+                                          decoration: BoxDecoration(
+                                            color: isDark
+                                                ? Colors.white.withValues(alpha: 0.05)
+                                                : const Color(0xFFA18CD1).withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: const Icon(
+                                            Icons.edit_rounded,
+                                            size: 15,
+                                            color: Color(0xFFA18CD1),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    // Delete Option Button
+                                    Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(10),
+                                        onTap: () => _removeOption(opt),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(7),
+                                          decoration: BoxDecoration(
+                                            color: isDark
+                                                ? Colors.white.withValues(alpha: 0.05)
+                                                : Colors.red.withValues(alpha: 0.06),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: const Icon(
+                                            Icons.close_rounded,
+                                            size: 15,
+                                            color: Color(0xFFFF758C),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           );
-                        }).toList(),
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      // Add Another Custom Idea Action Container
+                      InkWell(
+                        onTap: _showAddCustomOptionDialog,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.03)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: const Color(0xFFFF758C)
+                                  .withValues(alpha: 0.35),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.add_circle_outline_rounded,
+                                size: 16,
+                                color: Color(0xFFFF758C),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _selectedCategoryIndex == 2
+                                    ? 'Add Another Food & Drink Idea'
+                                    : 'Add Another Date & Activity Idea',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFFF758C),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Container(
@@ -3245,7 +3784,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         // Winner Decision Celebration Card for Dates & Food
         _buildDecisionResultCard(context, isDark),
 
-        const SizedBox(height: 16),
+        // Spin Source Selector (Custom Ideas ⭐ vs Online Suggestions 🌐) placed right before spin buttons!
+        _buildSpinSourceSelector(context, isDark),
 
         // Spin / Re-Spin & Reset Buttons
         if (_selectedCategoryIndex != 0 &&
@@ -3310,9 +3850,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     label: Text(
                       _isSpinning
                           ? 'Spinning...'
-                          : (_spinnerModeIndex == 0
-                              ? 'Re-Spin Wheel'
-                              : 'Re-Spin Roulette'),
+                          : (_selectedCategoryIndex == 0
+                              ? (_spinnerModeIndex == 0
+                                  ? 'Re-Spin Wheel'
+                                  : 'Re-Spin Roulette')
+                              : (_spinSourceIndex == 0
+                                  ? 'Re-Spin Custom ⭐'
+                                  : (_spinSourceIndex == 1
+                                      ? 'Re-Spin Online 🌐'
+                                      : 'Select Pool & Re-Spin ✨'))),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
@@ -3423,12 +3969,21 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               label: Text(
                 _isSpinning
                     ? 'Spinning...'
-                    : (_selectedCategoryIndex == 0 &&
-                            _pickedMovie != null
-                        ? 'Movie Locked'
-                        : (_spinnerModeIndex == 0
-                            ? 'Spin Wheel'
-                            : 'Spin Roulette')),
+                    : (_selectedCategoryIndex == 0
+                        ? (_pickedMovie != null
+                            ? 'Movie Locked'
+                            : (_spinnerModeIndex == 0
+                                ? 'Spin Wheel'
+                                : 'Spin Roulette'))
+                        : (_spinSourceIndex == 0
+                            ? (_spinnerModeIndex == 0
+                                ? 'Spin Custom Wheel ⭐'
+                                : 'Spin Custom Roulette ⭐')
+                            : (_spinSourceIndex == 1
+                                ? (_spinnerModeIndex == 0
+                                    ? 'Spin Online Wheel 🌐'
+                                    : 'Spin Online Roulette 🌐')
+                                : 'Select Pool & Spin ✨'))),
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -4030,8 +4585,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           } else if (index == 1) {
             _currentDisplayResult =
                 _lastActivityResult ?? 'Tap Spin to Decide!';
+            _spinSourceIndex = null;
           } else if (index == 2) {
             _currentDisplayResult = _lastFoodResult ?? 'Tap Spin to Decide!';
+            _spinSourceIndex = null;
           }
         });
         _savePersistentData();
@@ -4093,6 +4650,199 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Interactive Spin Source Buttons (Custom Ideas ⭐ vs Online Suggestions 🌐)
+  Widget _buildSpinSourceSelector(BuildContext context, bool isDark) {
+    if (_selectedCategoryIndex == 0) return const SizedBox.shrink();
+
+    final hasCustom = _currentOptions.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.touch_app_rounded,
+                size: 13,
+                color: isDark ? Colors.white60 : Colors.grey.shade600,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'CHOOSE WHAT TO SPIN',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.6,
+                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                ),
+              ),
+              const Spacer(),
+              if (_spinSourceIndex == null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Select a button',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? const Color(0xFFFF8DA1)
+                          : const Color(0xFFC2185B),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              // Button 1: Custom Ideas ⭐
+              Expanded(
+                child: _buildSourceButton(
+                  index: 0,
+                  label: hasCustom
+                      ? 'Custom (${_currentOptions.length}) ⭐'
+                      : 'Custom (0) 🔒',
+                  icon: Icons.star_rounded,
+                  enabled: hasCustom,
+                  disabledMessage:
+                      'Add custom options below first to spin custom ideas!',
+                  isDark: isDark,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Button 2: Online Ideas 🌐
+              Expanded(
+                child: _buildSourceButton(
+                  index: 1,
+                  label: 'Online Ideas 🌐',
+                  icon: Icons.public_rounded,
+                  enabled: true,
+                  isDark: isDark,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSourceButton({
+    required int index,
+    required String label,
+    required IconData icon,
+    required bool enabled,
+    String? disabledMessage,
+    required bool isDark,
+  }) {
+    final isSelected = _spinSourceIndex == index;
+
+    return InkWell(
+      onTap: () {
+        if (!enabled) {
+          HapticFeedback.vibrate();
+          if (disabledMessage != null && mounted) {
+            SnackbarHelper.showInfo(context, disabledMessage);
+          }
+          return;
+        }
+        if (_isSpinning) return;
+        HapticFeedback.lightImpact();
+        setState(() {
+          _spinSourceIndex = index;
+        });
+        _savePersistentData();
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          gradient: isSelected && enabled
+              ? const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected && enabled
+              ? null
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected && enabled
+                ? Colors.transparent
+                : (_spinSourceIndex == null
+                    ? const Color(0xFFFF758C).withValues(alpha: 0.45)
+                    : (isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.grey.shade300)),
+            width: isSelected ? 1.5 : 1.2,
+          ),
+          boxShadow: isSelected && enabled
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Opacity(
+          opacity: enabled ? 1.0 : 0.45,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected && enabled
+                    ? Colors.white
+                    : (isDark ? Colors.white70 : Colors.grey.shade700),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected && enabled
+                        ? FontWeight.bold
+                        : FontWeight.w600,
+                    color: isSelected && enabled
+                        ? Colors.white
+                        : (isDark ? Colors.white : AppColors.deepCharcoal),
+                  ),
+                ),
+              ),
+              if (isSelected && enabled) ...[
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.check_circle_rounded,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

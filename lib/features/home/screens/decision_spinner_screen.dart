@@ -1226,8 +1226,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               );
 
               if (isWatchedInDb) {
-                // Movie was marked watched or removed! Clear the pick!
+                // Movie was marked watched or removed! Clear the pick and unlock the wheel!
                 _clearActiveMoviePickInDb();
+                _pickedMovie = null;
+                _currentDisplayResult = 'Tap Spin to Decide!';
+                _savePersistentData();
                 _spinnerChannel?.sendBroadcastMessage(
                   event: 'reset_spinner',
                   payload: {},
@@ -1652,7 +1655,25 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
           final titleToSync = activeMovieTitle ?? _pickedMovie?.title;
           if (titleToSync != null && titleToSync.isNotEmpty) {
-            _checkAndSetPickedMovie(titleToSync);
+            final matchingInAll = movies
+                .where((m) =>
+                    m.title.trim().toLowerCase() ==
+                    titleToSync.trim().toLowerCase())
+                .toList();
+            if (matchingInAll.isNotEmpty &&
+                (matchingInAll.first.isWatched ||
+                    matchingInAll.first.status.toLowerCase() == 'watched' ||
+                    matchingInAll.first.status.toLowerCase() ==
+                        'already watched')) {
+              await _clearActiveMoviePickInDb();
+              setState(() {
+                _pickedMovie = null;
+                _currentDisplayResult = 'Tap Spin to Decide!';
+              });
+              await _savePersistentData();
+            } else {
+              _checkAndSetPickedMovie(titleToSync);
+            }
           }
 
           _savePersistentData();
@@ -4532,9 +4553,50 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ],
         ),
 
-        const SizedBox(height: 18),
+        // Turn lock explanation banner while movie is ongoing
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(top: 14, bottom: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.orange.shade900.withValues(alpha: 0.25)
+                : Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? Colors.orange.shade700 : Colors.orange.shade300,
+              width: 1.2,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.lock_rounded,
+                size: 16,
+                color: isDark ? Colors.orange.shade300 : Colors.orange.shade800,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _isPartnerTurn(0)
+                      ? 'Wheel locked: Movie must be watched first! Next spin: ${_getPartnerDisplayName()}'
+                      : 'Wheel locked: Movie must be watched first! Next spin: YOUR turn',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: isDark
+                        ? Colors.orange.shade200
+                        : Colors.orange.shade900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
 
-        // 4. Primary Action Button
+        const SizedBox(height: 14),
+
+        // 4. Mark as Watched & Unlock Wheel (Primary Action Button)
         Container(
           width: double.infinity,
           height: 50,
@@ -4554,6 +4616,34 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             ],
           ),
           child: ElevatedButton.icon(
+            onPressed: () => _markActiveMovieWatched(movie),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            icon: const Icon(Icons.check_circle_rounded, size: 20),
+            label: const Text(
+              'Mark as Watched & Unlock Wheel',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14.5,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // 5. Open in Movie Diary (Secondary Action Button)
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton.icon(
             onPressed: () {
               HapticFeedback.lightImpact();
               Navigator.push(
@@ -4563,21 +4653,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              foregroundColor: Colors.white,
-              shadowColor: Colors.transparent,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: isDark ? Colors.white70 : AppColors.deepCharcoal,
+              side: BorderSide(
+                color: const Color(0xFFFF758C).withValues(alpha: 0.5),
+                width: 1.2,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
             ),
-            icon: const Icon(Icons.play_circle_filled_rounded, size: 20),
+            icon: const Icon(Icons.play_circle_filled_rounded, size: 18),
             label: const Text(
               'Open in Movie Diary',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 15,
-                letterSpacing: 0.3,
+                fontSize: 14,
               ),
             ),
           ),
@@ -4611,6 +4702,58 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         ],
       ],
     );
+  }
+
+  /// Mark the ongoing picked movie as watched and unlock the spinner for the next turn
+  Future<void> _markActiveMovieWatched(MovieModel movie) async {
+    HapticFeedback.mediumImpact();
+    try {
+      MovieModel targetMovie = movie;
+      if (targetMovie.id == null || targetMovie.id!.isEmpty) {
+        final coupleId = _getCoupleId();
+        if (coupleId.isNotEmpty) {
+          final allMovies = await _movieService.fetchMovies(coupleId);
+          final matched = allMovies.where(
+            (m) =>
+                m.title.trim().toLowerCase() ==
+                targetMovie.title.trim().toLowerCase(),
+          ).toList();
+          if (matched.isNotEmpty) {
+            targetMovie = matched.first;
+          }
+        }
+      }
+
+      if (targetMovie.id != null && targetMovie.id!.isNotEmpty) {
+        await _movieService.setMovieToWatched(targetMovie);
+      }
+
+      await _clearActiveMoviePickInDb();
+
+      if (mounted) {
+        setState(() {
+          _pickedMovie = null;
+          _currentDisplayResult = 'Tap Spin to Decide!';
+        });
+        await _savePersistentData();
+
+        _spinnerChannel?.sendBroadcastMessage(
+          event: 'reset_spinner',
+          payload: {},
+        );
+
+        final partnerName = _getPartnerDisplayName();
+        final isMyTurnNow = !_isPartnerTurn(0);
+        SnackbarHelper.showSuccess(
+          context,
+          '${movie.title} marked as watched! Next spin is ${isMyTurnNow ? "YOUR" : "$partnerName's"} turn.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, 'Failed to update movie: $e');
+      }
+    }
   }
 
   Widget _buildVisualWheel(BuildContext context, bool isDark) {

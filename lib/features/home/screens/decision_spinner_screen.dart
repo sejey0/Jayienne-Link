@@ -350,6 +350,30 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           final watchCount = payload['watchCount'] as int? ?? 1;
           final movieId = payload['movieId']?.toString();
 
+          // Sync options from payload if present so wheels match identically
+          bool poolChanged = false;
+          if (payload['foodOptions'] != null) {
+            final incoming = List<String>.from(payload['foodOptions']);
+            for (final item in incoming) {
+              if (!_foodOptions.contains(item)) {
+                _foodOptions.add(item);
+                poolChanged = true;
+              }
+            }
+          }
+          if (payload['activityOptions'] != null) {
+            final incoming = List<String>.from(payload['activityOptions']);
+            for (final item in incoming) {
+              if (!_activityOptions.contains(item)) {
+                _activityOptions.add(item);
+                poolChanged = true;
+              }
+            }
+          }
+          if (poolChanged) {
+            _savePersistentData();
+          }
+
           setState(() {
             _selectedCategoryIndex = catIndex;
             _spinnerModeIndex = modeIndex;
@@ -392,6 +416,24 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           final mediaType = payload['mediaType']?.toString() ?? 'movie';
           final watchCount = payload['watchCount'] as int? ?? 1;
           final movieId = payload['movieId']?.toString();
+
+          // Sync options from payload if present
+          if (payload['foodOptions'] != null) {
+            final incoming = List<String>.from(payload['foodOptions']);
+            for (final item in incoming) {
+              if (!_foodOptions.contains(item)) {
+                _foodOptions.add(item);
+              }
+            }
+          }
+          if (payload['activityOptions'] != null) {
+            final incoming = List<String>.from(payload['activityOptions']);
+            for (final item in incoming) {
+              if (!_activityOptions.contains(item)) {
+                _activityOptions.add(item);
+              }
+            }
+          }
 
           setState(() {
             _selectedCategoryIndex = catIndex;
@@ -505,13 +547,117 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
       _spinnerChannel!.onBroadcast(
         event: 'pool_updated',
-        callback: (_) {
+        callback: (payload) {
           if (!mounted) return;
+          bool changed = false;
+          if (payload['foodOptions'] != null) {
+            final incoming = List<String>.from(payload['foodOptions']);
+            for (final item in incoming) {
+              if (!_foodOptions.contains(item)) {
+                _foodOptions.insert(0, item);
+                changed = true;
+              }
+            }
+          }
+          if (payload['activityOptions'] != null) {
+            final incoming = List<String>.from(payload['activityOptions']);
+            for (final item in incoming) {
+              if (!_activityOptions.contains(item)) {
+                _activityOptions.insert(0, item);
+                changed = true;
+              }
+            }
+          }
+          if (payload['removed'] != null) {
+            final rem = payload['removed'].toString();
+            if (_foodOptions.remove(rem) || _activityOptions.remove(rem)) {
+              changed = true;
+            }
+          }
+          if (changed) {
+            setState(() {});
+            _savePersistentData();
+          }
           _fetchOnlineSyncedData();
         },
       );
 
+      _spinnerChannel!.onBroadcast(
+        event: 'sync_request',
+        callback: (payload) {
+          if (!mounted) return;
+          final senderId = payload['userId']?.toString();
+          final myUserId =
+              Provider.of<UserProvider>(context, listen: false).user?.uid;
+          if (senderId != null && senderId == myUserId) return;
+
+          _spinnerChannel?.sendBroadcastMessage(
+            event: 'sync_response',
+            payload: {
+              'foodOptions': _foodOptions,
+              'activityOptions': _activityOptions,
+              'activeActivity': _lastActivityResult,
+              'activeFood': _lastFoodResult,
+              'activeMovie': _pickedMovie?.title,
+            },
+          );
+        },
+      );
+
+      _spinnerChannel!.onBroadcast(
+        event: 'sync_response',
+        callback: (payload) {
+          if (!mounted) return;
+          bool changed = false;
+          if (payload['foodOptions'] != null) {
+            final incoming = List<String>.from(payload['foodOptions']);
+            for (final item in incoming) {
+              if (!_foodOptions.contains(item)) {
+                _foodOptions.insert(0, item);
+                changed = true;
+              }
+            }
+          }
+          if (payload['activityOptions'] != null) {
+            final incoming = List<String>.from(payload['activityOptions']);
+            for (final item in incoming) {
+              if (!_activityOptions.contains(item)) {
+                _activityOptions.insert(0, item);
+                changed = true;
+              }
+            }
+          }
+          final activeAct = payload['activeActivity']?.toString();
+          if (activeAct != null && activeAct.isNotEmpty) {
+            _lastActivityResult = activeAct;
+            if (_selectedCategoryIndex == 1) _currentDisplayResult = activeAct;
+            changed = true;
+          }
+          final activeFood = payload['activeFood']?.toString();
+          if (activeFood != null && activeFood.isNotEmpty) {
+            _lastFoodResult = activeFood;
+            if (_selectedCategoryIndex == 2) _currentDisplayResult = activeFood;
+            changed = true;
+          }
+          final activeMov = payload['activeMovie']?.toString();
+          if (activeMov != null && activeMov.isNotEmpty) {
+            _checkAndSetPickedMovie(activeMov);
+            changed = true;
+          }
+          if (changed) {
+            setState(() {});
+            _savePersistentData();
+          }
+        },
+      );
+
       _spinnerChannel!.subscribe();
+      final myUserId =
+          Provider.of<UserProvider>(context, listen: false).user?.uid;
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'sync_request',
+        payload: {'userId': myUserId},
+      );
     } catch (e) {
       debugPrint('Error setting up spinner realtime channel: $e');
     }
@@ -1132,51 +1278,90 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       String? activeFoodTitle;
 
       if (coupleId.isNotEmpty) {
-        final response = await SupabaseDataService.client
-            .from('decision_ideas')
-            .select()
-            .eq('couple_id', coupleId);
+        try {
+          final response = await SupabaseDataService.client
+              .from('decision_ideas')
+              .select()
+              .eq('couple_id', coupleId);
 
-        final records = List<Map<String, dynamic>>.from(response);
+          final records = List<Map<String, dynamic>>.from(response);
 
-        for (final row in records) {
-          final category = row['category']?.toString().toLowerCase() ?? '';
-          final title = row['title']?.toString().trim() ?? '';
-          final isCustomFlag =
-              row['is_custom'] == true || row['is_custom'] == 'true';
+          for (final row in records) {
+            final category = row['category']?.toString().toLowerCase() ?? '';
+            final title = row['title']?.toString().trim() ?? '';
+            final isCustomFlag =
+                row['is_custom'] == true || row['is_custom'] == 'true';
 
-          if (category == 'active_movie_pick' && title.isNotEmpty) {
-            activeMovieTitle = title;
-            continue;
-          }
-          if (category == 'active_activity_pick' && title.isNotEmpty) {
-            activeActivityTitle = title;
-            continue;
-          }
-          if (category == 'active_food_pick' && title.isNotEmpty) {
-            activeFoodTitle = title;
-            continue;
-          }
+            if (category == 'active_movie_pick' && title.isNotEmpty) {
+              activeMovieTitle = title;
+              continue;
+            }
+            if (category == 'active_activity_pick' && title.isNotEmpty) {
+              activeActivityTitle = title;
+              continue;
+            }
+            if (category == 'active_food_pick' && title.isNotEmpty) {
+              activeFoodTitle = title;
+              continue;
+            }
 
-          // Clean up previously auto-seeded default items from database
-          if (_defaultFilterOutList.contains(title) && !isCustomFlag) {
-            SupabaseDataService.client
-                .from('decision_ideas')
-                .delete()
-                .eq('title', title)
-                .eq('couple_id', coupleId)
-                .catchError((_) {});
-            continue;
-          }
+            // Clean up previously auto-seeded default items from database
+            if (_defaultFilterOutList.contains(title) && !isCustomFlag) {
+              SupabaseDataService.client
+                  .from('decision_ideas')
+                  .delete()
+                  .eq('title', title)
+                  .eq('couple_id', coupleId)
+                  .catchError((_) {});
+              continue;
+            }
 
-          if (title.isNotEmpty) {
-            if (category == 'food' && !customFood.contains(title)) {
-              customFood.add(title);
-            } else if (category == 'activity' &&
-                !customActivities.contains(title)) {
-              customActivities.add(title);
+            if (title.isNotEmpty) {
+              if (category == 'food' && !customFood.contains(title)) {
+                customFood.add(title);
+              } else if (category == 'activity' &&
+                  !customActivities.contains(title)) {
+                customActivities.add(title);
+              }
             }
           }
+
+          // Auto-seed / sync any local custom options to Supabase if not yet present in DB
+          final remoteFoodTitles = records
+              .where((r) =>
+                  (r['category']?.toString().toLowerCase() ?? '') == 'food')
+              .map((r) => r['title']?.toString().trim() ?? '')
+              .toSet();
+          for (final localFood in _foodOptions) {
+            if (!remoteFoodTitles.contains(localFood) &&
+                localFood.trim().isNotEmpty) {
+              SupabaseDataService.client.from('decision_ideas').insert({
+                'couple_id': coupleId,
+                'category': 'food',
+                'title': localFood,
+                'is_custom': true,
+              }).catchError((_) {});
+            }
+          }
+
+          final remoteActivityTitles = records
+              .where((r) =>
+                  (r['category']?.toString().toLowerCase() ?? '') == 'activity')
+              .map((r) => r['title']?.toString().trim() ?? '')
+              .toSet();
+          for (final localAct in _activityOptions) {
+            if (!remoteActivityTitles.contains(localAct) &&
+                localAct.trim().isNotEmpty) {
+              SupabaseDataService.client.from('decision_ideas').insert({
+                'couple_id': coupleId,
+                'category': 'activity',
+                'title': localAct,
+                'is_custom': true,
+              }).catchError((_) {});
+            }
+          }
+        } catch (e) {
+          debugPrint('Error fetching online synced decision data: $e');
         }
       }
 
@@ -1419,18 +1604,23 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'mediaType': finalMediaType ?? 'movie',
           'watchCount': finalWatchCount,
           'movieId': finalMovieId,
+          'foodOptions': _foodOptions,
+          'activityOptions': _activityOptions,
         },
       );
     } else {
       finalWinner = remoteWinner ?? await _pickWinner();
-      if (remoteTargetSliceIndex != null &&
+      // Locate the exact slice that matches finalWinner so the pointer lands on the exact same choice
+      final idx = slices.indexWhere(
+          (s) => s.label.trim().toLowerCase() == finalWinner.trim().toLowerCase());
+      if (idx >= 0) {
+        targetSliceIndex = idx;
+      } else if (remoteTargetSliceIndex != null &&
           remoteTargetSliceIndex >= 0 &&
           remoteTargetSliceIndex < slices.length) {
         targetSliceIndex = remoteTargetSliceIndex;
       } else {
-        final idx = slices.indexWhere(
-            (s) => s.label.trim().toLowerCase() == finalWinner.trim().toLowerCase());
-        targetSliceIndex = idx >= 0 ? idx : 0;
+        targetSliceIndex = 0;
       }
       extraTurns = remoteExtraTurns ?? 5;
       HapticFeedback.mediumImpact();
@@ -1551,6 +1741,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'mediaType': finalMediaType ?? 'movie',
           'watchCount': finalWatchCount,
           'movieId': finalMovieId,
+          'foodOptions': _foodOptions,
+          'activityOptions': _activityOptions,
         },
       );
     } else {
@@ -1671,6 +1863,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'watchCount': winningMovie?.watchCount ?? 1,
           'movieId': winningMovie?.id,
           'userId': myUserId,
+          'foodOptions': _foodOptions,
+          'activityOptions': _activityOptions,
         },
       );
 
@@ -1695,9 +1889,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             'title': winner,
             'is_custom': false,
           }).catchError((e) {
-            debugPrint('Error saving active pick: $e');
+            debugPrint('Error saving active pick to Supabase: $e');
           });
-        }).catchError((_) {});
+        }).catchError((e) {
+          debugPrint('Error deleting old active pick: $e');
+        });
       }
     }
 
@@ -1811,6 +2007,23 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       );
     }
 
+    // Broadcast immediately so partner's device gets the custom option instantly
+    try {
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'pool_updated',
+        payload: {
+          'category': category,
+          'title': text,
+          'action': 'add',
+          'foodOptions': _foodOptions,
+          'activityOptions': _activityOptions,
+        },
+      );
+    } catch (e) {
+      debugPrint('Error broadcasting pool_updated: $e');
+    }
+
+    // Persist to Supabase database
     try {
       final coupleId = _getCoupleId();
       await SupabaseDataService.client.from('decision_ideas').insert({
@@ -1819,15 +2032,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         'title': text,
         'is_custom': true,
       });
-
-      _spinnerChannel?.sendBroadcastMessage(
-        event: 'pool_updated',
-        payload: {
-          'category': category,
-          'title': text,
-        },
-      );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error inserting custom idea into Supabase: $e');
+    }
   }
 
   /// Delete option from list, local cache (SharedPreferences), and online Supabase database
@@ -1847,6 +2054,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
     await _savePersistentData();
 
+    // Broadcast removal immediately so partner's device updates instantly
+    try {
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'pool_updated',
+        payload: {
+          'action': 'remove',
+          'removed': option,
+          'foodOptions': _foodOptions,
+          'activityOptions': _activityOptions,
+        },
+      );
+    } catch (e) {
+      debugPrint('Error broadcasting remove option: $e');
+    }
+
+    // Delete from Supabase database
     try {
       final coupleId = _getCoupleId();
       if (coupleId.isNotEmpty) {
@@ -1861,14 +2084,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             .delete()
             .eq('title', option);
       }
-
-      _spinnerChannel?.sendBroadcastMessage(
-        event: 'pool_updated',
-        payload: {
-          'removed': option,
-        },
-      );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error deleting custom idea from Supabase: $e');
+    }
 
     if (mounted) {
       SnackbarHelper.showInfo(context, 'Removed "$option"');

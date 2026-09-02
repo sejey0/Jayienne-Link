@@ -703,19 +703,23 @@ EXECUTE FUNCTION update_couple_partner_names();
 -- Create decision_ideas table for dynamic date & food options
 CREATE TABLE IF NOT EXISTS public.decision_ideas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    category TEXT NOT NULL CHECK (category IN ('food', 'activity')),
+    couple_id UUID REFERENCES public.couples(id) ON DELETE CASCADE,
+    category TEXT NOT NULL,
     title TEXT NOT NULL,
+    is_custom BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Enable RLS
 ALTER TABLE public.decision_ideas ENABLE ROW LEVEL SECURITY;
 
--- Allow public read access to decision ideas
+-- Allow full access to decision ideas
 DROP POLICY IF EXISTS "Allow public read access to decision ideas" ON public.decision_ideas;
-CREATE POLICY "Allow public read access to decision ideas"
-    ON public.decision_ideas FOR SELECT
-    USING (true);
+DROP POLICY IF EXISTS "Allow all access to decision ideas" ON public.decision_ideas;
+CREATE POLICY "Allow all access to decision ideas"
+    ON public.decision_ideas FOR ALL
+    USING (true)
+    WITH CHECK (true);
 
 -- Seed initial online decision ideas
 INSERT INTO public.decision_ideas (category, title) VALUES

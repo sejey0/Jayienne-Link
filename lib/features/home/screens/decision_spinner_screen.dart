@@ -3641,7 +3641,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         : 'FOOD & DRINKS CHOICE';
 
     final originLabel =
-        isCustomIdea ? 'Custom Couple Option ⭐' : 'Curated Online Suggestion 🌐';
+        isCustomIdea ? 'Custom Couple Option' : 'Curated Online Suggestion';
 
     return Container(
       width: double.infinity,
@@ -3736,13 +3736,28 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     color: const Color(0xFFFF758C).withValues(alpha: 0.25),
                   ),
                 ),
-                child: Text(
-                  originLabel,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white70 : AppColors.deepCharcoal,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isCustomIdea
+                          ? Icons.favorite_rounded
+                          : Icons.public_rounded,
+                      size: 12,
+                      color: isDark
+                          ? const Color(0xFFFF8DA1)
+                          : const Color(0xFFC2185B),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      originLabel,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white70 : AppColors.deepCharcoal,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -3784,7 +3799,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         // Winner Decision Celebration Card for Dates & Food
         _buildDecisionResultCard(context, isDark),
 
-        // Spin Source Selector (Custom Ideas ⭐ vs Online Suggestions 🌐) placed right before spin buttons!
+        // Spin Source Selector (Custom Ideas vs Online Suggestions) placed right before spin buttons!
         _buildSpinSourceSelector(context, isDark),
 
         // Spin / Re-Spin & Reset Buttons
@@ -3855,10 +3870,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                   ? 'Re-Spin Wheel'
                                   : 'Re-Spin Roulette')
                               : (_spinSourceIndex == 0
-                                  ? 'Re-Spin Custom ⭐'
+                                  ? 'Re-Spin Custom'
                                   : (_spinSourceIndex == 1
-                                      ? 'Re-Spin Online 🌐'
-                                      : 'Select Pool & Re-Spin ✨'))),
+                                      ? 'Re-Spin Online'
+                                      : 'Select Pool & Re-Spin'))),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
@@ -3977,13 +3992,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                 : 'Spin Roulette'))
                         : (_spinSourceIndex == 0
                             ? (_spinnerModeIndex == 0
-                                ? 'Spin Custom Wheel ⭐'
-                                : 'Spin Custom Roulette ⭐')
+                                ? 'Spin Custom Wheel'
+                                : 'Spin Custom Roulette')
                             : (_spinSourceIndex == 1
                                 ? (_spinnerModeIndex == 0
-                                    ? 'Spin Online Wheel 🌐'
-                                    : 'Spin Online Roulette 🌐')
-                                : 'Select Pool & Spin ✨'))),
+                                    ? 'Spin Online Wheel'
+                                    : 'Spin Online Roulette')
+                                : 'Select Pool & Spin'))),
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -4655,7 +4670,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  /// Interactive Spin Source Buttons (Custom Ideas ⭐ vs Online Suggestions 🌐)
+  /// Interactive Spin Source Buttons (Custom Ideas vs Online Suggestions)
   Widget _buildSpinSourceSelector(BuildContext context, bool isDark) {
     if (_selectedCategoryIndex == 0) return const SizedBox.shrink();
 
@@ -4708,14 +4723,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           const SizedBox(height: 8),
           Row(
             children: [
-              // Button 1: Custom Ideas ⭐
+              // Button 1: Custom Ideas
               Expanded(
                 child: _buildSourceButton(
                   index: 0,
                   label: hasCustom
-                      ? 'Custom (${_currentOptions.length}) ⭐'
-                      : 'Custom (0) 🔒',
-                  icon: Icons.star_rounded,
+                      ? 'Custom (${_currentOptions.length})'
+                      : 'Custom (0)',
+                  icon: hasCustom ? Icons.favorite_rounded : Icons.lock_rounded,
                   enabled: hasCustom,
                   disabledMessage:
                       'Add custom options below first to spin custom ideas!',
@@ -4723,11 +4738,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 ),
               ),
               const SizedBox(width: 8),
-              // Button 2: Online Ideas 🌐
+              // Button 2: Online Ideas
               Expanded(
                 child: _buildSourceButton(
                   index: 1,
-                  label: 'Online Ideas 🌐',
+                  label: 'Online Ideas',
                   icon: Icons.public_rounded,
                   enabled: true,
                   isDark: isDark,

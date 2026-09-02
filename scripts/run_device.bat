@@ -777,27 +777,15 @@ echo   4. Click Publish release
 
 :gh_release_done
 echo.
-if "%IS_WEB%"=="1" goto skip_auto_deploy
-if "%DEVICE_ID%"=="" goto skip_auto_deploy
-
 echo ====================================================
-echo   [AUTO] Deploying Release Build to Connected Device
+echo   [SUCCESS] OTA Release v!NEW_VERSION! Published to GitHub!
 echo ====================================================
-echo Auto-uninstalling previous build from %DEVICE_ID%...
-"%ADB%" -s %DEVICE_ID% uninstall %PACKAGE% >nul 2>&1
-
-echo Installing new Release APK (v!NEW_VERSION!)...
-"%ADB%" -s %DEVICE_ID% install -r "build\app\outputs\flutter-apk\app-release.apk"
-if errorlevel 1 goto deploy_failed
-
+echo   Direct APK: https://github.com/%GH_USER%/%GH_REPO%/releases/download/v!NEW_VERSION!/app-release.apk
 echo.
-echo [SUCCESS] App updated on %DEVICE_ID% to Release v!NEW_VERSION!!
-goto skip_auto_deploy
-
-:deploy_failed
-echo [WARNING] Automatic installation on %DEVICE_ID% failed.
-
-:skip_auto_deploy
+echo   Note: The new build was NOT auto-installed via ADB.
+echo   You can now open the app on your phone to test the
+echo   in-app OTA update flow!
+echo ====================================================
 echo.
 pause
 goto releasemenu

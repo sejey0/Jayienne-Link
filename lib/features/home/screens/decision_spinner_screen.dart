@@ -2655,7 +2655,50 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                     ),
                                   ),
                                 ),
+                                const SizedBox(width: 6),
                               ],
+                              InkWell(
+                                onTap: _showAddCustomOptionDialog,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.add_rounded,
+                                        size: 14,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        'Add Idea',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -3508,49 +3551,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             ),
                           );
                         },
-                      ),
-                      const SizedBox(height: 10),
-                      // Add Another Custom Idea Action Container
-                      InkWell(
-                        onTap: _showAddCustomOptionDialog,
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 12, horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.03)
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: const Color(0xFFFF758C)
-                                  .withValues(alpha: 0.35),
-                              width: 1.2,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.add_circle_outline_rounded,
-                                size: 16,
-                                color: Color(0xFFFF758C),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _selectedCategoryIndex == 2
-                                    ? 'Add Another Food & Drink Idea'
-                                    : 'Add Another Date & Activity Idea',
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFFF758C),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
                       const SizedBox(height: 16),
                       Container(

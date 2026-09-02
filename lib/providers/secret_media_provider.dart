@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/secret_media_model.dart';
 import '../services/supabase_secret_media_service.dart';
@@ -114,18 +115,92 @@ class SecretMediaProvider extends ChangeNotifier {
     return media.displayUrl;
   }
 
+  /// Evicts removed or deleted media URLs and thumbnails from Flutter image cache so no traces remain
+  void _evictRemovedMediaFromCache(List<SecretMediaModel> currentActiveMedia) {
+    try {
+      final activeUrls = currentActiveMedia
+          .map((m) => m.displayUrl)
+          .where((u) => u.isNotEmpty)
+          .toSet();
+      final activeThumbnails = currentActiveMedia
+          .map((m) => m.thumbnail ?? '')
+          .where((u) => u.isNotEmpty)
+          .toSet();
+
+      for (final old in [..._sharedMedia, ..._hiddenMedia]) {
+        if (old.displayUrl.isNotEmpty && !activeUrls.contains(old.displayUrl)) {
+          PaintingBinding.instance.imageCache.evict(NetworkImage(old.displayUrl));
+        }
+        if (old.thumbnail != null &&
+            old.thumbnail!.isNotEmpty &&
+            !activeThumbnails.contains(old.thumbnail)) {
+          PaintingBinding.instance.imageCache.evict(NetworkImage(old.thumbnail!));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error evicting image cache: $e');
+    }
+  }
+
+  /// Sets up real-time stream subscription to automatically sync deletions and additions from database
+  void _setupRealtimeSubscription() {
+    _mediaSubscription?.cancel();
+    if (_coupleId == null || _coupleId!.isEmpty) return;
+
+    try {
+      _mediaSubscription = _service.streamSecretMedia(_coupleId!).listen(
+        (allData) {
+          debugPrint('SecretMediaProvider: Realtime stream update received (${allData.length} total rows)');
+          const corruptedIds = {
+            '68123b89-c301-4d47-980f-e7e69c1f825c',
+            '517c69a3-79c3-4b46-9786-e046431fe008',
+          };
+          // Only active records where deleted_at is null and mediaUrl is valid
+          final activeMedia = allData.where((m) {
+            if (m.id != null && corruptedIds.contains(m.id)) return false;
+            final url = m.mediaUrl.trim();
+            return m.deletedAt == null &&
+                url.isNotEmpty &&
+                url != 'null' &&
+                url != 'undefined' &&
+                (url.startsWith('http://') || url.startsWith('https://'));
+          }).toList();
+          final newShared = activeMedia.where((m) => !m.isHidden).toList();
+          final newHidden = activeMedia.where((m) => m.isHidden).toList();
+
+          // Evict any database-deleted cards from image memory cache
+          _evictRemovedMediaFromCache(activeMedia);
+
+          _sharedMedia = newShared;
+          _hiddenMedia = newHidden;
+          _isLoading = false;
+          _error = null;
+          notifyListeners();
+        },
+        onError: (error) {
+          debugPrint('SecretMediaProvider: Realtime stream error: $error');
+        },
+      );
+    } catch (e) {
+      debugPrint('SecretMediaProvider: Error starting stream: $e');
+    }
+  }
+
   Future<void> initialize({
     required String userId,
     required String coupleId,
   }) async {
     final needsRefresh =
         _userId != userId || _coupleId != coupleId || _sharedMedia.isEmpty;
-    final userChanged = _userId != userId;
+    final userChanged = _userId != userId || _coupleId != coupleId;
     _userId = userId;
     _coupleId = coupleId;
 
     if (userChanged) {
       await loadVaultSettings(userId);
+      _setupRealtimeSubscription();
+    } else if (_mediaSubscription == null) {
+      _setupRealtimeSubscription();
     }
 
     if (!needsRefresh) return;
@@ -154,6 +229,9 @@ class SecretMediaProvider extends ChangeNotifier {
           'SecretMediaProvider: Loading secret media for coupleId=$_coupleId');
       final allMedia = await _service.getSecretMedia(_coupleId!);
       final hiddenMedia = await _service.getHiddenSecretMedia(_coupleId!);
+
+      final activeCombined = [...allMedia, ...hiddenMedia];
+      _evictRemovedMediaFromCache(activeCombined);
 
       _sharedMedia = List<SecretMediaModel>.from(allMedia);
       _hiddenMedia = List<SecretMediaModel>.from(hiddenMedia);
@@ -270,9 +348,26 @@ class SecretMediaProvider extends ChangeNotifier {
     }
   }
 
-  /// Delete secret media
+  /// Delete secret media (soft delete - preserves admin dashboard recovery)
   Future<bool> deleteSecretMedia(String mediaId) async {
     try {
+      // Evict image cache before removing
+      for (final m in [..._sharedMedia, ..._hiddenMedia]) {
+        if (m.id == mediaId) {
+          if (m.displayUrl.isNotEmpty) {
+            try {
+              PaintingBinding.instance.imageCache.evict(NetworkImage(m.displayUrl));
+            } catch (_) {}
+          }
+          if (m.thumbnail != null && m.thumbnail!.isNotEmpty) {
+            try {
+              PaintingBinding.instance.imageCache.evict(NetworkImage(m.thumbnail!));
+            } catch (_) {}
+          }
+          break;
+        }
+      }
+
       await _service.deleteSecretMedia(mediaId);
       _sharedMedia.removeWhere((m) => m.id == mediaId);
       _hiddenMedia.removeWhere((m) => m.id == mediaId);

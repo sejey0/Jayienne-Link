@@ -15,7 +15,12 @@ import '../../../widgets/common/app_text_field.dart';
 
 /// Redesigned Screen for Uploading and Encrypting Private Photos & Videos
 class AddSecretMediaScreen extends StatefulWidget {
-  const AddSecretMediaScreen({super.key});
+  final String initialMediaType;
+
+  const AddSecretMediaScreen({
+    super.key,
+    this.initialMediaType = 'image',
+  });
 
   @override
   State<AddSecretMediaScreen> createState() => _AddSecretMediaScreenState();
@@ -24,7 +29,7 @@ class AddSecretMediaScreen extends StatefulWidget {
 class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
   late ImagePicker _imagePicker;
   File? _selectedFile;
-  String _mediaType = 'image'; // 'image' or 'video'
+  late String _mediaType; // 'image' or 'video'
   final TextEditingController _captionController = TextEditingController();
   bool _isUploading = false;
 
@@ -32,6 +37,7 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
   void initState() {
     super.initState();
     _imagePicker = ImagePicker();
+    _mediaType = widget.initialMediaType == 'video' ? 'video' : 'image';
   }
 
   @override
@@ -106,14 +112,15 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
         coupleId: coupleId,
       );
 
+      final currentType = _mediaType;
       final mediaUrl = await storageService.uploadSecretMedia(
         authProvider.currentUserId!,
         _selectedFile!,
-        _mediaType,
+        currentType,
       );
 
       final createdMedia = await secretMediaProvider.addSecretMedia(
-        mediaType: _mediaType,
+        mediaType: currentType,
         mediaUrl: mediaUrl,
         caption: _captionController.text.trim().isNotEmpty
             ? _captionController.text.trim()
@@ -126,11 +133,15 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
       }
 
       if (mounted) {
-        SnackbarHelper.showSuccess(
-          context,
-          'Private media encrypted & saved to Hidden Vault!',
-        );
-        Navigator.pop(context);
+        HapticFeedback.heavyImpact();
+        // Reset form state so no traces or pending upload files remain
+        setState(() {
+          _selectedFile = null;
+          _captionController.clear();
+        });
+
+        // Show elegant success confirmation modal
+        _showUploadSuccessModal(context, isVideo: currentType == 'video');
       }
     } catch (e) {
       final message = e.toString();
@@ -152,6 +163,209 @@ class _AddSecretMediaScreenState extends State<AddSecretMediaScreen> {
         });
       }
     }
+  }
+
+  void _showUploadSuccessModal(BuildContext context, {required bool isVideo}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E142B) : Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: const Color(0xFF00B09B).withValues(alpha: 0.4),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00B09B).withValues(alpha: 0.25),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Glowing Animated Emerald / Lavender Success Badge
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00B09B), Color(0xFF96C93D)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00B09B).withValues(alpha: 0.4),
+                      blurRadius: 18,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  isVideo ? Icons.videocam_rounded : Icons.photo_library_rounded,
+                  size: 40,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Title
+              Text(
+                isVideo ? 'Private Video Saved!' : 'Private Photo Saved!',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : const Color(0xFF2D4059),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Subtitle
+              Text(
+                isVideo
+                    ? 'Your private video has been safely encrypted and saved to your Hidden Vault.'
+                    : 'Your private photo has been safely encrypted and saved to your Hidden Vault.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Security & Hidden Vault Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00B09B).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFF00B09B).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.lock_rounded,
+                      color: Color(0xFF00B09B),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Encrypted & Hidden in Vault',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF00897B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Action Buttons Row
+              Row(
+                children: [
+                  // Upload Another (Stays on screen with reset inputs)
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.pop(dialogCtx);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: isDark ? Colors.white70 : Colors.grey.shade800,
+                        side: BorderSide(
+                          color: isDark ? Colors.white24 : Colors.grey.shade300,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'Upload More',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Go to Vault (Returns to Hidden Vault)
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pop(dialogCtx); // Close modal
+                          Navigator.pop(context);   // Return to Hidden Vault
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'Go to Vault',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override

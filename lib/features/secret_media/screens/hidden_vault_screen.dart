@@ -33,9 +33,15 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
     '071525',
   ];
 
+  static const Set<String> _knownCorruptedIds = {
+    '68123b89-c301-4d47-980f-e7e69c1f825c',
+    '517c69a3-79c3-4b46-9786-e046431fe008',
+  };
+
   String _selectedType = 'all';
   bool _isUnlocked = false;
   final Set<String> _revealedMediaIds = <String>{};
+  final Set<String> _failedImageIds = <String>{};
   late final List<TextEditingController> _lockControllers;
   late final List<bool> _obscureLocks;
 
@@ -129,12 +135,32 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
   }
 
   List<SecretMediaModel> _filteredHiddenMedia(SecretMediaProvider provider) {
-    if (_selectedType == 'image') {
-      return provider.hiddenMedia.where((m) => m.mediaType == 'image').toList();
-    } else if (_selectedType == 'video') {
-      return provider.hiddenMedia.where((m) => m.mediaType == 'video').toList();
+    final seenIds = <String>{};
+    final seenUrls = <String>{};
+    final validMedia = <SecretMediaModel>[];
+
+    for (final m in provider.hiddenMedia) {
+      final id = m.id;
+      if (id != null && (_knownCorruptedIds.contains(id) || _failedImageIds.contains(id))) {
+        continue;
+      }
+      final url = m.mediaUrl.trim();
+      if (url.isEmpty || url == 'null' || !(url.startsWith('http://') || url.startsWith('https://'))) {
+        continue;
+      }
+      if (id != null && seenIds.contains(id)) continue;
+      if (seenUrls.contains(url)) continue;
+      if (id != null) seenIds.add(id);
+      seenUrls.add(url);
+      validMedia.add(m);
     }
-    return provider.hiddenMedia;
+
+    if (_selectedType == 'image') {
+      return validMedia.where((m) => m.mediaType == 'image').toList();
+    } else if (_selectedType == 'video') {
+      return validMedia.where((m) => m.mediaType == 'video').toList();
+    }
+    return validMedia;
   }
 
   Widget _buildLockGate(bool isSessionUnlocked) {
@@ -651,7 +677,10 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AddSecretMediaScreen(),
+                          builder: (context) => AddSecretMediaScreen(
+                            initialMediaType:
+                                _selectedType == 'video' ? 'video' : 'image',
+                          ),
                         ),
                       );
                     },
@@ -677,13 +706,42 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
               )
             : Consumer<SecretMediaProvider>(
                 builder: (context, provider, _) {
-                  final imageCount = provider.hiddenMedia
+                  // Purge any revealed IDs for items that no longer exist (e.g. deleted from database)
+                  _revealedMediaIds.removeWhere(
+                      (id) => !provider.hiddenMedia.any((m) => m.id == id));
+
+                  final allValidHidden = provider.hiddenMedia.where((m) {
+                    final id = m.id;
+                    if (id != null &&
+                        (_knownCorruptedIds.contains(id) ||
+                            _failedImageIds.contains(id))) {
+                      return false;
+                    }
+                    final url = m.mediaUrl.trim();
+                    return url.isNotEmpty &&
+                        url != 'null' &&
+                        (url.startsWith('http://') || url.startsWith('https://'));
+                  }).toList();
+                  final seenIds = <String>{};
+                  final seenUrls = <String>{};
+                  final uniqueHidden = <SecretMediaModel>[];
+                  for (final m in allValidHidden) {
+                    final id = m.id;
+                    final url = m.mediaUrl.trim();
+                    if (id != null && seenIds.contains(id)) continue;
+                    if (seenUrls.contains(url)) continue;
+                    if (id != null) seenIds.add(id);
+                    seenUrls.add(url);
+                    uniqueHidden.add(m);
+                  }
+
+                  final imageCount = uniqueHidden
                       .where((m) => m.mediaType == 'image')
                       .length;
-                  final videoCount = provider.hiddenMedia
+                  final videoCount = uniqueHidden
                       .where((m) => m.mediaType == 'video')
                       .length;
-                  final totalCount = provider.hiddenMedia.length;
+                  final totalCount = uniqueHidden.length;
                   final filteredMedia = _filteredHiddenMedia(provider);
 
                   if (provider.isLoading) {
@@ -692,7 +750,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                     );
                   }
 
-                  if (provider.hiddenMedia.isEmpty) {
+                  if (uniqueHidden.isEmpty) {
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -751,7 +809,11 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => const AddSecretMediaScreen(),
+                                      builder: (context) => AddSecretMediaScreen(
+                                        initialMediaType: _selectedType == 'video'
+                                            ? 'video'
+                                            : 'image',
+                                      ),
                                     ),
                                   );
                                 },
@@ -971,8 +1033,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
     List<SecretMediaModel> filteredMedia,
   ) {
     final currentUserId = context.read<AuthProvider>().currentUserId;
-    final canDelete =
-        currentUserId != null && currentUserId == media.uploadedById;
+    final canDelete = currentUserId != null;
 
     final displayImageUrl = media.mediaType == 'video'
         ? (media.thumbnail?.isNotEmpty == true
@@ -1049,9 +1110,20 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                     child: Image.network(
                       displayImageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: const Color(0xFF1E142B),
-                      ),
+                      errorBuilder: (context, error, stackTrace) {
+                        if (media.id != null && !_failedImageIds.contains(media.id)) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              setState(() {
+                                _failedImageIds.add(media.id!);
+                              });
+                            }
+                          });
+                        }
+                        return Container(
+                          color: const Color(0xFF1E142B),
+                        );
+                      },
                     ),
                   )
                 else
@@ -1071,16 +1143,27 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                             ? displayImageUrl
                             : media.displayUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: const Color(0xFF1E142B),
-                          child: const Center(
-                            child: Icon(
-                              Icons.broken_image_rounded,
-                              color: Colors.white54,
-                              size: 28,
+                        errorBuilder: (context, error, stackTrace) {
+                          if (media.id != null && !_failedImageIds.contains(media.id)) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) {
+                                setState(() {
+                                  _failedImageIds.add(media.id!);
+                                });
+                              }
+                            });
+                          }
+                          return Container(
+                            color: const Color(0xFF1E142B),
+                            child: const Center(
+                              child: Icon(
+                                Icons.broken_image_rounded,
+                                color: Colors.white54,
+                                size: 28,
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
 
               // 2. Heavy dark frosted privacy mask overlay when hidden

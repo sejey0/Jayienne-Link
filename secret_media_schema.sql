@@ -54,33 +54,34 @@ CREATE POLICY "Users can insert media for their couple" ON secret_media
     AND uploaded_by_id = auth.uid()
   );
 
--- RLS Policy: Users can only update their own media or captions
-CREATE POLICY "Users can update their own media" ON secret_media
+-- RLS Policy: Users can update media in their couple's vault
+DROP POLICY IF EXISTS "Users can update their own media" ON secret_media;
+DROP POLICY IF EXISTS "Users can update their couple's media" ON secret_media;
+CREATE POLICY "Users can update their couple's media" ON secret_media
   FOR UPDATE
   USING (
     couple_id IN (
       SELECT id FROM couples 
       WHERE auth.uid() = ANY(partner_ids)
     )
-    AND uploaded_by_id = auth.uid()
   )
   WITH CHECK (
     couple_id IN (
       SELECT id FROM couples 
       WHERE auth.uid() = ANY(partner_ids)
     )
-    AND uploaded_by_id = auth.uid()
   );
 
--- RLS Policy: Users can only delete their own media
-CREATE POLICY "Users can delete their own media" ON secret_media
+-- RLS Policy: Users can delete media in their couple's vault
+DROP POLICY IF EXISTS "Users can delete their own media" ON secret_media;
+DROP POLICY IF EXISTS "Users can delete their couple's media" ON secret_media;
+CREATE POLICY "Users can delete their couple's media" ON secret_media
   FOR DELETE
   USING (
     couple_id IN (
       SELECT id FROM couples 
       WHERE auth.uid() = ANY(partner_ids)
     )
-    AND uploaded_by_id = auth.uid()
   );
 
 -- Create trigger to update the updated_at column

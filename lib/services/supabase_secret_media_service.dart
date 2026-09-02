@@ -27,22 +27,44 @@ class SupabaseSecretMediaService {
       final response = await _supabase
           .from(_tableName)
           .select()
-          .eq('couple_id', coupleId);
+          .eq('couple_id', coupleId)
+          .isFilter('deleted_at', null);
 
-      debugPrint('📸 FOUND SECRET MEDIA COUNT: ${response.length}');
-      debugPrint('📦 RAW SECRET MEDIA DATA: $response');
+      debugPrint('📸 FOUND ACTIVE SECRET MEDIA COUNT: ${response.length}');
 
       final allItems = (response as List)
           .map((item) => SecretMediaModel.fromJson(item as Map<String, dynamic>))
           .toList();
 
-      if (includeHidden) {
-        return allItems.where((media) => media.deletedAt == null).toList();
+      bool isValidMedia(SecretMediaModel media) {
+        if (media.id != null && _knownCorruptedIds.contains(media.id)) {
+          return false;
+        }
+        final url = media.mediaUrl.trim();
+        return media.deletedAt == null &&
+            url.isNotEmpty &&
+            url != 'null' &&
+            url != 'undefined' &&
+            (url.startsWith('http://') || url.startsWith('https://'));
       }
 
-      return allItems
-          .where((media) => media.deletedAt == null && !media.isHidden)
-          .toList();
+      final seenUrls = <String>{};
+      final seenIds = <String>{};
+      final result = <SecretMediaModel>[];
+
+      for (final media in allItems) {
+        if (!isValidMedia(media)) continue;
+        if (media.isHidden && !includeHidden) continue;
+        final id = media.id;
+        final url = media.mediaUrl.trim();
+        if (id != null && seenIds.contains(id)) continue;
+        if (seenUrls.contains(url)) continue;
+        if (id != null) seenIds.add(id);
+        seenUrls.add(url);
+        result.add(media);
+      }
+
+      return result;
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
         debugPrint('Error fetching secret media: $_missingTableHelp');
@@ -53,25 +75,67 @@ class SupabaseSecretMediaService {
     }
   }
 
+  static const Set<String> _knownCorruptedIds = {
+    '68123b89-c301-4d47-980f-e7e69c1f825c',
+    '517c69a3-79c3-4b46-9786-e046431fe008',
+  };
+
   // Get hidden secret media only (personal vault)
   Future<List<SecretMediaModel>> getHiddenSecretMedia(String coupleId) async {
     try {
       debugPrint('🔍 FETCHING HIDDEN VAULT MEDIA FOR COUPLE_ID: $coupleId');
 
+      // Best-effort cleanup of phantom duplicate IDs in database
+      for (final badId in _knownCorruptedIds) {
+        _supabase.from(_tableName).delete().eq('id', badId).catchError((_) {});
+      }
+
       final response = await _supabase
           .from(_tableName)
           .select()
-          .eq('couple_id', coupleId);
+          .eq('couple_id', coupleId)
+          .isFilter('deleted_at', null);
 
-      debugPrint('🔒 FOUND HIDDEN VAULT RAW COUNT: ${response.length}');
+      debugPrint('🔒 FOUND ACTIVE HIDDEN VAULT COUNT: ${response.length}');
 
       final allItems = (response as List)
           .map((item) => SecretMediaModel.fromJson(item as Map<String, dynamic>))
           .toList();
 
-      return allItems
-          .where((media) => media.deletedAt == null && media.isHidden)
-          .toList();
+      bool isValidMedia(SecretMediaModel media) {
+        if (media.id != null && _knownCorruptedIds.contains(media.id)) {
+          return false;
+        }
+        final url = media.mediaUrl.trim();
+        return media.deletedAt == null &&
+            url.isNotEmpty &&
+            url != 'null' &&
+            url != 'undefined' &&
+            (url.startsWith('http://') || url.startsWith('https://'));
+      }
+
+      final seenUrls = <String>{};
+      final seenIds = <String>{};
+      final hiddenResult = <SecretMediaModel>[];
+
+      for (final media in allItems) {
+        if (!isValidMedia(media) || !media.isHidden) continue;
+        final id = media.id;
+        final url = media.mediaUrl.trim();
+        if (id != null && seenIds.contains(id)) continue;
+        if (seenUrls.contains(url)) continue;
+        if (id != null) seenIds.add(id);
+        seenUrls.add(url);
+        hiddenResult.add(media);
+      }
+
+      debugPrint('🔒 FOUND ACTIVE FILTERED HIDDEN VAULT COUNT: ${hiddenResult.length}');
+      for (int i = 0; i < hiddenResult.length; i++) {
+        final m = hiddenResult[i];
+        debugPrint('VAULT_ITEM[$i]: id=${m.id}, type=${m.mediaType}, url=${m.mediaUrl}');
+      }
+
+      return hiddenResult;
     } catch (e) {
       if (_isMissingSecretMediaTable(e)) {
         debugPrint('Error fetching hidden secret media: $_missingTableHelp');

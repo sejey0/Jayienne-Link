@@ -59,7 +59,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   String? _lastActivityResult;
   String? _lastFoodResult;
 
-  // Strict Alternating Turn Tracking per category (0: Movie, 1: Activity, 2: Food)
+  // Strict Alternating Turn Tracking per category (0: Movie Watchlist, 1: Dates & Activities, 2: Food & Drinks)
   String? _lastMovieSpinnerId;
   String? _lastActivitySpinnerId;
   String? _lastFoodSpinnerId;
@@ -1048,8 +1048,18 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
   }
 
-  /// Reset only the current active decision back to initial state
+  /// Reset / Reject only the current active decision (Option 3: only partner can reject)
   Future<void> _resetCurrentDecision() async {
+    if (_isPartnerTurn(_selectedCategoryIndex)) {
+      HapticFeedback.vibrate();
+      final partnerName = _getPartnerDisplayName();
+      SnackbarHelper.showInfo(
+        context,
+        "Only $partnerName can reset or reject this decision!",
+      );
+      return;
+    }
+
     HapticFeedback.mediumImpact();
     setState(() {
       if (_selectedCategoryIndex == 1) {
@@ -1086,7 +1096,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     if (mounted) {
       SnackbarHelper.showSuccess(
         context,
-        'Decision reset! Ready to spin again.',
+        'Decision rejected! You can now take your turn and spin.',
       );
     }
   }
@@ -2134,7 +2144,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       final myUserId =
           Provider.of<UserProvider>(context, listen: false).user?.uid;
 
-      // Update turn locally for current user
+      // Update turn locally for current user across all categories (Movie, Dates, Food)
       if (myUserId != null && myUserId.isNotEmpty) {
         setState(() {
           _setLastSpinnerIdForCategory(_selectedCategoryIndex, myUserId);
@@ -2191,6 +2201,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           debugPrint('Error deleting old active pick: $e');
         });
 
+        // Save turn restriction in Supabase
         if (myUserId != null && myUserId.isNotEmpty) {
           SupabaseDataService.client
               .from('decision_ideas')
@@ -3996,136 +4007,159 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             _currentDisplayResult != 'Tap Spin to Decide!' &&
             _currentDisplayResult != 'Spinning...' &&
             _currentDisplayResult.isNotEmpty)
-          Row(
-            children: [
-              // Re-Spin Button
-              Expanded(
-                flex: 3,
-                child: Container(
-                  height: 52,
-                  decoration: BoxDecoration(
-                    gradient: _isSpinning ||
-                            _isPartnerTurn(_selectedCategoryIndex)
-                        ? null
-                        : const LinearGradient(
-                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                    color: _isSpinning ||
-                            _isPartnerTurn(_selectedCategoryIndex)
-                        ? (isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : Colors.grey.shade300)
-                        : null,
+          if (_isPartnerTurn(_selectedCategoryIndex))
+            // Option 3: The person who spun is locked. Cannot Re-Spin and cannot Reset!
+            // Decision stays locked on screen until partner accepts, re-spins, or rejects.
+            Container(
+              width: double.infinity,
+              height: 52,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _onSpinPressed,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor:
+                      isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: _isSpinning ||
-                            _isPartnerTurn(_selectedCategoryIndex)
-                        ? null
-                        : [
-                            BoxShadow(
-                              color: const Color(0xFFFF758C)
-                                  .withValues(alpha: 0.35),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
                   ),
-                  child: ElevatedButton.icon(
-                    onPressed: _isSpinning ? null : _onSpinPressed,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: isDark
-                          ? Colors.grey.shade500
-                          : Colors.grey.shade600,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    icon: _isPartnerTurn(_selectedCategoryIndex)
-                        ? const Icon(
-                            Icons.hourglass_top_rounded,
-                            size: 20,
-                            color: Colors.white70,
-                          )
-                        : AnimatedRotation(
-                            turns: _isSpinning ? 2.0 : 0.0,
-                            duration: const Duration(milliseconds: 1200),
-                            child: Icon(
-                              _spinnerModeIndex == 0
-                                  ? Icons.rotate_right_rounded
-                                  : Icons.casino_rounded,
-                              size: 22,
+                ),
+                icon: const Icon(
+                  Icons.hourglass_top_rounded,
+                  size: 22,
+                ),
+                label: Text(
+                  'Waiting for ${_getPartnerDisplayName()}\'s Turn',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            )
+          else
+            // Option 3: Partner's turn! Partner has the power to Re-Spin or Reject!
+            Row(
+              children: [
+                // Partner Re-Spin Button
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: _isSpinning
+                          ? null
+                          : const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ),
-                    label: Text(
-                      _isSpinning
-                          ? 'Spinning...'
-                          : (_isPartnerTurn(_selectedCategoryIndex)
-                              ? 'Waiting for ${_getPartnerDisplayName()}\'s Turn'
-                              : (_selectedCategoryIndex == 0
-                                  ? (_spinnerModeIndex == 0
-                                      ? 'Re-Spin Wheel'
-                                      : 'Re-Spin Roulette')
-                                  : (_spinSourceIndex == 0
-                                      ? 'Re-Spin Custom'
-                                      : (_spinSourceIndex == 1
-                                          ? 'Re-Spin Online'
-                                          : 'Select Pool & Re-Spin')))),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                      color: _isSpinning
+                          ? (isDark
+                              ? Colors.grey.shade800
+                              : Colors.grey.shade300)
+                          : null,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: _isSpinning
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: const Color(0xFFFF758C)
+                                    .withValues(alpha: 0.35),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: _isSpinning ? null : _onSpinPressed,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        disabledForegroundColor: isDark
+                            ? Colors.grey.shade500
+                            : Colors.grey.shade600,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      icon: AnimatedRotation(
+                        turns: _isSpinning ? 2.0 : 0.0,
+                        duration: const Duration(milliseconds: 1200),
+                        child: Icon(
+                          _spinnerModeIndex == 0
+                              ? Icons.rotate_right_rounded
+                              : Icons.casino_rounded,
+                          size: 22,
+                        ),
+                      ),
+                      label: Text(
+                        _isSpinning
+                            ? 'Spinning...'
+                            : (_spinSourceIndex == 0
+                                ? 'Re-Spin Custom'
+                                : (_spinSourceIndex == 1
+                                    ? 'Re-Spin Online'
+                                    : 'Take Turn & Spin')),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              // Reset Pick Button
-              Expanded(
-                flex: 2,
-                child: Container(
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : const Color(0xFFFF758C).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: const Color(0xFFFF758C).withValues(alpha: 0.45),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: TextButton.icon(
-                    onPressed: _isSpinning ? null : _resetCurrentDecision,
-                    style: TextButton.styleFrom(
-                      foregroundColor:
-                          isDark ? Colors.white : const Color(0xFFC2185B),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                const SizedBox(width: 10),
+                // Partner's Reject Decision Button
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : const Color(0xFFFF758C).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.45),
+                        width: 1.5,
                       ),
                     ),
-                    icon: const Icon(
-                      Icons.restart_alt_rounded,
-                      size: 20,
-                      color: Color(0xFFFF758C),
-                    ),
-                    label: const Text(
-                      'Reset',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                    child: TextButton.icon(
+                      onPressed: _isSpinning ? null : _resetCurrentDecision,
+                      style: TextButton.styleFrom(
+                        foregroundColor:
+                            isDark ? Colors.white : const Color(0xFFC2185B),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 20,
+                        color: Color(0xFFFF758C),
+                      ),
+                      label: const Text(
+                        'Reject',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          )
+              ],
+            )
         else
           Container(
             width: double.infinity,
@@ -5104,13 +5138,17 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  /// Strict Alternating Turn Status Indicator Widget
+  /// Strict Alternating Turn Status Indicator Widget (Option 3: Partner veto / re-spin dynamic)
   Widget _buildTurnStatusIndicator(BuildContext context, bool isDark) {
     final isPartner = _isPartnerTurn(_selectedCategoryIndex);
     final lastSpinnerId =
         _getLastSpinnerIdForCategory(_selectedCategoryIndex);
     final partnerName = _getPartnerDisplayName();
     final hasSpun = lastSpinnerId != null && lastSpinnerId.isNotEmpty;
+    final hasActivePick = _selectedCategoryIndex != 0 &&
+        _currentDisplayResult != 'Tap Spin to Decide!' &&
+        _currentDisplayResult != 'Spinning...' &&
+        _currentDisplayResult.trim().isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(top: 8, bottom: 4),
@@ -5143,7 +5181,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             isPartner
                 ? Icons.hourglass_top_rounded
                 : (hasSpun
-                    ? Icons.check_circle_rounded
+                    ? (hasActivePick
+                        ? Icons.touch_app_rounded
+                        : Icons.check_circle_rounded)
                     : Icons.swap_horiz_rounded),
             size: 16,
             color: isPartner
@@ -5156,9 +5196,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           Expanded(
             child: Text(
               isPartner
-                  ? 'Waiting for $partnerName\'s turn to spin'
+                  ? (_selectedCategoryIndex == 0
+                      ? 'Waiting for $partnerName\'s turn to spin'
+                      : 'Waiting for $partnerName to accept, re-spin, or reject')
                   : (hasSpun
-                      ? 'It\'s your turn to spin!'
+                      ? (hasActivePick
+                          ? '$partnerName spun this! Accept, re-spin, or reject.'
+                          : 'It\'s your turn to spin!')
                       : 'Alternating turns: either partner can spin'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

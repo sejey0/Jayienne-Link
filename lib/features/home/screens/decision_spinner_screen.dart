@@ -59,6 +59,81 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   String? _lastActivityResult;
   String? _lastFoodResult;
 
+  // Strict Alternating Turn Tracking per category (0: Movie, 1: Activity, 2: Food)
+  String? _lastMovieSpinnerId;
+  String? _lastActivitySpinnerId;
+  String? _lastFoodSpinnerId;
+
+  String? _getLastSpinnerIdForCategory(int categoryIndex) {
+    switch (categoryIndex) {
+      case 0:
+        return _lastMovieSpinnerId;
+      case 1:
+        return _lastActivitySpinnerId;
+      case 2:
+        return _lastFoodSpinnerId;
+      default:
+        return null;
+    }
+  }
+
+  void _setLastSpinnerIdForCategory(int categoryIndex, String? userId) {
+    switch (categoryIndex) {
+      case 0:
+        _lastMovieSpinnerId = userId;
+        break;
+      case 1:
+        _lastActivitySpinnerId = userId;
+        break;
+      case 2:
+        _lastFoodSpinnerId = userId;
+        break;
+    }
+  }
+
+  bool _isPartnerTurn(int categoryIndex) {
+    final lastSpinnerId = _getLastSpinnerIdForCategory(categoryIndex);
+    if (lastSpinnerId == null || lastSpinnerId.isEmpty) {
+      return false; // Neither partner has spun yet, either can spin!
+    }
+    final myUserId =
+        Provider.of<UserProvider>(context, listen: false).user?.uid;
+    if (myUserId == null || myUserId.isEmpty) return false;
+    // If I was the last person who spun in this category, it is my partner's turn (I am locked)!
+    return lastSpinnerId == myUserId;
+  }
+
+  String _getPartnerDisplayName() {
+    try {
+      final coupleProvider =
+          Provider.of<CoupleProvider>(context, listen: false);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final myUid = userProvider.user?.uid ?? '';
+      final couple = coupleProvider.couple;
+      if (couple != null && myUid.isNotEmpty) {
+        final name = couple.getPartnerName(
+          myUid,
+          livePartnerName: coupleProvider.partner?.displayName,
+        );
+        if (name.isNotEmpty) return name;
+      }
+    } catch (_) {}
+    return 'Partner';
+  }
+
+  String _getCategoryName(int categoryIndex) {
+    switch (categoryIndex) {
+      case 0:
+        return 'Movie Watchlist';
+      case 1:
+        return 'Dates & Activities';
+      case 2:
+        return 'Food & Drinks';
+      default:
+        return 'Decision';
+    }
+  }
+
   // Wheel Physics Animation
   late AnimationController _wheelController;
   late Animation<double> _wheelAnimation;
@@ -433,6 +508,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             _spinnerModeIndex = modeIndex;
           });
 
+          if (senderId != null && senderId != myUserId) {
+            _setLastSpinnerIdForCategory(catIndex, senderId);
+            _savePersistentData();
+          }
+
           if (modeIndex == 0) {
             _startVisualWheelSpin(
               fromRemote: true,
@@ -470,6 +550,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           final mediaType = payload['mediaType']?.toString() ?? 'movie';
           final watchCount = payload['watchCount'] as int? ?? 1;
           final movieId = payload['movieId']?.toString();
+
+          if (senderId != null && senderId != myUserId) {
+            _setLastSpinnerIdForCategory(catIndex, senderId);
+          }
 
           // Sync options from payload if present
           if (payload['foodOptions'] != null) {
@@ -521,6 +605,18 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               movieId: movieId,
             );
           }
+        },
+      );
+
+      _spinnerChannel!.onBroadcast(
+        event: 'turn_reset',
+        callback: (payload) {
+          if (!mounted) return;
+          final catIndex = payload['categoryIndex'] as int? ?? 0;
+          setState(() {
+            _setLastSpinnerIdForCategory(catIndex, null);
+          });
+          _savePersistentData();
         },
       );
 
@@ -783,6 +879,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _lastFoodResult =
             prefs.getString('decision_spinner_last_food_result');
 
+        // Load Last Spinner IDs per category
+        _lastMovieSpinnerId =
+            prefs.getString('decision_spinner_last_movie_spinner_id');
+        _lastActivitySpinnerId =
+            prefs.getString('decision_spinner_last_activity_spinner_id');
+        _lastFoodSpinnerId =
+            prefs.getString('decision_spinner_last_food_spinner_id');
+
         // Load Active Picked Movie from Local Cache
         final cachedMovieTitle =
             prefs.getString('decision_spinner_picked_movie_title');
@@ -863,6 +967,27 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       } else {
         await prefs.remove('decision_spinner_picked_movie_title');
         await prefs.remove('decision_spinner_picked_movie_poster');
+      }
+
+      if (_lastMovieSpinnerId != null && _lastMovieSpinnerId!.isNotEmpty) {
+        await prefs.setString(
+            'decision_spinner_last_movie_spinner_id', _lastMovieSpinnerId!);
+      } else {
+        await prefs.remove('decision_spinner_last_movie_spinner_id');
+      }
+
+      if (_lastActivitySpinnerId != null && _lastActivitySpinnerId!.isNotEmpty) {
+        await prefs.setString(
+            'decision_spinner_last_activity_spinner_id', _lastActivitySpinnerId!);
+      } else {
+        await prefs.remove('decision_spinner_last_activity_spinner_id');
+      }
+
+      if (_lastFoodSpinnerId != null && _lastFoodSpinnerId!.isNotEmpty) {
+        await prefs.setString(
+            'decision_spinner_last_food_spinner_id', _lastFoodSpinnerId!);
+      } else {
+        await prefs.remove('decision_spinner_last_food_spinner_id');
       }
     } catch (_) {}
   }
@@ -1388,6 +1513,18 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               activeFoodTitle = title;
               continue;
             }
+            if (category == 'turn_movie' && title.isNotEmpty) {
+              _lastMovieSpinnerId = title;
+              continue;
+            }
+            if (category == 'turn_activity' && title.isNotEmpty) {
+              _lastActivitySpinnerId = title;
+              continue;
+            }
+            if (category == 'turn_food' && title.isNotEmpty) {
+              _lastFoodSpinnerId = title;
+              continue;
+            }
 
             // Clean up previously auto-seeded default items from database
             if (_defaultFilterOutList.contains(title) && !isCustomFlag) {
@@ -1626,6 +1763,19 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   /// Trigger the appropriate spin mode
   Future<void> _onSpinPressed() async {
     if (_isSpinning) return;
+
+    // Strict Alternate Turns Check: Cannot spin if partner's turn
+    if (_isPartnerTurn(_selectedCategoryIndex)) {
+      HapticFeedback.vibrate();
+      final partnerName = _getPartnerDisplayName();
+      final catName = _getCategoryName(_selectedCategoryIndex);
+      SnackbarHelper.showInfo(
+        context,
+        "It's $partnerName's turn to spin $catName! Turns alternate between you two.",
+      );
+      return;
+    }
+
     if (_selectedCategoryIndex == 0) {
       if (_pickedMovie != null) {
         HapticFeedback.vibrate();
@@ -1983,6 +2133,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     if (!fromRemote) {
       final myUserId =
           Provider.of<UserProvider>(context, listen: false).user?.uid;
+
+      // Update turn locally for current user
+      if (myUserId != null && myUserId.isNotEmpty) {
+        setState(() {
+          _setLastSpinnerIdForCategory(_selectedCategoryIndex, myUserId);
+        });
+        _savePersistentData();
+      }
+
       _spinnerChannel?.sendBroadcastMessage(
         event: 'decision_made',
         payload: {
@@ -1993,12 +2152,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'watchCount': winningMovie?.watchCount ?? 1,
           'movieId': winningMovie?.id,
           'userId': myUserId,
+          'lastSpinnerId': myUserId,
           'foodOptions': _foodOptions,
           'activityOptions': _activityOptions,
         },
       );
 
-      // Persist active pick in Supabase so partner sees it locked on screen immediately
+      // Persist active pick & turn in Supabase so partner sees it locked on screen immediately
       final coupleId = _getCoupleId();
       if (coupleId.isNotEmpty) {
         final categoryTag = _selectedCategoryIndex == 0
@@ -2006,6 +2166,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             : (_selectedCategoryIndex == 1
                 ? 'active_activity_pick'
                 : 'active_food_pick');
+
+        final turnTag = _selectedCategoryIndex == 0
+            ? 'turn_movie'
+            : (_selectedCategoryIndex == 1
+                ? 'turn_activity'
+                : 'turn_food');
 
         SupabaseDataService.client
             .from('decision_ideas')
@@ -2024,6 +2190,26 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         }).catchError((e) {
           debugPrint('Error deleting old active pick: $e');
         });
+
+        if (myUserId != null && myUserId.isNotEmpty) {
+          SupabaseDataService.client
+              .from('decision_ideas')
+              .delete()
+              .eq('couple_id', coupleId)
+              .eq('category', turnTag)
+              .then((_) {
+            SupabaseDataService.client.from('decision_ideas').insert({
+              'couple_id': coupleId,
+              'category': turnTag,
+              'title': myUserId,
+              'is_custom': false,
+            }).catchError((e) {
+              debugPrint('Error saving turn to Supabase: $e');
+            });
+          }).catchError((e) {
+            debugPrint('Error deleting old turn: $e');
+          });
+        }
       }
     }
 
@@ -3799,6 +3985,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         // Winner Decision Celebration Card for Dates & Food
         _buildDecisionResultCard(context, isDark),
 
+        // Strict Alternating Turn Status Indicator for all decision spinner features
+        _buildTurnStatusIndicator(context, isDark),
+
         // Spin Source Selector (Custom Ideas vs Online Suggestions) placed right before spin buttons!
         _buildSpinSourceSelector(context, isDark),
 
@@ -3815,20 +4004,23 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 child: Container(
                   height: 52,
                   decoration: BoxDecoration(
-                    gradient: _isSpinning
+                    gradient: _isSpinning ||
+                            _isPartnerTurn(_selectedCategoryIndex)
                         ? null
                         : const LinearGradient(
                             colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                    color: _isSpinning
+                    color: _isSpinning ||
+                            _isPartnerTurn(_selectedCategoryIndex)
                         ? (isDark
-                            ? Colors.grey.shade800
+                            ? Colors.white.withValues(alpha: 0.08)
                             : Colors.grey.shade300)
                         : null,
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: _isSpinning
+                    boxShadow: _isSpinning ||
+                            _isPartnerTurn(_selectedCategoryIndex)
                         ? null
                         : [
                             BoxShadow(
@@ -3852,31 +4044,41 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         borderRadius: BorderRadius.circular(20),
                       ),
                     ),
-                    icon: AnimatedRotation(
-                      turns: _isSpinning ? 2.0 : 0.0,
-                      duration: const Duration(milliseconds: 1200),
-                      child: Icon(
-                        _spinnerModeIndex == 0
-                            ? Icons.rotate_right_rounded
-                            : Icons.casino_rounded,
-                        size: 22,
-                      ),
-                    ),
+                    icon: _isPartnerTurn(_selectedCategoryIndex)
+                        ? const Icon(
+                            Icons.hourglass_top_rounded,
+                            size: 20,
+                            color: Colors.white70,
+                          )
+                        : AnimatedRotation(
+                            turns: _isSpinning ? 2.0 : 0.0,
+                            duration: const Duration(milliseconds: 1200),
+                            child: Icon(
+                              _spinnerModeIndex == 0
+                                  ? Icons.rotate_right_rounded
+                                  : Icons.casino_rounded,
+                              size: 22,
+                            ),
+                          ),
                     label: Text(
                       _isSpinning
                           ? 'Spinning...'
-                          : (_selectedCategoryIndex == 0
-                              ? (_spinnerModeIndex == 0
-                                  ? 'Re-Spin Wheel'
-                                  : 'Re-Spin Roulette')
-                              : (_spinSourceIndex == 0
-                                  ? 'Re-Spin Custom'
-                                  : (_spinSourceIndex == 1
-                                      ? 'Re-Spin Online'
-                                      : 'Select Pool & Re-Spin'))),
+                          : (_isPartnerTurn(_selectedCategoryIndex)
+                              ? 'Waiting for ${_getPartnerDisplayName()}\'s Turn'
+                              : (_selectedCategoryIndex == 0
+                                  ? (_spinnerModeIndex == 0
+                                      ? 'Re-Spin Wheel'
+                                      : 'Re-Spin Roulette')
+                                  : (_spinSourceIndex == 0
+                                      ? 'Re-Spin Custom'
+                                      : (_spinSourceIndex == 1
+                                          ? 'Re-Spin Online'
+                                          : 'Select Pool & Re-Spin')))),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                        fontSize: 14,
                       ),
                     ),
                   ),
@@ -3930,6 +4132,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             height: 52,
             decoration: BoxDecoration(
               gradient: _isSpinning ||
+                      _isPartnerTurn(_selectedCategoryIndex) ||
                       (_selectedCategoryIndex == 0 &&
                           _watchOptions.length < 2)
                   ? null
@@ -3939,14 +4142,16 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       end: Alignment.bottomRight,
                     ),
               color: _isSpinning ||
+                      _isPartnerTurn(_selectedCategoryIndex) ||
                       (_selectedCategoryIndex == 0 &&
                           _watchOptions.length < 2)
                   ? (isDark
-                      ? Colors.grey.shade800
+                      ? Colors.white.withValues(alpha: 0.08)
                       : Colors.grey.shade300)
                   : null,
               borderRadius: BorderRadius.circular(20),
               boxShadow: _isSpinning ||
+                      _isPartnerTurn(_selectedCategoryIndex) ||
                       (_selectedCategoryIndex == 0 &&
                           _watchOptions.length < 2)
                   ? null
@@ -3971,61 +4176,69 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   borderRadius: BorderRadius.circular(20),
                 ),
               ),
-              icon: AnimatedRotation(
-                turns: _isSpinning ? 2.0 : 0.0,
-                duration: const Duration(milliseconds: 1200),
-                child: Icon(
-                  _spinnerModeIndex == 0
-                      ? Icons.rotate_right_rounded
-                      : Icons.casino_rounded,
-                  size: 24,
-                ),
-              ),
+              icon: _isPartnerTurn(_selectedCategoryIndex)
+                  ? const Icon(
+                      Icons.hourglass_top_rounded,
+                      size: 22,
+                      color: Colors.white70,
+                    )
+                  : AnimatedRotation(
+                      turns: _isSpinning ? 2.0 : 0.0,
+                      duration: const Duration(milliseconds: 1200),
+                      child: Icon(
+                        _spinnerModeIndex == 0
+                            ? Icons.rotate_right_rounded
+                            : Icons.casino_rounded,
+                        size: 24,
+                      ),
+                    ),
               label: Text(
                 _isSpinning
                     ? 'Spinning...'
-                    : (_selectedCategoryIndex == 0
-                        ? (_pickedMovie != null
-                            ? 'Movie Locked'
-                            : (_spinnerModeIndex == 0
-                                ? 'Spin Wheel'
-                                : 'Spin Roulette'))
-                        : (_spinSourceIndex == 0
-                            ? (_spinnerModeIndex == 0
-                                ? 'Spin Custom Wheel'
-                                : 'Spin Custom Roulette')
-                            : (_spinSourceIndex == 1
+                    : (_isPartnerTurn(_selectedCategoryIndex)
+                        ? 'Waiting for ${_getPartnerDisplayName()}\'s Turn'
+                        : (_selectedCategoryIndex == 0
+                            ? (_pickedMovie != null
+                                ? 'Movie Locked'
+                                : (_spinnerModeIndex == 0
+                                    ? 'Spin Wheel'
+                                    : 'Spin Roulette'))
+                            : (_spinSourceIndex == 0
                                 ? (_spinnerModeIndex == 0
-                                    ? 'Spin Online Wheel'
-                                    : 'Spin Online Roulette')
-                                : 'Select Pool & Spin'))),
+                                    ? 'Spin Custom Wheel'
+                                    : 'Spin Custom Roulette')
+                                : (_spinSourceIndex == 1
+                                    ? (_spinnerModeIndex == 0
+                                        ? 'Spin Online Wheel'
+                                        : 'Spin Online Roulette')
+                                    : 'Select Pool & Spin')))),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  fontSize: 15,
                 ),
               ),
             ),
           ),
-        if (kDebugMode &&
-            _selectedCategoryIndex == 0 &&
-            _watchMovies.isNotEmpty) ...[
+        if (kDebugMode) ...[
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => _showDebugPickMovieDialog(context),
-              icon: const Icon(Icons.touch_app_rounded, size: 16),
-              label: const Text(
-                'Debug: Pick & Lock Movie for Testing',
-                style: TextStyle(
+              onPressed: _debugResetCurrentCategoryTurn,
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: Text(
+                'Debug: Reset ${_getCategoryName(_selectedCategoryIndex)} Turn Restriction',
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.amberAccent.shade400,
+                foregroundColor: Colors.orangeAccent.shade200,
                 side: BorderSide(
-                  color: Colors.amberAccent.shade400.withValues(alpha: 0.7),
+                  color: Colors.orangeAccent.shade200.withValues(alpha: 0.7),
                   width: 1.2,
                 ),
                 shape: RoundedRectangleBorder(
@@ -4035,6 +4248,34 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ),
             ),
           ),
+          if (_selectedCategoryIndex == 0 && _watchMovies.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showDebugPickMovieDialog(context),
+                icon: const Icon(Icons.touch_app_rounded, size: 16),
+                label: const Text(
+                  'Debug: Pick & Lock Movie for Testing',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.amberAccent.shade400,
+                  side: BorderSide(
+                    color: Colors.amberAccent.shade400.withValues(alpha: 0.7),
+                    width: 1.2,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          ],
         ],
       ],
     );
@@ -4861,6 +5102,151 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         ),
       ),
     );
+  }
+
+  /// Strict Alternating Turn Status Indicator Widget
+  Widget _buildTurnStatusIndicator(BuildContext context, bool isDark) {
+    final isPartner = _isPartnerTurn(_selectedCategoryIndex);
+    final lastSpinnerId =
+        _getLastSpinnerIdForCategory(_selectedCategoryIndex);
+    final partnerName = _getPartnerDisplayName();
+    final hasSpun = lastSpinnerId != null && lastSpinnerId.isNotEmpty;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isPartner
+            ? (isDark
+                ? Colors.orange.shade900.withValues(alpha: 0.25)
+                : Colors.orange.shade50)
+            : (hasSpun
+                ? (isDark
+                    ? Colors.green.shade900.withValues(alpha: 0.25)
+                    : Colors.green.shade50)
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.grey.shade100)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isPartner
+              ? (isDark ? Colors.orange.shade700 : Colors.orange.shade300)
+              : (hasSpun
+                  ? (isDark ? Colors.green.shade700 : Colors.green.shade300)
+                  : (isDark ? Colors.white12 : Colors.grey.shade300)),
+          width: 1.2,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isPartner
+                ? Icons.hourglass_top_rounded
+                : (hasSpun
+                    ? Icons.check_circle_rounded
+                    : Icons.swap_horiz_rounded),
+            size: 16,
+            color: isPartner
+                ? (isDark ? Colors.orange.shade300 : Colors.orange.shade800)
+                : (hasSpun
+                    ? (isDark ? Colors.green.shade300 : Colors.green.shade700)
+                    : (isDark ? Colors.white70 : Colors.grey.shade700)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              isPartner
+                  ? 'Waiting for $partnerName\'s turn to spin'
+                  : (hasSpun
+                      ? 'It\'s your turn to spin!'
+                      : 'Alternating turns: either partner can spin'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: isPartner
+                    ? (isDark
+                        ? Colors.orange.shade200
+                        : Colors.orange.shade900)
+                    : (hasSpun
+                        ? (isDark
+                            ? Colors.green.shade200
+                            : Colors.green.shade900)
+                        : (isDark ? Colors.white70 : Colors.grey.shade800)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: (isPartner
+                      ? Colors.orange
+                      : (hasSpun ? Colors.green : Colors.grey))
+                  .withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              isPartner ? 'LOCKED' : (hasSpun ? 'YOUR TURN' : 'READY'),
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w900,
+                color: isPartner
+                    ? (isDark
+                        ? Colors.orange.shade200
+                        : Colors.orange.shade800)
+                    : (hasSpun
+                        ? (isDark
+                            ? Colors.green.shade200
+                            : Colors.green.shade700)
+                        : (isDark ? Colors.white60 : Colors.grey.shade600)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Debug-Only Reset for the current category turn restriction
+  Future<void> _debugResetCurrentCategoryTurn() async {
+    final catIndex = _selectedCategoryIndex;
+    final catName = _getCategoryName(catIndex);
+
+    setState(() {
+      _setLastSpinnerIdForCategory(catIndex, null);
+    });
+    await _savePersistentData();
+
+    final coupleId = _getCoupleId();
+    if (coupleId.isNotEmpty) {
+      final turnTag = catIndex == 0
+          ? 'turn_movie'
+          : (catIndex == 1 ? 'turn_activity' : 'turn_food');
+
+      SupabaseDataService.client
+          .from('decision_ideas')
+          .delete()
+          .eq('couple_id', coupleId)
+          .eq('category', turnTag)
+          .catchError((_) {});
+
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'turn_reset',
+        payload: {
+          'categoryIndex': catIndex,
+        },
+      );
+    }
+
+    HapticFeedback.mediumImpact();
+    if (mounted) {
+      SnackbarHelper.showSuccess(
+        context,
+        'Turn restriction reset for $catName (Debug Only)',
+      );
+    }
   }
 }
 

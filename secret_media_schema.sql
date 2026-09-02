@@ -13,9 +13,13 @@ CREATE TABLE IF NOT EXISTS secret_media (
   uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   is_encrypted BOOLEAN DEFAULT TRUE,
   is_hidden BOOLEAN DEFAULT FALSE,
+  deleted_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Ensure deleted_at exists for existing tables
+ALTER TABLE secret_media ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
 
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_secret_media_couple_id ON secret_media(couple_id);
@@ -23,6 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_secret_media_uploaded_by_id ON secret_media(uploa
 CREATE INDEX IF NOT EXISTS idx_secret_media_is_hidden ON secret_media(is_hidden);
 CREATE INDEX IF NOT EXISTS idx_secret_media_couple_hidden ON secret_media(couple_id, is_hidden);
 CREATE INDEX IF NOT EXISTS idx_secret_media_uploaded_at ON secret_media(uploaded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_secret_media_deleted_at ON secret_media(deleted_at);
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE secret_media ENABLE ROW LEVEL SECURITY;
@@ -182,15 +187,13 @@ BEGIN
         is_hidden = TRUE,
         updated_at = NOW()
     WHERE couple_id = target_couple_id
-      AND is_hidden = TRUE
       AND deleted_at IS NOT NULL;
   ELSE
     UPDATE secret_media
     SET deleted_at = NULL,
         is_hidden = TRUE,
         updated_at = NOW()
-    WHERE is_hidden = TRUE
-      AND deleted_at IS NOT NULL;
+    WHERE deleted_at IS NOT NULL;
   END IF;
 
   GET DIAGNOSTICS restored_count = ROW_COUNT;

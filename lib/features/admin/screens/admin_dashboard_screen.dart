@@ -1040,6 +1040,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
       if (context.mounted) {
         Navigator.pop(context);
+        setState(() {});
         if (restoredCount > 0) {
           SnackbarHelper.showSuccess(
             context,

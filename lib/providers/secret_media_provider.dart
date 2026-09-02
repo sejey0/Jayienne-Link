@@ -388,6 +388,9 @@ class SecretMediaProvider extends ChangeNotifier {
   /// Restore deleted media for Hidden Vault only (Admin recovery - restores all user & partner media in hidden vault)
   Future<int> restoreHiddenVaultMedia({String? targetCoupleId}) async {
     final coupleIdToUse = targetCoupleId ?? _coupleId;
+    if (coupleIdToUse != null && coupleIdToUse.isNotEmpty) {
+      _coupleId = coupleIdToUse;
+    }
 
     _isLoading = true;
     _error = null;
@@ -396,6 +399,10 @@ class SecretMediaProvider extends ChangeNotifier {
     try {
       final restoredCount =
           await _service.restoreHiddenVaultMedia(coupleId: coupleIdToUse);
+      try {
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+      } catch (_) {}
       if (_coupleId != null) {
         await _loadInitial();
       }
@@ -413,6 +420,9 @@ class SecretMediaProvider extends ChangeNotifier {
   /// Restore all deleted media (Admin recovery - restores all user & partner media including hidden vault)
   Future<int> restoreAllDeletedMedia({String? targetCoupleId}) async {
     final coupleIdToUse = targetCoupleId ?? _coupleId;
+    if (coupleIdToUse != null && coupleIdToUse.isNotEmpty) {
+      _coupleId = coupleIdToUse;
+    }
 
     _isLoading = true;
     _error = null;
@@ -421,7 +431,11 @@ class SecretMediaProvider extends ChangeNotifier {
     try {
       final restoredCount =
           await _service.restoreAllDeletedMedia(coupleId: coupleIdToUse);
-      if (restoredCount > 0 && _coupleId != null) {
+      try {
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+      } catch (_) {}
+      if (_coupleId != null) {
         await _loadInitial();
       }
       return restoredCount;

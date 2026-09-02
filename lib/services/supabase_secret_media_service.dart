@@ -49,7 +49,6 @@ class SupabaseSecretMediaService {
             (url.startsWith('http://') || url.startsWith('https://'));
       }
 
-      final seenUrls = <String>{};
       final seenIds = <String>{};
       final result = <SecretMediaModel>[];
 
@@ -57,11 +56,8 @@ class SupabaseSecretMediaService {
         if (!isValidMedia(media)) continue;
         if (media.isHidden && !includeHidden) continue;
         final id = media.id;
-        final url = media.mediaUrl.trim();
         if (id != null && seenIds.contains(id)) continue;
-        if (seenUrls.contains(url)) continue;
         if (id != null) seenIds.add(id);
-        seenUrls.add(url);
         result.add(media);
       }
 
@@ -117,18 +113,14 @@ class SupabaseSecretMediaService {
             (url.startsWith('http://') || url.startsWith('https://'));
       }
 
-      final seenUrls = <String>{};
       final seenIds = <String>{};
       final hiddenResult = <SecretMediaModel>[];
 
       for (final media in allItems) {
         if (!isValidMedia(media) || !media.isHidden) continue;
         final id = media.id;
-        final url = media.mediaUrl.trim();
         if (id != null && seenIds.contains(id)) continue;
-        if (seenUrls.contains(url)) continue;
         if (id != null) seenIds.add(id);
-        seenUrls.add(url);
         hiddenResult.add(media);
       }
 
@@ -292,51 +284,78 @@ class SupabaseSecretMediaService {
           }
         }
       } catch (rpcErr) {
-        debugPrint('restore_all_hidden_vault_media RPC not available, continuing with item loop: $rpcErr');
+        debugPrint('restore_all_hidden_vault_media RPC not available, continuing with direct query: $rpcErr');
       }
 
-      // 2. Fetch all deleted records for the couple (SELECT policy allows both user & partner items)
-      dynamic selectBuilder = _supabase
-          .from(_tableName)
-          .select('id, is_hidden, uploaded_by_id')
-          .not('deleted_at', 'is', null);
+      // 2. Fetch all deleted records for the couple
+      List<dynamic> items = [];
 
-      if (coupleId != null && coupleId.isNotEmpty && coupleId != 'all') {
-        selectBuilder = selectBuilder.eq('couple_id', coupleId);
+      try {
+        dynamic selectBuilder = _supabase
+            .from(_tableName)
+            .select('id, is_hidden, uploaded_by_id, deleted_at')
+            .not('deleted_at', 'is', null);
+
+        if (coupleId != null && coupleId.isNotEmpty && coupleId != 'all') {
+          selectBuilder = selectBuilder.eq('couple_id', coupleId);
+        }
+
+        final deletedRecords = await selectBuilder;
+        if (deletedRecords is List && deletedRecords.isNotEmpty) {
+          items = List.from(deletedRecords);
+        }
+      } catch (selectErr) {
+        debugPrint('Direct deleted_at query error: $selectErr');
       }
 
-      final deletedRecords = await selectBuilder;
-      final items = (deletedRecords as List);
-      debugPrint('📦 FOUND ${items.length} TOTAL DELETED RECORDS FOR COUPLE');
+      // Fallback: If query returned 0 or failed, fetch all couple rows and filter in Dart
+      if (items.isEmpty) {
+        try {
+          dynamic fallbackBuilder = _supabase
+              .from(_tableName)
+              .select('id, is_hidden, uploaded_by_id, deleted_at');
+          if (coupleId != null && coupleId.isNotEmpty && coupleId != 'all') {
+            fallbackBuilder = fallbackBuilder.eq('couple_id', coupleId);
+          }
+          final allRecords = await fallbackBuilder;
+          if (allRecords is List) {
+            items = allRecords.where((item) => item['deleted_at'] != null).toList();
+          }
+        } catch (fallbackErr) {
+          debugPrint('Fallback deleted records query error: $fallbackErr');
+        }
+      }
 
-      // Target hidden items or all items to be restored to hidden vault
-      final targetItems = items.where((item) {
-        final isHidden = item['is_hidden'] == true;
-        return isHidden;
-      }).toList();
-
-      final itemsToRestore = targetItems.isNotEmpty ? targetItems : items;
-      debugPrint('🔒 RESTORING ${itemsToRestore.length} HIDDEN VAULT ITEMS (INCLUDING PARTNER)');
+      debugPrint('📦 FOUND ${items.length} TOTAL DELETED RECORDS TO RESTORE');
 
       int restoredCount = 0;
-      for (final item in itemsToRestore) {
+      for (final item in items) {
         final id = item['id']?.toString();
         if (id == null) continue;
+        bool restored = false;
+
+        // A. Call restore_secret_media RPC (bypasses partner RLS via SECURITY DEFINER)
         try {
-          // Use restoreSecretMedia which calls SECURITY DEFINER RPC to bypass partner RLS restriction
-          await restoreSecretMedia(id);
+          await _supabase.rpc('restore_secret_media', params: {'target_id': id});
+          restored = true;
+        } catch (rpcErr) {
+          debugPrint('restore_secret_media RPC error for $id: $rpcErr');
+        }
+
+        // B. Ensure deleted_at is null AND is_hidden is true so it explicitly appears in the Hidden Vault
+        try {
+          await _supabase.from(_tableName).update({
+            'deleted_at': null,
+            'is_hidden': true,
+            'updated_at': DateTime.now().toIso8601String(),
+          }).eq('id', id);
+          restored = true;
+        } catch (updateErr) {
+          debugPrint('Direct update error for $id: $updateErr');
+        }
+
+        if (restored) {
           restoredCount++;
-        } catch (err) {
-          debugPrint('Error restoring item $id: $err');
-          // Fallback direct update
-          try {
-            await _supabase.from(_tableName).update({
-              'deleted_at': null,
-              'is_hidden': true,
-              'updated_at': DateTime.now().toIso8601String(),
-            }).eq('id', id);
-            restoredCount++;
-          } catch (_) {}
         }
       }
 
@@ -356,29 +375,66 @@ class SupabaseSecretMediaService {
   Future<int> restoreAllDeletedMedia({String? coupleId}) async {
     try {
       debugPrint('🔄 RESTORING ALL DELETED MEDIA FOR COUPLE_ID: $coupleId');
-      
-      dynamic selectBuilder = _supabase
-          .from(_tableName)
-          .select('id')
-          .not('deleted_at', 'is', null);
 
-      if (coupleId != null && coupleId.isNotEmpty && coupleId != 'all') {
-        selectBuilder = selectBuilder.eq('couple_id', coupleId);
+      List<dynamic> items = [];
+
+      try {
+        dynamic selectBuilder = _supabase
+            .from(_tableName)
+            .select('id, is_hidden, uploaded_by_id, deleted_at')
+            .not('deleted_at', 'is', null);
+
+        if (coupleId != null && coupleId.isNotEmpty && coupleId != 'all') {
+          selectBuilder = selectBuilder.eq('couple_id', coupleId);
+        }
+
+        final deletedRecords = await selectBuilder;
+        if (deletedRecords is List && deletedRecords.isNotEmpty) {
+          items = List.from(deletedRecords);
+        }
+      } catch (selectErr) {
+        debugPrint('Direct deleted_at query error: $selectErr');
       }
 
-      final deletedRecords = await selectBuilder;
-      final items = (deletedRecords as List);
-      final count = items.length;
-      debugPrint('📦 FOUND $count DELETED MEDIA ITEMS TO RESTORE');
+      if (items.isEmpty) {
+        try {
+          dynamic fallbackBuilder = _supabase
+              .from(_tableName)
+              .select('id, is_hidden, uploaded_by_id, deleted_at');
+          if (coupleId != null && coupleId.isNotEmpty && coupleId != 'all') {
+            fallbackBuilder = fallbackBuilder.eq('couple_id', coupleId);
+          }
+          final allRecords = await fallbackBuilder;
+          if (allRecords is List) {
+            items = allRecords.where((item) => item['deleted_at'] != null).toList();
+          }
+        } catch (fallbackErr) {
+          debugPrint('Fallback deleted records query error: $fallbackErr');
+        }
+      }
+
+      debugPrint('📦 FOUND ${items.length} DELETED MEDIA ITEMS TO RESTORE');
 
       int restoredCount = 0;
       for (final item in items) {
         final id = item['id']?.toString();
         if (id == null) continue;
+        bool restored = false;
+
         try {
-          await restoreSecretMedia(id);
-          restoredCount++;
+          await _supabase.rpc('restore_secret_media', params: {'target_id': id});
+          restored = true;
         } catch (_) {}
+
+        try {
+          await _supabase.from(_tableName).update({
+            'deleted_at': null,
+            'updated_at': DateTime.now().toIso8601String(),
+          }).eq('id', id);
+          restored = true;
+        } catch (_) {}
+
+        if (restored) restoredCount++;
       }
 
       return restoredCount;

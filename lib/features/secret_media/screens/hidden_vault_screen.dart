@@ -43,7 +43,6 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
   String _selectedType = 'all'; // 'all', 'image', 'video'
   bool _isUnlocked = false;
   final Set<String> _revealedMediaIds = <String>{};
-  final Set<String> _failedImageIds = <String>{};
   late final List<TextEditingController> _lockControllers;
   late final List<bool> _obscureLocks;
 
@@ -145,12 +144,11 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
         context.read<UserProvider>().user?.id;
 
     final seenIds = <String>{};
-    final seenUrls = <String>{};
     final validMedia = <SecretMediaModel>[];
 
     for (final m in provider.hiddenMedia) {
       final id = m.id;
-      if (id != null && (_knownCorruptedIds.contains(id) || _failedImageIds.contains(id))) {
+      if (id != null && _knownCorruptedIds.contains(id)) {
         continue;
       }
       final url = m.mediaUrl.trim();
@@ -158,9 +156,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
         continue;
       }
       if (id != null && seenIds.contains(id)) continue;
-      if (seenUrls.contains(url)) continue;
       if (id != null) seenIds.add(id);
-      seenUrls.add(url);
       validMedia.add(m);
     }
 
@@ -734,9 +730,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
 
                   final allValidHidden = provider.hiddenMedia.where((m) {
                     final id = m.id;
-                    if (id != null &&
-                        (_knownCorruptedIds.contains(id) ||
-                            _failedImageIds.contains(id))) {
+                    if (id != null && _knownCorruptedIds.contains(id)) {
                       return false;
                     }
                     final url = m.mediaUrl.trim();
@@ -745,15 +739,11 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                         (url.startsWith('http://') || url.startsWith('https://'));
                   }).toList();
                   final seenIds = <String>{};
-                  final seenUrls = <String>{};
                   final uniqueHidden = <SecretMediaModel>[];
                   for (final m in allValidHidden) {
                     final id = m.id;
-                    final url = m.mediaUrl.trim();
                     if (id != null && seenIds.contains(id)) continue;
-                    if (seenUrls.contains(url)) continue;
                     if (id != null) seenIds.add(id);
-                    seenUrls.add(url);
                     uniqueHidden.add(m);
                   }
 
@@ -1384,17 +1374,15 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                       displayImageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        if (media.id != null && !_failedImageIds.contains(media.id)) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted) {
-                              setState(() {
-                                _failedImageIds.add(media.id!);
-                              });
-                            }
-                          });
-                        }
                         return Container(
                           color: const Color(0xFF1E142B),
+                          child: Center(
+                            child: Icon(
+                              isVideo ? Icons.videocam_rounded : Icons.image_rounded,
+                              color: Colors.white24,
+                              size: 32,
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -1402,6 +1390,13 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                 else
                   Container(
                     color: const Color(0xFF1E142B),
+                    child: Center(
+                      child: Icon(
+                        isVideo ? Icons.videocam_rounded : Icons.image_rounded,
+                        color: Colors.white24,
+                        size: 32,
+                      ),
+                    ),
                   )
               else
                 // Revealed in-place (Hide All is off)
@@ -1417,15 +1412,6 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
                             : media.displayUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          if (media.id != null && !_failedImageIds.contains(media.id)) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (mounted) {
-                                setState(() {
-                                  _failedImageIds.add(media.id!);
-                                });
-                              }
-                            });
-                          }
                           return Container(
                             color: const Color(0xFF1E142B),
                             child: const Center(

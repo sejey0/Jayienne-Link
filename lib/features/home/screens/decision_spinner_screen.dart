@@ -91,19 +91,59 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
   }
 
+  // Debug-Only Partner POV Simulation
+  bool _debugSimulatePartnerPov = false;
+
+  String _getMyDisplayName() {
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final name = userProvider.user?.displayName;
+      if (name != null && name.trim().isNotEmpty) return name.trim();
+    } catch (_) {}
+    return 'You';
+  }
+
+  String _getPartnerUserId() {
+    try {
+      final coupleProvider =
+          Provider.of<CoupleProvider>(context, listen: false);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final myUid = userProvider.user?.uid ?? '';
+      final couple = coupleProvider.couple;
+      if (couple != null && myUid.isNotEmpty) {
+        final pId = couple.getPartnerId(myUid);
+        if (pId.isNotEmpty) return pId;
+      }
+    } catch (_) {}
+    return 'simulated_partner_id';
+  }
+
+  String? get _effectiveMyUserId {
+    final realUid =
+        Provider.of<UserProvider>(context, listen: false).user?.uid;
+    if (_debugSimulatePartnerPov && kDebugMode) {
+      final pId = _getPartnerUserId();
+      return pId.isNotEmpty ? pId : 'simulated_partner_id';
+    }
+    return realUid;
+  }
+
   bool _isPartnerTurn(int categoryIndex) {
     final lastSpinnerId = _getLastSpinnerIdForCategory(categoryIndex);
     if (lastSpinnerId == null || lastSpinnerId.isEmpty) {
       return false; // Neither partner has spun yet, either can spin!
     }
-    final myUserId =
-        Provider.of<UserProvider>(context, listen: false).user?.uid;
+    final myUserId = _effectiveMyUserId;
     if (myUserId == null || myUserId.isEmpty) return false;
     // If I was the last person who spun in this category, it is my partner's turn (I am locked)!
     return lastSpinnerId == myUserId;
   }
 
   String _getPartnerDisplayName() {
+    if (_debugSimulatePartnerPov && kDebugMode) {
+      // In simulated partner POV, the other person is "Me"
+      return _getMyDisplayName();
+    }
     try {
       final coupleProvider =
           Provider.of<CoupleProvider>(context, listen: false);
@@ -1930,8 +1970,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     String? finalMovieId = remoteMovieId;
 
     if (!fromRemote) {
-      final myUserId =
-          Provider.of<UserProvider>(context, listen: false).user?.uid;
+      final myUserId = _effectiveMyUserId;
       HapticFeedback.mediumImpact();
       setState(() {
         _isSpinning = true;
@@ -2086,8 +2125,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     String? finalMovieId = remoteMovieId;
 
     if (!fromRemote) {
-      final myUserId =
-          Provider.of<UserProvider>(context, listen: false).user?.uid;
+      final myUserId = _effectiveMyUserId;
       HapticFeedback.mediumImpact();
       setState(() {
         _isSpinning = true;
@@ -2237,8 +2275,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     _savePersistentData();
 
     if (!fromRemote) {
-      final myUserId =
-          Provider.of<UserProvider>(context, listen: false).user?.uid;
+      final myUserId = _effectiveMyUserId;
 
       // Update turn locally for current user across all categories (Movie, Dates, Food)
       if (myUserId != null && myUserId.isNotEmpty) {
@@ -2960,6 +2997,65 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             Navigator.pop(context);
           },
         ),
+        actions: [
+          if (kDebugMode)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    setState(() {
+                      _debugSimulatePartnerPov = !_debugSimulatePartnerPov;
+                    });
+                    SnackbarHelper.showInfo(
+                      context,
+                      _debugSimulatePartnerPov
+                          ? 'Switched to Partner POV (${_getPartnerDisplayName()})'
+                          : 'Switched back to Your POV (${_getMyDisplayName()})',
+                    );
+                  },
+                  icon: Icon(
+                    _debugSimulatePartnerPov
+                        ? Icons.swap_horiz_rounded
+                        : Icons.person_rounded,
+                    size: 14,
+                    color: _debugSimulatePartnerPov
+                        ? Colors.amberAccent
+                        : Colors.white,
+                  ),
+                  label: Text(
+                    _debugSimulatePartnerPov ? 'Partner POV' : 'My POV',
+                    style: TextStyle(
+                      color: _debugSimulatePartnerPov
+                          ? Colors.amberAccent
+                          : Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    backgroundColor: _debugSimulatePartnerPov
+                        ? Colors.black38
+                        : Colors.white.withValues(alpha: 0.18),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(
+                        color: _debugSimulatePartnerPov
+                            ? Colors.amberAccent
+                            : Colors.white38,
+                        width: 1.2,
+                      ),
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ),
+            ),
+        ],
         elevation: 0,
       ),
       body: SafeArea(
@@ -2974,6 +3070,67 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         padding: const EdgeInsets.all(AppDimensions.spacingMd),
         child: Column(
           children: [
+            if (kDebugMode && _debugSimulatePartnerPov) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade900.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.amberAccent.shade400,
+                    width: 1.2,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.people_alt_rounded,
+                        size: 17, color: Colors.amberAccent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Debug POV: Simulating Partner (${_getPartnerDisplayName()})',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amberAccent,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        setState(() {
+                          _debugSimulatePartnerPov = false;
+                        });
+                        SnackbarHelper.showInfo(
+                          context,
+                          'Switched back to Your POV (${_getMyDisplayName()})',
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amberAccent.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Switch to Me',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amberAccent,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             // Mode Switcher (Visual Wheel vs Quick Slot)
               Container(
                 padding: const EdgeInsets.all(4),
@@ -4513,7 +4670,87 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             ),
           ),
         if (kDebugMode) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
+          // 1. POV Switcher Button (Me <-> Partner)
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                setState(() {
+                  _debugSimulatePartnerPov = !_debugSimulatePartnerPov;
+                });
+                SnackbarHelper.showInfo(
+                  context,
+                  _debugSimulatePartnerPov
+                      ? 'Switched to Partner POV (${_getPartnerDisplayName()})'
+                      : 'Switched back to Your POV (${_getMyDisplayName()})',
+                );
+              },
+              icon: Icon(
+                _debugSimulatePartnerPov
+                    ? Icons.swap_horiz_rounded
+                    : Icons.people_alt_rounded,
+                size: 16,
+              ),
+              label: Text(
+                _debugSimulatePartnerPov
+                    ? 'Debug POV: Viewing as Partner (Tap to Switch to Me)'
+                    : 'Debug POV: Viewing as Me (Tap to Switch to Partner)',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _debugSimulatePartnerPov
+                    ? Colors.amberAccent.shade400
+                    : Colors.cyanAccent.shade200,
+                side: BorderSide(
+                  color: (_debugSimulatePartnerPov
+                          ? Colors.amberAccent.shade400
+                          : Colors.cyanAccent.shade200)
+                      .withValues(alpha: 0.7),
+                  width: 1.2,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 2. Toggle Turn Button (Switch whose turn it is right now)
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _debugToggleCategoryTurn,
+              icon: const Icon(Icons.sync_alt_rounded, size: 16),
+              label: Text(
+                _isPartnerTurn(_selectedCategoryIndex)
+                    ? 'Debug: Switch Turn from Partner to ME'
+                    : 'Debug: Switch Turn from Me to PARTNER',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.tealAccent.shade400,
+                side: BorderSide(
+                  color: Colors.tealAccent.shade400.withValues(alpha: 0.7),
+                  width: 1.2,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 3. Reset Category Turn Restriction
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -5721,6 +5958,59 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         ],
       ),
     );
+  }
+
+  /// Debug-Only Toggle for the current category turn
+  Future<void> _debugToggleCategoryTurn() async {
+    final catIndex = _selectedCategoryIndex;
+    final realUid =
+        Provider.of<UserProvider>(context, listen: false).user?.uid ?? '';
+    final partnerUid = _getPartnerUserId();
+    final currentLast = _getLastSpinnerIdForCategory(catIndex);
+
+    // If currently my ID (or null), make partner the last spinner; otherwise make me the last spinner
+    final newLastSpinner = (currentLast == null || currentLast == realUid)
+        ? partnerUid
+        : realUid;
+
+    setState(() {
+      _setLastSpinnerIdForCategory(catIndex, newLastSpinner);
+    });
+    await _savePersistentData();
+
+    final coupleId = _getCoupleId();
+    if (coupleId.isNotEmpty) {
+      final turnTag = catIndex == 0
+          ? 'turn_movie'
+          : (catIndex == 1 ? 'turn_activity' : 'turn_food');
+
+      try {
+        await SupabaseDataService.client.from('decision_ideas').upsert({
+          'couple_id': coupleId,
+          'category': turnTag,
+          'text': newLastSpinner,
+          'created_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'couple_id,category');
+      } catch (_) {}
+
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'turn_update',
+        payload: {
+          'categoryIndex': catIndex,
+          'userId': newLastSpinner,
+        },
+      );
+    }
+
+    HapticFeedback.mediumImpact();
+    if (mounted) {
+      final isNowPartner = _isPartnerTurn(catIndex);
+      final partnerName = _getPartnerDisplayName();
+      SnackbarHelper.showSuccess(
+        context,
+        'Turn updated! Next spin is ${isNowPartner ? "$partnerName\'s" : "YOUR"} turn.',
+      );
+    }
   }
 
   /// Debug-Only Reset for the current category turn restriction

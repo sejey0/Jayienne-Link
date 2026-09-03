@@ -641,21 +641,26 @@ echo.
 set "GH_USER=sejey0"
 set "GH_REPO=Jayienne-Link"
 
-set "CURRENT_VER=1.0.0"
-set "CURRENT_BUILD=1"
-if exist "version.json" (
-    for /f "delims=" %%v in ('powershell -NoProfile -Command "(Get-Content 'version.json' -Raw | ConvertFrom-Json).version"') do set "CURRENT_VER=%%v"
-    for /f "delims=" %%b in ('powershell -NoProfile -Command "(Get-Content 'version.json' -Raw | ConvertFrom-Json).build_number"') do set "CURRENT_BUILD=%%b"
+call powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0prepare_ota_release.ps1" -Action scan
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Failed to scan app version and commits.
+    pause
+    goto releasemenu
 )
 
+set "CURRENT_VER=1.0.0"
+set "CURRENT_BUILD=1"
 set "DEFAULT_NEXT_VER=1.0.1"
-for /f "delims=" %%p in ('powershell -NoProfile -Command "$p = '!CURRENT_VER!'.Split('.'); if ($p.Length -ge 3) { $p[2] = [string]([int]$p[2] + 1); $p -join '.' } elseif ($p.Length -eq 2) { $p[0] + '.' + $p[1] + '.1' } else { '!CURRENT_VER!.0.1' }"') do set "DEFAULT_NEXT_VER=%%p"
+set "DEFAULT_NEXT_BUILD=2"
+set "COMMITS_COUNT=0"
 
-set /a "DEFAULT_NEXT_BUILD=CURRENT_BUILD+1"
+if exist "%~dp0.ota_env.bat" (
+    call "%~dp0.ota_env.bat"
+    del "%~dp0.ota_env.bat" >nul 2>&1
+)
 
-echo Current Version in version.json: v!CURRENT_VER! (Build !CURRENT_BUILD!)
 echo.
-
 set "NEW_VERSION="
 set /p "NEW_VERSION=Enter new version number [default !DEFAULT_NEXT_VER!]: "
 if "!NEW_VERSION!"=="" set "NEW_VERSION=!DEFAULT_NEXT_VER!"
@@ -665,39 +670,46 @@ set /p "NEW_BUILD=Enter build number [default !DEFAULT_NEXT_BUILD!]: "
 if "!NEW_BUILD!"=="" set "NEW_BUILD=!DEFAULT_NEXT_BUILD!"
 
 echo.
-set /p "REL_NOTES=Enter release notes (optional, press Enter for default): "
-if "!REL_NOTES!"=="" set "REL_NOTES=New update with exciting improvements and bug fixes."
+echo [Release Notes]
+echo Default notes generated from the !COMMITS_COUNT! scanned commit(s).
+set "CUSTOM_NOTES="
+set /p "CUSTOM_NOTES=Enter custom notes to override (or press Enter to use scanned commits): "
+if not "!CUSTOM_NOTES!"=="" (
+    powershell -NoProfile -Command "Set-Content -Path '%~dp0.custom_notes.txt' -Value '!CUSTOM_NOTES!' -Encoding UTF8"
+    set "NOTES_ARG=-ReleaseNotesFile ""%~dp0.custom_notes.txt"""
+) else (
+    set "NOTES_ARG="
+)
 
 echo.
 echo ----------------------------------------------------
 echo Target Release: v!NEW_VERSION! (Build !NEW_BUILD!)
-echo Repository: %GH_USER%/%GH_REPO%
-echo Release Notes: !REL_NOTES!
+echo Repository:     %GH_USER%/%GH_REPO%
+if "!CUSTOM_NOTES!"=="" (
+    echo Release Notes:  Auto-generated from !COMMITS_COUNT! scanned commit(s)
+) else (
+    echo Release Notes:  !CUSTOM_NOTES!
+)
 echo ----------------------------------------------------
 echo.
 
 set /p "CONFIRM=Proceed with building and publishing v!NEW_VERSION!? (y/n): "
 if /i not "!CONFIRM!"=="y" (
     echo Publishing cancelled.
+    if exist "%~dp0.custom_notes.txt" del "%~dp0.custom_notes.txt" >nul 2>&1
     pause
     goto releasemenu
 )
 
 echo.
-echo [1/5] Updating version.json and pubspec.yaml...
-powershell -NoProfile -Command ^
-    "$jsonObj = [ordered]@{ " ^
-    "    version = '!NEW_VERSION!'; " ^
-    "    build_number = [int]!NEW_BUILD!; " ^
-    "    download_url = 'https://github.com/%GH_USER%/%GH_REPO%/releases/download/v!NEW_VERSION!/app-release.apk'; " ^
-    "    release_notes = '!REL_NOTES!'; " ^
-    "    min_required_version = '!NEW_VERSION!'; " ^
-    "    force_update = $true " ^
-    "}; " ^
-    "$jsonObj | ConvertTo-Json -Depth 4 | Set-Content -Path 'version.json' -Encoding UTF8"
-
-powershell -NoProfile -Command ^
-    "(Get-Content 'pubspec.yaml') -replace '^version:\s*.*$', 'version: !NEW_VERSION!+!NEW_BUILD!' | Set-Content 'pubspec.yaml'"
+echo [1/5] Synchronizing version.json and pubspec.yaml with real app version...
+call powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0prepare_ota_release.ps1" -Action apply -NewVersion "!NEW_VERSION!" -NewBuild !NEW_BUILD! -GhUser "%GH_USER%" -GhRepo "%GH_REPO%" !NOTES_ARG!
+if exist "%~dp0.custom_notes.txt" del "%~dp0.custom_notes.txt" >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Failed to update version files.
+    pause
+    goto releasemenu
+)
 
 echo.
 echo [2/5] Cleaning project...
@@ -708,8 +720,8 @@ echo [3/5] Resolving dependencies...
 call flutter pub get
 
 echo.
-echo [4/5] Building Release APK...
-call flutter build apk --release
+echo [4/5] Building Release APK (v!NEW_VERSION!+!NEW_BUILD!)...
+call flutter build apk --release --build-name=!NEW_VERSION! --build-number=!NEW_BUILD!
 if errorlevel 1 (
     echo.
     echo [ERROR] Flutter release build failed.
@@ -725,10 +737,12 @@ if not exist "build\app\outputs\flutter-apk\app-release.apk" (
 )
 
 echo.
-echo [5/5] Committing version update to Git repository...
+echo [5/5] Committing and tagging release in Git repository...
 git add version.json pubspec.yaml
 git commit -m "chore(release): bump version to v!NEW_VERSION! (build !NEW_BUILD!)"
+git tag -a "v!NEW_VERSION!" -m "Jayienne Link v!NEW_VERSION!"
 git push origin main
+git push origin "v!NEW_VERSION!"
 
 echo.
 echo ====================================================
@@ -745,7 +759,7 @@ if not defined GH_BIN if exist "C:\Program Files\GitHub CLI\gh.exe" set "GH_BIN=
 if not defined GH_BIN goto gh_cli_missing
 
 echo GitHub CLI detected. Creating GitHub Release automatically...
-call "!GH_BIN!" release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --repo "%GH_USER%/%GH_REPO%" --title "Jayienne Link v!NEW_VERSION!" --notes "!REL_NOTES!"
+call "!GH_BIN!" release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --repo "%GH_USER%/%GH_REPO%" --title "Jayienne Link v!NEW_VERSION!" -F "build\release_notes.txt"
 if errorlevel 1 goto gh_cli_failed
 
 echo.
@@ -773,7 +787,8 @@ echo Complete release manually:
 echo   1. Set Tag: v!NEW_VERSION!
 echo   2. Title: Jayienne Link v!NEW_VERSION!
 echo   3. Drag app-release.apk into binaries
-echo   4. Click Publish release
+echo   4. Copy notes from build\release_notes.txt
+echo   5. Click Publish release
 
 :gh_release_done
 echo.
@@ -787,6 +802,19 @@ echo   You can now open the app on your phone to test the
 echo   in-app OTA update flow!
 echo ====================================================
 echo.
+pause
+goto releasemenu
+
+:buildapk
+echo.
+echo ========================================
+echo   Build Release APK
+echo ========================================
+echo.
+call flutter build apk --release
+if exist "build\app\outputs\flutter-apk" (
+    explorer "build\app\outputs\flutter-apk"
+)
 pause
 goto releasemenu
 

@@ -246,8 +246,6 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
     required int locationsCount,
     required double currentDistanceKm,
   }) {
-    final iconColor = isDark ? Colors.white70 : const Color(0xFF3B2F4C);
-
     return Row(
       children: [
         // Mini Play/Pause Glowing Button
@@ -339,7 +337,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
           IconButton(
             icon: Icon(
               widget.isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-              color: widget.isFullscreen ? AppColors.softRose : iconColor,
+              color: widget.isFullscreen ? AppColors.softRose : (isDark ? Colors.white70 : const Color(0xFF3B2F4C)),
               size: 21,
             ),
             padding: EdgeInsets.zero,
@@ -350,25 +348,16 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
               widget.onToggleFullscreen!();
             },
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
         ],
 
-        // Expand Button
+        // Close Playback Button
         IconButton(
-          icon: Icon(Icons.keyboard_arrow_up_rounded, color: iconColor, size: 23),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          tooltip: 'Expand controls',
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            setState(() => _isCollapsed = false);
-          },
-        ),
-        const SizedBox(width: 12),
-
-        // Close Button
-        IconButton(
-          icon: Icon(Icons.close_rounded, color: iconColor, size: 19),
+          icon: Icon(
+            Icons.close_rounded,
+            color: isDark ? Colors.white70 : const Color(0xFF3B2F4C),
+            size: 20,
+          ),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
           tooltip: 'Close Playback',
@@ -403,12 +392,10 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
     required double totalDistanceKm,
     required double? activeHeading,
   }) {
-    final iconColor = isDark ? Colors.white70 : const Color(0xFF3B2F4C);
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 1. Top Header (Title + Fullscreen + Collapse + Exit)
+        // 1. Top Header (Title + Status Check Badge + Fullscreen + Close)
         Row(
           children: [
             Container(
@@ -439,33 +426,14 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
             ),
             const SizedBox(width: 8),
 
-            // Fit Full Route in View Button
-            if (widget.onFitRoute != null) ...[
-              IconButton(
-                icon: Icon(
-                  Icons.crop_free_rounded,
-                  color: iconColor,
-                  size: 20,
-                ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                tooltip: 'Fit Route in View',
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  widget.onFitRoute!();
-                },
-              ),
-              const SizedBox(width: 12),
-            ],
-
-            // Fullscreen Map Button
+            // Fullscreen Map Button (Restored!)
             if (widget.onToggleFullscreen != null) ...[
               IconButton(
                 icon: Icon(
                   widget.isFullscreen
                       ? Icons.fullscreen_exit_rounded
                       : Icons.fullscreen_rounded,
-                  color: widget.isFullscreen ? AppColors.softRose : iconColor,
+                  color: widget.isFullscreen ? AppColors.softRose : (isDark ? Colors.white70 : const Color(0xFF3B2F4C)),
                   size: 21,
                 ),
                 padding: EdgeInsets.zero,
@@ -476,28 +444,19 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                   widget.onToggleFullscreen!();
                 },
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
             ],
 
-            // Collapse Button
+            // Close / Exit Button
             IconButton(
-              icon: Icon(Icons.keyboard_arrow_down_rounded, color: iconColor, size: 23),
+              icon: Icon(
+                Icons.close_rounded,
+                color: isDark ? Colors.white70 : const Color(0xFF3B2F4C),
+                size: 20,
+              ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              tooltip: 'Collapse',
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                setState(() => _isCollapsed = true);
-              },
-            ),
-            const SizedBox(width: 12),
-
-            // Close Button
-            IconButton(
-              icon: Icon(Icons.close_rounded, color: iconColor, size: 19),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              tooltip: 'Close',
+              tooltip: 'Close Playback',
               onPressed: () {
                 HapticFeedback.lightImpact();
                 widget.onClose();
@@ -897,92 +856,50 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
 
               const Spacer(),
 
-              // Rewind Step
-              IconButton(
-                icon: Icon(
-                  Icons.skip_previous_rounded,
-                  color: isDark ? Colors.white : const Color(0xFF3B2F4C),
-                  size: 24,
-                ),
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(),
-                onPressed: currentIndex > 0
-                    ? () {
-                        HapticFeedback.lightImpact();
-                        provider.seekPlayback(math.max(0, currentIndex - 1));
-                      }
-                    : null,
-                tooltip: 'Previous Point',
-              ),
-              const SizedBox(width: 4),
-
-              // Main Play / Pause Glowing FAB
+              // Main Play / Pause Glowing Action Button
               GestureDetector(
                 onTap: () {
                   HapticFeedback.mediumImpact();
                   provider.toggleRoutePlayback();
                 },
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [AppColors.softRose, Color(0xFFE57388)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.softRose.withValues(alpha: 0.55),
+                        color: AppColors.softRose.withValues(alpha: 0.50),
                         blurRadius: 10,
                         spreadRadius: 1,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: Icon(
-                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    color: Colors.white,
-                    size: 22,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        isPlaying ? 'Pause' : 'Play',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 4),
-
-              // Forward Step
-              IconButton(
-                icon: Icon(
-                  Icons.skip_next_rounded,
-                  color: isDark ? Colors.white : const Color(0xFF3B2F4C),
-                  size: 24,
-                ),
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(),
-                onPressed: currentIndex < locations.length - 1
-                    ? () {
-                        HapticFeedback.lightImpact();
-                        provider.seekPlayback(math.min(locations.length - 1, currentIndex + 1));
-                      }
-                    : null,
-                tooltip: 'Next Point',
-              ),
-              const SizedBox(width: 4),
-
-              // Restart Route Action Button
-              IconButton(
-                icon: Icon(
-                  Icons.replay_rounded,
-                  color: isDark ? Colors.white70 : const Color(0xFF5A4D6D),
-                  size: 19,
-                ),
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(),
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  provider.seekPlayback(0);
-                },
-                tooltip: 'Restart from start',
               ),
             ],
           ),

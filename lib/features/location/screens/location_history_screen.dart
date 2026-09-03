@@ -9,6 +9,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
+import '../../../providers/user_provider.dart';
 import '../../../services/mapbox_service.dart';
 import '../widgets/offline_status_indicator.dart';
 
@@ -118,9 +119,10 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
 
   void _launchMapPlayback(DateTime date, bool isMyRoute, LocationProvider provider) {
     HapticFeedback.mediumImpact();
-    final targetOwner = isMyRoute
-        ? (provider.currentUser?.id ?? provider.userId)
-        : (provider.partnerUser?.id ?? provider.partnerId);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final myId = userProvider.user?.id ?? provider.currentUser?.id ?? provider.userId;
+    final partnerId = provider.partnerUser?.id ?? provider.partnerId;
+    final targetOwner = isMyRoute ? myId : (partnerId ?? myId);
 
     if (targetOwner != null) {
       provider.setSelectedHistoryDate(date, ownerId: targetOwner);

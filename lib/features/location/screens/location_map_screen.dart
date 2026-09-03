@@ -929,14 +929,14 @@ class _LocationMapScreenState extends State<LocationMapScreen>
               curve: Curves.easeOutCubic,
               alignment: Alignment.topRight,
               child: isHistoryMode
-                  ? // In Route History: Remove all unneeded buttons and show ONLY the Check Button on the side!
+                  ? // In Route History: Clean side button with Route History icon + Active Check Selected mark
                   _buildFloatingControlButton(
-                      icon: Icons.check_rounded,
-                      tooltip: 'Exit Route History',
-                      color: AppColors.softRose,
-                      iconColor: Colors.white,
+                      icon: Icons.route_rounded,
+                      tooltip: 'Route History Active (Tap to Exit)',
+                      color: isDark ? const Color(0xFF231A33) : Colors.white,
+                      iconColor: AppColors.softRose,
                       isSelected: true,
-                      selectedBorderColor: Colors.white,
+                      selectedBorderColor: AppColors.softRose,
                       onPressed: () {
                         HapticFeedback.mediumImpact();
                         locationProvider.toggleHistoryMode(false);
@@ -1035,7 +1035,7 @@ class _LocationMapScreenState extends State<LocationMapScreen>
                                   selectedBorderColor: AppColors.softRose,
                                   onPressed: () {
                                     HapticFeedback.lightImpact();
-                                    locationProvider.toggleHistoryMode(true);
+                                    locationProvider.toggleHistoryMode(true, ownerId: myId);
                                   },
                                 ),
                                 const SizedBox(height: 8),
@@ -1720,14 +1720,14 @@ class _LocationMapScreenState extends State<LocationMapScreen>
               ),
             ),
           ),
-          // Selected Active Indicator Dot
+          // Selected Active Status Check Badge
           if (isSelected)
             Positioned(
               right: -1,
               bottom: -1,
               child: Container(
-                width: 14,
-                height: 14,
+                width: 16,
+                height: 16,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: activeBorder,
@@ -1740,9 +1740,9 @@ class _LocationMapScreenState extends State<LocationMapScreen>
                   ],
                 ),
                 child: const Icon(
-                  Icons.check,
+                  Icons.check_rounded,
                   color: Colors.white,
-                  size: 8,
+                  size: 9,
                 ),
               ),
             ),

@@ -148,8 +148,16 @@ class _LocationMapScreenState extends State<LocationMapScreen>
 
       _driveStartPos = startPos;
       _driveEndPos = endPos;
+      final stepDistance = Geolocator.distanceBetween(
+        startPos.latitude,
+        startPos.longitude,
+        endPos.latitude,
+        endPos.longitude,
+      );
       _driveStartHeading = _interpolatedCarHeading;
-      _driveTargetHeading = _calculateBearing(startPos, endPos);
+      _driveTargetHeading = stepDistance >= 12.0
+          ? _calculateBearing(startPos, endPos)
+          : _driveStartHeading;
 
       final speed = provider.playbackSpeed > 0 ? provider.playbackSpeed : 1.0;
       final durationMs = (1000 / speed).round().clamp(150, 3000);
@@ -292,6 +300,16 @@ class _LocationMapScreenState extends State<LocationMapScreen>
       return;
     }
     final bounds = LatLngBounds.fromPoints(points);
+    final spreadMeters = Geolocator.distanceBetween(
+      bounds.southWest.latitude,
+      bounds.southWest.longitude,
+      bounds.northEast.latitude,
+      bounds.northEast.longitude,
+    );
+    if (spreadMeters < 50.0) {
+      _mapController.move(bounds.center, 15.5);
+      return;
+    }
     _mapController.fitCamera(
       CameraFit.bounds(
         bounds: bounds,
@@ -1835,7 +1853,7 @@ class _LocationMapScreenState extends State<LocationMapScreen>
   }
 
   Widget _buildFallbackPuckAvatar(String name, Color accentColor) {
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '♥';
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
     return Container(
       color: accentColor.withValues(alpha: 0.18),
       alignment: Alignment.center,

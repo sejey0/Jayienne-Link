@@ -419,15 +419,21 @@ class OfflineStorageService {
 
     if (validPoints.length <= 2) return validPoints;
 
-    // 2. Filter out poor accuracy cell tower fixes (> 80m)
-    final accuratePoints =
-        validPoints.where((loc) => loc.accuracy <= 80.0).toList();
-    final sourcePoints = (accuratePoints.length >= 2)
-        ? accuratePoints
-        : validPoints.where((loc) => loc.accuracy <= 130.0).toList();
-    final candidates = sourcePoints.isNotEmpty ? sourcePoints : validPoints;
+    // 2. Accuracy Filter:
+    // Prioritize high-accuracy GPS fixes (<= 40m).
+    // Drop coarse cell tower triangulations (> 60m) that jump across neighborhoods.
+    final tightAccuracyPoints =
+        validPoints.where((loc) => loc.accuracy <= 40.0).toList();
+    final moderateAccuracyPoints =
+        validPoints.where((loc) => loc.accuracy <= 60.0).toList();
 
-    if (candidates.length <= 2) return candidates;
+    final candidates = tightAccuracyPoints.length >= 2
+        ? tightAccuracyPoints
+        : (moderateAccuracyPoints.length >= 2
+            ? moderateAccuracyPoints
+            : validPoints);
+
+    if (candidates.length <= 1) return candidates;
 
     // 3. Remove impossible speed jumps & single-point spikes
     final List<LocationModel> clean = [candidates.first];
@@ -445,8 +451,8 @@ class OfflineStorageService {
           current.timestamp.difference(last.timestamp).inSeconds.abs();
       final speed = dist / (secs > 0 ? secs : 1);
 
-      // If impossible speed (> 42 m/s = 150 km/h) over > 100m distance
-      if (dist > 100 && speed > 42.0) {
+      // Impossible speed (> 38 m/s = 137 km/h) over > 70m distance
+      if (dist > 70 && speed > 38.0) {
         if (i + 1 < candidates.length) {
           final next = candidates[i + 1];
           final nextDistFromLast = Geolocator.distanceBetween(
@@ -455,16 +461,16 @@ class OfflineStorageService {
             next.latitude,
             next.longitude,
           );
-          if (nextDistFromLast < dist * 0.4) {
+          if (nextDistFromLast < dist * 0.45) {
             // Outlier spike - skip
             continue;
           }
         }
-        if (speed > 60.0) continue;
+        if (speed > 55.0) continue;
       }
 
-      // Isolated jump > 800m snapping back
-      if (dist > 800 && i + 1 < candidates.length) {
+      // Isolated jump > 500m snapping back
+      if (dist > 500 && i + 1 < candidates.length) {
         final next = candidates[i + 1];
         final nextDist = Geolocator.distanceBetween(
           last.latitude,
@@ -472,38 +478,76 @@ class OfflineStorageService {
           next.latitude,
           next.longitude,
         );
-        if (nextDist < 300) continue;
+        if (nextDist < 250) continue;
       }
 
       clean.add(current);
     }
 
-    if (clean.length <= 2) return clean;
+    if (clean.length <= 1) return clean;
 
-    // 4. Downsample clustered stationary points (< 10m or < 10s)
+    // 4. Stationary Day Collapse:
+    // If user stayed within 60m the entire day, collapse into single most accurate anchor point.
+    double maxSpread = 0.0;
+    final firstPoint = clean.first;
+    for (final pt in clean) {
+      final d = Geolocator.distanceBetween(
+        firstPoint.latitude,
+        firstPoint.longitude,
+        pt.latitude,
+        pt.longitude,
+      );
+      if (d > maxSpread) maxSpread = d;
+    }
+
+    if (maxSpread < 60.0) {
+      LocationModel bestAnchor = clean.first;
+      for (final pt in clean) {
+        if (pt.accuracy < bestAnchor.accuracy) {
+          bestAnchor = pt;
+        }
+      }
+      return [bestAnchor];
+    }
+
+    // 5. Stationary Dwell Clustering (for actual travel routes):
+    // Eliminate stationary jitter while stopped at home, work, or school.
     final List<LocationModel> filtered = [clean.first];
+    LocationModel anchor = clean.first;
+
     for (int i = 1; i < clean.length - 1; i++) {
       final current = clean[i];
-      final last = filtered.last;
-
-      final elapsed =
-          current.timestamp.difference(last.timestamp).inSeconds.abs();
-      final distance = Geolocator.distanceBetween(
-        last.latitude,
-        last.longitude,
+      final distFromAnchor = Geolocator.distanceBetween(
+        anchor.latitude,
+        anchor.longitude,
         current.latitude,
         current.longitude,
       );
 
-      if (distance < minDistanceMeters || elapsed < minIntervalSeconds) {
+      // Suppress stationary jitter within 30m of anchor
+      if (distFromAnchor < 30.0) {
+        if (current.accuracy < anchor.accuracy) {
+          anchor = current;
+          filtered[filtered.length - 1] = current;
+        }
         continue;
       }
 
       filtered.add(current);
+      anchor = current;
     }
 
     // Always include latest clean point
-    filtered.add(clean.last);
+    final lastPoint = clean.last;
+    final distFromLastSaved = Geolocator.distanceBetween(
+      filtered.last.latitude,
+      filtered.last.longitude,
+      lastPoint.latitude,
+      lastPoint.longitude,
+    );
+    if (distFromLastSaved > 15.0) {
+      filtered.add(lastPoint);
+    }
 
     // 5. Decimate if still exceeds maxPoints
     if (filtered.length > maxPoints) {

@@ -986,21 +986,23 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (validPoints.length <= 1) return validPoints;
 
     // 2. Accuracy Filter:
-    // Typical GPS is 5-25m. Poor accuracy fixes (e.g. > 80m) jump wildly across the city.
-    final accuratePoints =
-        validPoints.where((loc) => loc.accuracy <= 80.0).toList();
+    // Prioritize high-accuracy GPS fixes (<= 40m).
+    // Drop coarse cell tower triangulations (> 60m) that jump across neighborhoods.
+    final tightAccuracyPoints =
+        validPoints.where((loc) => loc.accuracy <= 40.0).toList();
+    final moderateAccuracyPoints =
+        validPoints.where((loc) => loc.accuracy <= 60.0).toList();
 
-    // If filtering by 80m removed too many points (poor rural reception), fallback with a relaxed 130m threshold
-    final basePoints = (accuratePoints.length >= 2)
-        ? accuratePoints
-        : validPoints.where((loc) => loc.accuracy <= 130.0).toList();
+    final candidatePoints = tightAccuracyPoints.length >= 2
+        ? tightAccuracyPoints
+        : (moderateAccuracyPoints.length >= 2
+            ? moderateAccuracyPoints
+            : validPoints);
 
-    final candidatePoints = basePoints.isNotEmpty ? basePoints : validPoints;
-    if (candidatePoints.length <= 2) return candidatePoints;
+    if (candidatePoints.length <= 1) return candidatePoints;
 
-    // 3. Teleportation / Impossible Speed & Spike Filter
-    final List<LocationModel> clean = [];
-    clean.add(candidatePoints.first);
+    // 3. Teleportation / Impossible Speed & Bounce Spike Filter
+    final List<LocationModel> clean = [candidatePoints.first];
 
     for (int i = 1; i < candidatePoints.length; i++) {
       final current = candidatePoints[i];
@@ -1020,9 +1022,8 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
       final effectiveSeconds = seconds > 0 ? seconds : 1;
       final speedMps = distanceMeters / effectiveSeconds;
 
-      // If speed exceeds 42 m/s (~150 km/h) over a significant distance (> 100m)
-      if (distanceMeters > 100 && speedMps > 42.0) {
-        // Look ahead: if the NEXT point is back near lastValid, current point is a spike!
+      // Impossible speed (> 38 m/s = ~137 km/h) over a noticeable distance (> 70m)
+      if (distanceMeters > 70 && speedMps > 38.0) {
         if (i + 1 < candidatePoints.length) {
           final next = candidatePoints[i + 1];
           final nextDistFromLast = Geolocator.distanceBetween(
@@ -1031,19 +1032,16 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
             next.latitude,
             next.longitude,
           );
-          if (nextDistFromLast < distanceMeters * 0.4) {
-            // Definite single-point outlier/spike - skip it!
+          if (nextDistFromLast < distanceMeters * 0.45) {
+            // Outlier bounce spike - skip!
             continue;
           }
         }
-        // If speed is truly impossible (> 65 m/s = 234 km/h), reject
-        if (speedMps > 65.0) {
-          continue;
-        }
+        if (speedMps > 55.0) continue;
       }
 
-      // 4. Isolated spatial jump filter (e.g. jumps > 800m and next point returns to near lastValid)
-      if (distanceMeters > 800 && i + 1 < candidatePoints.length) {
+      // Isolated spatial jump filter (> 500m that snaps back)
+      if (distanceMeters > 500 && i + 1 < candidatePoints.length) {
         final next = candidatePoints[i + 1];
         final nextDistFromLast = Geolocator.distanceBetween(
           lastValid.latitude,
@@ -1051,8 +1049,7 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
           next.latitude,
           next.longitude,
         );
-        if (nextDistFromLast < 300) {
-          // Outlier jump that snapped back - skip!
+        if (nextDistFromLast < 250) {
           continue;
         }
       }
@@ -1060,7 +1057,76 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
       clean.add(current);
     }
 
-    return clean.isNotEmpty ? clean : candidatePoints;
+    if (clean.length <= 1) return clean;
+
+    // 4. Stationary Day Collapse:
+    // If the user stayed in one place (all points fall within a 60m radius of origin),
+    // collapse the entire day into the single highest-accuracy stationary anchor point.
+    // This eliminates indoor GPS wandering, spiderwebs, and erratic vehicle movements.
+    double maxSpreadFromFirst = 0.0;
+    final firstPoint = clean.first;
+    for (final pt in clean) {
+      final d = Geolocator.distanceBetween(
+        firstPoint.latitude,
+        firstPoint.longitude,
+        pt.latitude,
+        pt.longitude,
+      );
+      if (d > maxSpreadFromFirst) {
+        maxSpreadFromFirst = d;
+      }
+    }
+
+    if (maxSpreadFromFirst < 60.0) {
+      LocationModel bestAnchor = clean.first;
+      for (final pt in clean) {
+        if (pt.accuracy < bestAnchor.accuracy) {
+          bestAnchor = pt;
+        }
+      }
+      return [bestAnchor];
+    }
+
+    // 5. Stationary Dwell Clustering (for actual travel routes):
+    // When stopped at home, work, or school, GPS jitters by 10-30m.
+    // Do not create polyline vertices for stationary jitter; only progress
+    // when moving progressively >= 30m away from the active anchor.
+    final List<LocationModel> stabilized = [clean.first];
+    LocationModel activeAnchor = clean.first;
+
+    for (int i = 1; i < clean.length - 1; i++) {
+      final current = clean[i];
+      final distFromAnchor = Geolocator.distanceBetween(
+        activeAnchor.latitude,
+        activeAnchor.longitude,
+        current.latitude,
+        current.longitude,
+      );
+
+      if (distFromAnchor < 30.0) {
+        if (current.accuracy < activeAnchor.accuracy) {
+          activeAnchor = current;
+          stabilized[stabilized.length - 1] = current;
+        }
+        continue;
+      }
+
+      stabilized.add(current);
+      activeAnchor = current;
+    }
+
+    final lastPoint = clean.last;
+    final distFromLastSaved = Geolocator.distanceBetween(
+      stabilized.last.latitude,
+      stabilized.last.longitude,
+      lastPoint.latitude,
+      lastPoint.longitude,
+    );
+    if (distFromLastSaved > 15.0) {
+      stabilized.add(lastPoint);
+    }
+
+    return stabilized.isNotEmpty ? stabilized : clean;
   }
 
   void setHistoryOwner(String ownerId) {

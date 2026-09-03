@@ -180,9 +180,10 @@ class _LocationMapScreenState extends State<LocationMapScreen>
           _interpolatedCarHeading = ((_driveStartHeading + diff * t) + 360) % 360;
 
           // Camera smooth follow during driving playback
-          if (_isFullscreen || !_isSideMenuCollapsed) {
-            _mapController.move(_interpolatedCarPos!, _mapController.camera.zoom);
-          }
+          _mapController.move(
+            _interpolatedCarPos!,
+            _mapController.camera.zoom.clamp(14.0, 17.5),
+          );
           setState(() {});
         }
       });
@@ -295,6 +296,8 @@ class _LocationMapScreenState extends State<LocationMapScreen>
       CameraFit.bounds(
         bounds: bounds,
         padding: const EdgeInsets.fromLTRB(40, 60, 40, 240),
+        maxZoom: 16.5,
+        minZoom: 12.0,
       ),
     );
   }
@@ -371,17 +374,7 @@ class _LocationMapScreenState extends State<LocationMapScreen>
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          if (historyPoints.length == 1) {
-            _mapController.move(historyPoints.first, 15.5);
-          } else if (historyPoints.length > 1) {
-            final bounds = LatLngBounds.fromPoints(historyPoints);
-            _mapController.fitCamera(
-              CameraFit.bounds(
-                bounds: bounds,
-                padding: const EdgeInsets.fromLTRB(40, 60, 40, 240),
-              ),
-            );
-          }
+          _fitRoute(historyPoints);
         });
       }
     } else if (!isHistoryMode) {
@@ -935,198 +928,192 @@ class _LocationMapScreenState extends State<LocationMapScreen>
               duration: const Duration(milliseconds: 240),
               curve: Curves.easeOutCubic,
               alignment: Alignment.topRight,
-              child: (_isSideMenuCollapsed || _isSearching)
-                  ? _buildFloatingControlButton(
-                      icon: isHistoryMode
-                          ? Icons.tune_rounded
-                          : (_isSearching ? Icons.tune_rounded : Icons.keyboard_arrow_left_rounded),
-                      tooltip: isHistoryMode ? 'History Controls (Expand)' : 'Expand Map Controls',
-                      color: isDark ? const Color(0xFF241A35) : Colors.white,
-                      iconColor: AppColors.softRose,
+              child: isHistoryMode
+                  ? // In Route History: Remove all unneeded buttons and show ONLY the Check Button on the side!
+                  _buildFloatingControlButton(
+                      icon: Icons.check_rounded,
+                      tooltip: 'Exit Route History',
+                      color: AppColors.softRose,
+                      iconColor: Colors.white,
                       isSelected: true,
-                      selectedBorderColor: AppColors.softRose,
+                      selectedBorderColor: Colors.white,
                       onPressed: () {
-                        HapticFeedback.lightImpact();
-                        setState(() {
-                          _isSideMenuCollapsed = false;
-                          if (_isSearching) {
-                            _isSearching = false;
-                          }
-                        });
+                        HapticFeedback.mediumImpact();
+                        locationProvider.toggleHistoryMode(false);
                       },
                     )
-                  : Container(
-                      constraints: BoxConstraints(
-                        maxHeight: isFullscreen
-                            ? (MediaQuery.of(context).size.height - 120)
-                            : (isHistoryMode
-                                ? (MediaQuery.of(context).size.height - 300)
-                                : (MediaQuery.of(context).size.height - 180)),
-                      ),
-                      child: SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            // Collapse Button (Chevron) on top of the stack
-                            _buildFloatingControlButton(
-                              icon: Icons.keyboard_arrow_right_rounded,
-                              tooltip: 'Collapse Controls',
-                              color: isDark ? const Color(0xFF2A1F3D) : const Color(0xFFF5EEF9),
-                              iconColor: isDark ? Colors.white70 : AppColors.deepCharcoal,
-                              onPressed: () {
-                                HapticFeedback.lightImpact();
-                                setState(() {
-                                  _isSideMenuCollapsed = true;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 8),
-
-                            // Satellite / Standard Map View Toggle Button
-                            _buildFloatingControlButton(
-                              icon: isSatelliteView ? Icons.satellite_alt_rounded : Icons.map_rounded,
-                              tooltip: isSatelliteView ? 'Satellite Map (Tap for Standard)' : 'Standard Map (Tap for Satellite)',
-                              color: isSatelliteView ? AppColors.softRose : (isDark ? const Color(0xFF231A33) : Colors.white),
-                              iconColor: isSatelliteView ? Colors.white : (isDark ? Colors.white : const Color(0xFF1E142B)),
-                              isSelected: true,
-                              selectedBorderColor: isSatelliteView ? AppColors.softRose : const Color(0xFF7C4DFF),
-                              onPressed: () {
-                                HapticFeedback.lightImpact();
-                                setState(() {
-                                  _isSatelliteView = !isSatelliteView;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 8),
-
-                            // Fullscreen Map Toggle Button (Only in Live Mode or when not already fullscreen)
-                            if (!isHistoryMode && !isFullscreen) ...[
-                              _buildFloatingControlButton(
-                                icon: Icons.fullscreen_rounded,
-                                tooltip: 'Fullscreen Map',
-                                color: isDark ? const Color(0xFF231A33) : Colors.white,
-                                iconColor: isDark ? Colors.white : const Color(0xFF1E142B),
-                                isSelected: false,
-                                selectedBorderColor: AppColors.softRose,
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  setState(() {
-                                    _isFullscreen = true;
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: 8),
-                            ],
-
-                            // Route History Playback Toggle Button
-                            _buildFloatingControlButton(
-                              icon: isHistoryMode ? Icons.map_rounded : Icons.route_rounded,
-                              tooltip: isHistoryMode ? 'Back to Live Map' : 'Route History Playback',
-                              color: isHistoryMode ? AppColors.softRose : (isDark ? const Color(0xFF231A33) : Colors.white),
-                              iconColor: isHistoryMode ? Colors.white : (isDark ? Colors.white : const Color(0xFF1E142B)),
-                              isSelected: isHistoryMode,
-                              selectedBorderColor: AppColors.softRose,
-                              onPressed: () {
-                                HapticFeedback.lightImpact();
-                                locationProvider.toggleHistoryMode(!isHistoryMode);
-                              },
-                            ),
-                            const SizedBox(height: 8),
-
-                            // Location History List Button
-                            _buildFloatingControlButton(
-                              icon: Icons.history_rounded,
-                              tooltip: 'Trip History Log',
-                              color: isDark ? const Color(0xFF231A33) : Colors.white,
-                              iconColor: isDark ? Colors.white : const Color(0xFF1E142B),
-                              onPressed: () {
-                                HapticFeedback.lightImpact();
-                                context.push(RouteNames.locationHistory);
-                              },
-                            ),
-                            const SizedBox(height: 8),
-
-                            // In History Mode: Clean Map Controls
-                            if (isHistoryMode) ...[
-                              // Fit Full Route in View
-                              _buildFloatingControlButton(
-                                icon: Icons.crop_free_rounded,
-                                tooltip: 'Fit Route in View',
-                                color: isDark ? const Color(0xFF231A33) : Colors.white,
-                                iconColor: AppColors.softRose,
-                                isSelected: true,
-                                selectedBorderColor: AppColors.softRose,
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  _fitRoute(historyPoints);
-                                },
-                              ),
-                            ] else ...[
-
-                              // Fit Both Button (People Icon)
-                              _buildFloatingControlButton(
-                                icon: Icons.people_alt_rounded,
-                                tooltip: 'Fit Both in View',
-                                color: _isBothSelected ? AppColors.softRose : (isDark ? const Color(0xFF231A33) : Colors.white),
-                                iconColor: _isBothSelected ? Colors.white : AppColors.softRose,
-                                isSelected: _isBothSelected,
-                                selectedBorderColor: AppColors.softRose,
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  _fitBoth(locationProvider);
-                                },
-                              ),
-                              const SizedBox(height: 8),
-
-                              // Center Partner Button (Mini Profile Avatar)
-                              if (partnerUser != null || locationProvider.hasPartner) ...[
-                                _buildAvatarFloatingButton(
-                                  photoUrl: partnerUser?.photoUrl,
-                                  tooltip: 'Center ${partnerUser?.displayName ?? "Partner"}',
-                                  borderColor: AppColors.lavender,
-                                  fallbackIcon: Icons.favorite_rounded,
-                                  isSelected: _isPartnerSelected,
+                  : (_isSideMenuCollapsed || _isSearching)
+                      ? _buildFloatingControlButton(
+                          icon: _isSearching
+                              ? Icons.tune_rounded
+                              : Icons.keyboard_arrow_left_rounded,
+                          tooltip: 'Expand Map Controls',
+                          color: isDark ? const Color(0xFF241A35) : Colors.white,
+                          iconColor: AppColors.softRose,
+                          isSelected: true,
+                          selectedBorderColor: AppColors.softRose,
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            setState(() {
+                              _isSideMenuCollapsed = false;
+                              if (_isSearching) {
+                                _isSearching = false;
+                              }
+                            });
+                          },
+                        )
+                      : Container(
+                          constraints: BoxConstraints(
+                            maxHeight: isFullscreen
+                                ? (MediaQuery.of(context).size.height - 120)
+                                : (MediaQuery.of(context).size.height - 180),
+                          ),
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                // Collapse Button (Chevron) on top of the stack
+                                _buildFloatingControlButton(
+                                  icon: Icons.keyboard_arrow_right_rounded,
+                                  tooltip: 'Collapse Controls',
+                                  color: isDark ? const Color(0xFF2A1F3D) : const Color(0xFFF5EEF9),
+                                  iconColor: isDark ? Colors.white70 : AppColors.deepCharcoal,
                                   onPressed: () {
                                     HapticFeedback.lightImpact();
-                                    _centerPartner(locationProvider);
+                                    setState(() {
+                                      _isSideMenuCollapsed = true;
+                                    });
                                   },
                                 ),
                                 const SizedBox(height: 8),
+
+                                // Satellite / Standard Map View Toggle Button
+                                _buildFloatingControlButton(
+                                  icon: isSatelliteView ? Icons.satellite_alt_rounded : Icons.map_rounded,
+                                  tooltip: isSatelliteView ? 'Satellite Map (Tap for Standard)' : 'Standard Map (Tap for Satellite)',
+                                  color: isSatelliteView ? AppColors.softRose : (isDark ? const Color(0xFF231A33) : Colors.white),
+                                  iconColor: isSatelliteView ? Colors.white : (isDark ? Colors.white : const Color(0xFF1E142B)),
+                                  isSelected: true,
+                                  selectedBorderColor: isSatelliteView ? AppColors.softRose : const Color(0xFF7C4DFF),
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    setState(() {
+                                      _isSatelliteView = !isSatelliteView;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Fullscreen Map Toggle Button (Only in Live Mode or when not already fullscreen)
+                                if (!isFullscreen) ...[
+                                  _buildFloatingControlButton(
+                                    icon: Icons.fullscreen_rounded,
+                                    tooltip: 'Fullscreen Map',
+                                    color: isDark ? const Color(0xFF231A33) : Colors.white,
+                                    iconColor: isDark ? Colors.white : const Color(0xFF1E142B),
+                                    isSelected: false,
+                                    selectedBorderColor: AppColors.softRose,
+                                    onPressed: () {
+                                      HapticFeedback.lightImpact();
+                                      setState(() {
+                                        _isFullscreen = true;
+                                      });
+                                    },
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+
+                                // Route History Playback Toggle Button
+                                _buildFloatingControlButton(
+                                  icon: Icons.route_rounded,
+                                  tooltip: 'Route History Playback',
+                                  color: isDark ? const Color(0xFF231A33) : Colors.white,
+                                  iconColor: isDark ? Colors.white : const Color(0xFF1E142B),
+                                  isSelected: false,
+                                  selectedBorderColor: AppColors.softRose,
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    locationProvider.toggleHistoryMode(true);
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Location History List Button
+                                _buildFloatingControlButton(
+                                  icon: Icons.history_rounded,
+                                  tooltip: 'Trip History Log',
+                                  color: isDark ? const Color(0xFF231A33) : Colors.white,
+                                  iconColor: isDark ? Colors.white : const Color(0xFF1E142B),
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    context.push(RouteNames.locationHistory);
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Fit Both Button (People Icon)
+                                _buildFloatingControlButton(
+                                  icon: Icons.people_alt_rounded,
+                                  tooltip: 'Fit Both in View',
+                                  color: _isBothSelected ? AppColors.softRose : (isDark ? const Color(0xFF231A33) : Colors.white),
+                                  iconColor: _isBothSelected ? Colors.white : AppColors.softRose,
+                                  isSelected: _isBothSelected,
+                                  selectedBorderColor: AppColors.softRose,
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    _fitBoth(locationProvider);
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Center Partner Button (Mini Profile Avatar)
+                                if (partnerUser != null || locationProvider.hasPartner) ...[
+                                  _buildAvatarFloatingButton(
+                                    photoUrl: partnerUser?.photoUrl,
+                                    tooltip: 'Center ${partnerUser?.displayName ?? "Partner"}',
+                                    borderColor: AppColors.lavender,
+                                    fallbackIcon: Icons.favorite_rounded,
+                                    isSelected: _isPartnerSelected,
+                                    onPressed: () {
+                                      HapticFeedback.lightImpact();
+                                      _centerPartner(locationProvider);
+                                    },
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+
+                                // Center Me Button (Mini Profile Avatar or Location Pin)
+                                _buildAvatarFloatingButton(
+                                  photoUrl: currentUser?.photoUrl,
+                                  tooltip: 'Center Me',
+                                  borderColor: AppColors.softRose,
+                                  fallbackIcon: Icons.my_location_rounded,
+                                  isSelected: _isMeSelected,
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    _centerMe(locationProvider);
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Refresh Button (Bottom White Button with Spin)
+                                _buildFloatingControlButton(
+                                  icon: Icons.refresh_rounded,
+                                  isLoading: isRefreshing,
+                                  tooltip: 'Refresh Location',
+                                  color: isDark ? const Color(0xFF231A33) : Colors.white,
+                                  iconColor: isDark ? Colors.white : const Color(0xFF1E142B),
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    _refreshLocations();
+                                  },
+                                ),
                               ],
-
-                              // Center Me Button (Mini Profile Avatar or Location Pin)
-                              _buildAvatarFloatingButton(
-                                photoUrl: currentUser?.photoUrl,
-                                tooltip: 'Center Me',
-                                borderColor: AppColors.softRose,
-                                fallbackIcon: Icons.my_location_rounded,
-                                isSelected: _isMeSelected,
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  _centerMe(locationProvider);
-                                },
-                              ),
-                              const SizedBox(height: 8),
-
-                              // Refresh Button (Bottom White Button with Spin)
-                              _buildFloatingControlButton(
-                                icon: Icons.refresh_rounded,
-                                isLoading: isRefreshing,
-                                tooltip: 'Refresh Location',
-                                color: isDark ? const Color(0xFF231A33) : Colors.white,
-                                iconColor: isDark ? Colors.white : const Color(0xFF1E142B),
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  _refreshLocations();
-                                },
-                              ),
-                            ],
-                          ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
             ),
           ),
 
@@ -1141,6 +1128,9 @@ class _LocationMapScreenState extends State<LocationMapScreen>
                 onToggleFullscreen: () {
                   HapticFeedback.lightImpact();
                   setState(() => _isFullscreen = !isFullscreen);
+                },
+                onFitRoute: () {
+                  _fitRoute(historyPoints);
                 },
                 onClose: () {
                   locationProvider.toggleHistoryMode(false);

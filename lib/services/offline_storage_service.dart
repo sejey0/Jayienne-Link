@@ -398,23 +398,96 @@ class OfflineStorageService {
     return _downsampleLocations(raw);
   }
 
-  /// Downsamples a list of locations to eliminate clustered/redundant points (<10m or <10s)
-  /// and limits points to a maximum of 300 per day while preserving start & end waypoints.
+  /// Sanitizes raw locations (removing (0,0), invalid coords, inaccurate fixes >80m, and teleportation spikes)
+  /// and downsamples them to eliminate clustered/redundant points (<10m or <10s),
+  /// limiting points to a maximum of 300 per day while preserving real travel waypoints.
   List<LocationModel> _downsampleLocations(
     List<LocationModel> raw, {
     int maxPoints = 300,
     double minDistanceMeters = 10.0,
     int minIntervalSeconds = 10,
   }) {
-    if (raw.length <= 2) return raw;
+    if (raw.isEmpty) return raw;
 
-    final List<LocationModel> filtered = [raw.first];
+    // 1. Filter out invalid coordinates and Null Island
+    final validPoints = raw.where((loc) {
+      if (loc.latitude == 0.0 && loc.longitude == 0.0) return false;
+      if (loc.latitude.isNaN || loc.longitude.isNaN) return false;
+      if (loc.latitude.abs() > 90.0 || loc.longitude.abs() > 180.0) return false;
+      return true;
+    }).toList();
 
-    for (int i = 1; i < raw.length - 1; i++) {
-      final current = raw[i];
+    if (validPoints.length <= 2) return validPoints;
+
+    // 2. Filter out poor accuracy cell tower fixes (> 80m)
+    final accuratePoints =
+        validPoints.where((loc) => loc.accuracy <= 80.0).toList();
+    final sourcePoints = (accuratePoints.length >= 2)
+        ? accuratePoints
+        : validPoints.where((loc) => loc.accuracy <= 130.0).toList();
+    final candidates = sourcePoints.isNotEmpty ? sourcePoints : validPoints;
+
+    if (candidates.length <= 2) return candidates;
+
+    // 3. Remove impossible speed jumps & single-point spikes
+    final List<LocationModel> clean = [candidates.first];
+    for (int i = 1; i < candidates.length; i++) {
+      final current = candidates[i];
+      final last = clean.last;
+
+      final dist = Geolocator.distanceBetween(
+        last.latitude,
+        last.longitude,
+        current.latitude,
+        current.longitude,
+      );
+      final secs =
+          current.timestamp.difference(last.timestamp).inSeconds.abs();
+      final speed = dist / (secs > 0 ? secs : 1);
+
+      // If impossible speed (> 42 m/s = 150 km/h) over > 100m distance
+      if (dist > 100 && speed > 42.0) {
+        if (i + 1 < candidates.length) {
+          final next = candidates[i + 1];
+          final nextDistFromLast = Geolocator.distanceBetween(
+            last.latitude,
+            last.longitude,
+            next.latitude,
+            next.longitude,
+          );
+          if (nextDistFromLast < dist * 0.4) {
+            // Outlier spike - skip
+            continue;
+          }
+        }
+        if (speed > 60.0) continue;
+      }
+
+      // Isolated jump > 800m snapping back
+      if (dist > 800 && i + 1 < candidates.length) {
+        final next = candidates[i + 1];
+        final nextDist = Geolocator.distanceBetween(
+          last.latitude,
+          last.longitude,
+          next.latitude,
+          next.longitude,
+        );
+        if (nextDist < 300) continue;
+      }
+
+      clean.add(current);
+    }
+
+    if (clean.length <= 2) return clean;
+
+    // 4. Downsample clustered stationary points (< 10m or < 10s)
+    final List<LocationModel> filtered = [clean.first];
+    for (int i = 1; i < clean.length - 1; i++) {
+      final current = clean[i];
       final last = filtered.last;
 
-      final elapsed = current.timestamp.difference(last.timestamp).inSeconds.abs();
+      final elapsed =
+          current.timestamp.difference(last.timestamp).inSeconds.abs();
       final distance = Geolocator.distanceBetween(
         last.latitude,
         last.longitude,
@@ -422,7 +495,6 @@ class OfflineStorageService {
         current.longitude,
       );
 
-      // Skip if closer than 10m or within 10s of last kept point
       if (distance < minDistanceMeters || elapsed < minIntervalSeconds) {
         continue;
       }
@@ -430,10 +502,10 @@ class OfflineStorageService {
       filtered.add(current);
     }
 
-    // Always include the latest point
-    filtered.add(raw.last);
+    // Always include latest clean point
+    filtered.add(clean.last);
 
-    // If still exceeds maxPoints, uniform stride decimation
+    // 5. Decimate if still exceeds maxPoints
     if (filtered.length > maxPoints) {
       final List<LocationModel> decimated = [filtered.first];
       final double step = (filtered.length - 1) / (maxPoints - 1);

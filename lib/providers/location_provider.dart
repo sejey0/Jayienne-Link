@@ -959,7 +959,7 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
 
-      _historyLocations = points;
+      _historyLocations = sanitizeRouteLocations(points);
       _playbackIndex = 0;
     } catch (e) {
       debugPrint('Error loading location history: $e');
@@ -968,6 +968,99 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
       _isLoadingHistory = false;
       notifyListeners();
     }
+  }
+
+  /// Sanitize & filter location history points to eliminate GPS outliers,
+  /// (0,0) null-island glitches, inaccurate cell-tower estimates, and teleportation spikes.
+  List<LocationModel> sanitizeRouteLocations(List<LocationModel> raw) {
+    if (raw.isEmpty) return [];
+
+    // 1. Basic Validity & Coordinates Range Filter
+    final validPoints = raw.where((loc) {
+      if (loc.latitude == 0.0 && loc.longitude == 0.0) return false;
+      if (loc.latitude.isNaN || loc.longitude.isNaN) return false;
+      if (loc.latitude.abs() > 90.0 || loc.longitude.abs() > 180.0) return false;
+      return true;
+    }).toList();
+
+    if (validPoints.length <= 1) return validPoints;
+
+    // 2. Accuracy Filter:
+    // Typical GPS is 5-25m. Poor accuracy fixes (e.g. > 80m) jump wildly across the city.
+    final accuratePoints =
+        validPoints.where((loc) => loc.accuracy <= 80.0).toList();
+
+    // If filtering by 80m removed too many points (poor rural reception), fallback with a relaxed 130m threshold
+    final basePoints = (accuratePoints.length >= 2)
+        ? accuratePoints
+        : validPoints.where((loc) => loc.accuracy <= 130.0).toList();
+
+    final candidatePoints = basePoints.isNotEmpty ? basePoints : validPoints;
+    if (candidatePoints.length <= 2) return candidatePoints;
+
+    // 3. Teleportation / Impossible Speed & Spike Filter
+    final List<LocationModel> clean = [];
+    clean.add(candidatePoints.first);
+
+    for (int i = 1; i < candidatePoints.length; i++) {
+      final current = candidatePoints[i];
+      final lastValid = clean.last;
+
+      final distanceMeters = Geolocator.distanceBetween(
+        lastValid.latitude,
+        lastValid.longitude,
+        current.latitude,
+        current.longitude,
+      );
+
+      final seconds = current.timestamp
+          .difference(lastValid.timestamp)
+          .inSeconds
+          .abs();
+      final effectiveSeconds = seconds > 0 ? seconds : 1;
+      final speedMps = distanceMeters / effectiveSeconds;
+
+      // If speed exceeds 42 m/s (~150 km/h) over a significant distance (> 100m)
+      if (distanceMeters > 100 && speedMps > 42.0) {
+        // Look ahead: if the NEXT point is back near lastValid, current point is a spike!
+        if (i + 1 < candidatePoints.length) {
+          final next = candidatePoints[i + 1];
+          final nextDistFromLast = Geolocator.distanceBetween(
+            lastValid.latitude,
+            lastValid.longitude,
+            next.latitude,
+            next.longitude,
+          );
+          if (nextDistFromLast < distanceMeters * 0.4) {
+            // Definite single-point outlier/spike - skip it!
+            continue;
+          }
+        }
+        // If speed is truly impossible (> 65 m/s = 234 km/h), reject
+        if (speedMps > 65.0) {
+          continue;
+        }
+      }
+
+      // 4. Isolated spatial jump filter (e.g. jumps > 800m and next point returns to near lastValid)
+      if (distanceMeters > 800 && i + 1 < candidatePoints.length) {
+        final next = candidatePoints[i + 1];
+        final nextDistFromLast = Geolocator.distanceBetween(
+          lastValid.latitude,
+          lastValid.longitude,
+          next.latitude,
+          next.longitude,
+        );
+        if (nextDistFromLast < 300) {
+          // Outlier jump that snapped back - skip!
+          continue;
+        }
+      }
+
+      clean.add(current);
+    }
+
+    return clean.isNotEmpty ? clean : candidatePoints;
   }
 
   void setHistoryOwner(String ownerId) {

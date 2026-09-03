@@ -14,12 +14,14 @@ import '../../../providers/location_provider.dart';
 class LocationHistorySheet extends StatefulWidget {
   final VoidCallback onClose;
   final VoidCallback? onToggleFullscreen;
+  final VoidCallback? onFitRoute;
   final bool isFullscreen;
 
   const LocationHistorySheet({
     super.key,
     required this.onClose,
     this.onToggleFullscreen,
+    this.onFitRoute,
     this.isFullscreen = false,
   });
 
@@ -436,6 +438,25 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
               ),
             ),
             const SizedBox(width: 8),
+
+            // Fit Full Route in View Button
+            if (widget.onFitRoute != null) ...[
+              IconButton(
+                icon: Icon(
+                  Icons.crop_free_rounded,
+                  color: iconColor,
+                  size: 20,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: 'Fit Route in View',
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  widget.onFitRoute!();
+                },
+              ),
+              const SizedBox(width: 12),
+            ],
 
             // Fullscreen Map Button
             if (widget.onToggleFullscreen != null) ...[

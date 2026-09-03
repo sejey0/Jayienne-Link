@@ -1889,14 +1889,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         return;
       }
     } else if (_selectedCategoryIndex != 0) {
-      if (_spinSourceIndex == null) {
-        HapticFeedback.vibrate();
-        SnackbarHelper.showInfo(
-          context,
-          'Please select Custom Ideas or Online Ideas button above before spinning!',
-        );
-        return;
-      }
+      _spinSourceIndex ??= (_currentOptions.length >= 7 ? 0 : 1);
       if (_spinSourceIndex == 0 && _currentOptions.length < 7) {
         HapticFeedback.vibrate();
         SnackbarHelper.showError(
@@ -5397,10 +5390,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           } else if (index == 1) {
             _currentDisplayResult =
                 _lastActivityResult ?? 'Tap Spin to Decide!';
-            _spinSourceIndex = null;
+            _spinSourceIndex = _activityOptions.length >= 7 ? 0 : 1;
           } else if (index == 2) {
             _currentDisplayResult = _lastFoodResult ?? 'Tap Spin to Decide!';
-            _spinSourceIndex = null;
+            _spinSourceIndex = _foodOptions.length >= 7 ? 0 : 1;
           }
         });
         _checkAndAutoResetWeeklyPool();
@@ -5468,105 +5461,78 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  /// Interactive Spin Source Buttons (Custom Ideas vs Online Suggestions)
+  /// Unified Segmented Toggle Pill (Custom Ideas vs Online Suggestions)
   Widget _buildSpinSourceSelector(BuildContext context, bool isDark) {
     if (_selectedCategoryIndex == 0) return const SizedBox.shrink();
 
     final customCount = _currentOptions.length;
     final hasMinCustom = customCount >= 7;
+    final activeSource = _spinSourceIndex ?? (hasMinCustom ? 0 : 1);
 
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.touch_app_rounded,
-                size: 13,
-                color: isDark ? Colors.white60 : Colors.grey.shade600,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                'CHOOSE WHAT TO SPIN',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
-                  color: isDark ? Colors.white60 : Colors.grey.shade600,
-                ),
-              ),
-              const Spacer(),
-              if (_spinSourceIndex == null)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Select a button',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: isDark
-                          ? const Color(0xFFFF8DA1)
-                          : const Color(0xFFC2185B),
-                    ),
-                  ),
-                ),
-            ],
+      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.all(3.5),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.grey.shade300,
+            width: 1.0,
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              // Button 1: Custom Ideas (Requires 7 to 10 options)
-              Expanded(
-                child: _buildSourceButton(
-                  index: 0,
-                  label: hasMinCustom
-                      ? 'Custom ($customCount/10)'
-                      : (customCount == 0
-                          ? 'Custom (0/7 min)'
-                          : 'Custom ($customCount/7 min)'),
-                  icon: hasMinCustom ? Icons.favorite_rounded : Icons.lock_rounded,
-                  enabled: hasMinCustom,
-                  disabledMessage: customCount == 0
-                      ? 'Add at least 7 custom options below to spin (Min 7, Max 10)!'
-                      : 'Need at least 7 custom options to spin! Currently $customCount/7 (Add ${7 - customCount} more).',
-                  isDark: isDark,
-                ),
+        ),
+        child: Row(
+          children: [
+            // Left Segment: Custom Ideas
+            Expanded(
+              child: _buildSegmentPill(
+                index: 0,
+                isSelected: activeSource == 0,
+                label: hasMinCustom
+                    ? 'Custom ($customCount/10)'
+                    : (customCount == 0
+                        ? 'Custom (0/7 min)'
+                        : 'Custom ($customCount/7 min)'),
+                icon:
+                    hasMinCustom ? Icons.favorite_rounded : Icons.lock_rounded,
+                enabled: hasMinCustom,
+                disabledMessage: customCount == 0
+                    ? 'Add at least 7 custom options below to spin (Min 7, Max 10)!'
+                    : 'Need at least 7 custom options to spin! Currently $customCount/7 (Add ${7 - customCount} more).',
+                isDark: isDark,
               ),
-              const SizedBox(width: 8),
-              // Button 2: Online Ideas
-              Expanded(
-                child: _buildSourceButton(
-                  index: 1,
-                  label: 'Online Ideas',
-                  icon: Icons.public_rounded,
-                  enabled: true,
-                  isDark: isDark,
-                ),
+            ),
+            // Right Segment: Online Ideas
+            Expanded(
+              child: _buildSegmentPill(
+                index: 1,
+                isSelected: activeSource == 1,
+                label: 'Online Ideas',
+                icon: Icons.public_rounded,
+                enabled: true,
+                isDark: isDark,
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSourceButton({
+  Widget _buildSegmentPill({
     required int index,
+    required bool isSelected,
     required String label,
     required IconData icon,
     required bool enabled,
     String? disabledMessage,
     required bool isDark,
   }) {
-    final isSelected = _spinSourceIndex == index;
-
     return InkWell(
       onTap: () {
         if (!enabled) {
@@ -5583,10 +5549,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         });
         _savePersistentData();
       },
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(19),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           gradient: isSelected && enabled
               ? const LinearGradient(
@@ -5595,28 +5561,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   end: Alignment.bottomRight,
                 )
               : null,
-          color: isSelected && enabled
-              ? null
-              : (isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.grey.shade100),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected && enabled
-                ? Colors.transparent
-                : (_spinSourceIndex == null
-                    ? const Color(0xFFFF758C).withValues(alpha: 0.45)
-                    : (isDark
-                        ? Colors.white.withValues(alpha: 0.1)
-                        : Colors.grey.shade300)),
-            width: isSelected ? 1.5 : 1.2,
-          ),
+          borderRadius: BorderRadius.circular(19),
           boxShadow: isSelected && enabled
               ? [
                   BoxShadow(
-                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.32),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
                 ]
               : null,
@@ -5628,7 +5579,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             children: [
               Icon(
                 icon,
-                size: 16,
+                size: 15,
                 color: isSelected && enabled
                     ? Colors.white
                     : (isDark ? Colors.white70 : Colors.grey.shade700),
@@ -5646,18 +5597,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         : FontWeight.w600,
                     color: isSelected && enabled
                         ? Colors.white
-                        : (isDark ? Colors.white : AppColors.deepCharcoal),
+                        : (isDark ? Colors.white70 : AppColors.deepCharcoal),
                   ),
                 ),
               ),
-              if (isSelected && enabled) ...[
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.check_circle_rounded,
-                  size: 14,
-                  color: Colors.white,
-                ),
-              ],
             ],
           ),
         ),

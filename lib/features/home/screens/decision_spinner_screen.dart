@@ -64,6 +64,24 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   String? _lastActivitySpinnerId;
   String? _lastFoodSpinnerId;
 
+  // Decision Review States (Accepted / Rejected by Partner)
+  bool _activityDecisionAccepted = false;
+  bool _activityDecisionRejected = false;
+  bool _foodDecisionAccepted = false;
+  bool _foodDecisionRejected = false;
+
+  bool _isCategoryDecisionAccepted(int categoryIndex) {
+    if (categoryIndex == 1) return _activityDecisionAccepted;
+    if (categoryIndex == 2) return _foodDecisionAccepted;
+    return false;
+  }
+
+  bool _isCategoryDecisionRejected(int categoryIndex) {
+    if (categoryIndex == 1) return _activityDecisionRejected;
+    if (categoryIndex == 2) return _foodDecisionRejected;
+    return false;
+  }
+
   String? _getLastSpinnerIdForCategory(int categoryIndex) {
     switch (categoryIndex) {
       case 0:
@@ -723,6 +741,68 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       );
 
       _spinnerChannel!.onBroadcast(
+        event: 'decision_accepted',
+        callback: (payload) {
+          if (!mounted) return;
+          final catIndex =
+              payload['categoryIndex'] as int? ?? _selectedCategoryIndex;
+          setState(() {
+            if (catIndex == 1) {
+              _activityDecisionAccepted = true;
+              _activityDecisionRejected = false;
+            } else if (catIndex == 2) {
+              _foodDecisionAccepted = true;
+              _foodDecisionRejected = false;
+            }
+          });
+          _savePersistentData();
+        },
+      );
+
+      _spinnerChannel!.onBroadcast(
+        event: 'decision_rejected',
+        callback: (payload) {
+          if (!mounted) return;
+          final catIndex =
+              payload['categoryIndex'] as int? ?? _selectedCategoryIndex;
+          setState(() {
+            if (catIndex == 1) {
+              _activityDecisionAccepted = false;
+              _activityDecisionRejected = true;
+            } else if (catIndex == 2) {
+              _foodDecisionAccepted = false;
+              _foodDecisionRejected = true;
+            }
+          });
+          _savePersistentData();
+        },
+      );
+
+      _spinnerChannel!.onBroadcast(
+        event: 'decision_done',
+        callback: (payload) {
+          if (!mounted) return;
+          final catIndex =
+              payload['categoryIndex'] as int? ?? _selectedCategoryIndex;
+          setState(() {
+            if (catIndex == 1) {
+              _lastActivityResult = null;
+              _activityDecisionAccepted = false;
+              _activityDecisionRejected = false;
+            } else if (catIndex == 2) {
+              _lastFoodResult = null;
+              _foodDecisionAccepted = false;
+              _foodDecisionRejected = false;
+            }
+            if (_selectedCategoryIndex == catIndex) {
+              _currentDisplayResult = 'Tap Spin to Decide!';
+            }
+          });
+          _savePersistentData();
+        },
+      );
+
+      _spinnerChannel!.onBroadcast(
         event: 'reset_online_pool',
         callback: (payload) {
           if (!mounted) return;
@@ -960,6 +1040,16 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _lastFoodSpinnerId =
             prefs.getString('decision_spinner_last_food_spinner_id');
 
+        // Load Decision Review States per category
+        _activityDecisionAccepted =
+            prefs.getBool('decision_spinner_activity_accepted') ?? false;
+        _activityDecisionRejected =
+            prefs.getBool('decision_spinner_activity_rejected') ?? false;
+        _foodDecisionAccepted =
+            prefs.getBool('decision_spinner_food_accepted') ?? false;
+        _foodDecisionRejected =
+            prefs.getBool('decision_spinner_food_rejected') ?? false;
+
         // Load Active Picked Movie from Local Cache
         final cachedMovieTitle =
             prefs.getString('decision_spinner_picked_movie_title');
@@ -1076,6 +1166,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       } else {
         await prefs.remove('decision_spinner_last_food_spinner_id');
       }
+
+      await prefs.setBool(
+          'decision_spinner_activity_accepted', _activityDecisionAccepted);
+      await prefs.setBool(
+          'decision_spinner_activity_rejected', _activityDecisionRejected);
+      await prefs.setBool(
+          'decision_spinner_food_accepted', _foodDecisionAccepted);
+      await prefs.setBool(
+          'decision_spinner_food_rejected', _foodDecisionRejected);
     } catch (_) {}
   }
 
@@ -1135,14 +1234,18 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
   }
 
-  /// Reset / Reject only the current active decision (Option 3: only partner can reject)
-  Future<void> _resetCurrentDecision() async {
-    if (_isPartnerTurn(_selectedCategoryIndex)) {
+  /// Partner accepts the active decision (locks the decision; only spinner can mark as done)
+  Future<void> _acceptCurrentDecision() async {
+    final spinnerId = _getLastSpinnerIdForCategory(_selectedCategoryIndex);
+    final myUserId = _effectiveMyUserId;
+    final isSpinner = spinnerId != null && spinnerId == myUserId;
+
+    if (isSpinner) {
       HapticFeedback.vibrate();
       final partnerName = _getPartnerDisplayName();
       SnackbarHelper.showInfo(
         context,
-        "Only $partnerName can reset or reject this decision!",
+        "Only $partnerName can accept or reject your spin result!",
       );
       return;
     }
@@ -1150,11 +1253,257 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     HapticFeedback.mediumImpact();
     setState(() {
       if (_selectedCategoryIndex == 1) {
+        _activityDecisionAccepted = true;
+        _activityDecisionRejected = false;
+      } else if (_selectedCategoryIndex == 2) {
+        _foodDecisionAccepted = true;
+        _foodDecisionRejected = false;
+      }
+    });
+    await _savePersistentData();
+
+    final coupleId = _getCoupleId();
+    if (coupleId.isNotEmpty && _selectedCategoryIndex != 0) {
+      final categoryTag = _selectedCategoryIndex == 1
+          ? 'active_activity_pick'
+          : 'active_food_pick';
+      try {
+        await SupabaseDataService.client.from('decision_ideas').upsert({
+          'couple_id': coupleId,
+          'category': categoryTag,
+          'text': _currentDisplayResult,
+          'status': 'accepted',
+          'created_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'couple_id,category');
+      } catch (_) {}
+    }
+
+    _spinnerChannel?.sendBroadcastMessage(
+      event: 'decision_accepted',
+      payload: {
+        'categoryIndex': _selectedCategoryIndex,
+      },
+    );
+
+    if (mounted) {
+      final partnerName = _getPartnerDisplayName();
+      SnackbarHelper.showSuccess(
+        context,
+        'Choice accepted! Locked in until $partnerName marks it as done.',
+      );
+    }
+  }
+
+  /// Partner rejects the active decision (original spinner can re-spin)
+  Future<void> _rejectCurrentDecision() async {
+    final spinnerId = _getLastSpinnerIdForCategory(_selectedCategoryIndex);
+    final myUserId = _effectiveMyUserId;
+    final isSpinner = spinnerId != null && spinnerId == myUserId;
+
+    if (isSpinner) {
+      HapticFeedback.vibrate();
+      final partnerName = _getPartnerDisplayName();
+      SnackbarHelper.showInfo(
+        context,
+        "Only $partnerName can accept or reject your spin result!",
+      );
+      return;
+    }
+
+    HapticFeedback.mediumImpact();
+    setState(() {
+      if (_selectedCategoryIndex == 1) {
+        _activityDecisionAccepted = false;
+        _activityDecisionRejected = true;
+      } else if (_selectedCategoryIndex == 2) {
+        _foodDecisionAccepted = false;
+        _foodDecisionRejected = true;
+      }
+    });
+    await _savePersistentData();
+
+    final coupleId = _getCoupleId();
+    if (coupleId.isNotEmpty && _selectedCategoryIndex != 0) {
+      final categoryTag = _selectedCategoryIndex == 1
+          ? 'active_activity_pick'
+          : 'active_food_pick';
+      try {
+        await SupabaseDataService.client.from('decision_ideas').upsert({
+          'couple_id': coupleId,
+          'category': categoryTag,
+          'text': _currentDisplayResult,
+          'status': 'rejected',
+          'created_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'couple_id,category');
+      } catch (_) {}
+    }
+
+    _spinnerChannel?.sendBroadcastMessage(
+      event: 'decision_rejected',
+      payload: {
+        'categoryIndex': _selectedCategoryIndex,
+      },
+    );
+
+    if (mounted) {
+      final partnerName = _getPartnerDisplayName();
+      SnackbarHelper.showInfo(
+        context,
+        'Decision rejected! $partnerName can now re-spin for a new idea.',
+      );
+    }
+  }
+
+  /// Confirmation dialog before marking decision as done (only spinner can mark as done)
+  void _confirmMarkDecisionDone() {
+    final spinnerId = _getLastSpinnerIdForCategory(_selectedCategoryIndex);
+    final myUserId = _effectiveMyUserId;
+    final isSpinner = spinnerId != null && spinnerId == myUserId;
+
+    if (!isSpinner) {
+      HapticFeedback.vibrate();
+      final partnerName = _getPartnerDisplayName();
+      SnackbarHelper.showInfo(
+        context,
+        "Only the spinner ($partnerName) can mark this decision as done!",
+      );
+      return;
+    }
+
+    final decisionName = _currentDisplayResult;
+    final partnerName = _getPartnerDisplayName();
+    final catLabel = _selectedCategoryIndex == 1 ? 'activity' : 'food choice';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.task_alt_rounded,
+                color: Color(0xFFFF758C),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Mark as Done?',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you done with "$decisionName"?',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF758C).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.lock_open_rounded,
+                    size: 16,
+                    color: Color(0xFFFF758C),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Marking this as done completes this $catLabel and unlocks the wheel for $partnerName\'s turn!',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFC2185B),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.pop(dialogCtx);
+            },
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              await _markDecisionDoneAndUnlock();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF758C),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            icon: const Icon(Icons.check_circle_rounded, size: 16),
+            label: const Text(
+              'Mark Done & Unlock',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Mark the decision as finished: clears the decision and unlocks the next turn for partner
+  Future<void> _markDecisionDoneAndUnlock() async {
+    HapticFeedback.mediumImpact();
+    final finishedDecision = _currentDisplayResult;
+    final partnerName = _getPartnerDisplayName();
+
+    setState(() {
+      if (_selectedCategoryIndex == 1) {
         _lastActivityResult = null;
+        _activityDecisionAccepted = false;
+        _activityDecisionRejected = false;
       } else if (_selectedCategoryIndex == 2) {
         _lastFoodResult = null;
+        _foodDecisionAccepted = false;
+        _foodDecisionRejected = false;
       }
-      _spinSourceIndex = null;
       _currentDisplayResult = 'Tap Spin to Decide!';
     });
     await _savePersistentData();
@@ -1174,7 +1523,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
 
     _spinnerChannel?.sendBroadcastMessage(
-      event: 'reset_pool',
+      event: 'decision_done',
       payload: {
         'categoryIndex': _selectedCategoryIndex,
       },
@@ -1183,7 +1532,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     if (mounted) {
       SnackbarHelper.showSuccess(
         context,
-        'Decision rejected! You can now take your turn and spin.',
+        '"$finishedDecision" marked as done! Next spin is $partnerName\'s turn.',
       );
     }
   }
@@ -1899,8 +2248,37 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   Future<void> _onSpinPressed() async {
     if (_isSpinning) return;
 
-    // Strict Alternate Turns Check: Cannot spin if partner's turn
-    if (_isPartnerTurn(_selectedCategoryIndex)) {
+    final isAccepted = _isCategoryDecisionAccepted(_selectedCategoryIndex);
+    final isRejected = _isCategoryDecisionRejected(_selectedCategoryIndex);
+
+    // If decision is accepted, the wheel is locked until spinner marks as done
+    if (_selectedCategoryIndex != 0 && isAccepted) {
+      HapticFeedback.vibrate();
+      final spinnerId = _getLastSpinnerIdForCategory(_selectedCategoryIndex);
+      final myUserId = _effectiveMyUserId;
+      final isSpinner = spinnerId != null && spinnerId == myUserId;
+      final partnerName = _getPartnerDisplayName();
+      SnackbarHelper.showInfo(
+        context,
+        isSpinner
+            ? 'Decision is accepted! Mark as done when finished to unlock the wheel for $partnerName.'
+            : 'Decision is accepted! Waiting for $partnerName to mark as done.',
+      );
+      return;
+    }
+
+    // If decision was rejected by partner, the original spinner is allowed to re-spin!
+    if (_selectedCategoryIndex != 0 && isRejected) {
+      if (!_isPartnerTurn(_selectedCategoryIndex)) {
+        HapticFeedback.vibrate();
+        final partnerName = _getPartnerDisplayName();
+        SnackbarHelper.showInfo(
+          context,
+          "You rejected this choice. Waiting for $partnerName to re-spin!",
+        );
+        return;
+      }
+    } else if (_isPartnerTurn(_selectedCategoryIndex)) {
       HapticFeedback.vibrate();
       final partnerName = _getPartnerDisplayName();
       final catName = _getCategoryName(_selectedCategoryIndex);
@@ -2253,6 +2631,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _pickedMovie = winningMovie;
       } else if (_selectedCategoryIndex == 1) {
         _lastActivityResult = winner;
+        _activityDecisionAccepted = false;
+        _activityDecisionRejected = false;
         // Only custom couple options are tracked in the weekly anti-repeat pool
         if (_activityOptions.contains(winner)) {
           if (!_activityHistory.contains(winner)) {
@@ -2262,6 +2642,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         }
       } else {
         _lastFoodResult = winner;
+        _foodDecisionAccepted = false;
+        _foodDecisionRejected = false;
         // Only custom couple options are tracked in the weekly anti-repeat pool
         if (_foodOptions.contains(winner)) {
           if (!_foodHistory.contains(winner)) {
@@ -3070,67 +3452,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         padding: const EdgeInsets.all(AppDimensions.spacingMd),
         child: Column(
           children: [
-            if (kDebugMode && _debugSimulatePartnerPov) ...[
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade900.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.amberAccent.shade400,
-                    width: 1.2,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.people_alt_rounded,
-                        size: 17, color: Colors.amberAccent),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Debug POV: Simulating Partner (${_getPartnerDisplayName()})',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.amberAccent,
-                        ),
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        setState(() {
-                          _debugSimulatePartnerPov = false;
-                        });
-                        SnackbarHelper.showInfo(
-                          context,
-                          'Switched back to Your POV (${_getMyDisplayName()})',
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.amberAccent.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Switch to Me',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.amberAccent,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
             // Mode Switcher (Visual Wheel vs Quick Slot)
               Container(
                 padding: const EdgeInsets.all(4),
@@ -4366,6 +4687,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       return _buildPickedMovieView(context, isDark);
     }
 
+    final hasActivePick = _selectedCategoryIndex != 0 &&
+        _currentDisplayResult != 'Tap Spin to Decide!' &&
+        _currentDisplayResult != 'Spinning...' &&
+        _currentDisplayResult.trim().isNotEmpty;
+    final isRejected = _isCategoryDecisionRejected(_selectedCategoryIndex);
+
     return Column(
       children: [
         if (_spinnerModeIndex == 0)
@@ -4378,433 +4705,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         // Winner Decision Celebration Card for Dates & Food
         _buildDecisionResultCard(context, isDark),
 
-        // Strict Alternating Turn Status Indicator for all decision spinner features
-        _buildTurnStatusIndicator(context, isDark),
+        // Spin Source Selector (Custom Ideas vs Online Suggestions) - only shown when spinning or re-spinning
+        if (!hasActivePick || isRejected)
+          _buildSpinSourceSelector(context, isDark),
 
-        // Spin Source Selector (Custom Ideas vs Online Suggestions) placed right before spin buttons!
-        _buildSpinSourceSelector(context, isDark),
+        // Unified Decision Action & Turn Card (Merges turn status banner + POV buttons into one card)
+        _buildDecisionActionCard(context, isDark),
 
-        // Spin / Re-Spin & Reset Buttons
-        if (_selectedCategoryIndex != 0 &&
-            _currentDisplayResult != 'Tap Spin to Decide!' &&
-            _currentDisplayResult != 'Spinning...' &&
-            _currentDisplayResult.isNotEmpty)
-          if (_isPartnerTurn(_selectedCategoryIndex))
-            // Option 3: The person who spun is locked. Cannot Re-Spin and cannot Reset!
-            // Decision stays locked on screen until partner accepts, re-spins, or rejects.
-            Container(
-              width: double.infinity,
-              height: 52,
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: ElevatedButton.icon(
-                onPressed: _onSpinPressed,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  foregroundColor:
-                      isDark ? Colors.grey.shade400 : Colors.grey.shade700,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-                icon: const Icon(
-                  Icons.hourglass_top_rounded,
-                  size: 22,
-                ),
-                label: Text(
-                  'Waiting for ${_getPartnerDisplayName()}\'s Turn',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
-            )
-          else
-            // Option 3: Partner's turn! Partner has the power to Re-Spin or Reject!
-            Row(
-              children: [
-                // Partner Re-Spin Button
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    height: 52,
-                    decoration: BoxDecoration(
-                      gradient: _isSpinning ||
-                              (_selectedCategoryIndex != 0 &&
-                                  _spinSourceIndex == 0 &&
-                                  _currentOptions.length < 7)
-                          ? null
-                          : const LinearGradient(
-                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                      color: _isSpinning ||
-                              (_selectedCategoryIndex != 0 &&
-                                  _spinSourceIndex == 0 &&
-                                  _currentOptions.length < 7)
-                          ? (isDark
-                              ? Colors.grey.shade800
-                              : Colors.grey.shade300)
-                          : null,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: _isSpinning ||
-                              (_selectedCategoryIndex != 0 &&
-                                  _spinSourceIndex == 0 &&
-                                  _currentOptions.length < 7)
-                          ? null
-                          : [
-                              BoxShadow(
-                                color: const Color(0xFFFF758C)
-                                    .withValues(alpha: 0.35),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                    ),
-                    child: ElevatedButton.icon(
-                      onPressed: _isSpinning ||
-                              (_selectedCategoryIndex != 0 &&
-                                  _spinSourceIndex == 0 &&
-                                  _currentOptions.length < 7)
-                          ? null
-                          : _onSpinPressed,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: Colors.white,
-                        disabledForegroundColor: isDark
-                            ? Colors.grey.shade500
-                            : Colors.grey.shade600,
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      icon: AnimatedRotation(
-                        turns: _isSpinning ? 2.0 : 0.0,
-                        duration: const Duration(milliseconds: 1200),
-                        child: Icon(
-                          _spinnerModeIndex == 0
-                              ? Icons.rotate_right_rounded
-                              : Icons.casino_rounded,
-                          size: 22,
-                        ),
-                      ),
-                      label: Text(
-                        _isSpinning
-                            ? 'Spinning...'
-                            : (_spinSourceIndex == 0
-                                ? (_currentOptions.length < 7
-                                    ? 'Need 7 Options (${_currentOptions.length}/7)'
-                                    : 'Re-Spin Custom')
-                                : (_spinSourceIndex == 1
-                                    ? 'Re-Spin Online'
-                                    : 'Take Turn & Spin')),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // Partner's Reject Decision Button
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : const Color(0xFFFF758C).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color(0xFFFF758C).withValues(alpha: 0.45),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: TextButton.icon(
-                      onPressed: _isSpinning ? null : _resetCurrentDecision,
-                      style: TextButton.styleFrom(
-                        foregroundColor:
-                            isDark ? Colors.white : const Color(0xFFC2185B),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        size: 20,
-                        color: Color(0xFFFF758C),
-                      ),
-                      label: const Text(
-                        'Reject',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            )
-        else
-          Container(
-            width: double.infinity,
-            height: 52,
-            decoration: BoxDecoration(
-              gradient: _isSpinning ||
-                      _isPartnerTurn(_selectedCategoryIndex) ||
-                      (_selectedCategoryIndex == 0 &&
-                          _watchOptions.length < 2) ||
-                      (_selectedCategoryIndex != 0 &&
-                          _spinSourceIndex == 0 &&
-                          _currentOptions.length < 7)
-                  ? null
-                  : const LinearGradient(
-                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-              color: _isSpinning ||
-                      _isPartnerTurn(_selectedCategoryIndex) ||
-                      (_selectedCategoryIndex == 0 &&
-                          _watchOptions.length < 2) ||
-                      (_selectedCategoryIndex != 0 &&
-                          _spinSourceIndex == 0 &&
-                          _currentOptions.length < 7)
-                  ? (isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.grey.shade300)
-                  : null,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: _isSpinning ||
-                      _isPartnerTurn(_selectedCategoryIndex) ||
-                      (_selectedCategoryIndex == 0 &&
-                          _watchOptions.length < 2) ||
-                      (_selectedCategoryIndex != 0 &&
-                          _spinSourceIndex == 0 &&
-                          _currentOptions.length < 7)
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: const Color(0xFFFF758C)
-                            .withValues(alpha: 0.35),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-            ),
-            child: ElevatedButton.icon(
-              onPressed: _isSpinning ||
-                      (_selectedCategoryIndex != 0 &&
-                          _spinSourceIndex == 0 &&
-                          _currentOptions.length < 7)
-                  ? null
-                  : _onSpinPressed,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                foregroundColor: Colors.white,
-                disabledForegroundColor:
-                    isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              icon: _isPartnerTurn(_selectedCategoryIndex)
-                  ? const Icon(
-                      Icons.hourglass_top_rounded,
-                      size: 22,
-                      color: Colors.white70,
-                    )
-                  : AnimatedRotation(
-                      turns: _isSpinning ? 2.0 : 0.0,
-                      duration: const Duration(milliseconds: 1200),
-                      child: Icon(
-                        _spinnerModeIndex == 0
-                            ? Icons.rotate_right_rounded
-                            : Icons.casino_rounded,
-                        size: 24,
-                      ),
-                    ),
-              label: Text(
-                _isSpinning
-                    ? 'Spinning...'
-                    : (_isPartnerTurn(_selectedCategoryIndex)
-                        ? 'Waiting for ${_getPartnerDisplayName()}\'s Turn'
-                        : (_selectedCategoryIndex == 0
-                            ? (_pickedMovie != null
-                                ? 'Movie Locked'
-                                : (_spinnerModeIndex == 0
-                                    ? 'Spin Wheel'
-                                    : 'Spin Roulette'))
-                            : (_spinSourceIndex == 0
-                                ? (_currentOptions.length < 7
-                                    ? 'Need 7 Custom Ideas (${_currentOptions.length}/7)'
-                                    : (_spinnerModeIndex == 0
-                                        ? 'Spin Custom Wheel'
-                                        : 'Spin Custom Roulette'))
-                                : (_spinSourceIndex == 1
-                                    ? (_spinnerModeIndex == 0
-                                        ? 'Spin Online Wheel'
-                                        : 'Spin Online Roulette')
-                                    : 'Select Pool & Spin')))),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-            ),
-          ),
-        if (kDebugMode) ...[
-          const SizedBox(height: 12),
-          // 1. POV Switcher Button (Me <-> Partner)
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                setState(() {
-                  _debugSimulatePartnerPov = !_debugSimulatePartnerPov;
-                });
-                SnackbarHelper.showInfo(
-                  context,
-                  _debugSimulatePartnerPov
-                      ? 'Switched to Partner POV (${_getPartnerDisplayName()})'
-                      : 'Switched back to Your POV (${_getMyDisplayName()})',
-                );
-              },
-              icon: Icon(
-                _debugSimulatePartnerPov
-                    ? Icons.swap_horiz_rounded
-                    : Icons.people_alt_rounded,
-                size: 16,
-              ),
-              label: Text(
-                _debugSimulatePartnerPov
-                    ? 'Debug POV: Viewing as Partner (Tap to Switch to Me)'
-                    : 'Debug POV: Viewing as Me (Tap to Switch to Partner)',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _debugSimulatePartnerPov
-                    ? Colors.amberAccent.shade400
-                    : Colors.cyanAccent.shade200,
-                side: BorderSide(
-                  color: (_debugSimulatePartnerPov
-                          ? Colors.amberAccent.shade400
-                          : Colors.cyanAccent.shade200)
-                      .withValues(alpha: 0.7),
-                  width: 1.2,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // 2. Toggle Turn Button (Switch whose turn it is right now)
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _debugToggleCategoryTurn,
-              icon: const Icon(Icons.sync_alt_rounded, size: 16),
-              label: Text(
-                _isPartnerTurn(_selectedCategoryIndex)
-                    ? 'Debug: Switch Turn from Partner to ME'
-                    : 'Debug: Switch Turn from Me to PARTNER',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.tealAccent.shade400,
-                side: BorderSide(
-                  color: Colors.tealAccent.shade400.withValues(alpha: 0.7),
-                  width: 1.2,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // 3. Reset Category Turn Restriction
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _debugResetCurrentCategoryTurn,
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: Text(
-                'Debug: Reset ${_getCategoryName(_selectedCategoryIndex)} Turn Restriction',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.orangeAccent.shade200,
-                side: BorderSide(
-                  color: Colors.orangeAccent.shade200.withValues(alpha: 0.7),
-                  width: 1.2,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-            ),
-          ),
-          if (_selectedCategoryIndex == 0 && _watchMovies.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _showDebugPickMovieDialog(context),
-                icon: const Icon(Icons.touch_app_rounded, size: 16),
-                label: const Text(
-                  'Debug: Pick & Lock Movie for Testing',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.amberAccent.shade400,
-                  side: BorderSide(
-                    color: Colors.amberAccent.shade400.withValues(alpha: 0.7),
-                    width: 1.2,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                ),
-              ),
-            ),
-          ],
-        ],
+        // Unified Compact Debug Controls Card (Merges POV switcher & quick turn actions into one card)
+        if (kDebugMode) _buildDebugControlsCard(context, isDark),
       ],
     );
   }
@@ -5845,115 +5754,702 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  /// Strict Alternating Turn Status Indicator Widget (Option 3: Partner veto / re-spin dynamic)
-  Widget _buildTurnStatusIndicator(BuildContext context, bool isDark) {
-    final isPartner = _isPartnerTurn(_selectedCategoryIndex);
-    final lastSpinnerId =
+  /// Unified Decision Action & Turn Card (Merges turn status banner and POV buttons into one card)
+  Widget _buildDecisionActionCard(BuildContext context, bool isDark) {
+    final spinnerId =
         _getLastSpinnerIdForCategory(_selectedCategoryIndex);
+    final myUserId = _effectiveMyUserId;
+    final isSpinner = spinnerId != null && spinnerId == myUserId;
+    final isAccepted =
+        _isCategoryDecisionAccepted(_selectedCategoryIndex);
+    final isRejected =
+        _isCategoryDecisionRejected(_selectedCategoryIndex);
     final partnerName = _getPartnerDisplayName();
-    final hasSpun = lastSpinnerId != null && lastSpinnerId.isNotEmpty;
+    final isPartnerTurnVal = _isPartnerTurn(_selectedCategoryIndex);
     final hasActivePick = _selectedCategoryIndex != 0 &&
         _currentDisplayResult != 'Tap Spin to Decide!' &&
         _currentDisplayResult != 'Spinning...' &&
         _currentDisplayResult.trim().isNotEmpty;
 
-    return Container(
-      margin: const EdgeInsets.only(top: 8, bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isPartner
-            ? (isDark
-                ? Colors.orange.shade900.withValues(alpha: 0.25)
-                : Colors.orange.shade50)
-            : (hasSpun
+    // 1. When IDLE (No Active Pick): Direct sleek Spin Button (zero duplicate banners or nested card)
+    if (!hasActivePick) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 6),
+        child: Container(
+          width: double.infinity,
+          height: 50,
+          decoration: BoxDecoration(
+            gradient: _isSpinning ||
+                    isPartnerTurnVal ||
+                    (_selectedCategoryIndex == 0 &&
+                        _watchOptions.length < 2) ||
+                    (_selectedCategoryIndex != 0 &&
+                        _spinSourceIndex == 0 &&
+                        _currentOptions.length < 7)
+                ? null
+                : const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            color: _isSpinning ||
+                    isPartnerTurnVal ||
+                    (_selectedCategoryIndex == 0 &&
+                        _watchOptions.length < 2) ||
+                    (_selectedCategoryIndex != 0 &&
+                        _spinSourceIndex == 0 &&
+                        _currentOptions.length < 7)
                 ? (isDark
-                    ? Colors.green.shade900.withValues(alpha: 0.25)
-                    : Colors.green.shade50)
-                : (isDark
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.grey.shade100)),
-        borderRadius: BorderRadius.circular(14),
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.grey.shade300)
+                : null,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: _isSpinning ||
+                    isPartnerTurnVal ||
+                    (_selectedCategoryIndex == 0 &&
+                        _watchOptions.length < 2) ||
+                    (_selectedCategoryIndex != 0 &&
+                        _spinSourceIndex == 0 &&
+                        _currentOptions.length < 7)
+                ? null
+                : [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+          ),
+          child: ElevatedButton.icon(
+            onPressed: _isSpinning ||
+                    (_selectedCategoryIndex != 0 &&
+                        _spinSourceIndex == 0 &&
+                        _currentOptions.length < 7)
+                ? null
+                : _onSpinPressed,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              disabledForegroundColor:
+                  isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            icon: isPartnerTurnVal
+                ? const Icon(
+                    Icons.hourglass_top_rounded,
+                    size: 20,
+                    color: Colors.white70,
+                  )
+                : AnimatedRotation(
+                    turns: _isSpinning ? 2.0 : 0.0,
+                    duration: const Duration(milliseconds: 1200),
+                    child: Icon(
+                      _spinnerModeIndex == 0
+                          ? Icons.rotate_right_rounded
+                          : Icons.casino_rounded,
+                      size: 20,
+                    ),
+                  ),
+            label: Text(
+              _isSpinning
+                  ? 'Spinning...'
+                  : (isPartnerTurnVal
+                      ? 'Waiting for $partnerName\'s Turn'
+                      : (_selectedCategoryIndex == 0
+                          ? (_pickedMovie != null
+                              ? 'Movie Locked'
+                              : (_spinnerModeIndex == 0
+                                  ? 'Spin Wheel'
+                                  : 'Spin Roulette'))
+                          : (_spinSourceIndex == 0
+                              ? (_currentOptions.length < 7
+                                  ? 'Need 7 Custom Ideas (${_currentOptions.length}/7)'
+                                  : (_spinnerModeIndex == 0
+                                      ? 'Spin Custom Wheel'
+                                      : 'Spin Custom Roulette'))
+                              : (_spinSourceIndex == 1
+                                  ? (_spinnerModeIndex == 0
+                                      ? 'Spin Online Wheel'
+                                      : 'Spin Online Roulette')
+                                  : 'Select Pool & Spin')))),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 2. When ACTIVE PICK: Render Unified Decision Action Card
+    final MaterialColor accentColor;
+    final IconData statusIcon;
+    final String statusTitle;
+    final String badgeLabel;
+
+    if (isAccepted) {
+      accentColor = Colors.green;
+      statusIcon = Icons.lock_rounded;
+      statusTitle = isSpinner
+          ? 'Accepted! Mark done when finished to unlock $partnerName\'s turn.'
+          : 'You accepted! Waiting for $partnerName to mark as done.';
+      badgeLabel = 'ACCEPTED';
+    } else if (isRejected) {
+      accentColor = Colors.orange;
+      statusIcon = isSpinner
+          ? Icons.rotate_right_rounded
+          : Icons.hourglass_top_rounded;
+      statusTitle = isSpinner
+          ? '$partnerName rejected this choice. Tap to re-spin!'
+          : 'You rejected this choice. Waiting for $partnerName to re-spin...';
+      badgeLabel = isSpinner ? 'RE-SPIN' : 'WAITING';
+    } else {
+      // Pending Partner Review
+      accentColor = isSpinner ? Colors.orange : Colors.purple;
+      statusIcon =
+          isSpinner ? Icons.hourglass_top_rounded : Icons.touch_app_rounded;
+      statusTitle = isSpinner
+          ? 'Waiting for $partnerName to accept or reject'
+          : '$partnerName spun this! Accept or reject below:';
+      badgeLabel = isSpinner ? 'PENDING' : 'REVIEW';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? accentColor.shade900.withValues(alpha: 0.22)
+            : accentColor.shade50.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isPartner
-              ? (isDark ? Colors.orange.shade700 : Colors.orange.shade300)
-              : (hasSpun
-                  ? (isDark ? Colors.green.shade700 : Colors.green.shade300)
-                  : (isDark ? Colors.white12 : Colors.grey.shade300)),
+          color: isDark ? accentColor.shade700 : accentColor.shade300,
           width: 1.2,
         ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isPartner
-                ? Icons.hourglass_top_rounded
-                : (hasSpun
-                    ? (hasActivePick
-                        ? Icons.touch_app_rounded
-                        : Icons.check_circle_rounded)
-                    : Icons.swap_horiz_rounded),
-            size: 16,
-            color: isPartner
-                ? (isDark ? Colors.orange.shade300 : Colors.orange.shade800)
-                : (hasSpun
-                    ? (isDark ? Colors.green.shade300 : Colors.green.shade700)
-                    : (isDark ? Colors.white70 : Colors.grey.shade700)),
+          // Status Header Row
+          Row(
+            children: [
+              Icon(
+                statusIcon,
+                size: 16,
+                color: isDark ? accentColor.shade300 : accentColor.shade800,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  statusTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: isDark
+                        ? accentColor.shade200
+                        : accentColor.shade900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  badgeLabel,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    color: isDark
+                        ? accentColor.shade200
+                        : accentColor.shade800,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              isPartner
-                  ? (_selectedCategoryIndex == 0
-                      ? 'Waiting for $partnerName\'s turn to spin'
-                      : 'Waiting for $partnerName to accept, re-spin, or reject')
-                  : (hasSpun
-                      ? (hasActivePick
-                          ? '$partnerName spun this! Accept, re-spin, or reject.'
-                          : 'It\'s your turn to spin!')
-                      : 'Alternating turns: either partner can spin'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.bold,
-                color: isPartner
-                    ? (isDark
-                        ? Colors.orange.shade200
-                        : Colors.orange.shade900)
-                    : (hasSpun
-                        ? (isDark
-                            ? Colors.green.shade200
-                            : Colors.green.shade900)
-                        : (isDark ? Colors.white70 : Colors.grey.shade800)),
+
+          // Embedded Action Buttons for this POV
+          if (isAccepted && isSpinner) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _confirmMarkDecisionDone,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: const Icon(Icons.task_alt_rounded, size: 18),
+                label: const Text(
+                  'Mark as Done & Unlock Spin',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: (isPartner
-                      ? Colors.orange
-                      : (hasSpun ? Colors.green : Colors.grey))
-                  .withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              isPartner ? 'LOCKED' : (hasSpun ? 'YOUR TURN' : 'READY'),
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w900,
-                color: isPartner
+          ] else if (isRejected && isSpinner) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: _isSpinning ||
+                        (_selectedCategoryIndex != 0 &&
+                            _spinSourceIndex == 0 &&
+                            _currentOptions.length < 7)
+                    ? null
+                    : const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                color: _isSpinning ||
+                        (_selectedCategoryIndex != 0 &&
+                            _spinSourceIndex == 0 &&
+                            _currentOptions.length < 7)
                     ? (isDark
-                        ? Colors.orange.shade200
-                        : Colors.orange.shade800)
-                    : (hasSpun
-                        ? (isDark
-                            ? Colors.green.shade200
-                            : Colors.green.shade700)
-                        : (isDark ? Colors.white60 : Colors.grey.shade600)),
+                        ? Colors.grey.shade800
+                        : Colors.grey.shade300)
+                    : null,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: _isSpinning ||
+                        (_selectedCategoryIndex != 0 &&
+                            _spinSourceIndex == 0 &&
+                            _currentOptions.length < 7)
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _isSpinning ||
+                        (_selectedCategoryIndex != 0 &&
+                            _spinSourceIndex == 0 &&
+                            _currentOptions.length < 7)
+                    ? null
+                    : _onSpinPressed,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: isDark
+                      ? Colors.grey.shade500
+                      : Colors.grey.shade600,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: AnimatedRotation(
+                  turns: _isSpinning ? 2.0 : 0.0,
+                  duration: const Duration(milliseconds: 1200),
+                  child: Icon(
+                    _spinnerModeIndex == 0
+                        ? Icons.rotate_right_rounded
+                        : Icons.casino_rounded,
+                    size: 18,
+                  ),
+                ),
+                label: Text(
+                  _isSpinning
+                      ? 'Spinning...'
+                      : (_spinSourceIndex == 0
+                          ? (_currentOptions.length < 7
+                              ? 'Need 7 Options (${_currentOptions.length}/7)'
+                              : 'Re-Spin Custom')
+                          : 'Re-Spin Online'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                  ),
+                ),
               ),
             ),
+          ] else if (!isAccepted && !isRejected && !isSpinner) ...[
+            // Partner Review Buttons
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: _acceptCurrentDecision,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      icon: const Icon(Icons.check_circle_rounded, size: 17),
+                      label: const Text(
+                        'Accept',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : const Color(0xFFFF758C).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.45),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: TextButton.icon(
+                      onPressed: _rejectCurrentDecision,
+                      style: TextButton.styleFrom(
+                        foregroundColor: isDark
+                            ? Colors.white
+                            : const Color(0xFFC2185B),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 17,
+                        color: Color(0xFFFF758C),
+                      ),
+                      label: const Text(
+                        'Reject',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Compact Merged Debug POV & Turn Control Center Card
+  Widget _buildDebugControlsCard(BuildContext context, bool isDark) {
+    if (!kDebugMode) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10, bottom: 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: (_debugSimulatePartnerPov
+              ? Colors.amberAccent
+              : (isDark ? Colors.white12 : Colors.grey.shade300)),
+          width: 1.0,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header Row: Debug Label & Compact POV Segmented Toggle
+          Row(
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                size: 15,
+                color: _debugSimulatePartnerPov
+                    ? Colors.amberAccent
+                    : (isDark ? Colors.white70 : Colors.grey.shade700),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Debug POV',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppColors.deepCharcoal,
+                ),
+              ),
+              const Spacer(),
+              // Mini Segmented POV Toggle Pill
+              Container(
+                height: 28,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black38 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // My POV
+                    GestureDetector(
+                      onTap: () {
+                        if (!_debugSimulatePartnerPov) return;
+                        HapticFeedback.lightImpact();
+                        setState(() => _debugSimulatePartnerPov = false);
+                        SnackbarHelper.showInfo(
+                          context,
+                          'Switched to Your POV (${_getMyDisplayName()})',
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: !_debugSimulatePartnerPov
+                              ? (isDark
+                                  ? Colors.cyanAccent.shade700
+                                  : Colors.cyan.shade600)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          'My POV',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: !_debugSimulatePartnerPov
+                                ? Colors.white
+                                : (isDark
+                                    ? Colors.white60
+                                    : Colors.grey.shade700),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Partner POV
+                    GestureDetector(
+                      onTap: () {
+                        if (_debugSimulatePartnerPov) return;
+                        HapticFeedback.lightImpact();
+                        setState(() => _debugSimulatePartnerPov = true);
+                        SnackbarHelper.showInfo(
+                          context,
+                          'Switched to Partner POV (${_getPartnerDisplayName()})',
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _debugSimulatePartnerPov
+                              ? Colors.amber.shade800
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          'Partner POV',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: _debugSimulatePartnerPov
+                                ? Colors.white
+                                : (isDark
+                                    ? Colors.white60
+                                    : Colors.grey.shade700),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Action Buttons in a Compact Wrap / Row
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              // Switch Turn
+              InkWell(
+                onTap: _debugToggleCategoryTurn,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.tealAccent.shade400
+                        .withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.tealAccent.shade400
+                          .withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.sync_alt_rounded,
+                          size: 13,
+                          color: isDark
+                              ? Colors.tealAccent.shade200
+                              : Colors.teal.shade800),
+                      const SizedBox(width: 4),
+                      Text(
+                        _isPartnerTurn(_selectedCategoryIndex)
+                            ? 'Turn: Partner -> ME'
+                            : 'Turn: Me -> PARTNER',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? Colors.tealAccent.shade200
+                              : Colors.teal.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Reset Turn
+              InkWell(
+                onTap: _debugResetCurrentCategoryTurn,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.orangeAccent.shade200
+                        .withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.orangeAccent.shade200
+                          .withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.refresh_rounded,
+                          size: 13,
+                          color: isDark
+                              ? Colors.orangeAccent.shade200
+                              : Colors.orange.shade800),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Reset Turn',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? Colors.orangeAccent.shade200
+                              : Colors.orange.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Pick Test Movie (if movie category)
+              if (_selectedCategoryIndex == 0 && _watchMovies.isNotEmpty)
+                InkWell(
+                  onTap: () => _showDebugPickMovieDialog(context),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 9, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.amberAccent.shade400
+                          .withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.amberAccent.shade400
+                            .withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.touch_app_rounded,
+                            size: 13,
+                            color: isDark
+                                ? Colors.amberAccent.shade200
+                                : Colors.amber.shade900),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Pick Movie',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: isDark
+                                ? Colors.amberAccent.shade200
+                                : Colors.amber.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

@@ -4594,114 +4594,250 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ),
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
-        // 4. Mark as Watched & Unlock Wheel (Primary Action Button)
-        Container(
-          width: double.infinity,
-          height: 50,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFFF758C).withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ElevatedButton.icon(
-            onPressed: () => _markActiveMovieWatched(movie),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              foregroundColor: Colors.white,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
+        // Action Buttons with unified design & compact side-by-side layout
+        Row(
+          children: [
+            Expanded(
+              flex: 6,
+              child: _buildPickedMovieActionButton(
+                onPressed: () => _confirmMarkActiveMovieWatched(movie),
+                icon: Icons.check_circle_rounded,
+                label: 'Mark Watched & Unlock',
               ),
             ),
-            icon: const Icon(Icons.check_circle_rounded, size: 20),
-            label: const Text(
-              'Mark as Watched & Unlock Wheel',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14.5,
-                letterSpacing: 0.3,
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 5,
+              child: _buildPickedMovieActionButton(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MovieTrackerScreen(),
+                    ),
+                  );
+                },
+                icon: Icons.play_circle_filled_rounded,
+                label: 'Movie Diary',
               ),
             ),
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        // 5. Open in Movie Diary (Secondary Action Button)
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const MovieTrackerScreen(),
-                ),
-              );
-            },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: isDark ? Colors.white70 : AppColors.deepCharcoal,
-              side: BorderSide(
-                color: const Color(0xFFFF758C).withValues(alpha: 0.5),
-                width: 1.2,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-            icon: const Icon(Icons.play_circle_filled_rounded, size: 18),
-            label: const Text(
-              'Open in Movie Diary',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ),
+          ],
         ),
 
         // Debug Force Reset Button (Debug Mode Only)
         if (kDebugMode) ...[
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _forceResetMoviePick,
-              icon: const Icon(Icons.restart_alt_rounded, size: 15),
-              label: const Text(
-                'Force Reset Spinner (Debug Mode)',
-                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.amberAccent.shade400,
-                side: BorderSide(
-                  color: Colors.amberAccent.shade400.withValues(alpha: 0.7),
-                  width: 1.1,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-            ),
+          const SizedBox(height: 8),
+          _buildPickedMovieActionButton(
+            onPressed: _forceResetMoviePick,
+            icon: Icons.restart_alt_rounded,
+            label: 'Force Reset Spinner (Debug Mode)',
+            height: 36,
           ),
         ],
       ],
     );
+  }
+
+  /// Build unified action button with cohesive romantic gradient design & compact footprint
+  Widget _buildPickedMovieActionButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+    double height = 44,
+  }) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF758C).withValues(alpha: 0.28),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          elevation: 0,
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: Colors.white),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12.5,
+                  letterSpacing: 0.2,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Prompt confirmation before marking the picked movie as watched and unlocking the spinner
+  Future<void> _confirmMarkActiveMovieWatched(MovieModel movie) async {
+    HapticFeedback.lightImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.check_circle_rounded,
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Mark as Watched?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Mark "${movie.title}" as watched and unlock the spinner for the next turn?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 38,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor:
+                            isDark ? Colors.white70 : Colors.grey.shade700,
+                        side: BorderSide(
+                          color: isDark
+                              ? Colors.white24
+                              : Colors.grey.shade300,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    height: 38,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Confirm',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _markActiveMovieWatched(movie);
+    }
   }
 
   /// Mark the ongoing picked movie as watched and unlock the spinner for the next turn

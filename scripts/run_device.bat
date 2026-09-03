@@ -759,7 +759,7 @@ if not defined GH_BIN if exist "C:\Program Files\GitHub CLI\gh.exe" set "GH_BIN=
 if not defined GH_BIN goto gh_cli_missing
 
 echo GitHub CLI detected. Creating GitHub Release automatically...
-call "!GH_BIN!" release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --repo "%GH_USER%/%GH_REPO%" --title "Jayienne Link v!NEW_VERSION!" -F "build\release_notes.txt"
+call "!GH_BIN!" release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --repo "%GH_USER%/%GH_REPO%" --title "Jayienne Link v!NEW_VERSION!" -F "%~dp0.release_notes.txt"
 if errorlevel 1 goto gh_cli_failed
 
 echo.
@@ -787,10 +787,11 @@ echo Complete release manually:
 echo   1. Set Tag: v!NEW_VERSION!
 echo   2. Title: Jayienne Link v!NEW_VERSION!
 echo   3. Drag app-release.apk into binaries
-echo   4. Copy notes from build\release_notes.txt
+echo   4. Copy notes from scripts\.release_notes.txt
 echo   5. Click Publish release
 
 :gh_release_done
+if exist "%~dp0.release_notes.txt" del "%~dp0.release_notes.txt" >nul 2>&1
 echo.
 echo ====================================================
 echo   [SUCCESS] OTA Release v!NEW_VERSION! Published to GitHub!

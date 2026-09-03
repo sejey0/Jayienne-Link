@@ -48,3 +48,4 @@ scripts/.device_ip
 scripts/.ota_state.json
 scripts/.ota_env.bat
 scripts/.custom_notes.txt
+scripts/.release_notes.txt

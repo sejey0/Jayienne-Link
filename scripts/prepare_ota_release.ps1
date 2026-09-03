@@ -17,7 +17,7 @@ $pubspecPath = Join-Path $rootDir "pubspec.yaml"
 $versionJsonPath = Join-Path $rootDir "version.json"
 $statePath = Join-Path $rootDir "scripts\.ota_state.json"
 $buildDir = Join-Path $rootDir "build"
-$notesOutPath = Join-Path $buildDir "release_notes.txt"
+$notesOutPath = Join-Path $PSScriptRoot ".release_notes.txt"
 
 function Get-RealAppVersion {
     $ver = "1.0.0"

@@ -868,13 +868,19 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _activityOptions.clear();
         _activityOptions.addAll(cachedActivities);
 
-        // Load Excluded History
+        // Load Excluded History (Strictly custom couple options are tracked in the anti-repeat pool)
         _foodHistory.clear();
-        _foodHistory
-            .addAll(prefs.getStringList('decision_spinner_food_history') ?? []);
+        final loadedFoodHistory =
+            prefs.getStringList('decision_spinner_food_history') ?? [];
+        _foodHistory.addAll(loadedFoodHistory
+            .where((item) => _foodOptions.contains(item)));
+
         _activityHistory.clear();
-        _activityHistory.addAll(
-            prefs.getStringList('decision_spinner_activity_history') ?? []);
+        final loadedActHistory =
+            prefs.getStringList('decision_spinner_activity_history') ?? [];
+        _activityHistory.addAll(loadedActHistory
+            .where((item) => _activityOptions.contains(item)));
+
         _watchHistory.clear();
         _watchHistory
             .addAll(prefs.getStringList('decision_spinner_watch_history') ?? []);
@@ -1176,40 +1182,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       SnackbarHelper.showSuccess(
         context,
         'Custom options pool reset! All custom ideas are ready to spin.',
-      );
-    }
-  }
-
-  /// Reset only the online web suggestions from the anti-repeat exclusion pool
-  Future<void> _resetOnlinePool() async {
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _currentHistory.removeWhere((item) => !_currentOptions.contains(item));
-      if (_selectedCategoryIndex == 1 &&
-          _lastActivityResult != null &&
-          !_currentOptions.contains(_lastActivityResult)) {
-        _lastActivityResult = null;
-        _currentDisplayResult = 'Tap Spin to Decide!';
-      } else if (_selectedCategoryIndex == 2 &&
-          _lastFoodResult != null &&
-          !_currentOptions.contains(_lastFoodResult)) {
-        _lastFoodResult = null;
-        _currentDisplayResult = 'Tap Spin to Decide!';
-      }
-    });
-    await _savePersistentData();
-
-    _spinnerChannel?.sendBroadcastMessage(
-      event: 'reset_online_pool',
-      payload: {
-        'categoryIndex': _selectedCategoryIndex,
-      },
-    );
-
-    if (mounted) {
-      SnackbarHelper.showSuccess(
-        context,
-        'Online suggestions pool reset! Ready for new web ideas.',
       );
     }
   }
@@ -2250,18 +2222,20 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _pickedMovie = winningMovie;
       } else if (_selectedCategoryIndex == 1) {
         _lastActivityResult = winner;
-        if (!_activityHistory.contains(winner)) {
-          _activityHistory.add(winner);
-        }
+        // Only custom couple options are tracked in the weekly anti-repeat pool
         if (_activityOptions.contains(winner)) {
+          if (!_activityHistory.contains(winner)) {
+            _activityHistory.add(winner);
+          }
           _activityPoolCycleStart ??= DateTime.now();
         }
       } else {
         _lastFoodResult = winner;
-        if (!_foodHistory.contains(winner)) {
-          _foodHistory.add(winner);
-        }
+        // Only custom couple options are tracked in the weekly anti-repeat pool
         if (_foodOptions.contains(winner)) {
+          if (!_foodHistory.contains(winner)) {
+            _foodHistory.add(winner);
+          }
           _foodPoolCycleStart ??= DateTime.now();
         }
       }
@@ -2963,9 +2937,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     final excludedCustomCount = _selectedCategoryIndex == 0
         ? 0
         : _currentOptions.where((opt) => _currentHistory.contains(opt)).length;
-    final excludedOnlineCount = _selectedCategoryIndex == 0
-        ? 0
-        : _currentHistory.where((opt) => !_currentOptions.contains(opt)).length;
 
     return Scaffold(
       backgroundColor:
@@ -3424,14 +3395,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             Text(
-                                              excludedCustomCount > 0 &&
-                                                      excludedOnlineCount > 0
-                                                  ? '$excludedCustomCount Custom • $excludedOnlineCount Online temporarily excluded${_currentPoolDaysRemaining != null ? " • Resets in ${_currentPoolDaysRemaining == 1 ? '1 day' : '$_currentPoolDaysRemaining days'}" : ""}'
-                                                  : (excludedCustomCount > 0
-                                                      ? '$excludedCustomCount Custom ${excludedCustomCount == 1 ? "option" : "options"} excluded${_currentPoolDaysRemaining != null ? " • Resets in ${_currentPoolDaysRemaining == 1 ? '1 day' : '$_currentPoolDaysRemaining days'}" : ""}'
-                                                      : (excludedOnlineCount > 0
-                                                          ? '$excludedOnlineCount Online ${excludedOnlineCount == 1 ? "suggestion" : "suggestions"} temporarily excluded'
-                                                          : '7-10 options ensure fresh picks across the 7-day weekly cycle.')),
+                                              excludedCustomCount > 0
+                                                  ? '$excludedCustomCount Custom ${excludedCustomCount == 1 ? "option" : "options"} excluded${_currentPoolDaysRemaining != null ? " • Resets in ${_currentPoolDaysRemaining == 1 ? '1 day' : '$_currentPoolDaysRemaining days'}" : ""}'
+                                                  : '7-10 options ensure fresh picks across the 7-day weekly cycle.',
                                               style: TextStyle(
                                                 fontSize: 10.5,
                                                 color: isDark
@@ -3444,12 +3410,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                       ),
                                       if (kDebugMode)
                                         TextButton.icon(
-                                          onPressed: () async {
-                                            await _resetCustomPool();
-                                            if (excludedOnlineCount > 0) {
-                                              await _resetOnlinePool();
-                                            }
-                                          },
+                                          onPressed: _resetCustomPool,
                                           icon: const Icon(
                                               Icons.restart_alt_rounded,
                                               size: 14),
@@ -3470,64 +3431,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                         ),
                                     ],
                                   ),
-                                  if (excludedOnlineCount > 0) ...[
-                                    const SizedBox(height: 8),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 6,
-                                      children: [
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            gradient: const LinearGradient(
-                                              colors: [
-                                                Color(0xFFA18CD1),
-                                                Color(0xFF8A72BE),
-                                              ],
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(9),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: const Color(0xFFA18CD1)
-                                                    .withValues(alpha: 0.25),
-                                                blurRadius: 4,
-                                                offset: const Offset(0, 1.5),
-                                              ),
-                                            ],
-                                          ),
-                                          child: ElevatedButton.icon(
-                                            onPressed: _resetOnlinePool,
-                                            icon: const Icon(
-                                                Icons.refresh_rounded,
-                                                size: 13,
-                                                color: Colors.white),
-                                            label: Text(
-                                              'Reset Online Pool ($excludedOnlineCount)',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              shadowColor:
-                                                  Colors.transparent,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 6),
-                                              minimumSize: Size.zero,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
                                 ],
                               ),
                       ),

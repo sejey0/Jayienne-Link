@@ -148,6 +148,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   final List<String> _activityHistory = [];
   final List<String> _foodHistory = [];
 
+  // Weekly anti-repeat cycle start timestamps (7-day auto-reset)
+  DateTime? _activityPoolCycleStart;
+  DateTime? _foodPoolCycleStart;
+
   // Filter out any previous auto-seeded defaults from DB
   static const List<String> _defaultFilterOutList = [
     'Sinigang na Baboy',
@@ -667,9 +671,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             if (catIndex == 1) {
               _activityHistory
                   .removeWhere((item) => _activityOptions.contains(item));
+              _activityPoolCycleStart = null;
             } else if (catIndex == 2) {
               _foodHistory
                   .removeWhere((item) => _foodOptions.contains(item));
+              _foodPoolCycleStart = null;
             }
           });
           _savePersistentData();
@@ -873,6 +879,27 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _watchHistory
             .addAll(prefs.getStringList('decision_spinner_watch_history') ?? []);
 
+        // Load weekly anti-repeat cycle timestamps
+        final actCycleStr =
+            prefs.getString('decision_spinner_activity_cycle_start');
+        if (actCycleStr != null && actCycleStr.isNotEmpty) {
+          _activityPoolCycleStart = DateTime.tryParse(actCycleStr);
+        } else if (_activityHistory
+            .any((item) => _activityOptions.contains(item))) {
+          _activityPoolCycleStart = DateTime.now();
+        }
+
+        final foodCycleStr =
+            prefs.getString('decision_spinner_food_cycle_start');
+        if (foodCycleStr != null && foodCycleStr.isNotEmpty) {
+          _foodPoolCycleStart = DateTime.tryParse(foodCycleStr);
+        } else if (_foodHistory
+            .any((item) => _foodOptions.contains(item))) {
+          _foodPoolCycleStart = DateTime.now();
+        }
+
+        _checkAndAutoResetWeeklyPool();
+
         // Load Last Spin Results per category
         _lastActivityResult =
             prefs.getString('decision_spinner_last_activity_result');
@@ -934,6 +961,20 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       await prefs.setStringList(
           'decision_spinner_activity_history', _activityHistory);
       await prefs.setStringList('decision_spinner_watch_history', _watchHistory);
+
+      if (_activityPoolCycleStart != null) {
+        await prefs.setString('decision_spinner_activity_cycle_start',
+            _activityPoolCycleStart!.toIso8601String());
+      } else {
+        await prefs.remove('decision_spinner_activity_cycle_start');
+      }
+
+      if (_foodPoolCycleStart != null) {
+        await prefs.setString('decision_spinner_food_cycle_start',
+            _foodPoolCycleStart!.toIso8601String());
+      } else {
+        await prefs.remove('decision_spinner_food_cycle_start');
+      }
 
       if (_lastActivityResult != null && _lastActivityResult!.isNotEmpty) {
         await prefs.setString(
@@ -1106,16 +1147,20 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     HapticFeedback.mediumImpact();
     setState(() {
       _currentHistory.removeWhere((item) => _currentOptions.contains(item));
-      if (_selectedCategoryIndex == 1 &&
-          _lastActivityResult != null &&
-          _currentOptions.contains(_lastActivityResult)) {
-        _lastActivityResult = null;
-        _currentDisplayResult = 'Tap Spin to Decide!';
-      } else if (_selectedCategoryIndex == 2 &&
-          _lastFoodResult != null &&
-          _currentOptions.contains(_lastFoodResult)) {
-        _lastFoodResult = null;
-        _currentDisplayResult = 'Tap Spin to Decide!';
+      if (_selectedCategoryIndex == 1) {
+        _activityPoolCycleStart = null;
+        if (_lastActivityResult != null &&
+            _currentOptions.contains(_lastActivityResult)) {
+          _lastActivityResult = null;
+          _currentDisplayResult = 'Tap Spin to Decide!';
+        }
+      } else if (_selectedCategoryIndex == 2) {
+        _foodPoolCycleStart = null;
+        if (_lastFoodResult != null &&
+            _currentOptions.contains(_lastFoodResult)) {
+          _lastFoodResult = null;
+          _currentDisplayResult = 'Tap Spin to Decide!';
+        }
       }
     });
     await _savePersistentData();
@@ -1167,6 +1212,53 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         'Online suggestions pool reset! Ready for new web ideas.',
       );
     }
+  }
+
+  /// Check and auto-reset custom anti-repeat pool if 7 days (1 week) have passed
+  void _checkAndAutoResetWeeklyPool() {
+    final now = DateTime.now();
+    bool updated = false;
+
+    // Check Dates & Activities (Category 1)
+    if (_activityPoolCycleStart != null) {
+      final daysPassed = now.difference(_activityPoolCycleStart!).inDays;
+      if (daysPassed >= 7) {
+        _activityHistory.removeWhere((item) => _activityOptions.contains(item));
+        _activityPoolCycleStart = null;
+        updated = true;
+      }
+    } else if (_activityHistory.any((item) => _activityOptions.contains(item))) {
+      _activityPoolCycleStart = now;
+      updated = true;
+    }
+
+    // Check Food & Drinks (Category 2)
+    if (_foodPoolCycleStart != null) {
+      final daysPassed = now.difference(_foodPoolCycleStart!).inDays;
+      if (daysPassed >= 7) {
+        _foodHistory.removeWhere((item) => _foodOptions.contains(item));
+        _foodPoolCycleStart = null;
+        updated = true;
+      }
+    } else if (_foodHistory.any((item) => _foodOptions.contains(item))) {
+      _foodPoolCycleStart = now;
+      updated = true;
+    }
+
+    if (updated) {
+      _savePersistentData();
+    }
+  }
+
+  /// Number of days remaining before weekly anti-repeat cycle resets
+  int? get _currentPoolDaysRemaining {
+    final cycleStart = _selectedCategoryIndex == 1
+        ? _activityPoolCycleStart
+        : (_selectedCategoryIndex == 2 ? _foodPoolCycleStart : null);
+    if (cycleStart == null) return null;
+    final daysPassed = DateTime.now().difference(cycleStart).inDays;
+    final remaining = 7 - daysPassed;
+    return remaining > 0 ? remaining : 0;
   }
 
   String _getCoupleId() {
@@ -1824,13 +1916,23 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         );
         return;
       }
-    } else if (_spinSourceIndex == null) {
-      HapticFeedback.vibrate();
-      SnackbarHelper.showInfo(
-        context,
-        'Please select Custom Ideas or Online Ideas button above before spinning!',
-      );
-      return;
+    } else if (_selectedCategoryIndex != 0) {
+      if (_spinSourceIndex == null) {
+        HapticFeedback.vibrate();
+        SnackbarHelper.showInfo(
+          context,
+          'Please select Custom Ideas or Online Ideas button above before spinning!',
+        );
+        return;
+      }
+      if (_spinSourceIndex == 0 && _currentOptions.length < 7) {
+        HapticFeedback.vibrate();
+        SnackbarHelper.showError(
+          context,
+          'Please add at least 7 custom options to spin custom ideas! (Currently ${_currentOptions.length}/7, Max: 10)',
+        );
+        return;
+      }
     }
 
     if (_spinnerModeIndex == 0) {
@@ -2151,10 +2253,16 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         if (!_activityHistory.contains(winner)) {
           _activityHistory.add(winner);
         }
+        if (_activityOptions.contains(winner)) {
+          _activityPoolCycleStart ??= DateTime.now();
+        }
       } else {
         _lastFoodResult = winner;
         if (!_foodHistory.contains(winner)) {
           _foodHistory.add(winner);
+        }
+        if (_foodOptions.contains(winner)) {
+          _foodPoolCycleStart ??= DateTime.now();
         }
       }
     });
@@ -2250,22 +2358,68 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   /// Add custom option and sync it online directly to Supabase & SharedPreferences
   void _showAddCustomOptionDialog() {
+    if (_currentOptions.length >= 10) {
+      HapticFeedback.vibrate();
+      SnackbarHelper.showInfo(
+        context,
+        'Maximum of 10 custom options reached! Delete or edit an existing option to add a new one.',
+      );
+      return;
+    }
+
     final controller = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: Text(
-          'Add Custom ${_selectedCategoryIndex == 2 ? "Food & Drink" : "Date & Activity"}',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Add Custom ${_selectedCategoryIndex == 2 ? "Food & Drink" : "Date & Activity"}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${_currentOptions.length}/10',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFFF758C),
+                ),
+              ),
+            ),
+          ],
         ),
-        content: AppTextField(
-          controller: controller,
-          autofocus: true,
-          hintText: _selectedCategoryIndex == 2
-              ? 'e.g. Samgyupsal, Crispy Sisig, Milk Tea...'
-              : 'e.g. Sunset in Manila Bay, Arcade Night...',
-          borderRadius: BorderRadius.circular(14),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppTextField(
+              controller: controller,
+              autofocus: true,
+              hintText: _selectedCategoryIndex == 2
+                  ? 'e.g. Samgyupsal, Crispy Sisig, Milk Tea...'
+                  : 'e.g. Sunset in Manila Bay, Arcade Night...',
+              borderRadius: BorderRadius.circular(14),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add 7 to 10 options to use custom ideas. Anti-repeat resets every 7 days (1 week).',
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white60
+                    : Colors.grey.shade600,
+              ),
+            ),
+          ],
         ),
         actions: [
           Padding(
@@ -2306,6 +2460,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       onPressed: () async {
                         final text = controller.text.trim();
                         if (text.isNotEmpty) {
+                          if (_currentOptions.length >= 10) {
+                            Navigator.pop(ctx);
+                            SnackbarHelper.showInfo(
+                              context,
+                              'Maximum of 10 custom options reached!',
+                            );
+                            return;
+                          }
                           Navigator.pop(ctx);
                           await _saveCustomOption(text);
                         }
@@ -2395,11 +2557,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     ),
                     child: ElevatedButton(
                       onPressed: () async {
-                        final text = controller.text.trim();
-                        if (text.isNotEmpty && text != oldText) {
+                        final newText = controller.text.trim();
+                        if (newText.isNotEmpty && newText != oldText) {
                           Navigator.pop(ctx);
-                          await _editCustomOption(oldText, text);
-                        } else if (text == oldText) {
+                          await _editCustomOption(oldText, newText);
+                        } else {
                           Navigator.pop(ctx);
                         }
                       },
@@ -2514,6 +2676,16 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   /// Save custom option to local cache (SharedPreferences) and online Supabase database
   Future<void> _saveCustomOption(String text) async {
+    if (_currentOptions.length >= 10) {
+      if (mounted) {
+        SnackbarHelper.showInfo(
+          context,
+          'Maximum of 10 custom options reached! Delete or edit an existing option.',
+        );
+      }
+      return;
+    }
+
     final category = _selectedCategoryIndex == 2 ? 'food' : 'activity';
 
     setState(() {
@@ -2527,9 +2699,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     await _savePersistentData();
 
     if (mounted) {
+      final total = _currentOptions.length;
+      final status = total < 7
+          ? ' (${7 - total} more needed to spin)'
+          : (total == 7
+              ? ' (Minimum 7 reached - Ready to spin!)'
+              : ' ($total/10 options)');
       SnackbarHelper.showSuccess(
         context,
-        'Added "$text" to wheel options!',
+        'Added "$text" to wheel options!$status',
       );
     }
 
@@ -2577,12 +2755,19 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       }
       _currentHistory.remove(option);
 
-      if (_currentOptions.isEmpty && _spinSourceIndex == 0) {
-        _spinSourceIndex = 1;
+      if (_currentOptions.length < 7 && _spinSourceIndex == 0) {
+        _spinSourceIndex = null;
       }
     });
 
     await _savePersistentData();
+
+    if (mounted && _selectedCategoryIndex != 0 && _currentOptions.length < 7) {
+      SnackbarHelper.showInfo(
+        context,
+        'Option removed. (Note: Minimum 7 options required to spin Custom Ideas)',
+      );
+    }
 
     // Broadcast removal immediately so partner's device updates instantly
     try {
@@ -2620,6 +2805,155 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
     if (mounted) {
       SnackbarHelper.showInfo(context, 'Removed "$option"');
+    }
+  }
+
+  /// Prompt confirmation dialog before deleting a custom option
+  Future<void> _confirmDeleteCustomOption(String option) async {
+    HapticFeedback.lightImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final willDropBelowMin = _currentOptions.length <= 7;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.redAccent,
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Delete Custom Option?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Are you sure you want to remove "$option" from your wheel ideas?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
+            ),
+            if (willDropBelowMin) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      size: 16,
+                      color: Colors.orangeAccent,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Removing this will leave ${_currentOptions.length - 1} options (7 required to spin custom ideas).',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orangeAccent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 38,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor:
+                            isDark ? Colors.white70 : Colors.grey.shade700,
+                        side: BorderSide(
+                          color: isDark
+                              ? Colors.white24
+                              : Colors.grey.shade300,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SizedBox(
+                    height: 38,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      await _removeOption(option);
     }
   }
 
@@ -2831,50 +3165,55 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.star_rounded,
-                                size: 16,
-                                color: Color(0xFFFF758C),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Custom Couple Options (${_currentOptions.length})',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13.5,
-                                  color: isDark
-                                      ? Colors.white
-                                      : AppColors.deepCharcoal,
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  size: 16,
+                                  color: Color(0xFFFF758C),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Custom Couple Options (${_currentOptions.length}/10)',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13.5,
+                                          color: isDark
+                                              ? Colors.white
+                                              : AppColors.deepCharcoal,
+                                        ),
+                                      ),
+                                      Text(
+                                        _currentOptions.length < 7
+                                            ? 'Min 7 required (${7 - _currentOptions.length} more needed)'
+                                            : (_currentOptions.length >= 10
+                                                ? 'Max 10 reached • Resets weekly'
+                                                : 'Ready to spin • Resets weekly'),
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: _currentOptions.length < 7
+                                              ? Colors.orange.shade400
+                                              : (isDark
+                                                  ? const Color(0xFFFF8DA1)
+                                                  : const Color(0xFFC2185B)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (excludedCustomCount > 0) ...[
-                                TextButton.icon(
-                                  onPressed: _resetCustomPool,
-                                  icon: const Icon(Icons.refresh_rounded,
-                                      size: 13),
-                                  label: Text('Reset ($excludedCustomCount)'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: const Color(0xFFFF758C),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    textStyle: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                              ],
                               InkWell(
                                 onTap: _showAddCustomOptionDialog,
                                 borderRadius: BorderRadius.circular(12),
@@ -2882,33 +3221,48 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 10, vertical: 5),
                                   decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
+                                    gradient: _currentOptions.length >= 10
+                                        ? null
+                                        : const LinearGradient(
+                                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                    color: _currentOptions.length >= 10
+                                        ? (isDark
+                                            ? Colors.white12
+                                            : Colors.grey.shade300)
+                                        : null,
                                     borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                                    boxShadow: _currentOptions.length >= 10
+                                        ? null
+                                        : [
+                                            BoxShadow(
+                                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        Icons.add_rounded,
+                                        _currentOptions.length >= 10
+                                            ? Icons.lock_rounded
+                                            : Icons.add_rounded,
                                         size: 14,
-                                        color: Colors.white,
+                                        color: _currentOptions.length >= 10
+                                            ? (isDark ? Colors.white38 : Colors.grey.shade600)
+                                            : Colors.white,
                                       ),
-                                      SizedBox(width: 3),
+                                      const SizedBox(width: 3),
                                       Text(
-                                        'Add Idea',
+                                        _currentOptions.length >= 10 ? 'Max (10)' : 'Add Idea',
                                         style: TextStyle(
-                                          color: Colors.white,
+                                          color: _currentOptions.length >= 10
+                                              ? (isDark ? Colors.white38 : Colors.grey.shade600)
+                                              : Colors.white,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 11.5,
                                         ),
@@ -3058,7 +3412,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              'Anti-Repeat Exclusion Pool',
+                                              'Anti-Repeat Exclusion Pool (Resets every 7 days)',
                                               style: TextStyle(
                                                 fontSize: 12.5,
                                                 fontWeight: FontWeight.bold,
@@ -3072,10 +3426,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                             Text(
                                               excludedCustomCount > 0 &&
                                                       excludedOnlineCount > 0
-                                                  ? '$excludedCustomCount Custom • $excludedOnlineCount Online temporarily excluded'
+                                                  ? '$excludedCustomCount Custom • $excludedOnlineCount Online temporarily excluded${_currentPoolDaysRemaining != null ? " • Resets in ${_currentPoolDaysRemaining == 1 ? '1 day' : '$_currentPoolDaysRemaining days'}" : ""}'
                                                   : (excludedCustomCount > 0
-                                                      ? '$excludedCustomCount Custom ${excludedCustomCount == 1 ? "option" : "options"} temporarily excluded'
-                                                      : '$excludedOnlineCount Online ${excludedOnlineCount == 1 ? "suggestion" : "suggestions"} temporarily excluded'),
+                                                      ? '$excludedCustomCount Custom ${excludedCustomCount == 1 ? "option" : "options"} excluded${_currentPoolDaysRemaining != null ? " • Resets in ${_currentPoolDaysRemaining == 1 ? '1 day' : '$_currentPoolDaysRemaining days'}" : ""}'
+                                                      : (excludedOnlineCount > 0
+                                                          ? '$excludedOnlineCount Online ${excludedOnlineCount == 1 ? "suggestion" : "suggestions"} temporarily excluded'
+                                                          : '7-10 options ensure fresh picks across the 7-day weekly cycle.')),
                                               style: TextStyle(
                                                 fontSize: 10.5,
                                                 color: isDark
@@ -3086,64 +3442,40 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                           ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 6,
-                                    children: [
-                                      if (excludedCustomCount > 0)
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            gradient: const LinearGradient(
-                                              colors: [
-                                                Color(0xFFFF758C),
-                                                Color(0xFFFF8DA1),
-                                              ],
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(9),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: const Color(0xFFFF758C)
-                                                    .withValues(alpha: 0.25),
-                                                blurRadius: 4,
-                                                offset: const Offset(0, 1.5),
-                                              ),
-                                            ],
-                                          ),
-                                          child: ElevatedButton.icon(
-                                            onPressed: _resetCustomPool,
-                                            icon: const Icon(
-                                                Icons.refresh_rounded,
-                                                size: 13,
-                                                color: Colors.white),
-                                            label: Text(
-                                              'Reset Custom Pool ($excludedCustomCount)',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              shadowColor:
-                                                  Colors.transparent,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 6),
-                                              minimumSize: Size.zero,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
+                                      if (kDebugMode)
+                                        TextButton.icon(
+                                          onPressed: () async {
+                                            await _resetCustomPool();
+                                            if (excludedOnlineCount > 0) {
+                                              await _resetOnlinePool();
+                                            }
+                                          },
+                                          icon: const Icon(
+                                              Icons.restart_alt_rounded,
+                                              size: 14),
+                                          label: const Text('Reset (Debug)'),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor:
+                                                Colors.amberAccent.shade400,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 4),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize:
+                                                MaterialTapTargetSize.shrinkWrap,
+                                            textStyle: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
                                             ),
                                           ),
                                         ),
-                                      if (excludedOnlineCount > 0)
+                                    ],
+                                  ),
+                                  if (excludedOnlineCount > 0) ...[
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      children: [
                                         Container(
                                           decoration: BoxDecoration(
                                             gradient: const LinearGradient(
@@ -3193,34 +3525,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                             ),
                                           ),
                                         ),
-                                      if (excludedCustomCount > 0 &&
-                                          excludedOnlineCount > 0)
-                                        TextButton.icon(
-                                          onPressed: _resetCurrentHistory,
-                                          icon: const Icon(
-                                              Icons.restore_rounded,
-                                              size: 13),
-                                          label: const Text('Reset All'),
-                                          style: TextButton.styleFrom(
-                                            foregroundColor: isDark
-                                                ? Colors.white70
-                                                : Colors.grey.shade700,
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 6),
-                                            minimumSize: Size.zero,
-                                            tapTargetSize:
-                                                MaterialTapTargetSize
-                                                    .shrinkWrap,
-                                            textStyle: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ),
                       ),
@@ -3292,7 +3599,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             const SizedBox(height: 5),
                             Text(
                               _selectedCategoryIndex != 0
-                                  ? 'Add your own couple ideas so they appear on the wheel and roulette!'
+                                  ? 'Add between 7 and 10 custom couple ideas to spin! Anti-repeat resets every 7 days (1 week).'
                                   : 'Add movies to your Watchlist in Movie Diary.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
@@ -3694,7 +4001,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                           const SizedBox(width: 5),
                                           Text(
                                             isPickedRecently
-                                                ? 'Excluded this round (anti-repeat)'
+                                                ? 'Excluded this week (anti-repeat)'
                                                 : 'Active in wheel & roulette',
                                             style: TextStyle(
                                               fontSize: 10.5,
@@ -3746,7 +4053,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                       color: Colors.transparent,
                                       child: InkWell(
                                         borderRadius: BorderRadius.circular(10),
-                                        onTap: () => _removeOption(opt),
+                                        onTap: () =>
+                                            _confirmDeleteCustomOption(opt),
                                         child: Container(
                                           padding: const EdgeInsets.all(7),
                                           decoration: BoxDecoration(
@@ -4074,20 +4382,29 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   child: Container(
                     height: 52,
                     decoration: BoxDecoration(
-                      gradient: _isSpinning
+                      gradient: _isSpinning ||
+                              (_selectedCategoryIndex != 0 &&
+                                  _spinSourceIndex == 0 &&
+                                  _currentOptions.length < 7)
                           ? null
                           : const LinearGradient(
                               colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                      color: _isSpinning
+                      color: _isSpinning ||
+                              (_selectedCategoryIndex != 0 &&
+                                  _spinSourceIndex == 0 &&
+                                  _currentOptions.length < 7)
                           ? (isDark
                               ? Colors.grey.shade800
                               : Colors.grey.shade300)
                           : null,
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: _isSpinning
+                      boxShadow: _isSpinning ||
+                              (_selectedCategoryIndex != 0 &&
+                                  _spinSourceIndex == 0 &&
+                                  _currentOptions.length < 7)
                           ? null
                           : [
                               BoxShadow(
@@ -4099,7 +4416,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                             ],
                     ),
                     child: ElevatedButton.icon(
-                      onPressed: _isSpinning ? null : _onSpinPressed,
+                      onPressed: _isSpinning ||
+                              (_selectedCategoryIndex != 0 &&
+                                  _spinSourceIndex == 0 &&
+                                  _currentOptions.length < 7)
+                          ? null
+                          : _onSpinPressed,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         foregroundColor: Colors.white,
@@ -4125,7 +4447,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         _isSpinning
                             ? 'Spinning...'
                             : (_spinSourceIndex == 0
-                                ? 'Re-Spin Custom'
+                                ? (_currentOptions.length < 7
+                                    ? 'Need 7 Options (${_currentOptions.length}/7)'
+                                    : 'Re-Spin Custom')
                                 : (_spinSourceIndex == 1
                                     ? 'Re-Spin Online'
                                     : 'Take Turn & Spin')),
@@ -4189,7 +4513,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               gradient: _isSpinning ||
                       _isPartnerTurn(_selectedCategoryIndex) ||
                       (_selectedCategoryIndex == 0 &&
-                          _watchOptions.length < 2)
+                          _watchOptions.length < 2) ||
+                      (_selectedCategoryIndex != 0 &&
+                          _spinSourceIndex == 0 &&
+                          _currentOptions.length < 7)
                   ? null
                   : const LinearGradient(
                       colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
@@ -4199,7 +4526,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               color: _isSpinning ||
                       _isPartnerTurn(_selectedCategoryIndex) ||
                       (_selectedCategoryIndex == 0 &&
-                          _watchOptions.length < 2)
+                          _watchOptions.length < 2) ||
+                      (_selectedCategoryIndex != 0 &&
+                          _spinSourceIndex == 0 &&
+                          _currentOptions.length < 7)
                   ? (isDark
                       ? Colors.white.withValues(alpha: 0.08)
                       : Colors.grey.shade300)
@@ -4208,7 +4538,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               boxShadow: _isSpinning ||
                       _isPartnerTurn(_selectedCategoryIndex) ||
                       (_selectedCategoryIndex == 0 &&
-                          _watchOptions.length < 2)
+                          _watchOptions.length < 2) ||
+                      (_selectedCategoryIndex != 0 &&
+                          _spinSourceIndex == 0 &&
+                          _currentOptions.length < 7)
                   ? null
                   : [
                       BoxShadow(
@@ -4220,7 +4553,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     ],
             ),
             child: ElevatedButton.icon(
-              onPressed: _isSpinning ? null : _onSpinPressed,
+              onPressed: _isSpinning ||
+                      (_selectedCategoryIndex != 0 &&
+                          _spinSourceIndex == 0 &&
+                          _currentOptions.length < 7)
+                  ? null
+                  : _onSpinPressed,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 foregroundColor: Colors.white,
@@ -4259,9 +4597,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                     ? 'Spin Wheel'
                                     : 'Spin Roulette'))
                             : (_spinSourceIndex == 0
-                                ? (_spinnerModeIndex == 0
-                                    ? 'Spin Custom Wheel'
-                                    : 'Spin Custom Roulette')
+                                ? (_currentOptions.length < 7
+                                    ? 'Need 7 Custom Ideas (${_currentOptions.length}/7)'
+                                    : (_spinnerModeIndex == 0
+                                        ? 'Spin Custom Wheel'
+                                        : 'Spin Custom Roulette'))
                                 : (_spinSourceIndex == 1
                                     ? (_spinnerModeIndex == 0
                                         ? 'Spin Online Wheel'
@@ -5160,6 +5500,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             _spinSourceIndex = null;
           }
         });
+        _checkAndAutoResetWeeklyPool();
         _savePersistentData();
       },
       borderRadius: BorderRadius.circular(16),
@@ -5228,7 +5569,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   Widget _buildSpinSourceSelector(BuildContext context, bool isDark) {
     if (_selectedCategoryIndex == 0) return const SizedBox.shrink();
 
-    final hasCustom = _currentOptions.isNotEmpty;
+    final customCount = _currentOptions.length;
+    final hasMinCustom = customCount >= 7;
 
     return Padding(
       padding: const EdgeInsets.only(top: 10, bottom: 12),
@@ -5277,17 +5619,20 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           const SizedBox(height: 8),
           Row(
             children: [
-              // Button 1: Custom Ideas
+              // Button 1: Custom Ideas (Requires 7 to 10 options)
               Expanded(
                 child: _buildSourceButton(
                   index: 0,
-                  label: hasCustom
-                      ? 'Custom (${_currentOptions.length})'
-                      : 'Custom (0)',
-                  icon: hasCustom ? Icons.favorite_rounded : Icons.lock_rounded,
-                  enabled: hasCustom,
-                  disabledMessage:
-                      'Add custom options below first to spin custom ideas!',
+                  label: hasMinCustom
+                      ? 'Custom ($customCount/10)'
+                      : (customCount == 0
+                          ? 'Custom (0/7 min)'
+                          : 'Custom ($customCount/7 min)'),
+                  icon: hasMinCustom ? Icons.favorite_rounded : Icons.lock_rounded,
+                  enabled: hasMinCustom,
+                  disabledMessage: customCount == 0
+                      ? 'Add at least 7 custom options below to spin (Min 7, Max 10)!'
+                      : 'Need at least 7 custom options to spin! Currently $customCount/7 (Add ${7 - customCount} more).',
                   isDark: isDark,
                 ),
               ),

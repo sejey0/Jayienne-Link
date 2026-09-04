@@ -4763,15 +4763,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
     return Column(
       children: [
-        if (_spinnerModeIndex == 0)
+        if (_spinnerModeIndex == 0) ...[
           // Visual Physical Wheel Mode
-          _buildVisualWheel(context, isDark)
-        else
+          _buildVisualWheel(context, isDark),
+          // Winner Decision Celebration Card for Dates & Food (Only for Wheel Mode to prevent double-show in Roulette)
+          _buildDecisionResultCard(context, isDark),
+        ] else ...[
           // Slot Machine / Carousel Mode
           _buildSlotMachineView(context, isDark),
-
-        // Winner Decision Celebration Card for Dates & Food
-        _buildDecisionResultCard(context, isDark),
+        ],
 
         // Spin Source Selector (Custom Ideas vs Online Suggestions) - only shown when spinning or re-spinning
         if (!hasActivePick || isRejected)
@@ -5439,6 +5439,17 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       } catch (_) {}
     }
 
+    final hasActivePick = _selectedCategoryIndex != 0 &&
+        _currentDisplayResult != 'Tap Spin to Decide!' &&
+        _currentDisplayResult != 'Spinning...' &&
+        _currentDisplayResult.trim().isNotEmpty;
+    final isCustomIdea = _currentOptions.contains(_currentDisplayResult);
+    final categoryLabel = _selectedCategoryIndex == 1
+        ? 'DATE & ACTIVITY PICKED'
+        : 'FOOD & DRINKS CHOICE';
+    final originLabel =
+        isCustomIdea ? 'Custom Couple Option' : 'Curated Online Suggestion';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
@@ -5485,6 +5496,93 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ),
             ],
           ),
+          if (hasActivePick) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.stars_rounded,
+                        color: Colors.white,
+                        size: 13,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        categoryLabel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 10.5,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isCustomIdea
+                            ? Icons.favorite_rounded
+                            : Icons.public_rounded,
+                        size: 12,
+                        color: isDark
+                            ? const Color(0xFFFF8DA1)
+                            : const Color(0xFFC2185B),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        originLabel,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? Colors.white70 : AppColors.deepCharcoal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
 
           // Movie Poster banner thumbnail in slot roulette

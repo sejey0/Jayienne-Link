@@ -644,40 +644,86 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             children: [
               Expanded(
                 flex: 3,
-                child: OutlinedButton.icon(
-                  onPressed: () => _handleRestoreAllMedia(context),
-                  icon: const Icon(Icons.sync_rounded, size: 16),
-                  label: const Text(
-                    'Sync & Restore Vault',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFFF758C),
-                    side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.30),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _handleRestoreAllMedia(context),
+                    icon: const Icon(Icons.sync_rounded, size: 16, color: Colors.white),
+                    label: const Text(
+                      'Sync & Restore Vault',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 flex: 2,
-                child: OutlinedButton.icon(
-                  onPressed: () => _handlePurgeCache(context),
-                  icon: const Icon(Icons.cleaning_services_rounded, size: 15),
-                  label: const Text(
-                    'Purge Cache',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFA18CD1),
-                    side: const BorderSide(color: Color(0xFFA18CD1), width: 1.2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFF5252).withValues(alpha: 0.30),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _handlePurgeCache(context),
+                    icon: const Icon(Icons.cleaning_services_rounded, size: 15, color: Colors.white),
+                    label: const Text(
+                      'Purge Cache',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
                   ),
                 ),
               ),
@@ -837,33 +883,77 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              HapticFeedback.lightImpact();
-                              Navigator.pop(ctx);
-                              _handleRestoreAllMedia(context);
-                            },
-                            icon: const Icon(Icons.sync_rounded, size: 16),
-                            label: const Text('Sync Vault', style: TextStyle(fontWeight: FontWeight.bold)),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFFF758C),
-                              side: const BorderSide(color: Color(0xFFFF758C)),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          child: Container(
+                            height: 46,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFF758C).withValues(alpha: 0.30),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                HapticFeedback.lightImpact();
+                                Navigator.pop(ctx);
+                                _handleRestoreAllMedia(context);
+                              },
+                              icon: const Icon(Icons.sync_rounded, size: 16, color: Colors.white),
+                              label: const Text(
+                                'Sync Vault',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                elevation: 0,
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => Navigator.pop(ctx),
-                            icon: const Icon(Icons.check_rounded, size: 18, color: Colors.white),
-                            label: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF758C),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                              elevation: 0,
+                          child: Container(
+                            height: 46,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFF758C).withValues(alpha: 0.30),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton.icon(
+                              onPressed: () => Navigator.pop(ctx),
+                              icon: const Icon(Icons.check_rounded, size: 18, color: Colors.white),
+                              label: const Text(
+                                'Done',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                elevation: 0,
+                              ),
                             ),
                           ),
                         ),
@@ -910,6 +1000,116 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _handlePurgeCache(BuildContext context) async {
     HapticFeedback.mediumImpact();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+          contentPadding: const EdgeInsets.all(24),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFFF5252).withValues(alpha: 0.15),
+                      const Color(0xFFD81B60).withValues(alpha: 0.20),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.cleaning_services_rounded,
+                  color: Color(0xFFFF5252),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Purge Temporary Cache?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppColors.deepCharcoal,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'This will clear local decrypted memory caches and temporary vault files to free up device space. No cloud photos or videos will be deleted.',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Container(
+                width: double.infinity,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF5252).withValues(alpha: 0.30),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  icon: const Icon(Icons.cleaning_services_rounded, size: 20, color: Colors.white),
+                  label: const Text(
+                    'Purge Cache',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+
     try {
       await VaultCacheManager.instance.purgeVaultCache();
       if (context.mounted) {
@@ -1634,28 +1834,60 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final success = await provider.toggleUserRole(targetUser);
-              if (context.mounted) {
-                if (success) {
-                  SnackbarHelper.showSuccess(
-                    context,
-                    willBeAdmin
-                        ? '${targetUser.displayName} is now an Admin.'
-                        : '${targetUser.displayName} is now a standard User.',
-                  );
-                } else if (provider.error != null) {
-                  SnackbarHelper.showError(context, provider.error!);
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF758C),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          Container(
+            decoration: BoxDecoration(
+              gradient: willBeAdmin
+                  ? const LinearGradient(
+                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : const LinearGradient(
+                      colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: (willBeAdmin
+                          ? const Color(0xFFFF758C)
+                          : const Color(0xFFFF5252))
+                      .withValues(alpha: 0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Text(willBeAdmin ? 'Promote' : 'Demote', style: const TextStyle(color: Colors.white)),
+            child: ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final success = await provider.toggleUserRole(targetUser);
+                if (context.mounted) {
+                  if (success) {
+                    SnackbarHelper.showSuccess(
+                      context,
+                      willBeAdmin
+                          ? '${targetUser.displayName} is now an Admin.'
+                          : '${targetUser.displayName} is now a standard User.',
+                    );
+                  } else if (provider.error != null) {
+                    SnackbarHelper.showError(context, provider.error!);
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: Text(
+                willBeAdmin ? 'Promote' : 'Demote',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
         ],
       ),

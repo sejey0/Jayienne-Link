@@ -63,7 +63,89 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return nameChanged || photoChanged || birthdayChanged || zodiacChanged;
   }
 
-  void _resetToDefault() {
+  Future<void> _resetToDefault() async {
+    HapticFeedback.lightImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1C1427) : Colors.white,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF5252).withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.restore_rounded,
+                color: Color(0xFFFF5252),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Discard Changes?',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to discard your edits and reset to your original profile information?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF5252).withValues(alpha: 0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: const Text(
+                'Discard',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     HapticFeedback.mediumImpact();
     final user = context.read<UserProvider>().user;
     setState(() {
@@ -73,7 +155,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _selectedPhoto = null;
       _nameEditable = false;
     });
-    SnackbarHelper.showInfo(context, 'Reset to original profile values');
+    if (mounted) {
+      SnackbarHelper.showInfo(context, 'Reset to original profile values');
+    }
   }
 
   @override
@@ -945,18 +1029,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   height: 52,
                                   child: OutlinedButton.icon(
                                     onPressed: userProvider.isLoading ? null : _resetToDefault,
-                                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                                    icon: const Icon(Icons.refresh_rounded, size: 18, color: Color(0xFFFF5252)),
                                     label: const Text(
                                       'Reset',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14,
+                                        color: Color(0xFFFF5252),
                                       ),
                                     ),
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: isDark ? Colors.white70 : Colors.grey.shade700,
+                                      foregroundColor: const Color(0xFFFF5252),
+                                      backgroundColor: isDark
+                                          ? const Color(0xFFFF5252).withValues(alpha: 0.08)
+                                          : const Color(0xFFFF5252).withValues(alpha: 0.06),
                                       side: BorderSide(
-                                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                                        color: const Color(0xFFFF5252).withValues(alpha: 0.45),
                                         width: 1.2,
                                       ),
                                       shape: RoundedRectangleBorder(

@@ -768,30 +768,46 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                   // CANCEL REWATCH (IF CURRENTLY PLANNED REWATCH IN WATCHLIST)
                   // ----------------------------------------------------
                   if (movie.isWatchlist && movie.isRewatch && widget.onCancelRewatch != null) ...[
-                    SizedBox(
+                    Container(
                       width: double.infinity,
-                      height: 38,
-                      child: OutlinedButton.icon(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.28),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton.icon(
                         onPressed: () {
                           HapticFeedback.lightImpact();
                           Navigator.pop(context);
                           widget.onCancelRewatch?.call();
                         },
-                        icon: const Icon(Icons.undo_rounded, size: 15, color: Color(0xFFA18CD1)),
+                        icon: const Icon(Icons.undo_rounded, size: 16, color: Colors.white),
                         label: const Text(
                           'Cancel Rewatch',
                           style: TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFFA18CD1),
+                            color: Colors.white,
                           ),
                         ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFA18CD1),
-                          side: BorderSide(color: const Color(0xFFA18CD1).withValues(alpha: 0.4)),
-                          backgroundColor: const Color(0xFFA18CD1).withValues(alpha: 0.06),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          shadowColor: Colors.transparent,
+                          elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                       ),
@@ -806,30 +822,46 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
                     children: [
                       // Edit Movie Details Button
                       Expanded(
-                        child: SizedBox(
-                          height: 36,
-                          child: OutlinedButton.icon(
+                        child: Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton.icon(
                             onPressed: () {
                               HapticFeedback.lightImpact();
                               Navigator.pop(context);
                               widget.onEditMovie?.call();
                             },
-                            icon: const Icon(Icons.edit_rounded, size: 14, color: Color(0xFFFF758C)),
+                            icon: const Icon(Icons.edit_rounded, size: 15, color: Colors.white),
                             label: const Text(
                               'Edit Details',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? Colors.white : const Color(0xFF2D4059),
-                              side: BorderSide(
-                                color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
-                              backgroundColor: isDark
-                                  ? Colors.white.withValues(alpha: 0.04)
-                                  : const Color(0xFFFF758C).withValues(alpha: 0.05),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              shadowColor: Colors.transparent,
+                              elevation: 0,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
                           ),
@@ -839,33 +871,47 @@ class _ViewMovieDetailsSheetState extends State<ViewMovieDetailsSheet> {
 
                       // Remove Movie Button
                       Expanded(
-                        child: SizedBox(
-                          height: 36,
-                          child: OutlinedButton.icon(
+                        child: Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF5252).withValues(alpha: 0.3),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton.icon(
                             onPressed: () {
                               HapticFeedback.lightImpact();
                               Navigator.pop(context);
                               widget.onDeleteMovie?.call();
                             },
-                            icon: const Icon(Icons.delete_outline_rounded, size: 14, color: AppColors.error),
+                            icon: const Icon(Icons.delete_outline_rounded, size: 15, color: Colors.white),
                             label: const Text(
                               'Remove',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 12.5,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.error,
+                                color: Colors.white,
                               ),
                             ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.error,
-                              side: BorderSide(
-                                color: AppColors.error.withValues(alpha: 0.35),
-                              ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              shadowColor: Colors.transparent,
+                              elevation: 0,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(14),
                               ),
-                              backgroundColor: AppColors.error.withValues(alpha: 0.05),
                             ),
                           ),
                         ),

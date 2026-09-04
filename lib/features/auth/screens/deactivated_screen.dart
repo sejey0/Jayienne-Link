@@ -101,9 +101,24 @@ class DeactivatedScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               // Action Button (Sign Out)
-              SizedBox(
+              Container(
                 width: double.infinity,
                 height: 50,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF5252).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
                 child: ElevatedButton.icon(
                   onPressed: () async {
                     Navigator.of(ctx).pop();
@@ -111,19 +126,21 @@ class DeactivatedScreen extends StatelessWidget {
                     await ctx.read<AuthProvider>().signOut();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.error,
+                    backgroundColor: Colors.transparent,
                     foregroundColor: Colors.white,
-                    elevation: 2,
+                    shadowColor: Colors.transparent,
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  icon: const Icon(Icons.logout_rounded),
+                  icon: const Icon(Icons.logout_rounded, color: Colors.white),
                   label: const Text(
                     'Sign Out',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -266,28 +283,45 @@ class DeactivatedScreen extends StatelessWidget {
                     const SizedBox(height: 28),
 
                     // Sign Out Button
-                    SizedBox(
+                    Container(
                       width: double.infinity,
                       height: 52,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF5252).withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
                       child: ElevatedButton.icon(
                         onPressed: () async {
                           context.read<UserProvider>().clearUser();
                           await context.read<AuthProvider>().signOut();
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.error,
+                          backgroundColor: Colors.transparent,
                           foregroundColor: Colors.white,
-                          elevation: 3,
+                          shadowColor: Colors.transparent,
+                          elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                        icon: const Icon(Icons.logout_rounded),
+                        icon: const Icon(Icons.logout_rounded, color: Colors.white),
                         label: const Text(
                           'Sign Out',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
                       ),

@@ -16,6 +16,7 @@ import 'add_secret_media_screen.dart';
 import 'secret_media_detail_screen.dart';
 import 'package:video_player/video_player.dart';
 import '../../../widgets/common/app_text_field.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 
 class HiddenVaultScreen extends StatefulWidget {
   const HiddenVaultScreen({super.key});
@@ -1629,38 +1630,15 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
               ),
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFF5252).withValues(alpha: 0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                onConfirm();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                foregroundColor: Colors.white,
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-              child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
+          TimedDestructiveButton(
+            label: 'Delete',
+            countdownSeconds: 5,
+            icon: Icons.delete_outline_rounded,
+            width: 120,
+            onPressed: () {
+              Navigator.pop(context);
+              onConfirm();
+            },
           ),
         ],
       ),

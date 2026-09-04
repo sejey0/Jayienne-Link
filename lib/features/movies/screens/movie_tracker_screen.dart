@@ -17,6 +17,7 @@ import '../widgets/view_movie_details_sheet.dart';
 import '../../home/screens/decision_spinner_screen.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 
 /// Senior Couples Movie Tracker & Watchlist Screen ("Cinema Diary")
 /// Features a decluttered card layout, single "View Details & Ratings" action,
@@ -680,42 +681,12 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
             ),
             const SizedBox(height: 20),
 
-            // 4. Primary Button (Remove Movie)
-            Container(
-              width: double.infinity,
-              height: 46,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF5252).withValues(alpha: 0.3),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ElevatedButton.icon(
-                onPressed: () => Navigator.pop(ctx, true),
-                icon: const Icon(Icons.delete_sweep_rounded, size: 18, color: Colors.white),
-                label: const Text(
-                  'Remove Movie',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  foregroundColor: Colors.white,
-                  shadowColor: Colors.transparent,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
+            // 4. Primary Button (Remove Movie with 5s countdown)
+            TimedDestructiveButton(
+              label: 'Remove Movie',
+              countdownSeconds: 5,
+              icon: Icons.delete_sweep_rounded,
+              onPressed: () => Navigator.pop(ctx, true),
             ),
             const SizedBox(height: 8),
 

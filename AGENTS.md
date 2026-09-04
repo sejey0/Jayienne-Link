@@ -34,3 +34,10 @@
     - For positive / milestone actions (e.g. Mark Done & Unlock): Romantic signature gradient button (`[Color(0xFFFF758C), Color(0xFFA18CD1)]`) with bold white text.
   - **Corner Radius:** `BorderRadius.circular(22)` to `24` for modern cohesive appearance matching the app's aesthetic.
 
+## 5. Destructive Action Confirmation Countdown Rule
+- **5-Second Countdown Required for Delete & Deactivate:**
+  - Any confirmation modal or dialog for a destructive action involving **Delete** (e.g. deleting photos, movies, moods, milestones, links, media) or **Deactivate** (e.g. deactivating a user account, purging cache) **MUST implement a 5-second countdown timer** before the confirm button is unlocked.
+  - While counting down (5s, 4s, 3s, 2s, 1s): The button must be disabled, displaying the remaining time (e.g. `Delete (5s)` or `Deactivate (5s)`), with `Icons.timer_outlined`.
+  - When countdown finishes: The button unlocks with the signature rose-crimson alert gradient (`[Color(0xFFFF5252), Color(0xFFD81B60)]`), soft glow drop shadow, and active action icon.
+  - The "Cancel" button must remain immediately clickable throughout the countdown.
+  - Use `TimedDestructiveButton` or `showTimedConfirmDialog` from `lib/widgets/common/timed_confirm_dialog.dart`.

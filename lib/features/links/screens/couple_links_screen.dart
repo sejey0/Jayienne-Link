@@ -13,6 +13,7 @@ import '../../../widgets/smart_profile_image.dart';
 import '../widgets/add_edit_link_sheet.dart';
 import '../widgets/platform_brand_icon.dart';
 import '../../../widgets/common/romantic_loading_indicator.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 
 enum _LinkFilterTab { all, mine, partner }
 
@@ -1439,56 +1440,28 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
 
                     // Confirm Delete Button
                     Expanded(
-                      child: Container(
+                      child: TimedDestructiveButton(
+                        label: 'Delete',
+                        icon: Icons.delete_outline_rounded,
+                        countdownSeconds: 5,
                         height: 48,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF4D6D), Color(0xFFD90429)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF4D6D).withValues(alpha: 0.35),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            Navigator.of(modalContext).pop();
-                            HapticFeedback.mediumImpact();
-                            final deleted = await provider.deleteLink(link.id);
-                            if (context.mounted) {
-                              if (deleted) {
-                                SnackbarHelper.showSuccess(context, 'Link removed successfully');
-                              } else {
-                                SnackbarHelper.showError(
-                                  context,
-                                  provider.error ?? 'Failed to delete link.',
-                                );
-                              }
+                        borderRadius: 16,
+                        fontSize: 14,
+                        onPressed: () async {
+                          Navigator.of(modalContext).pop();
+                          HapticFeedback.mediumImpact();
+                          final deleted = await provider.deleteLink(link.id);
+                          if (context.mounted) {
+                            if (deleted) {
+                              SnackbarHelper.showSuccess(context, 'Link removed successfully');
+                            } else {
+                              SnackbarHelper.showError(
+                                context,
+                                provider.error ?? 'Failed to delete link.',
+                              );
                             }
-                          },
-                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 16),
-                          label: const Text(
-                            'Delete',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
+                          }
+                        },
                       ),
                     ),
                   ],

@@ -15,6 +15,7 @@ import '../../../providers/debug_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/romantic_loading_indicator.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 
 /// Interactive Relationship Memory Timeline Screen
 class RelationshipTimelineScreen extends StatefulWidget {
@@ -1258,40 +1259,22 @@ class _RelationshipTimelineScreenState
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Container(
+                  child: TimedDestructiveButton(
+                    label: 'Delete',
+                    icon: Icons.delete_outline_rounded,
+                    countdownSeconds: 5,
                     height: 42,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        Navigator.pop(ctx);
-                        if (item.id != null) {
-                          await provider.deleteMilestone(item.id!);
-                          if (context.mounted) {
-                            SnackbarHelper.showSuccess(context, 'Memory deleted');
-                          }
+                    borderRadius: 12,
+                    fontSize: 13.5,
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      if (item.id != null) {
+                        await provider.deleteMilestone(item.id!);
+                        if (context.mounted) {
+                          SnackbarHelper.showSuccess(context, 'Memory deleted');
                         }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: Colors.white,
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Delete',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                      ),
-                    ),
+                      }
+                    },
                   ),
                 ),
               ],

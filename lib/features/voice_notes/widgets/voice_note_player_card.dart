@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/voice_note_model.dart';
 import '../../../providers/voice_notes_provider.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 
 class VoiceNotePlayerCard extends StatelessWidget {
   final VoiceNoteModel note;
@@ -139,42 +140,17 @@ class VoiceNotePlayerCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Container(
+                      child: TimedDestructiveButton(
+                        label: 'Delete',
+                        icon: Icons.delete_rounded,
+                        countdownSeconds: 5,
                         height: 48,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF4D6D), Color(0xFFD90429)],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF4D6D).withValues(alpha: 0.35),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.of(modalContext).pop();
-                            provider.deleteVoiceNote(note.id, audioUrl: note.audioUrl);
-                          },
-                          icon: const Icon(Icons.delete_rounded, color: Colors.white, size: 16),
-                          label: const Text(
-                            'Delete',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
+                        borderRadius: 16,
+                        fontSize: 14,
+                        onPressed: () {
+                          Navigator.of(modalContext).pop();
+                          provider.deleteVoiceNote(note.id, audioUrl: note.audioUrl);
+                        },
                       ),
                     ),
                   ],

@@ -18,6 +18,7 @@ import '../../../providers/photo_message_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/app_text_field.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 import '../../../widgets/smart_profile_image.dart';
 
 class PhotosScreen extends StatefulWidget {
@@ -1686,34 +1687,12 @@ class _DeletePhotoDialogState extends State<_DeletePhotoDialog> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Container(
+                child: TimedDestructiveButton(
+                  label: 'Delete',
+                  countdownSeconds: 5,
+                  icon: Icons.delete_outline_rounded,
                   height: 46,
-                  decoration: BoxDecoration(
-                    gradient: _isConfirmed
-                        ? const LinearGradient(
-                            colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: _isConfirmed ? null : Colors.grey.shade400,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ElevatedButton(
-                    onPressed:
-                        _isConfirmed ? () => Navigator.of(context).pop(true) : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.white70,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
+                  onPressed: () => Navigator.of(context).pop(true),
                 ),
               ),
             ],

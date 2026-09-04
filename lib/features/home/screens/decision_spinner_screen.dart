@@ -19,6 +19,7 @@ import '../../../services/supabase_movie_service.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
 import '../../movies/widgets/movie_poster_widget.dart';
 import '../../../widgets/common/app_text_field.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 
 /// Representation of a slice on the merged wheel
 class _WheelSliceItem {
@@ -3485,42 +3486,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Container(
+                  child: TimedDestructiveButton(
+                    label: 'Delete',
+                    icon: Icons.delete_outline_rounded,
+                    countdownSeconds: 5,
                     height: 38,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFF5252).withValues(alpha: 0.3),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: Colors.white,
-                        shadowColor: Colors.transparent,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Delete',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ),
+                    borderRadius: 12,
+                    fontSize: 12.5,
+                    onPressed: () => Navigator.pop(ctx, true),
                   ),
                 ),
               ],

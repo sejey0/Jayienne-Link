@@ -16,6 +16,7 @@ import '../../../services/supabase_data_service.dart';
 import '../../../services/vault_cache_manager.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 
 /// Senior Admin Dashboard Screen redesigned to match Jayienne Link's signature romantic theme
 class AdminDashboardScreen extends StatefulWidget {
@@ -2020,62 +2021,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: willDeactivate
-                  ? const LinearGradient(
-                      colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : const LinearGradient(
-                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: (willDeactivate
-                          ? const Color(0xFFFF5252)
-                          : const Color(0xFFFF758C))
-                      .withValues(alpha: 0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final success = await provider.toggleUserActiveStatus(targetUser);
-                if (context.mounted) {
-                  if (success) {
-                    SnackbarHelper.showSuccess(
-                      context,
-                      willDeactivate
-                          ? 'Account deactivated successfully.'
-                          : 'Account activated successfully.',
-                    );
-                  } else if (provider.error != null) {
-                    SnackbarHelper.showError(context, provider.error!);
-                  }
+          TimedDestructiveButton(
+            label: willDeactivate ? 'Deactivate' : 'Activate',
+            countdownSeconds: willDeactivate ? 5 : 0,
+            icon: willDeactivate ? Icons.block_rounded : Icons.check_circle_rounded,
+            gradientColors: willDeactivate
+                ? const [Color(0xFFFF5252), Color(0xFFD81B60)]
+                : const [Color(0xFFFF758C), Color(0xFFA18CD1)],
+            width: 140,
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await provider.toggleUserActiveStatus(targetUser);
+              if (context.mounted) {
+                if (success) {
+                  SnackbarHelper.showSuccess(
+                    context,
+                    willDeactivate
+                        ? 'Account deactivated successfully.'
+                        : 'Account activated successfully.',
+                  );
+                } else if (provider.error != null) {
+                  SnackbarHelper.showError(context, provider.error!);
                 }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                foregroundColor: Colors.white,
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-              child: Text(
-                willDeactivate ? 'Deactivate' : 'Activate',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
+              }
+            },
           ),
         ],
       ),

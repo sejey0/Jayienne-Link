@@ -12,6 +12,7 @@ import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/mapbox_service.dart';
 import '../widgets/offline_status_indicator.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 
 /// Redesigned Location History Screen featuring romantic trip summary cards,
 /// person switcher, quick date filter chips, interactive day map previews,
@@ -1023,32 +1024,14 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Container(
+                  child: TimedDestructiveButton(
+                    label: 'Delete',
+                    icon: Icons.delete_outline_rounded,
+                    countdownSeconds: 5,
                     height: 42,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: Colors.white,
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Delete',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                      ),
-                    ),
+                    borderRadius: 12,
+                    fontSize: 13.5,
+                    onPressed: () => Navigator.pop(context, true),
                   ),
                 ),
               ],

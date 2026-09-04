@@ -1336,6 +1336,130 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       return;
     }
 
+    final partnerName = _getPartnerDisplayName();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final catLabel = _selectedCategoryIndex == 1 ? 'activity' : 'food choice';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF5252).withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.cancel_outlined,
+                color: Color(0xFFFF5252),
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Reject This ${catLabel[0].toUpperCase()}${catLabel.substring(1)}?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Are you sure you want to reject "$_currentDisplayResult"? This will unlock the wheel so $partnerName can spin again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 38,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor:
+                            isDark ? Colors.white70 : Colors.grey.shade700,
+                        side: BorderSide(
+                          color: isDark
+                              ? Colors.white24
+                              : Colors.grey.shade300,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    height: 38,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF5252).withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Reject',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
     HapticFeedback.mediumImpact();
     setState(() {
       if (_selectedCategoryIndex == 1) {
@@ -1490,23 +1614,41 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ),
             ),
           ),
-          ElevatedButton.icon(
-            onPressed: () async {
-              Navigator.pop(dialogCtx);
-              await _markDecisionDoneAndUnlock();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF758C),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            icon: const Icon(Icons.check_circle_rounded, size: 16),
-            label: const Text(
-              'Mark Done & Unlock',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                Navigator.pop(dialogCtx);
+                await _markDecisionDoneAndUnlock();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              icon: const Icon(Icons.check_circle_rounded, size: 16),
+              label: const Text(
+                'Mark Done & Unlock',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
@@ -2867,6 +3009,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: ElevatedButton(
                       onPressed: () async {
@@ -3335,13 +3484,29 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: SizedBox(
+                  child: Container(
                     height: 38,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF5252).withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(ctx, true),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
+                        backgroundColor: Colors.transparent,
                         foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -3688,34 +3853,41 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                   borderRadius: BorderRadius.circular(12),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 5),
+                                        horizontal: 10, vertical: 5),
                                     decoration: BoxDecoration(
-                                      color: Colors.redAccent
-                                          .withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.redAccent
-                                            .withValues(alpha: 0.35),
-                                        width: 1.0,
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFFFF5252),
+                                          Color(0xFFD81B60)
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
                                       ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFFF5252)
+                                              .withValues(alpha: 0.3),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
                                     ),
-                                    child: Row(
+                                    child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(
+                                        Icon(
                                           Icons.delete_forever_rounded,
                                           size: 14,
-                                          color: Colors.redAccent,
+                                          color: Colors.white,
                                         ),
-                                        const SizedBox(width: 3),
+                                        SizedBox(width: 3),
                                         Text(
                                           'Clear (Debug)',
                                           style: TextStyle(
-                                            color: isDark
-                                                ? Colors.redAccent.shade100
-                                                : Colors.red.shade800,
+                                            color: Colors.white,
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 11,
+                                            fontSize: 11.5,
                                           ),
                                         ),
                                       ],
@@ -6320,21 +6492,26 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   child: Container(
                     height: 42,
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : const Color(0xFFFF758C).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: const Color(0xFFFF758C).withValues(alpha: 0.45),
-                        width: 1.2,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF5252).withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: TextButton.icon(
+                    child: ElevatedButton.icon(
                       onPressed: _rejectCurrentDecision,
-                      style: TextButton.styleFrom(
-                        foregroundColor: isDark
-                            ? Colors.white
-                            : const Color(0xFFC2185B),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -6342,13 +6519,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                       icon: const Icon(
                         Icons.close_rounded,
                         size: 17,
-                        color: Color(0xFFFF758C),
+                        color: Colors.white,
                       ),
                       label: const Text(
                         'Reject',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13.5,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -6623,31 +6801,35 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                   decoration: BoxDecoration(
-                    color: Colors.redAccent.shade200
-                        .withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.redAccent.shade200
-                          .withValues(alpha: 0.4),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFF5252).withValues(alpha: 0.28),
+                        blurRadius: 5,
+                        offset: const Offset(0, 1.5),
+                      ),
+                    ],
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.delete_forever_rounded,
-                          size: 13,
-                          color: isDark
-                              ? Colors.redAccent.shade200
-                              : Colors.red.shade800),
-                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.delete_forever_rounded,
+                        size: 13,
+                        color: Colors.white,
+                      ),
+                      SizedBox(width: 4),
                       Text(
                         'Fresh Start Reset',
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.bold,
-                          color: isDark
-                              ? Colors.redAccent.shade200
-                              : Colors.red.shade800,
+                          color: Colors.white,
                         ),
                       ),
                     ],
@@ -6827,20 +7009,37 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      elevation: 0,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF5252).withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: const Text(
-                      'Reset All',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Reset All',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ),

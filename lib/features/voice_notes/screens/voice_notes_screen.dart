@@ -355,21 +355,40 @@ class _VoiceNotesScreenState extends State<VoiceNotesScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              VoiceRecordSheet.show(context);
-            },
-            icon: const Icon(Icons.mic_rounded, color: Colors.white, size: 16),
-            label: const Text(
-              'Record First Note',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.softRose,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                VoiceRecordSheet.show(context);
+              },
+              icon: const Icon(Icons.mic_rounded, color: Colors.white, size: 16),
+              label: const Text(
+                'Record First Note',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                shadowColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
           ),

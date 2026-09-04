@@ -981,9 +981,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              SizedBox(
+              Container(
                 width: double.infinity,
                 height: 48,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.30),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: ElevatedButton.icon(
                   onPressed: () => Navigator.pop(ctx, true),
                   icon: const Icon(Icons.sync_rounded, size: 20, color: Colors.white),
@@ -992,7 +1007,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF758C),
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -1530,28 +1547,62 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final success = await provider.toggleUserActiveStatus(targetUser);
-              if (context.mounted) {
-                if (success) {
-                  SnackbarHelper.showSuccess(
-                    context,
-                    willDeactivate
-                        ? 'Account deactivated successfully.'
-                        : 'Account activated successfully.',
-                  );
-                } else if (provider.error != null) {
-                  SnackbarHelper.showError(context, provider.error!);
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: willDeactivate ? AppColors.error : const Color(0xFF4CAF50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          Container(
+            decoration: BoxDecoration(
+              gradient: willDeactivate
+                  ? const LinearGradient(
+                      colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : const LinearGradient(
+                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: (willDeactivate
+                          ? const Color(0xFFFF5252)
+                          : const Color(0xFFFF758C))
+                      .withValues(alpha: 0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Text(willDeactivate ? 'Deactivate' : 'Activate', style: const TextStyle(color: Colors.white)),
+            child: ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final success = await provider.toggleUserActiveStatus(targetUser);
+                if (context.mounted) {
+                  if (success) {
+                    SnackbarHelper.showSuccess(
+                      context,
+                      willDeactivate
+                          ? 'Account deactivated successfully.'
+                          : 'Account activated successfully.',
+                    );
+                  } else if (provider.error != null) {
+                    SnackbarHelper.showError(context, provider.error!);
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: Text(
+                willDeactivate ? 'Deactivate' : 'Activate',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
         ],
       ),

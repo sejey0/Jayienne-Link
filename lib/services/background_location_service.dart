@@ -6,6 +6,7 @@ import 'package:workmanager/workmanager.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/location_model.dart';
 import 'offline_storage_service.dart';
+import 'firebase_location_service.dart';
 import 'package:battery_plus/battery_plus.dart';
 
 /// Background task names
@@ -217,8 +218,10 @@ Future<void> _captureBackgroundLocation() async {
       } catch (_) {}
     }
 
+    final coupleId = await BackgroundLocationService.getStoredCoupleId() ?? '';
+
     final location = LocationModel(
-      coupleId: '',
+      coupleId: coupleId,
       ownerId: userId,
       latitude: position.latitude,
       longitude: position.longitude,
@@ -239,7 +242,7 @@ Future<void> _captureBackgroundLocation() async {
   }
 }
 
-/// Try to sync locations to Supabase if online
+/// Try to sync locations to Firebase if online
 Future<void> _trySyncInBackground() async {
   try {
     final connectivity = await Connectivity().checkConnectivity();
@@ -257,19 +260,29 @@ Future<void> _trySyncInBackground() async {
     final userId = await BackgroundLocationService.getStoredUserId();
     final coupleId = await BackgroundLocationService.getStoredCoupleId();
 
-    if (userId == null || coupleId == null) {
+    if (userId == null || coupleId == null || coupleId.isEmpty) {
       debugPrint('Background: Missing user/couple ID for sync');
       return;
     }
 
-    // Import and use sync service
-    // Note: Full sync is done when app opens - this is a lightweight check
     final storage = OfflineStorageService.instance;
-    final unsyncedCount = await storage.getUnsyncedCount(userId);
+    final unsynced = await storage.getUnsyncedLocations(userId);
 
-    if (unsyncedCount > 0) {
-      debugPrint('Background: $unsyncedCount locations pending sync');
-      // Full sync will happen when app opens or via LocationSyncService
+    if (unsynced.isNotEmpty) {
+      debugPrint('Background: ${unsynced.length} locations pending sync, syncing to Firebase...');
+      try {
+        await FirebaseLocationService.instance.recordHistoryBatch(
+          coupleId: coupleId,
+          userId: userId,
+          locations: unsynced
+              .map((l) => l.copyWith(coupleId: coupleId, ownerId: userId, isSynced: true))
+              .toList(),
+        );
+        await storage.markAllAsSynced(userId);
+        debugPrint('Background: Successfully synced ${unsynced.length} locations to Firebase');
+      } catch (syncErr) {
+        debugPrint('Background: Firebase sync error: $syncErr');
+      }
     }
   } catch (e) {
     debugPrint('Background sync check failed: $e');

@@ -150,7 +150,15 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
   String? get userId => _userId;
   String? get partnerId => _partnerId;
   String? get coupleId => _coupleId;
-  bool get hasPartner => _coupleId != null && _coupleId!.isNotEmpty;
+  String? get effectiveCoupleId {
+    if (_coupleId != null && _coupleId!.isNotEmpty) return _coupleId;
+    if (_currentUser?.coupleId != null && _currentUser!.coupleId!.isNotEmpty) {
+      return _currentUser!.coupleId;
+    }
+    return null;
+  }
+  String? get effectiveUserId => _userId ?? _currentUser?.id;
+  bool get hasPartner => (effectiveCoupleId != null && effectiveCoupleId!.isNotEmpty);
   bool get canShare => _permissionStatus.canTrack && hasPartner;
   UserModel? get currentUser => _currentUser;
   UserModel? get partnerUser => _partnerUser;
@@ -320,16 +328,35 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       if (isOnline) {
-        await _storageService.markAllAsSynced(userId);
+        unawaited(syncLocations());
+      } else {
+        _pendingSyncCount = await _storageService.getUnsyncedCount(userId);
+        _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.offline;
       }
-      _pendingSyncCount = await _storageService.getUnsyncedCount(userId);
-      _syncStatus = _pendingSyncCount > 0 ? SyncStatus.pending : SyncStatus.synced;
+
+      // Auto-restore location history from Firebase if local SQLite cache is empty (e.g. after fresh install)
+      unawaited(() async {
+        try {
+          final count = await _storageService.getLocationCount(userId);
+          if (count == 0) {
+            debugPrint('📥 [LocationProvider] Reinstalled app or empty cache detected. Restoring history from Firebase...');
+            await loadLocationHistory();
+            if (_partnerId != null || _partnerUser?.id != null) {
+              await loadPartnerLocationHistory();
+            }
+          }
+        } catch (restoreErr) {
+          debugPrint('⚠️ [LocationProvider] Auto-restore history error: $restoreErr');
+        }
+      }());
 
       // Fetch latest partner state directly from Firebase Realtime Database
-      if (_coupleId != null && _partnerId != null) {
+      final cId = effectiveCoupleId;
+      final pId = _partnerId ?? _partnerUser?.id;
+      if (cId != null && pId != null) {
         final partnerLoc = await _firebaseLocationService.getPartnerLatestLocation(
-          coupleId: _coupleId!,
-          partnerId: _partnerId!,
+          coupleId: cId,
+          partnerId: pId,
         );
         if (partnerLoc != null) {
           _partnerLocation = partnerLoc;
@@ -343,7 +370,7 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
       _subscribeToStreams();
       _startBatterySmartLocationStream();
 
-      if (_coupleId != null && _partnerId != null) {
+      if (cId != null && pId != null) {
         _startPartnerLocationListening();
       }
 
@@ -399,7 +426,9 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
     _devicePositionSubscription = Geolocator.getPositionStream(
       locationSettings: locationSettings,
     ).listen((Position position) async {
-      if (_userId == null) return;
+      final uId = effectiveUserId;
+      if (uId == null) return;
+      final cId = effectiveCoupleId;
 
       if (!kIsWeb) {
         try {
@@ -410,8 +439,8 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
       final now = DateTime.now();
 
       final locationModel = LocationModel(
-        coupleId: _coupleId ?? '',
-        ownerId: _userId!,
+        coupleId: cId ?? '',
+        ownerId: uId,
         latitude: position.latitude,
         longitude: position.longitude,
         speed: position.speed,
@@ -452,25 +481,29 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
         _lastSavedTime = now;
         _lastSavedBattery = _batteryLevel;
 
-        final locToSave = locationModel.copyWith(isSynced: isOnline);
+        final locToSave = locationModel.copyWith(
+          isSynced: isOnline,
+          coupleId: cId ?? locationModel.coupleId,
+          ownerId: uId,
+        );
         await _storageService.insertLocation(locToSave);
-        _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
+        _pendingSyncCount = await _storageService.getUnsyncedCount(uId);
         _syncStatus = isOnline ? SyncStatus.synced : SyncStatus.offline;
 
-        if (_coupleId != null && _userId != null) {
+        if (cId != null && cId.isNotEmpty) {
           _firebaseLocationService.recordHistoryPoint(
-            coupleId: _coupleId!,
-            userId: _userId!,
+            coupleId: cId,
+            userId: uId,
             location: locToSave,
           );
         }
       }
 
       // Publish directly to Firebase Realtime Database for true sub-second live tracking
-      if (_coupleId != null && _userId != null) {
+      if (cId != null && cId.isNotEmpty) {
         _firebaseLocationService.publishLiveLocation(
-          coupleId: _coupleId!,
-          userId: _userId!,
+          coupleId: cId,
+          userId: uId,
           location: locationModel,
           batteryLevel: _batteryLevel,
           isCharging: _batteryState == BatteryState.charging,
@@ -625,12 +658,18 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
       } catch (_) {}
     }
 
+    final uId = effectiveUserId;
+    if (uId == null) return;
+    final cId = effectiveCoupleId;
+
     final loc = _currentLocation ??
-        await _storageService.getLastKnownLocation(_userId!);
+        await _storageService.getLastKnownLocation(uId);
     if (loc != null) {
       final updatedLoc = loc.copyWith(
         batteryLevel: _batteryLevel,
         timestamp: DateTime.now(),
+        coupleId: cId ?? loc.coupleId,
+        ownerId: uId,
       );
       _currentLocation = updatedLoc;
 
@@ -665,24 +704,28 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
         _lastSavedTime = DateTime.now();
         _lastSavedBattery = _batteryLevel;
 
-        final locToSave = updatedLoc.copyWith(isSynced: isOnline);
+        final locToSave = updatedLoc.copyWith(
+          isSynced: isOnline,
+          coupleId: cId ?? updatedLoc.coupleId,
+          ownerId: uId,
+        );
         await _storageService.insertLocation(locToSave);
-        _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
+        _pendingSyncCount = await _storageService.getUnsyncedCount(uId);
 
-        if (_coupleId != null && _userId != null) {
+        if (cId != null && cId.isNotEmpty) {
           _firebaseLocationService.recordHistoryPoint(
-            coupleId: _coupleId!,
-            userId: _userId!,
+            coupleId: cId,
+            userId: uId,
             location: locToSave,
           );
         }
       }
 
       // Always publish current live location & battery to Firebase
-      if (_coupleId != null && _userId != null) {
+      if (cId != null && cId.isNotEmpty) {
         _firebaseLocationService.publishLiveLocation(
-          coupleId: _coupleId!,
-          userId: _userId!,
+          coupleId: cId,
+          userId: uId,
           location: updatedLoc,
           batteryLevel: _batteryLevel,
           isCharging: _batteryState == BatteryState.charging,
@@ -690,10 +733,10 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       notifyListeners();
-    } else if (_coupleId != null && _userId != null) {
+    } else if (cId != null && cId.isNotEmpty) {
       _firebaseLocationService.publishBatteryStatus(
-        coupleId: _coupleId!,
-        userId: _userId!,
+        coupleId: cId,
+        userId: uId,
         batteryLevel: _batteryLevel,
         isCharging: _batteryState == BatteryState.charging,
       );
@@ -728,7 +771,9 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
   // =====================
 
   Future<SyncResult> syncLocations() async {
-    if (_userId == null || _coupleId == null) {
+    final uid = effectiveUserId;
+    final cid = effectiveCoupleId;
+    if (uid == null || cid == null || cid.isEmpty) {
       return SyncResult(
         success: false,
         message: 'Not initialized',
@@ -737,19 +782,22 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     if (isOnline) {
-      final unsynced = await _storageService.getUnsyncedLocations(_userId!);
-      for (final loc in unsynced) {
-        _firebaseLocationService.recordHistoryPoint(
-          coupleId: _coupleId!,
-          userId: _userId!,
-          location: loc.copyWith(isSynced: true),
+      final unsynced = await _storageService.getUnsyncedLocations(uid);
+      if (unsynced.isNotEmpty) {
+        await _firebaseLocationService.recordHistoryBatch(
+          coupleId: cid,
+          userId: uid,
+          locations: unsynced
+              .map((loc) => loc.copyWith(isSynced: true, coupleId: cid, ownerId: uid))
+              .toList(),
         );
+        await _storageService.markAllAsSynced(uid);
+        debugPrint('🚀 [LocationProvider] Synced ${unsynced.length} offline/background locations to Firebase');
       }
-      await _storageService.markAllAsSynced(_userId!);
     }
 
     await _refreshLiveBatteryAndSync();
-    _pendingSyncCount = await _storageService.getUnsyncedCount(_userId!);
+    _pendingSyncCount = await _storageService.getUnsyncedCount(uid);
     _syncStatus = isOnline ? SyncStatus.synced : SyncStatus.offline;
     notifyListeners();
 
@@ -761,14 +809,16 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> refreshPartnerLocation() async {
-    if (_coupleId == null || _partnerId == null) return;
+    final cid = effectiveCoupleId;
+    final pid = _partnerId ?? _partnerUser?.id;
+    if (cid == null || pid == null) return;
 
     _setLoading(true);
 
     try {
       final latest = await _firebaseLocationService.getPartnerLatestLocation(
-        coupleId: _coupleId!,
-        partnerId: _partnerId!,
+        coupleId: cid,
+        partnerId: pid,
       );
       if (latest != null) {
         _partnerLocation = latest;
@@ -782,12 +832,14 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> refreshUserData() async {
-    if (_userId == null) return;
+    final uid = effectiveUserId;
+    if (uid == null) return;
 
     try {
-      _currentUser = await _userService.getUser(_userId!);
-      if (_partnerId != null) {
-        _partnerUser = await _userService.getUser(_partnerId!);
+      _currentUser = await _userService.getUser(uid);
+      final pid = _partnerId ?? _partnerUser?.id;
+      if (pid != null) {
+        _partnerUser = await _userService.getUser(pid);
       }
       if (_currentUser != null) {
         await LocalCacheService.saveUser(_currentUser!);
@@ -802,11 +854,30 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> loadLocationHistory({int limit = 100, bool forceRefresh = false}) async {
-    if (_userId == null) return;
+    final uid = effectiveUserId;
+    if (uid == null) return;
     _setLoading(true);
 
     try {
-      final localHistory = await _storageService.getLocationHistory(_userId!, limit: limit);
+      var localHistory = await _storageService.getLocationHistory(uid, limit: limit);
+      final cid = effectiveCoupleId;
+
+      // If local cache is empty (e.g. freshly reinstalled app) OR user forced refresh
+      if ((localHistory.isEmpty || forceRefresh) && cid != null && cid.isNotEmpty) {
+        debugPrint('🔄 [LocationProvider] Fetching remote history from Firebase for user $uid');
+        final remoteHistory = await _firebaseLocationService.fetchAllHistory(
+          coupleId: cid,
+          userId: uid,
+          limit: limit,
+          source: LocationSource.local,
+        );
+        if (remoteHistory.isNotEmpty) {
+          await _storageService.insertLocationsBatch(remoteHistory);
+          localHistory = remoteHistory;
+          debugPrint('✅ [LocationProvider] Restored ${remoteHistory.length} history points from Firebase into SQLite');
+        }
+      }
+
       _locationHistory = localHistory;
     } catch (e) {
       debugPrint('Error loading history: $e');
@@ -815,15 +886,35 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> loadPartnerLocationHistory({int limit = 100}) async {
-    if (_partnerId == null) return;
+  Future<void> loadPartnerLocationHistory({int limit = 100, bool forceRefresh = false}) async {
+    final pid = _partnerId ?? _partnerUser?.id;
+    if (pid == null) return;
     _setLoading(true);
 
     try {
-      _partnerLocationHistory = await _storageService.getLocationHistory(
-        _partnerId!,
+      var partnerHistory = await _storageService.getLocationHistory(
+        pid,
         limit: limit,
       );
+      final cid = effectiveCoupleId;
+
+      // If local cache is empty OR user forced refresh, fetch partner history from Firebase
+      if ((partnerHistory.isEmpty || forceRefresh) && cid != null && cid.isNotEmpty) {
+        debugPrint('🔄 [LocationProvider] Fetching partner history from Firebase for $pid');
+        final remoteHistory = await _firebaseLocationService.fetchAllHistory(
+          coupleId: cid,
+          userId: pid,
+          limit: limit,
+          source: LocationSource.partner,
+        );
+        if (remoteHistory.isNotEmpty) {
+          await _storageService.insertLocationsBatch(remoteHistory);
+          partnerHistory = remoteHistory;
+          debugPrint('✅ [LocationProvider] Restored ${remoteHistory.length} partner history points from Firebase into SQLite');
+        }
+      }
+
+      _partnerLocationHistory = partnerHistory;
     } catch (e) {
       debugPrint('Error loading partner history: $e');
     } finally {
@@ -878,10 +969,12 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
       final granted = await requestBackgroundPermission();
       if (!granted) return;
 
-      if (_userId != null && _coupleId != null) {
+      final uid = effectiveUserId;
+      final cid = effectiveCoupleId;
+      if (uid != null && cid != null) {
         await _backgroundService.startPeriodicTracking(
-          userId: _userId!,
-          coupleId: _coupleId!,
+          userId: uid,
+          coupleId: cid,
           intervalMinutes: _settings.updateIntervalMinutes,
         );
       }
@@ -901,19 +994,28 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool get isDataSaverEnabled => _settings.dataSaverEnabled;
 
   Future<void> _updateSettings(LocationSharingSettings newSettings) async {
-    if (_userId == null) return;
+    final uid = effectiveUserId;
+    if (uid == null) return;
     _settings = newSettings;
     await LocalCacheService.saveSharingEnabled(newSettings.sharingEnabled);
-    await _storageService.saveSettings(_userId!, newSettings);
+    await _storageService.saveSettings(uid, newSettings);
     notifyListeners();
   }
 
   Future<void> deleteAllHistory() async {
-    if (_userId == null) return;
+    final uid = effectiveUserId;
+    if (uid == null) return;
     _setLoading(true);
 
     try {
-      await _storageService.deleteAllUserLocations(_userId!);
+      await _storageService.deleteAllUserLocations(uid);
+      final cid = effectiveCoupleId;
+      if (cid != null && cid.isNotEmpty) {
+        await _firebaseLocationService.deleteHistory(
+          coupleId: cid,
+          userId: uid,
+        );
+      }
       _locationHistory.clear();
       _currentLocation = null;
       _pendingSyncCount = 0;
@@ -947,11 +1049,11 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
         date,
       );
 
-      final effectiveCoupleId = _coupleId ?? _currentUser?.coupleId;
+      final cid = effectiveCoupleId;
       // If local storage has 0 points, fetch history from Firebase and cache locally
-      if (points.isEmpty && effectiveCoupleId != null && effectiveCoupleId.isNotEmpty) {
+      if (points.isEmpty && cid != null && cid.isNotEmpty) {
         final remotePoints = await _firebaseLocationService.fetchHistoryForDate(
-          coupleId: effectiveCoupleId,
+          coupleId: cid,
           userId: ownerId,
           date: date,
         );
@@ -1223,17 +1325,20 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final cid = effectiveCoupleId;
+    final uid = effectiveUserId;
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached ||
         state == AppLifecycleState.hidden) {
       // App went to background or user backed out -> immediately mark offline with exact lastSeen timestamp
-      if (_coupleId != null && _userId != null) {
-        _firebaseLocationService.markUserOffline(_coupleId!, _userId!);
+      if (cid != null && uid != null) {
+        _firebaseLocationService.markUserOffline(cid, uid);
       }
     } else if (state == AppLifecycleState.resumed) {
-      // App returned to foreground -> push current location & battery immediately
-      if (_coupleId != null && _userId != null) {
+      // App returned to foreground -> push current location & battery immediately and sync
+      if (cid != null && uid != null) {
         _refreshLiveBatteryAndSync();
+        unawaited(syncLocations());
       }
     }
   }

@@ -76,12 +76,26 @@ class FirebaseLocationService {
     }
   }
 
+  /// Safe getter ensuring database instance is always ready
+  FirebaseDatabase get _db {
+    if (_database != null) return _database!;
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        _database = FirebaseDatabase.instanceFor(
+          app: Firebase.app(),
+          databaseURL: _databaseUrl,
+        );
+      } else {
+        _database = FirebaseDatabase.instance;
+      }
+    } catch (e) {
+      _database = FirebaseDatabase.instance;
+    }
+    return _database!;
+  }
+
   DatabaseReference _getCoupleNode(String coupleId) {
-    _database ??= FirebaseDatabase.instanceFor(
-      app: Firebase.app(),
-      databaseURL: _databaseUrl,
-    );
-    return _database!.ref('$_rootNode/$coupleId');
+    return _db.ref('$_rootNode/$coupleId');
   }
 
   /// Publish the current user's live coordinates, telemetry, and battery status
@@ -244,7 +258,7 @@ class FirebaseLocationService {
     _activePartnerId = null;
   }
 
-  /// Record history point in Firebase for route playback across devices
+  /// Record history point in Firebase for route playback across devices and persistent cloud sync
   Future<void> recordHistoryPoint({
     required String coupleId,
     required String userId,
@@ -256,13 +270,98 @@ class FirebaseLocationService {
       final localDate = location.timestamp.toLocal();
       final dateKey =
           '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
-      final pointNode = _database!
+      final pointNode = _db
           .ref('$_historyNode/$coupleId/$userId/$dateKey/${location.timestamp.millisecondsSinceEpoch}');
 
-      await pointNode.set(location.toFirebase());
+      final payload = location.toFirebase();
+      payload['userId'] = userId;
+      payload['coupleId'] = coupleId;
+
+      await pointNode.set(payload);
     } catch (e) {
       debugPrint('⚠️ [FirebaseLocationService] recordHistoryPoint error: $e');
     }
+  }
+
+  /// Batch record unsynced history points in Firebase
+  Future<void> recordHistoryBatch({
+    required String coupleId,
+    required String userId,
+    required List<LocationModel> locations,
+  }) async {
+    if (DebugProvider.isOfflineForced || locations.isEmpty) return;
+
+    try {
+      final Map<String, dynamic> updates = {};
+      for (final loc in locations) {
+        final localDate = loc.timestamp.toLocal();
+        final dateKey =
+            '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
+        final path =
+            '$_historyNode/$coupleId/$userId/$dateKey/${loc.timestamp.millisecondsSinceEpoch}';
+        final payload = loc.toFirebase();
+        payload['userId'] = userId;
+        payload['coupleId'] = coupleId;
+        updates[path] = payload;
+      }
+
+      await _db.ref().update(updates);
+      debugPrint('✅ [FirebaseLocationService] Batched ${locations.length} points to Firebase');
+    } catch (e) {
+      debugPrint('⚠️ [FirebaseLocationService] recordHistoryBatch error: $e');
+      // Fallback to one by one if batch update encounters an issue
+      for (final loc in locations) {
+        await recordHistoryPoint(coupleId: coupleId, userId: userId, location: loc);
+      }
+    }
+  }
+
+  /// Fetch all recorded history points from Firebase for a user across all dates
+  Future<List<LocationModel>> fetchAllHistory({
+    required String coupleId,
+    required String userId,
+    int limit = 500,
+    LocationSource? source,
+  }) async {
+    if (DebugProvider.isOfflineForced) return [];
+
+    try {
+      final historyNode = _db.ref('$_historyNode/$coupleId/$userId');
+      final snapshot = await historyNode.get();
+      final data = snapshot.value;
+
+      if (data != null && data is Map) {
+        final List<LocationModel> points = [];
+        data.forEach((dateKey, dayData) {
+          if (dayData is Map) {
+            dayData.forEach((tsKey, pointMap) {
+              if (pointMap is Map) {
+                try {
+                  points.add(LocationModel.fromFirebase(
+                    pointMap,
+                    coupleId: coupleId,
+                    partnerId: userId,
+                    source: source ?? LocationSource.partner,
+                  ));
+                } catch (pe) {
+                  debugPrint('⚠️ [FirebaseLocationService] Point parse error: $pe');
+                }
+              }
+            });
+          }
+        });
+
+        // Sort descending by timestamp (newest first for general history list)
+        points.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        if (points.length > limit) {
+          return points.sublist(0, limit);
+        }
+        return points;
+      }
+    } catch (e) {
+      debugPrint('⚠️ [FirebaseLocationService] fetchAllHistory error: $e');
+    }
+    return [];
   }
 
   /// Fetch history points for a date from Firebase (for route playback)
@@ -278,7 +377,7 @@ class FirebaseLocationService {
       final dateKey =
           '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
       final historyNode =
-          _database!.ref('$_historyNode/$coupleId/$userId/$dateKey');
+          _db.ref('$_historyNode/$coupleId/$userId/$dateKey');
       final snapshot = await historyNode.get();
       final data = snapshot.value;
 
@@ -300,6 +399,19 @@ class FirebaseLocationService {
       debugPrint('⚠️ [FirebaseLocationService] fetchHistoryForDate error: $e');
     }
     return [];
+  }
+
+  /// Delete all recorded location history in Firebase for a user
+  Future<void> deleteHistory({
+    required String coupleId,
+    required String userId,
+  }) async {
+    try {
+      await _db.ref('$_historyNode/$coupleId/$userId').remove();
+      debugPrint('🗑️ [FirebaseLocationService] Deleted remote history node for $userId');
+    } catch (e) {
+      debugPrint('⚠️ [FirebaseLocationService] deleteHistory error: $e');
+    }
   }
 
   /// Disconnect user presence when logging out

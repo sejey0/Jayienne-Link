@@ -48,7 +48,7 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
   Future<void> _loadHistory({bool forceRefresh = false}) async {
     final provider = context.read<LocationProvider>();
     await provider.loadLocationHistory(forceRefresh: forceRefresh);
-    await provider.loadPartnerLocationHistory();
+    await provider.loadPartnerLocationHistory(forceRefresh: forceRefresh);
   }
 
   double _calculateTotalDistance(List<LocationModel> locations) {
@@ -259,7 +259,13 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
               color: AppColors.softRose,
               onRefresh: () => _loadHistory(forceRefresh: true),
               child: groupedDays.isEmpty
-                  ? _buildEmptyState(context, isMyLocations, isFiltered: _selectedDateFilter != null)
+                  ? SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.65,
+                        child: _buildEmptyState(context, isMyLocations, isFiltered: _selectedDateFilter != null),
+                      ),
+                    )
                   : ListView.builder(
                       padding: EdgeInsets.fromLTRB(
                         16,

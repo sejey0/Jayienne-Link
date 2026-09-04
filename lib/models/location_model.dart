@@ -90,6 +90,7 @@ class LocationModel {
     Map<dynamic, dynamic> map, {
     String? coupleId,
     String? partnerId,
+    LocationSource? source,
   }) {
     final timestampVal = map['lastSeen'] ?? map['timestamp'];
     DateTime parsedTime;
@@ -114,7 +115,7 @@ class LocationModel {
           ? (map['batteryLevel'] as num).toInt()
           : null,
       timestamp: parsedTime,
-      source: LocationSource.partner,
+      source: source ?? LocationSource.partner,
       isSynced: true,
     );
   }

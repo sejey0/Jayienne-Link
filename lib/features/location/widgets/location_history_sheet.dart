@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
+import '../../../providers/user_provider.dart';
+import '../../../providers/couple_provider.dart';
 
 /// Premium Bottom Sheet for Interactive Route History Playback
 /// Dynamically adapts to Light & Dark themes, supports collapsing into a compact mini player,
@@ -83,10 +85,14 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
     final currentPoint = provider.currentPlaybackLocation;
     final currentSpeed = provider.playbackSpeed;
 
-    final myId = provider.currentUser?.id ?? provider.userId;
-    final partnerId = provider.partnerUser?.id ?? provider.partnerId;
-    final partnerName = provider.partnerUser?.displayName.isNotEmpty == true
-        ? provider.partnerUser!.displayName
+    final userProvider = context.watch<UserProvider>();
+    final coupleProvider = context.watch<CoupleProvider>();
+
+    final myId = userProvider.user?.id ?? provider.currentUser?.id ?? provider.userId;
+    final partnerUser = provider.partnerUser ?? coupleProvider.partner;
+    final partnerId = partnerUser?.id ?? provider.partnerId ?? coupleProvider.partner?.id;
+    final partnerName = partnerUser?.displayName.isNotEmpty == true
+        ? partnerUser!.displayName
         : 'Partner';
     final isViewingPartner = provider.historyOwnerId == partnerId;
 
@@ -332,6 +338,23 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
           ),
         ),
 
+        // Expand Playback Card Button
+        IconButton(
+          icon: Icon(
+            Icons.keyboard_arrow_up_rounded,
+            color: isDark ? Colors.white70 : const Color(0xFF3B2F4C),
+            size: 24,
+          ),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          tooltip: 'Expand Playback Card',
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            setState(() => _isCollapsed = false);
+          },
+        ),
+        const SizedBox(width: 8),
+
         // Fullscreen Toggle Button
         if (widget.onToggleFullscreen != null) ...[
           IconButton(
@@ -399,14 +422,18 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(5.5),
-              decoration: BoxDecoration(
-                color: AppColors.softRose.withValues(alpha: 0.22),
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.softRose, AppColors.lavender],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.route_rounded,
-                color: AppColors.softRose,
+                color: Colors.white,
                 size: 15,
               ),
             ),
@@ -423,6 +450,23 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+            ),
+            const SizedBox(width: 8),
+
+            // Collapse Playback Card Button
+            IconButton(
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: isDark ? Colors.white70 : const Color(0xFF3B2F4C),
+                size: 24,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Collapse Playback Card',
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                setState(() => _isCollapsed = true);
+              },
             ),
             const SizedBox(width: 8),
 
@@ -490,7 +534,9 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                     child: GestureDetector(
                       onTap: () {
                         HapticFeedback.selectionClick();
-                        provider.setHistoryOwner(myId);
+                        if (provider.historyOwnerId != myId) {
+                          provider.setHistoryOwner(myId);
+                        }
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
@@ -539,7 +585,7 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
                   child: GestureDetector(
                     onTap: () {
                       HapticFeedback.selectionClick();
-                      if (partnerId.isNotEmpty) {
+                      if (partnerId.isNotEmpty && provider.historyOwnerId != partnerId) {
                         provider.setHistoryOwner(partnerId);
                       }
                     },
@@ -855,6 +901,23 @@ class _LocationHistorySheetState extends State<LocationHistorySheet> {
               ),
 
               const Spacer(),
+
+              // Fit / Recenter Route on Map Button
+              if (widget.onFitRoute != null && locations.isNotEmpty) ...[
+                IconButton(
+                  icon: Icon(
+                    Icons.center_focus_strong_rounded,
+                    color: isDark ? Colors.white70 : const Color(0xFF3B2F4C),
+                    size: 21,
+                  ),
+                  tooltip: 'Fit Route to Screen',
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    widget.onFitRoute!();
+                  },
+                ),
+                const SizedBox(width: 6),
+              ],
 
               // Main Play / Pause Glowing Action Button
               GestureDetector(

@@ -938,6 +938,7 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
     _playbackTimer?.cancel();
     _isPlayingRoute = false;
     _playbackIndex = 0;
+    _historyLocations = [];
     notifyListeners();
 
     try {
@@ -946,10 +947,11 @@ class LocationProvider extends ChangeNotifier with WidgetsBindingObserver {
         date,
       );
 
+      final effectiveCoupleId = _coupleId ?? _currentUser?.coupleId;
       // If local storage has 0 points, fetch history from Firebase and cache locally
-      if (points.isEmpty && _coupleId != null) {
+      if (points.isEmpty && effectiveCoupleId != null && effectiveCoupleId.isNotEmpty) {
         final remotePoints = await _firebaseLocationService.fetchHistoryForDate(
-          coupleId: _coupleId!,
+          coupleId: effectiveCoupleId,
           userId: ownerId,
           date: date,
         );

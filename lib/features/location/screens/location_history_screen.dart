@@ -10,6 +10,7 @@ import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/location_model.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../providers/couple_provider.dart';
 import '../../../services/mapbox_service.dart';
 import '../widgets/offline_status_indicator.dart';
 import '../../../widgets/common/timed_confirm_dialog.dart';
@@ -121,8 +122,9 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
   void _launchMapPlayback(DateTime date, bool isMyRoute, LocationProvider provider) {
     HapticFeedback.mediumImpact();
     final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final coupleProvider = Provider.of<CoupleProvider>(context, listen: false);
     final myId = userProvider.user?.id ?? provider.currentUser?.id ?? provider.userId;
-    final partnerId = provider.partnerUser?.id ?? provider.partnerId;
+    final partnerId = provider.partnerUser?.id ?? coupleProvider.partner?.id ?? provider.partnerId;
     final targetOwner = isMyRoute ? myId : (partnerId ?? myId);
 
     if (targetOwner != null) {
@@ -135,9 +137,11 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<LocationProvider>();
+    final coupleProvider = context.watch<CoupleProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final partnerName = provider.partnerUser?.displayName.isNotEmpty == true
-        ? provider.partnerUser!.displayName
+    final partnerUser = provider.partnerUser ?? coupleProvider.partner;
+    final partnerName = partnerUser?.displayName.isNotEmpty == true
+        ? partnerUser!.displayName
         : 'Partner';
 
     final isMyLocations = _selectedPersonIndex == 0;

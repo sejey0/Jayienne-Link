@@ -132,6 +132,11 @@ class _LocationMapScreenState extends State<LocationMapScreen>
           historyPoints[currentIndex],
           historyPoints[currentIndex + 1],
         );
+      } else if (historyPoints.length > 1) {
+        _interpolatedCarHeading = _calculateBearing(
+          historyPoints[currentIndex - 1],
+          historyPoints[currentIndex],
+        );
       }
       return;
     }
@@ -349,7 +354,7 @@ class _LocationMapScreenState extends State<LocationMapScreen>
     final activeName = isMyRoute
         ? (currentUser?.displayName.isNotEmpty == true ? currentUser!.displayName : 'You')
         : (partnerUser?.displayName.isNotEmpty == true ? partnerUser!.displayName : 'Partner');
-    final activeAccent = isMyRoute ? AppColors.lavender : AppColors.softRose;
+    final activeAccent = isMyRoute ? AppColors.softRose : AppColors.lavender;
 
     // Traveled path (up to current car position) vs Remaining path
     final playbackIdx = locationProvider.playbackIndex;
@@ -382,24 +387,51 @@ class _LocationMapScreenState extends State<LocationMapScreen>
     }
 
     // Auto-center / fit bounds when route or owner changes in History Mode
-    if (isHistoryMode && historyPoints.isNotEmpty) {
+    if (isHistoryMode) {
       if (_lastHistoryOwnerId != locationProvider.historyOwnerId ||
-          _lastHistoryDate != locationProvider.selectedHistoryDate ||
-          _lastHistoryLength != historyPoints.length) {
+          _lastHistoryDate != locationProvider.selectedHistoryDate) {
         _lastHistoryOwnerId = locationProvider.historyOwnerId;
         _lastHistoryDate = locationProvider.selectedHistoryDate;
         _lastHistoryLength = historyPoints.length;
+        _lastPlaybackIndex = -1;
+        _interpolatedCarPos = null;
+        _driveStartPos = null;
+        _driveEndPos = null;
+        if (_driveAnimationController.isAnimating) {
+          _driveAnimationController.stop();
+        }
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          _fitRoute(historyPoints);
+          if (historyPoints.isNotEmpty) {
+            _fitRoute(historyPoints);
+          } else {
+            final targetPos = isMyRoute ? myPos : partnerPos;
+            if (targetPos != null) {
+              _mapController.move(targetPos, 15.5);
+            }
+          }
         });
+      } else if (_lastHistoryLength != historyPoints.length) {
+        _lastHistoryLength = historyPoints.length;
+        if (historyPoints.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _fitRoute(historyPoints);
+          });
+        }
       }
-    } else if (!isHistoryMode) {
+    } else {
       _lastHistoryOwnerId = null;
       _lastHistoryDate = null;
       _lastHistoryLength = 0;
       _lastPlaybackIndex = -1;
+      _interpolatedCarPos = null;
+      _driveStartPos = null;
+      _driveEndPos = null;
+      if (_driveAnimationController.isAnimating) {
+        _driveAnimationController.stop();
+      }
     }
 
     final initialCenter = activeCarPos ?? partnerPos ?? myPos ?? const LatLng(0, 0);
@@ -597,7 +629,7 @@ class _LocationMapScreenState extends State<LocationMapScreen>
                         ),
                       ),
 
-                    // End Point Marker (Destination Flag 🏁)
+                    // End Point Marker (Destination Flag)
                     if (historyPoints.length > 1)
                       Marker(
                         point: historyPoints.last,
@@ -606,7 +638,7 @@ class _LocationMapScreenState extends State<LocationMapScreen>
                         child: Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: isMyRoute ? AppColors.lavender : AppColors.softRose,
+                            color: isMyRoute ? AppColors.softRose : AppColors.lavender,
                             border: Border.all(color: Colors.white, width: 2),
                             boxShadow: [
                               BoxShadow(
@@ -940,47 +972,42 @@ class _LocationMapScreenState extends State<LocationMapScreen>
           Positioned(
             top: isFullscreen
                 ? (MediaQuery.of(context).padding.top + 14)
-                : (isHistoryMode ? 14 : 70),
+                : 70,
             right: 14,
             child: AnimatedSize(
               duration: const Duration(milliseconds: 240),
               curve: Curves.easeOutCubic,
               alignment: Alignment.topRight,
-              child: isHistoryMode
-                  ? // In Route History: Clean side button with Route History icon + Active Check Selected mark
-                  _buildFloatingControlButton(
-                      icon: Icons.route_rounded,
-                      tooltip: 'Route History Active (Tap to Exit)',
-                      color: isDark ? const Color(0xFF231A33) : Colors.white,
-                      iconColor: AppColors.softRose,
-                      isSelected: true,
+              child: (_isSideMenuCollapsed || _isSearching)
+                  ? _buildFloatingControlButton(
+                      icon: _isSearching
+                          ? Icons.tune_rounded
+                          : (isHistoryMode ? Icons.route_rounded : Icons.keyboard_arrow_left_rounded),
+                      tooltip: isHistoryMode
+                          ? 'Route History Active (Tap to Expand Controls)'
+                          : 'Expand Map Controls',
+                      color: isHistoryMode ? AppColors.softRose : (isDark ? const Color(0xFF241A35) : Colors.white),
+                      iconColor: isHistoryMode ? Colors.white : AppColors.softRose,
+                      gradient: isHistoryMode
+                          ? const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
+                      isSelected: isHistoryMode,
                       selectedBorderColor: AppColors.softRose,
                       onPressed: () {
-                        HapticFeedback.mediumImpact();
-                        locationProvider.toggleHistoryMode(false);
+                        HapticFeedback.lightImpact();
+                        setState(() {
+                          _isSideMenuCollapsed = false;
+                          if (_isSearching) {
+                            _isSearching = false;
+                          }
+                        });
                       },
                     )
-                  : (_isSideMenuCollapsed || _isSearching)
-                      ? _buildFloatingControlButton(
-                          icon: _isSearching
-                              ? Icons.tune_rounded
-                              : Icons.keyboard_arrow_left_rounded,
-                          tooltip: 'Expand Map Controls',
-                          color: isDark ? const Color(0xFF241A35) : Colors.white,
-                          iconColor: AppColors.softRose,
-                          isSelected: true,
-                          selectedBorderColor: AppColors.softRose,
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            setState(() {
-                              _isSideMenuCollapsed = false;
-                              if (_isSearching) {
-                                _isSearching = false;
-                              }
-                            });
-                          },
-                        )
-                      : Container(
+                  : Container(
                           constraints: BoxConstraints(
                             maxHeight: isFullscreen
                                 ? (MediaQuery.of(context).size.height - 120)
@@ -1046,14 +1073,21 @@ class _LocationMapScreenState extends State<LocationMapScreen>
                                 // Route History Playback Toggle Button
                                 _buildFloatingControlButton(
                                   icon: Icons.route_rounded,
-                                  tooltip: 'Route History Playback',
-                                  color: isDark ? const Color(0xFF231A33) : Colors.white,
-                                  iconColor: isDark ? Colors.white : const Color(0xFF1E142B),
-                                  isSelected: false,
+                                  tooltip: isHistoryMode ? 'Exit Route Playback' : 'Route History Playback',
+                                  color: isHistoryMode ? AppColors.softRose : (isDark ? const Color(0xFF231A33) : Colors.white),
+                                  iconColor: isHistoryMode ? Colors.white : (isDark ? Colors.white : const Color(0xFF1E142B)),
+                                  gradient: isHistoryMode
+                                      ? const LinearGradient(
+                                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        )
+                                      : null,
+                                  isSelected: isHistoryMode,
                                   selectedBorderColor: AppColors.softRose,
                                   onPressed: () {
                                     HapticFeedback.lightImpact();
-                                    locationProvider.toggleHistoryMode(true, ownerId: myId);
+                                    locationProvider.toggleHistoryMode(!isHistoryMode, ownerId: myId);
                                   },
                                 ),
                                 const SizedBox(height: 8),
@@ -1684,6 +1718,7 @@ class _LocationMapScreenState extends State<LocationMapScreen>
     bool isLoading = false,
     bool isSelected = false,
     Color? selectedBorderColor,
+    Gradient? gradient,
   }) {
     final activeBorder = selectedBorderColor ?? AppColors.softRose;
     return Tooltip(
@@ -1695,6 +1730,8 @@ class _LocationMapScreenState extends State<LocationMapScreen>
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
+              gradient: gradient,
+              color: gradient == null ? color : null,
               border: isSelected
                   ? Border.all(color: activeBorder, width: 2.5)
                   : Border.all(color: Colors.white, width: 1.5),
@@ -1710,7 +1747,7 @@ class _LocationMapScreenState extends State<LocationMapScreen>
               ],
             ),
             child: Material(
-              color: color,
+              color: Colors.transparent,
               shape: const CircleBorder(),
               child: InkWell(
                 customBorder: const CircleBorder(),

@@ -18,7 +18,7 @@ import '../../features/couple/screens/couple_success_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/home/screens/settings_screen.dart';
 import '../../features/home/screens/app_lock_screen.dart';
-import '../../features/location/screens/location_screen.dart';
+import '../../features/location/screens/location_map_screen.dart';
 import '../../features/location/screens/location_history_screen.dart';
 import '../../features/heartbeat/screens/heartbeat_screen.dart';
 import '../../features/mood/screens/mood_screen.dart';
@@ -210,7 +210,7 @@ class AppRouter {
         ),
         GoRoute(
           path: RouteNames.location,
-          builder: (context, state) => const LocationScreen(),
+          builder: (context, state) => const LocationMapScreen(),
         ),
         GoRoute(
           path: RouteNames.locationHistory,

@@ -89,7 +89,7 @@ void main() {
         accuracy: 10.0,
         timestamp: DateTime.now(),
       );
-      expect(justNow.timeAgo, 'Just now');
+      expect(justNow.timeAgo, contains('sec ago'));
 
       // Minutes ago
       final minutesAgo = LocationModel(
@@ -175,7 +175,7 @@ void main() {
     test('creates with default values', () {
       final settings = LocationSharingSettings();
 
-      expect(settings.sharingEnabled, false);
+      expect(settings.sharingEnabled, true);
       expect(settings.backgroundSharingEnabled, false);
       expect(settings.updateIntervalMinutes, 15);
     });

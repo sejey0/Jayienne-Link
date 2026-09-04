@@ -7,7 +7,6 @@ class RouteNames {
   static const String register = '/auth/register';
   static const String phoneAuth = '/auth/phone';
   static const String otpVerification = '/auth/otp';
-  static const String emailVerification = '/auth/verify-email';
   static const String resetPassword = '/auth/reset-password';
   static const String profileSetup = '/profile-setup';
   static const String coupleLink = '/couple-link';

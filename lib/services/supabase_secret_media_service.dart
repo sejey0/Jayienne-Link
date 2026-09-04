@@ -6,7 +6,7 @@ class SupabaseSecretMediaService {
   final SupabaseClient _supabase;
   static const String _tableName = 'secret_media';
   static const String _missingTableHelp =
-      'Secret Media is not configured in Supabase yet. Run secret_media_schema.sql in the Supabase SQL Editor.';
+      'Secret Media is not configured in Supabase yet. Run supabase/secret_media_schema.sql in the Supabase SQL Editor.';
 
   SupabaseSecretMediaService(this._supabase);
 

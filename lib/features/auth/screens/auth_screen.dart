@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/router/route_names.dart';
+import '../../../providers/debug_provider.dart';
 
 /// Redesigned Romantic Preview Welcome Screen with
 /// Signature Ambient Glow, Feature Badges, and Glassmorphism Actions
@@ -15,7 +16,7 @@ class AuthScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canGoBack = kDebugMode && Navigator.canPop(context);
+    final canGoBack = DebugProvider.isDebug && Navigator.canPop(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(

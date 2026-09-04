@@ -74,6 +74,7 @@ void main() async {
   final storageService = SupabaseStorageService();
   final appLockProvider = AppLockProvider();
   await appLockProvider.load();
+  await DebugProvider.initialize();
 
   runApp(
     MultiProvider(

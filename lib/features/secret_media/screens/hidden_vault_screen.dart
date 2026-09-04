@@ -10,6 +10,7 @@ import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/providers/auth_provider.dart';
 import 'package:jayienne_link/providers/user_provider.dart';
 import 'package:jayienne_link/providers/couple_provider.dart';
+import 'package:jayienne_link/providers/debug_provider.dart';
 import 'package:jayienne_link/models/secret_media_model.dart';
 import 'add_secret_media_screen.dart';
 import 'secret_media_detail_screen.dart';
@@ -588,7 +589,7 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
           ),
 
           // Debug Bypass in Debug Mode
-          if (kDebugMode) ...[
+          if (DebugProvider.isDebug) ...[
             const SizedBox(height: 12),
             Center(
               child: TextButton.icon(

@@ -10,6 +10,15 @@ class DebugProvider extends ChangeNotifier {
   /// Global static accessor so background services, Supabase interceptors, and sync managers
   /// can immediately recognize simulated offline mode without requiring a BuildContext.
   static bool isOfflineForced = false;
+
+  /// Global static flag for release debug mode override
+  static bool isDebugOverrideActive = false;
+
+  /// Global static accessor so any widget, service, or screen can immediately check
+  /// if debug mode is active (either native kDebugMode OR release override enabled in Admin Console)
+  /// without requiring a BuildContext.
+  static bool get isDebug => kDebugMode || isDebugOverrideActive;
+
   static final StreamController<bool> _offlineModeStreamController =
       StreamController<bool>.broadcast();
 
@@ -24,17 +33,27 @@ class DebugProvider extends ChangeNotifier {
     _loadPersistedState();
   }
 
+  /// Cold-start initializer to ensure preferences are loaded before runApp
+  static Future<void> initialize() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      isDebugOverrideActive = prefs.getBool(_keyDebugMode) ?? false;
+      isOfflineForced = prefs.getBool(_keyForceOffline) ?? false;
+    } catch (_) {}
+  }
+
   bool get forceOfflineMode => _forceOfflineMode;
   bool? get simulatedPartnerOnlineStatus => _simulatedPartnerOnlineStatus;
   bool get isDebugModeOverride => _isDebugModeOverride;
 
   /// Returns true if app is in Flutter debug mode OR if the Admin debug mode override is active in release mode
-  bool get isDebugMode => kDebugMode || _isDebugModeOverride;
+  bool get isDebugMode => isDebug;
 
   Future<void> _loadPersistedState() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       _isDebugModeOverride = prefs.getBool(_keyDebugMode) ?? false;
+      isDebugOverrideActive = _isDebugModeOverride;
       _forceOfflineMode = prefs.getBool(_keyForceOffline) ?? false;
       isOfflineForced = _forceOfflineMode;
       _offlineModeStreamController.add(_forceOfflineMode);
@@ -44,6 +63,7 @@ class DebugProvider extends ChangeNotifier {
 
   Future<void> toggleDebugModeOverride() async {
     _isDebugModeOverride = !_isDebugModeOverride;
+    isDebugOverrideActive = _isDebugModeOverride;
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -54,6 +74,7 @@ class DebugProvider extends ChangeNotifier {
   Future<void> setDebugModeOverride(bool enabled) async {
     if (_isDebugModeOverride == enabled) return;
     _isDebugModeOverride = enabled;
+    isDebugOverrideActive = enabled;
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -95,11 +116,14 @@ class DebugProvider extends ChangeNotifier {
   void reset() {
     _forceOfflineMode = false;
     isOfflineForced = false;
+    _isDebugModeOverride = false;
+    isDebugOverrideActive = false;
     _offlineModeStreamController.add(false);
     _simulatedPartnerOnlineStatus = null;
     notifyListeners();
     SharedPreferences.getInstance().then((prefs) {
       prefs.remove(_keyForceOffline);
+      prefs.remove(_keyDebugMode);
     }).catchError((_) {});
   }
 }

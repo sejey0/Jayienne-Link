@@ -11,6 +11,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/milestone_model.dart';
 import '../../../providers/anniversary_provider.dart';
+import '../../../providers/debug_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/romantic_loading_indicator.dart';
@@ -75,7 +76,7 @@ class _RelationshipTimelineScreenState
             },
             tooltip: 'Refresh timeline',
           ),
-          if (kDebugMode)
+          if (DebugProvider.isDebug)
             IconButton(
               icon: const Icon(Icons.calendar_month_rounded, color: Colors.white),
               onPressed: () {

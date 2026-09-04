@@ -177,7 +177,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
           borderRadius: BorderRadius.circular(28),
           onTap: hasDate
               ? _toggleExpanded
-              : (kDebugMode
+              : (DebugProvider.isDebug
                   ? () => _showDatePickerDialog(context, anniversaryProvider)
                   : null),
           child: AnimatedSize(
@@ -717,7 +717,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                   ),
                 ],
               ),
-              if (kDebugMode)
+              if (DebugProvider.isDebug)
                 InkWell(
                   onTap: () => _showDatePickerDialog(context, provider),
                   borderRadius: BorderRadius.circular(8),

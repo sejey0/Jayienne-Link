@@ -11,6 +11,7 @@ import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../models/movie_model.dart';
 import '../../../providers/couple_provider.dart';
+import '../../../providers/debug_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/online_filipino_suggestion_service.dart';
 import '../../../services/supabase_data_service.dart';
@@ -139,7 +140,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   String? get _effectiveMyUserId {
     final realUid =
         Provider.of<UserProvider>(context, listen: false).user?.uid;
-    if (_debugSimulatePartnerPov && kDebugMode) {
+    if (_debugSimulatePartnerPov && DebugProvider.isDebug) {
       final pId = _getPartnerUserId();
       return pId.isNotEmpty ? pId : 'simulated_partner_id';
     }
@@ -158,7 +159,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   }
 
   String _getPartnerDisplayName() {
-    if (_debugSimulatePartnerPov && kDebugMode) {
+    if (_debugSimulatePartnerPov && DebugProvider.isDebug) {
       // In simulated partner POV, the other person is "Me"
       return _getMyDisplayName();
     }
@@ -1207,7 +1208,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   /// Reset the excluded history only when the user explicitly triggers it
   Future<void> _resetCurrentHistory() async {
     if (_selectedCategoryIndex == 0 && _pickedMovie != null) {
-      if (!kDebugMode) {
+      if (!DebugProvider.isDebug) {
         SnackbarHelper.showInfo(
           context,
           'Cannot reset pool while a movie is locked in. Mark it as watched in Movie Diary to unlock.',
@@ -3537,6 +3538,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDebugActive =
+        context.watch<DebugProvider?>()?.isDebugMode ?? DebugProvider.isDebug;
     final excludedCustomCount = _selectedCategoryIndex == 0
         ? 0
         : _currentOptions.where((opt) => _currentHistory.contains(opt)).length;
@@ -3571,7 +3574,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           },
         ),
         actions: [
-          if (kDebugMode)
+          if (isDebugActive)
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Center(
@@ -3847,7 +3850,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (kDebugMode && _currentOptions.isNotEmpty) ...[
+                              if (DebugProvider.isDebug && _currentOptions.isNotEmpty) ...[
                                 InkWell(
                                   onTap: _debugFreshStartResetCurrentCategory,
                                   borderRadius: BorderRadius.circular(12),
@@ -4027,7 +4030,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                       ],
                                     ),
                                   ),
-                                  if (kDebugMode)
+                                  if (DebugProvider.isDebug)
                                     TextButton.icon(
                                       onPressed: _forceResetMoviePick,
                                       icon: const Icon(
@@ -4119,7 +4122,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                           ],
                                         ),
                                       ),
-                                      if (kDebugMode)
+                                      if (DebugProvider.isDebug)
                                         TextButton.icon(
                                           onPressed: _resetCustomPool,
                                           icon: const Icon(
@@ -4953,7 +4956,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _buildDecisionActionCard(context, isDark),
 
         // Unified Compact Debug Controls Card (Merges POV switcher & quick turn actions into one card)
-        if (kDebugMode) _buildDebugControlsCard(context, isDark),
+        if (DebugProvider.isDebug) _buildDebugControlsCard(context, isDark),
       ],
     );
   }
@@ -5250,7 +5253,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         ),
 
         // Debug Force Reset Button (Debug Mode Only)
-        if (kDebugMode) ...[
+        if (DebugProvider.isDebug) ...[
           const SizedBox(height: 8),
           _buildPickedMovieActionButton(
             onPressed: _forceResetMoviePick,
@@ -6542,7 +6545,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   /// Compact Merged Debug POV & Turn Control Center Card
   Widget _buildDebugControlsCard(BuildContext context, bool isDark) {
-    if (!kDebugMode) return const SizedBox.shrink();
+    if (!DebugProvider.isDebug) return const SizedBox.shrink();
 
     return Container(
       margin: const EdgeInsets.only(top: 10, bottom: 4),

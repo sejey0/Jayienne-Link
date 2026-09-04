@@ -826,21 +826,47 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         callback: (payload) {
           if (!mounted) return;
           bool changed = false;
-          if (payload['foodOptions'] != null) {
-            final incoming = List<String>.from(payload['foodOptions']);
-            for (final item in incoming) {
-              if (!_foodOptions.contains(item)) {
-                _foodOptions.insert(0, item);
-                changed = true;
+          if (payload['action'] == 'reset_all') {
+            final cat = payload['category']?.toString();
+            if (cat == 'activity') {
+              _activityOptions.clear();
+              _activityHistory.clear();
+              _activityPoolCycleStart = null;
+              _lastActivityResult = null;
+              _lastActivitySpinnerId = null;
+              _activityDecisionAccepted = false;
+              _activityDecisionRejected = false;
+            } else if (cat == 'food') {
+              _foodOptions.clear();
+              _foodHistory.clear();
+              _foodPoolCycleStart = null;
+              _lastFoodResult = null;
+              _lastFoodSpinnerId = null;
+              _foodDecisionAccepted = false;
+              _foodDecisionRejected = false;
+            }
+            if (_selectedCategoryIndex == (cat == 'activity' ? 1 : 2)) {
+              _currentDisplayResult = 'Tap Spin to Decide!';
+              _spinSourceIndex = null;
+            }
+            changed = true;
+          } else {
+            if (payload['foodOptions'] != null) {
+              final incoming = List<String>.from(payload['foodOptions']);
+              for (final item in incoming) {
+                if (!_foodOptions.contains(item)) {
+                  _foodOptions.insert(0, item);
+                  changed = true;
+                }
               }
             }
-          }
-          if (payload['activityOptions'] != null) {
-            final incoming = List<String>.from(payload['activityOptions']);
-            for (final item in incoming) {
-              if (!_activityOptions.contains(item)) {
-                _activityOptions.insert(0, item);
-                changed = true;
+            if (payload['activityOptions'] != null) {
+              final incoming = List<String>.from(payload['activityOptions']);
+              for (final item in incoming) {
+                if (!_activityOptions.contains(item)) {
+                  _activityOptions.insert(0, item);
+                  changed = true;
+                }
               }
             }
           }
@@ -3656,6 +3682,48 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              if (kDebugMode && _currentOptions.isNotEmpty) ...[
+                                InkWell(
+                                  onTap: _debugFreshStartResetCurrentCategory,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: Colors.redAccent
+                                          .withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.redAccent
+                                            .withValues(alpha: 0.35),
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.delete_forever_rounded,
+                                          size: 14,
+                                          color: Colors.redAccent,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          'Clear (Debug)',
+                                          style: TextStyle(
+                                            color: isDark
+                                                ? Colors.redAccent.shade100
+                                                : Colors.red.shade800,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                              ],
                               InkWell(
                                 onTap: _showAddCustomOptionDialog,
                                 borderRadius: BorderRadius.circular(12),
@@ -6449,6 +6517,45 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     ),
                   ),
                 ),
+              // Fresh Start Reset Button (Debug Mode Only)
+              InkWell(
+                onTap: _debugFreshStartResetCurrentCategory,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.shade200
+                        .withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.redAccent.shade200
+                          .withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.delete_forever_rounded,
+                          size: 13,
+                          color: isDark
+                              ? Colors.redAccent.shade200
+                              : Colors.red.shade800),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Fresh Start Reset',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? Colors.redAccent.shade200
+                              : Colors.red.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -6545,6 +6652,213 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       SnackbarHelper.showSuccess(
         context,
         'Turn restriction reset for $catName (Debug Only)',
+      );
+    }
+  }
+
+  /// Debug-Only Fresh Start Reset for the current category
+  /// Completely clears custom options, history, turns, active picks from local cache and Supabase DB
+  Future<void> _debugFreshStartResetCurrentCategory() async {
+    HapticFeedback.heavyImpact();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final catName = _getCategoryName(_selectedCategoryIndex);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_forever_rounded,
+                color: Colors.redAccent,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Fresh Start Reset ($catName)',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Are you sure you want to completely reset $catName?\n\nThis will clear all custom options from both local cache and Supabase, reset turn tracking, and clear decision history for a fresh start.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: isDark ? Colors.white60 : Colors.grey.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Reset All',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final coupleId = _getCoupleId();
+    final prefs = await SharedPreferences.getInstance();
+
+    if (_selectedCategoryIndex == 0) {
+      await _forceResetMoviePick();
+      return;
+    }
+
+    final isActivity = _selectedCategoryIndex == 1;
+
+    setState(() {
+      if (isActivity) {
+        _activityOptions.clear();
+        _activityHistory.clear();
+        _activityPoolCycleStart = null;
+        _lastActivityResult = null;
+        _lastActivitySpinnerId = null;
+        _activityDecisionAccepted = false;
+        _activityDecisionRejected = false;
+      } else {
+        _foodOptions.clear();
+        _foodHistory.clear();
+        _foodPoolCycleStart = null;
+        _lastFoodResult = null;
+        _lastFoodSpinnerId = null;
+        _foodDecisionAccepted = false;
+        _foodDecisionRejected = false;
+      }
+      _currentDisplayResult = 'Tap Spin to Decide!';
+      _spinSourceIndex = null;
+    });
+
+    // 1. Clear SharedPreferences
+    if (isActivity) {
+      await prefs.remove('decision_spinner_custom_activities');
+      await prefs.remove('decision_spinner_activity_history');
+      await prefs.remove('decision_spinner_activity_cycle_start');
+      await prefs.remove('decision_spinner_last_activity_result');
+      await prefs.remove('decision_spinner_last_activity_spinner_id');
+      await prefs.remove('decision_spinner_activity_accepted');
+      await prefs.remove('decision_spinner_activity_rejected');
+    } else {
+      await prefs.remove('decision_spinner_custom_food');
+      await prefs.remove('decision_spinner_food_history');
+      await prefs.remove('decision_spinner_food_cycle_start');
+      await prefs.remove('decision_spinner_last_food_result');
+      await prefs.remove('decision_spinner_last_food_spinner_id');
+      await prefs.remove('decision_spinner_food_accepted');
+      await prefs.remove('decision_spinner_food_rejected');
+    }
+
+    await _savePersistentData();
+
+    // 2. Clear from Supabase Database
+    try {
+      if (coupleId.isNotEmpty) {
+        final catString = isActivity ? 'activity' : 'food';
+        final pickString =
+            isActivity ? 'active_activity_pick' : 'active_food_pick';
+        final turnString = isActivity ? 'turn_activity' : 'turn_food';
+
+        await SupabaseDataService.client
+            .from('decision_ideas')
+            .delete()
+            .eq('couple_id', coupleId)
+            .eq('category', catString);
+
+        await SupabaseDataService.client
+            .from('decision_ideas')
+            .delete()
+            .eq('couple_id', coupleId)
+            .inFilter('category', [pickString, turnString]);
+      }
+    } catch (e) {
+      debugPrint('Error clearing decision ideas in Supabase: $e');
+    }
+
+    // 3. Broadcast Realtime Sync
+    try {
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'pool_updated',
+        payload: {
+          'action': 'reset_all',
+          'category': isActivity ? 'activity' : 'food',
+          'foodOptions': _foodOptions,
+          'activityOptions': _activityOptions,
+        },
+      );
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'reset_spinner',
+        payload: {'categoryIndex': _selectedCategoryIndex},
+      );
+      _spinnerChannel?.sendBroadcastMessage(
+        event: 'turn_reset',
+        payload: {'categoryIndex': _selectedCategoryIndex},
+      );
+    } catch (e) {
+      debugPrint('Error broadcasting reset in spinner: $e');
+    }
+
+    if (mounted) {
+      SnackbarHelper.showSuccess(
+        context,
+        'Debug: $catName reset completely for a fresh start.',
       );
     }
   }

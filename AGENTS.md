@@ -19,6 +19,14 @@
   - Must use the identical rounded shape, shadow depth, padding, and bold typography as the standard buttons, but with the color shifted to a rich rose-crimson alert gradient:
     `LinearGradient(colors: [Color(0xFFFF5252), Color(0xFFD81B60)], begin: Alignment.topLeft, end: Alignment.bottomRight)` (or `[Color(0xFFFF4D6D), Color(0xFFC2185B)]`) with matching shadow `Color(0xFFFF5252).withValues(alpha: 0.3)`.
   - If outlined/secondary: use `Border.all(color: Color(0xFFFF5252).withValues(alpha: 0.45), width: 1.2)` with light tinted background `Color(0xFFFF5252).withValues(alpha: 0.1)`.
+- **Cancel / Dismiss Secondary Action Buttons (e.g. Cancel, Dismiss):**
+  - **NEVER use plain unbordered or uncolored text buttons** for Cancel actions.
+  - Must consistently apply a themed romantic outline and tinted background:
+    - Border: `BorderSide(color: isDark ? const Color(0xFFA18CD1).withValues(alpha: 0.45) : const Color(0xFFFF758C).withValues(alpha: 0.45), width: 1.2)`.
+    - Background: `isDark ? const Color(0xFFA18CD1).withValues(alpha: 0.08) : const Color(0xFFFF758C).withValues(alpha: 0.06)`.
+    - Text / Foreground: `isDark ? const Color(0xFFFF8FA3) : const Color(0xFFFF758C)` with `FontWeight.w600` or `FontWeight.bold`.
+    - Border radius: matching dialog actions (`BorderRadius.circular(12)` to `16`).
+    - Use `SecondaryCancelButton` from `lib/widgets/common/timed_confirm_dialog.dart`.
 - **Disabled State:**
   - Background: `isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade300`, no gradient, no drop shadow, disabled text color (`Colors.grey.shade500`/`Colors.grey.shade600`).
 
@@ -28,7 +36,7 @@
 - **Modal Design Standards:**
   - **No Emojis:** Strictly prohibited. Use themed Material Icons in a soft circular badge at the top or leading of the dialog header.
   - **Clear Contextual Messaging:** State clearly what is being changed/discarded and how it impacts the user and partner.
-  - **Cancel / Dismiss Action:** Clear "Cancel" button using secondary styling (`OutlinedButton` or neutral `TextButton`).
+  - **Cancel / Dismiss Action:** `SecondaryCancelButton` with romantic outline border and soft tinted background.
   - **Confirm Action Button:**
     - For destructive / reject / reset actions: Rose-crimson alert gradient button (`[Color(0xFFFF5252), Color(0xFFD81B60)]`) with bold white text.
     - For positive / milestone actions (e.g. Mark Done & Unlock): Romantic signature gradient button (`[Color(0xFFFF758C), Color(0xFFA18CD1)]`) with bold white text.

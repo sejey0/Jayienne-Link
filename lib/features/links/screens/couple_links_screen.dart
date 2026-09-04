@@ -1244,23 +1244,11 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
                   children: [
                     // Cancel
                     Expanded(
-                      child: OutlinedButton(
+                      child: SecondaryCancelButton(
+                        label: 'Cancel',
+                        height: 48,
+                        borderRadius: 16,
                         onPressed: () => Navigator.of(modalContext).pop(),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? Colors.white70 : AppColors.deepCharcoal,
-                          side: BorderSide(
-                            color: isDark ? Colors.white24 : Colors.grey.shade300,
-                            width: 1.2,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1417,23 +1405,11 @@ class _CoupleLinksScreenState extends State<CoupleLinksScreen> {
                   children: [
                     // Cancel Button
                     Expanded(
-                      child: OutlinedButton(
+                      child: SecondaryCancelButton(
+                        label: 'Cancel',
+                        height: 48,
+                        borderRadius: 16,
                         onPressed: () => Navigator.of(modalContext).pop(),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? Colors.white70 : AppColors.deepCharcoal,
-                          side: BorderSide(
-                            color: isDark ? Colors.white24 : Colors.grey.shade300,
-                            width: 1.2,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
                       ),
                     ),
                     const SizedBox(width: 12),

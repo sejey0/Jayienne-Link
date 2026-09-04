@@ -150,20 +150,49 @@ class AppButton extends StatelessWidget {
         );
 
       case AppButtonVariant.secondary:
+        final primaryColor = isDark ? const Color(0xFFFF8FA3) : const Color(0xFFFF758C);
+        final borderColor = isDark
+            ? const Color(0xFFA18CD1).withValues(alpha: 0.45)
+            : const Color(0xFFFF758C).withValues(alpha: 0.45);
+        final bgColor = isDark
+            ? const Color(0xFFA18CD1).withValues(alpha: 0.08)
+            : const Color(0xFFFF758C).withValues(alpha: 0.06);
+
         return SizedBox(
           width: width ?? double.infinity,
+          height: AppDimensions.buttonHeight,
           child: OutlinedButton(
             onPressed: isLoading ? null : onPressed,
             style: OutlinedButton.styleFrom(
-              side: BorderSide(
-                color: const Color(0xFFFF758C).withValues(alpha: 0.5),
-                width: 1.2,
-              ),
+              foregroundColor: primaryColor,
+              backgroundColor: bgColor,
+              side: BorderSide(color: borderColor, width: 1.2),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            child: child,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: AppDimensions.iconSizeSmall, color: primaryColor),
+                  const SizedBox(width: AppDimensions.spacingSm),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
 

@@ -1388,30 +1388,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             Row(
               children: [
                 Expanded(
-                  child: SizedBox(
+                  child: SecondaryCancelButton(
+                    label: 'Cancel',
                     height: 38,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor:
-                            isDark ? Colors.white70 : Colors.grey.shade700,
-                        side: BorderSide(
-                          color: isDark
-                              ? Colors.white24
-                              : Colors.grey.shade300,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ),
+                    borderRadius: 12,
+                    fontSize: 12.5,
+                    onPressed: () => Navigator.pop(ctx, false),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1603,18 +1585,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ],
         ),
         actions: [
-          TextButton(
+          SecondaryCancelButton(
+            label: 'Cancel',
+            width: 100,
+            height: 42,
+            borderRadius: 12,
             onPressed: () {
               HapticFeedback.lightImpact();
               Navigator.pop(dialogCtx);
             },
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
           Container(
             decoration: BoxDecoration(
@@ -2983,22 +2962,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             child: Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
+                  child: SecondaryCancelButton(
+                    label: 'Cancel',
+                    height: 46,
+                    borderRadius: 14,
                     onPressed: () => Navigator.pop(ctx),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                          color: Color(0xFFFF758C), width: 1.2),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: Color(0xFFFF758C),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -3089,22 +3057,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             child: Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
+                  child: SecondaryCancelButton(
+                    label: 'Cancel',
+                    height: 46,
+                    borderRadius: 14,
                     onPressed: () => Navigator.pop(ctx),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                          color: Color(0xFFFF758C), width: 1.2),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: Color(0xFFFF758C),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -3458,30 +3415,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             Row(
               children: [
                 Expanded(
-                  child: SizedBox(
+                  child: SecondaryCancelButton(
+                    label: 'Cancel',
                     height: 38,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor:
-                            isDark ? Colors.white70 : Colors.grey.shade700,
-                        side: BorderSide(
-                          color: isDark
-                              ? Colors.white24
-                              : Colors.grey.shade300,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ),
+                    borderRadius: 12,
+                    fontSize: 12.5,
+                    onPressed: () => Navigator.pop(ctx, false),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -5361,30 +5300,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             Row(
               children: [
                 Expanded(
-                  child: SizedBox(
+                  child: SecondaryCancelButton(
+                    label: 'Cancel',
                     height: 38,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor:
-                            isDark ? Colors.white70 : Colors.grey.shade700,
-                        side: BorderSide(
-                          color: isDark
-                              ? Colors.white24
-                              : Colors.grey.shade300,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ),
+                    borderRadius: 12,
+                    fontSize: 12.5,
+                    onPressed: () => Navigator.pop(ctx, false),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -6966,21 +6887,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             Row(
               children: [
                 Expanded(
-                  child: TextButton(
+                  child: SecondaryCancelButton(
+                    label: 'Cancel',
+                    height: 44,
+                    borderRadius: 14,
                     onPressed: () => Navigator.pop(ctx, false),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: isDark ? Colors.white60 : Colors.grey.shade700,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 10),

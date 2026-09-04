@@ -260,23 +260,12 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
+                  child: SecondaryCancelButton(
+                    label: 'Cancel',
+                    height: 42,
+                    borderRadius: 12,
+                    fontSize: 13.5,
                     onPressed: () => Navigator.pop(ctx),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                          color: Color(0xFFFF758C), width: 1.2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: Color(0xFFFF758C),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -793,7 +782,12 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  TextButton(
+                                  SecondaryCancelButton(
+                                    label: 'Cancel',
+                                    height: 36,
+                                    width: 80,
+                                    borderRadius: 10,
+                                    fontSize: 12.5,
                                     onPressed: () {
                                       setState(() {
                                         _isEditingCaption = false;
@@ -801,10 +795,6 @@ class _SecretMediaDetailScreenState extends State<SecretMediaDetailScreen> {
                                             _currentMedia.caption ?? '';
                                       });
                                     },
-                                    child: const Text(
-                                      'Cancel',
-                                      style: TextStyle(color: Colors.white60),
-                                    ),
                                   ),
                                   const SizedBox(width: 8),
                                   ElevatedButton(

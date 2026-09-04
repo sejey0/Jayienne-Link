@@ -1088,19 +1088,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: isDark ? Colors.white60 : Colors.grey.shade600,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 10),
+              SecondaryCancelButton(
+                label: 'Cancel',
+                height: 44,
+                borderRadius: 14,
+                onPressed: () => Navigator.pop(ctx, false),
               ),
             ],
           ),
@@ -1218,19 +1211,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: isDark ? Colors.white60 : Colors.grey.shade600,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 10),
+              SecondaryCancelButton(
+                label: 'Cancel',
+                height: 44,
+                borderRadius: 14,
+                onPressed: () => Navigator.pop(ctx, false),
               ),
             ],
           ),
@@ -2009,17 +1995,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         actionsAlignment: MainAxisAlignment.end,
         actions: [
-          TextButton(
+          SecondaryCancelButton(
+            label: 'Cancel',
+            width: 100,
+            height: 46,
+            borderRadius: 14,
             onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white70
-                    : Colors.grey.shade700,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
           TimedDestructiveButton(
             label: willDeactivate ? 'Deactivate' : 'Activate',
@@ -2072,9 +2053,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(
+          SecondaryCancelButton(
+            label: 'Cancel',
+            width: 100,
+            height: 42,
+            borderRadius: 12,
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
           ),
           Container(
             decoration: BoxDecoration(

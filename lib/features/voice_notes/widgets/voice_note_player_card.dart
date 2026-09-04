@@ -123,19 +123,11 @@ class VoiceNotePlayerCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
+                      child: SecondaryCancelButton(
+                        label: 'Cancel',
+                        height: 48,
+                        borderRadius: 16,
                         onPressed: () => Navigator.of(modalContext).pop(),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? Colors.white70 : AppColors.deepCharcoal,
-                          side: BorderSide(
-                            color: isDark ? Colors.white24 : Colors.grey.shade300,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ),
                     const SizedBox(width: 12),

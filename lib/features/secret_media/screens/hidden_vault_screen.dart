@@ -1620,15 +1620,12 @@ class _HiddenVaultScreenState extends State<HiddenVaultScreen>
         content: Text(message),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         actions: [
-          TextButton(
+          SecondaryCancelButton(
+            label: 'Cancel',
+            width: 100,
+            height: 42,
+            borderRadius: 14,
             onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
           TimedDestructiveButton(
             label: 'Delete',

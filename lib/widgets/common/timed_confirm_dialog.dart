@@ -72,24 +72,12 @@ Future<bool?> showTimedConfirmDialog({
             gradientColors: gradientColors,
             onPressed: () => Navigator.pop(ctx, true),
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-              child: Text(
-                cancelLabel,
-                style: TextStyle(
-                  color: isDark ? Colors.white60 : Colors.grey.shade600,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-            ),
+          const SizedBox(height: 10),
+          SecondaryCancelButton(
+            label: cancelLabel,
+            height: 44,
+            borderRadius: 14,
+            onPressed: () => Navigator.pop(ctx, false),
           ),
         ],
       ),
@@ -227,6 +215,68 @@ class _TimedDestructiveButtonState extends State<TimedDestructiveButton> {
             borderRadius: BorderRadius.circular(widget.borderRadius),
           ),
           padding: widget.padding ?? const EdgeInsets.symmetric(horizontal: 16),
+        ),
+      ),
+    );
+  }
+}
+
+/// A standardized secondary / cancel button featuring a romantic outlined border,
+/// soft tinted background, and themed typography matching the app's aesthetic.
+class SecondaryCancelButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+  final double? width;
+  final double height;
+  final double borderRadius;
+  final double fontSize;
+  final EdgeInsetsGeometry? padding;
+
+  const SecondaryCancelButton({
+    super.key,
+    this.label = 'Cancel',
+    required this.onPressed,
+    this.width = double.infinity,
+    this.height = 44,
+    this.borderRadius = 14,
+    this.fontSize = 14,
+    this.padding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? const Color(0xFFFF8FA3) : const Color(0xFFFF758C);
+    final borderColor = isDark
+        ? const Color(0xFFA18CD1).withValues(alpha: 0.45)
+        : const Color(0xFFFF758C).withValues(alpha: 0.45);
+    final bgColor = isDark
+        ? const Color(0xFFA18CD1).withValues(alpha: 0.08)
+        : const Color(0xFFFF758C).withValues(alpha: 0.06);
+
+    return SizedBox(
+      width: width,
+      height: height,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primaryColor,
+          backgroundColor: bgColor,
+          side: BorderSide(color: borderColor, width: 1.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(borderRadius),
+          ),
+          padding: padding ?? const EdgeInsets.symmetric(horizontal: 16),
+          elevation: 0,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: primaryColor,
+            fontWeight: FontWeight.w600,
+            fontSize: fontSize,
+            letterSpacing: 0.2,
+          ),
         ),
       ),
     );

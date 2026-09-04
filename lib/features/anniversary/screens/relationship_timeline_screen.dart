@@ -1252,9 +1252,12 @@ class _RelationshipTimelineScreenState
             Row(
               children: [
                 Expanded(
-                  child: TextButton(
+                  child: SecondaryCancelButton(
+                    label: 'Cancel',
+                    height: 42,
+                    borderRadius: 12,
+                    fontSize: 13.5,
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Cancel'),
                   ),
                 ),
                 const SizedBox(width: 10),

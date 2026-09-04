@@ -290,14 +290,16 @@ class _MapboxSearchBarState extends State<MapboxSearchBar> {
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF281D3C) : Colors.white,
+                            color: isDark
+                                ? const Color(0xFF281D3C)
+                                : const Color(0xFFFF758C).withValues(alpha: 0.06),
                             borderRadius: BorderRadius.circular(16),
-                            border: isDark
-                                ? Border.all(
-                                    color: Colors.white.withValues(alpha: 0.12),
-                                    width: 1.0,
-                                  )
-                                : null,
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFFA18CD1).withValues(alpha: 0.45)
+                                  : const Color(0xFFFF758C).withValues(alpha: 0.45),
+                              width: 1.2,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),

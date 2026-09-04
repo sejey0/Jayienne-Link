@@ -16,6 +16,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/loading_overlay.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 class EditProfileScreen extends StatefulWidget {
@@ -97,15 +98,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           'Are you sure you want to discard your edits and reset to your original profile information?',
         ),
         actions: [
-          TextButton(
+          SecondaryCancelButton(
+            label: 'Cancel',
+            width: 100,
+            height: 42,
+            borderRadius: 12,
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: isDark ? Colors.white60 : Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
           Container(
             decoration: BoxDecoration(
@@ -585,14 +583,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
+                  child: SecondaryCancelButton(
+                    label: 'Cancel',
+                    height: 44,
+                    borderRadius: 12,
+                    fontSize: 13.5,
                     onPressed: () => Navigator.of(ctx).pop(),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                    ),
-                    child: const Text('Cancel', style: TextStyle(color: Color(0xFFFF758C), fontWeight: FontWeight.w600, fontSize: 13.5)),
                   ),
                 ),
                 const SizedBox(width: 12),

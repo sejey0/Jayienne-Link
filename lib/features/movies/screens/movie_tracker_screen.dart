@@ -413,15 +413,12 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
           ),
         ),
         actions: [
-          TextButton(
+          SecondaryCancelButton(
+            label: 'Cancel',
+            width: 100,
+            height: 42,
+            borderRadius: 12,
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: isDark ? Colors.white60 : Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
           Container(
             decoration: BoxDecoration(
@@ -688,23 +685,14 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
               icon: Icons.delete_sweep_rounded,
               onPressed: () => Navigator.pop(ctx, true),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
 
             // 5. Centered Cancel Button
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(
-                  'Cancel',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: isDark ? Colors.white60 : Colors.grey.shade600,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
+            SecondaryCancelButton(
+              label: 'Cancel',
+              height: 44,
+              borderRadius: 14,
+              onPressed: () => Navigator.pop(ctx, false),
             ),
           ],
         ),

@@ -20,6 +20,7 @@ import '../../../services/supabase_storage_service.dart';
 import '../../../services/update_service.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 import '../../admin/screens/admin_dashboard_screen.dart';
 import '../../auth/screens/auth_screen.dart';
 import '../../auth/screens/login_screen.dart';
@@ -1373,15 +1374,12 @@ class SettingsScreen extends StatelessWidget {
         ),
         content: const Text(AppStrings.signOutConfirm),
         actions: [
-          TextButton(
+          SecondaryCancelButton(
+            label: AppStrings.cancel,
+            width: 100,
+            height: 42,
+            borderRadius: 12,
             onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              AppStrings.cancel,
-              style: TextStyle(
-                color: isDark ? Colors.white60 : Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
           Container(
             decoration: BoxDecoration(
@@ -1963,21 +1961,14 @@ class _PinDialogState extends State<_PinDialog> {
                         ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
               // Cancel
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: isSaving ? null : () => Navigator.pop(context, false),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: isDark ? Colors.white60 : Colors.grey.shade600,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+              SecondaryCancelButton(
+                label: 'Cancel',
+                height: 44,
+                borderRadius: 14,
+                onPressed: isSaving ? null : () => Navigator.pop(context, false),
               ),
             ],
           ),
@@ -2208,21 +2199,14 @@ class _DisablePinDialogState extends State<_DisablePinDialog> {
                         ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
               // Cancel Button
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: isSaving ? null : () => Navigator.pop(context, false),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: isDark ? Colors.white60 : Colors.grey.shade600,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+              SecondaryCancelButton(
+                label: 'Cancel',
+                height: 44,
+                borderRadius: 14,
+                onPressed: isSaving ? null : () => Navigator.pop(context, false),
               ),
             ],
           ),

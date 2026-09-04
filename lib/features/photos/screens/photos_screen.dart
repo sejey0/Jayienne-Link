@@ -1514,20 +1514,11 @@ class _EditCaptionDialogState extends State<_EditCaptionDialog> {
           child: Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: SecondaryCancelButton(
+                  label: 'Cancel',
+                  height: 46,
+                  borderRadius: 12,
                   onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: Color(0xFFFF758C),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1669,20 +1660,11 @@ class _DeletePhotoDialogState extends State<_DeletePhotoDialog> {
           child: Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: SecondaryCancelButton(
+                  label: 'Cancel',
+                  height: 46,
+                  borderRadius: 12,
                   onPressed: () => Navigator.of(context).pop(false),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: Color(0xFFFF758C),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 ),
               ),
               const SizedBox(width: 12),

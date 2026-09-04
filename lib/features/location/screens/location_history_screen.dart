@@ -1006,20 +1006,12 @@ class _LocationHistoryScreenState extends State<LocationHistoryScreen> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
+                  child: SecondaryCancelButton(
+                    label: 'Cancel',
+                    height: 42,
+                    borderRadius: 12,
+                    fontSize: 13.5,
                     onPressed: () => Navigator.pop(context, false),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFFFF758C), width: 1.2),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: Color(0xFFFF758C),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 12),

@@ -1317,13 +1317,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _buildFilterChip('All (${provider.totalUsersCount})', UserFilter.all, provider, isDark),
+          _buildFilterChip('All (${provider.totalUsersCount})', UserFilter.all, provider, isDark, Icons.people_rounded),
           const SizedBox(width: 8),
-          _buildFilterChip('Active (${provider.activeUsersCount})', UserFilter.active, provider, isDark),
+          _buildFilterChip('Active (${provider.activeUsersCount})', UserFilter.active, provider, isDark, Icons.check_circle_rounded),
           const SizedBox(width: 8),
-          _buildFilterChip('Deactivated (${provider.deactivatedUsersCount})', UserFilter.deactivated, provider, isDark),
+          _buildFilterChip('Deactivated (${provider.deactivatedUsersCount})', UserFilter.deactivated, provider, isDark, Icons.block_rounded),
           const SizedBox(width: 8),
-          _buildFilterChip('Admins (${provider.adminUsersCount})', UserFilter.admins, provider, isDark),
+          _buildFilterChip('Admins (${provider.adminUsersCount})', UserFilter.admins, provider, isDark, Icons.shield_rounded),
         ],
       ),
     );
@@ -1334,33 +1334,73 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     UserFilter filter,
     AdminProvider provider,
     bool isDark,
+    IconData icon,
   ) {
     final isSelected = provider.selectedFilter == filter;
     final cardBg = isDark ? const Color(0xFF1C1427) : Colors.white;
 
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) {
-        HapticFeedback.selectionClick();
-        provider.setFilter(filter);
-      },
-      selectedColor: const Color(0xFFFF758C).withValues(alpha: 0.18),
-      backgroundColor: cardBg,
-      labelStyle: TextStyle(
-        color: isSelected
-            ? const Color(0xFFFF758C)
-            : (isDark ? Colors.white70 : Colors.black87),
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        fontSize: 13,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          provider.setFilter(filter);
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: isSelected ? null : cardBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected
+                  ? Colors.transparent
+                  : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade300),
+              width: 1.2,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.30),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? Colors.white70 : Colors.grey.shade700),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected
+                      ? Colors.white
+                      : (isDark ? Colors.white70 : Colors.grey.shade700),
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  fontSize: 12.5,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      side: BorderSide(
-        color: isSelected
-            ? const Color(0xFFFF758C)
-            : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade300),
-        width: isSelected ? 1.5 : 1.0,
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     );
   }
 
@@ -1376,316 +1416,515 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final zodiacInfo = ZodiacHelper.getZodiac(user.zodiacSign);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: user.isDeactivated
-              ? AppColors.error.withValues(alpha: 0.4)
+              ? const Color(0xFFFF5252).withValues(alpha: 0.35)
               : (user.isAdmin
-                  ? const Color(0xFFFF758C).withValues(alpha: 0.4)
+                  ? const Color(0xFFFF758C).withValues(alpha: 0.40)
                   : (isDark
                       ? Colors.white.withValues(alpha: 0.08)
                       : Colors.grey.shade200)),
-          width: 1.5,
+          width: user.isAdmin || user.isDeactivated ? 1.5 : 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
+          if (user.isAdmin)
+            BoxShadow(
+              color: const Color(0xFFFF758C).withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 2),
+            ),
+          if (user.isDeactivated)
+            BoxShadow(
+              color: const Color(0xFFFF5252).withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 2),
+            ),
         ],
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () => _showUserDetailsModal(context, user, isDark),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // User Avatar
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: user.isAdmin
-                            ? const Color(0xFFFF758C)
-                            : const Color(0xFFA18CD1),
-                        width: 2,
-                      ),
-                    ),
-                    child: ClipOval(
-                      child: SmartProfileImage(
-                        imageUrl: user.photoUrl,
-                        width: 48,
-                        height: 48,
-                        placeholder: Container(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                          child: Center(
-                            child: Text(
-                              user.displayName.isNotEmpty
-                                  ? user.displayName[0].toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(
-                                color: Color(0xFFFF758C),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ),
-                        ),
-                        errorWidget: Container(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                          child: const Icon(Icons.person, color: Color(0xFFFF758C), size: 24),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // Name, Email and Zodiac
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                user.displayName.isNotEmpty
-                                    ? user.displayName
-                                    : 'Unnamed User',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15.5,
-                                  color: isDark ? Colors.white : AppColors.deepCharcoal,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (isCurrentAdmin) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFFFF758C).withValues(alpha: 0.5),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: const Text(
-                                  'YOU',
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFFF758C),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          user.email,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: isDark ? Colors.white60 : Colors.grey.shade600,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Popup Menu Actions
-                  PopupMenuButton<String>(
-                    icon: Icon(
-                      Icons.more_vert_rounded,
-                      color: isDark ? Colors.white60 : Colors.grey.shade700,
-                    ),
-                    onSelected: (value) async {
-                      if (value == 'toggle_active') {
-                        _confirmToggleActive(context, user, provider);
-                      } else if (value == 'toggle_role') {
-                        _confirmToggleRole(context, user, provider);
-                      } else if (value == 'details') {
-                        _showUserDetailsModal(context, user, isDark);
-                      }
-                    },
-                    itemBuilder: (ctx) => [
-                      const PopupMenuItem(
-                        value: 'details',
-                        child: Row(
-                          children: [
-                            Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFFFF758C)),
-                            SizedBox(width: 8),
-                            Text('View Details'),
-                          ],
-                        ),
-                      ),
-                      if (!isCurrentAdmin) ...[
-                        PopupMenuItem(
-                          value: 'toggle_active',
-                          child: Row(
-                            children: [
-                              Icon(
-                                user.isActive
-                                    ? Icons.block_rounded
-                                    : Icons.check_circle_outline_rounded,
-                                size: 18,
-                                color: user.isActive ? AppColors.error : const Color(0xFF4CAF50),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                user.isActive ? 'Deactivate Account' : 'Activate Account',
-                                style: TextStyle(
-                                  color: user.isActive ? AppColors.error : const Color(0xFF4CAF50),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'toggle_role',
-                          child: Row(
-                            children: [
-                              Icon(
-                                user.isAdmin
-                                    ? Icons.person_outline_rounded
-                                    : Icons.admin_panel_settings_outlined,
-                                size: 18,
-                                color: const Color(0xFFA18CD1),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                user.isAdmin ? 'Demote to User' : 'Promote to Admin',
-                                style: const TextStyle(
-                                  color: Color(0xFFA18CD1),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Romantic Gradient Accent Line
+            Container(
+              height: 3.5,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: user.isDeactivated
+                      ? const [Color(0xFFFF5252), Color(0xFFD81B60)]
+                      : (user.isAdmin
+                          ? const [Color(0xFFFF758C), Color(0xFFA18CD1)]
+                          : [
+                              const Color(0xFFFF758C).withValues(alpha: 0.4),
+                              const Color(0xFFA18CD1).withValues(alpha: 0.4),
+                            ]),
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
               ),
+            ),
 
-              const SizedBox(height: 12),
-              Divider(height: 1, color: isDark ? Colors.white10 : Colors.grey.shade200),
-              const SizedBox(height: 10),
-
-              // Badges Row & Quick Action Switch
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _showUserDetailsModal(context, user, isDark),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Row: Avatar, User Details, and Actions
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Status Badge
-                          _buildBadge(
-                            label: user.isActive ? 'Active' : 'Deactivated',
-                            color: user.isActive ? const Color(0xFF4CAF50) : AppColors.error,
-                            icon: user.isActive
-                                ? Icons.check_circle_rounded
-                                : Icons.block_rounded,
-                          ),
-                          const SizedBox(width: 6),
-
-                          // Role Badge
-                          _buildBadge(
-                            label: user.isAdmin ? 'Admin' : 'User',
-                            color: user.isAdmin ? const Color(0xFFA18CD1) : const Color(0xFFFF758C),
-                            icon: user.isAdmin
-                                ? Icons.security_rounded
-                                : Icons.person_rounded,
-                          ),
-                          const SizedBox(width: 6),
-
-                          // Zodiac Badge (Vector Icon)
-                          if (user.zodiacSign != null && user.zodiacSign!.isNotEmpty) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                              decoration: BoxDecoration(
-                                color: (zodiacInfo?.color ?? const Color(0xFFA18CD1)).withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: (zodiacInfo?.color ?? const Color(0xFFA18CD1)).withValues(alpha: 0.35),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ZodiacIcon(
-                                    zodiac: user.zodiacSign!,
-                                    size: 11,
-                                    color: zodiacInfo?.color ?? const Color(0xFFA18CD1),
-                                    strokeWidth: 2.0,
+                          // Double-ring Glowing Avatar with Status Indicator Dot
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: user.isDeactivated
+                                        ? const [Color(0xFFFF5252), Color(0xFFD81B60)]
+                                        : (user.isAdmin
+                                            ? const [Color(0xFFFF758C), Color(0xFFA18CD1)]
+                                            : [
+                                                const Color(0xFFFF758C).withValues(alpha: 0.8),
+                                                const Color(0xFFA18CD1).withValues(alpha: 0.8),
+                                              ]),
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    user.zodiacSign!,
-                                    style: TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: zodiacInfo?.color ?? const Color(0xFFA18CD1),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (user.isDeactivated
+                                              ? const Color(0xFFFF5252)
+                                              : const Color(0xFFFF758C))
+                                          .withValues(alpha: 0.25),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                padding: const EdgeInsets.all(2.2),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: cardBg,
+                                  ),
+                                  child: ClipOval(
+                                    child: SmartProfileImage(
+                                      imageUrl: user.photoUrl,
+                                      width: 46,
+                                      height: 46,
+                                      placeholder: Container(
+                                        color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                                        child: Center(
+                                          child: Text(
+                                            user.displayName.isNotEmpty
+                                                ? user.displayName[0].toUpperCase()
+                                                : 'U',
+                                            style: const TextStyle(
+                                              color: Color(0xFFFF758C),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      errorWidget: Container(
+                                        color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                                        child: const Icon(Icons.person, color: Color(0xFFFF758C), size: 24),
+                                      ),
                                     ),
                                   ),
+                                ),
+                              ),
+
+                              // Bottom-right Status Indicator Dot
+                              Positioned(
+                                bottom: -1,
+                                right: -1,
+                                child: Container(
+                                  width: 15,
+                                  height: 15,
+                                  decoration: BoxDecoration(
+                                    color: user.isActive
+                                        ? const Color(0xFF4CAF50)
+                                        : const Color(0xFFFF5252),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: cardBg,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      user.isActive ? Icons.check_rounded : Icons.close_rounded,
+                                      size: 8,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 12),
+
+                          // Name, Identity Badges & Email
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        user.displayName.isNotEmpty
+                                            ? user.displayName
+                                            : 'Unnamed User',
+                                        style: GoogleFonts.poppins(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15.5,
+                                          color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (isCurrentAdmin) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                          ),
+                                          borderRadius: BorderRadius.circular(10),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 1),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Text(
+                                          'YOU',
+                                          style: TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    if (user.isAdmin && !isCurrentAdmin) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFA18CD1).withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: const Color(0xFFA18CD1).withValues(alpha: 0.5),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.shield_rounded, size: 10, color: Color(0xFFA18CD1)),
+                                            SizedBox(width: 3),
+                                            Text(
+                                              'ADMIN',
+                                              style: TextStyle(
+                                                fontSize: 9.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFFA18CD1),
+                                                letterSpacing: 0.4,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.alternate_email_rounded,
+                                      size: 12,
+                                      color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        user.email,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Trailing Action: Quick View Details & Popup Menu
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                                color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                tooltip: 'View Details',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                onPressed: () => _showUserDetailsModal(context, user, isDark),
+                              ),
+                              PopupMenuButton<String>(
+                                icon: Icon(
+                                  Icons.more_vert_rounded,
+                                  color: isDark ? Colors.white60 : Colors.grey.shade700,
+                                  size: 20,
+                                ),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                color: cardBg,
+                                onSelected: (value) async {
+                                  if (value == 'toggle_active') {
+                                    _confirmToggleActive(context, user, provider);
+                                  } else if (value == 'toggle_role') {
+                                    _confirmToggleRole(context, user, provider);
+                                  } else if (value == 'details') {
+                                    _showUserDetailsModal(context, user, isDark);
+                                  }
+                                },
+                                itemBuilder: (ctx) => [
+                                  const PopupMenuItem(
+                                    value: 'details',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.badge_rounded, size: 18, color: Color(0xFFFF758C)),
+                                        SizedBox(width: 10),
+                                        Text('View Details', style: TextStyle(fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                  if (!isCurrentAdmin) ...[
+                                    PopupMenuItem(
+                                      value: 'toggle_active',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            user.isActive
+                                                ? Icons.block_rounded
+                                                : Icons.check_circle_outline_rounded,
+                                            size: 18,
+                                            color: user.isActive ? const Color(0xFFFF5252) : const Color(0xFF4CAF50),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Text(
+                                            user.isActive ? 'Deactivate Account' : 'Activate Account',
+                                            style: TextStyle(
+                                              color: user.isActive ? const Color(0xFFFF5252) : const Color(0xFF4CAF50),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'toggle_role',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            user.isAdmin
+                                                ? Icons.person_outline_rounded
+                                                : Icons.admin_panel_settings_outlined,
+                                            size: 18,
+                                            color: const Color(0xFFA18CD1),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Text(
+                                            user.isAdmin ? 'Demote to User' : 'Promote to Admin',
+                                            style: const TextStyle(
+                                              color: Color(0xFFA18CD1),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
-                            ),
-                            const SizedBox(width: 6),
-                          ],
-
-                          // Couple Status Badge
-                          _buildBadge(
-                            label: user.hasRealPartner ? 'Coupled' : 'Single',
-                            color: user.hasRealPartner ? const Color(0xFFFF758C) : Colors.grey,
-                            icon: user.hasRealPartner
-                                ? Icons.favorite_rounded
-                                : Icons.person_outline_rounded,
+                            ],
                           ),
                         ],
                       ),
-                    ),
-                  ),
 
-                  // Quick Action Activation Switch
-                  if (!isCurrentAdmin) ...[
-                    const SizedBox(width: 8),
-                    Transform.scale(
-                      scale: 0.78,
-                      child: Switch(
-                        value: user.isActive,
-                        activeThumbColor: const Color(0xFF4CAF50),
-                        activeTrackColor: const Color(0xFF4CAF50).withValues(alpha: 0.35),
-                        inactiveTrackColor: AppColors.error.withValues(alpha: 0.2),
-                        inactiveThumbColor: AppColors.error,
-                        onChanged: (_) => _confirmToggleActive(context, user, provider),
+                      const SizedBox(height: 12),
+                      Divider(height: 1, color: isDark ? Colors.white10 : Colors.grey.shade200),
+                      const SizedBox(height: 10),
+
+                      // Bottom Badges & Quick Action Row
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 5,
+                              runSpacing: 5,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                // Status Badge
+                                _buildBadge(
+                                  label: user.isActive ? 'Active' : 'Deactivated',
+                                  color: user.isActive ? const Color(0xFF4CAF50) : const Color(0xFFFF5252),
+                                  icon: user.isActive
+                                      ? Icons.check_circle_rounded
+                                      : Icons.block_rounded,
+                                ),
+
+                                // Zodiac Badge
+                                if (user.zodiacSign != null && user.zodiacSign!.isNotEmpty) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                                    decoration: BoxDecoration(
+                                      color: (zodiacInfo?.color ?? const Color(0xFFA18CD1)).withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: (zodiacInfo?.color ?? const Color(0xFFA18CD1)).withValues(alpha: 0.35),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        ZodiacIcon(
+                                          zodiac: user.zodiacSign!,
+                                          size: 11,
+                                          color: zodiacInfo?.color ?? const Color(0xFFA18CD1),
+                                          strokeWidth: 2.0,
+                                        ),
+                                        const SizedBox(width: 3.5),
+                                        Text(
+                                          user.zodiacSign!,
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: zodiacInfo?.color ?? const Color(0xFFA18CD1),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+
+                                // Couple Status Badge
+                                _buildBadge(
+                                  label: user.hasRealPartner ? 'Coupled' : 'Single',
+                                  color: user.hasRealPartner ? const Color(0xFFFF758C) : Colors.grey,
+                                  icon: user.hasRealPartner
+                                      ? Icons.favorite_rounded
+                                      : Icons.person_outline_rounded,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Quick Action Button: Activate / Deactivate
+                          if (!isCurrentAdmin) ...[
+                            const SizedBox(width: 8),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _confirmToggleActive(context, user, provider),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Ink(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    gradient: user.isActive
+                                        ? const LinearGradient(
+                                            colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          )
+                                        : const LinearGradient(
+                                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: (user.isActive
+                                                ? const Color(0xFFFF5252)
+                                                : const Color(0xFFFF758C))
+                                            .withValues(alpha: 0.28),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        user.isActive
+                                            ? Icons.block_rounded
+                                            : Icons.check_circle_rounded,
+                                        size: 13,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        user.isActive ? 'Deactivate' : 'Activate',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          letterSpacing: 0.2,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                  ],
-                ],
+                    ],
+                  ),
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1700,7 +1939,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
       ),
       child: Row(
@@ -1731,21 +1970,55 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          willDeactivate ? 'Deactivate Account?' : 'Activate Account?',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (willDeactivate
+                        ? const Color(0xFFFF5252)
+                        : const Color(0xFFFF758C))
+                    .withValues(alpha: 0.14),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                willDeactivate
+                    ? Icons.block_rounded
+                    : Icons.check_circle_rounded,
+                size: 20,
+                color: willDeactivate
+                    ? const Color(0xFFFF5252)
+                    : const Color(0xFFFF758C),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                willDeactivate ? 'Deactivate Account?' : 'Activate Account?',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+          ],
         ),
         content: Text(
           willDeactivate
               ? 'Are you sure you want to deactivate ${targetUser.displayName} (${targetUser.email})? They will be blocked from accessing the app.'
               : 'Are you sure you want to activate ${targetUser.displayName} (${targetUser.email})? Full access will be restored.',
         ),
-        actionsAlignment: MainAxisAlignment.center,
+        actionsAlignment: MainAxisAlignment.end,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white70
+                    : Colors.grey.shade700,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           Container(
             decoration: BoxDecoration(
@@ -1896,7 +2169,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   // --- USER DETAILS MODAL ---
   void _showUserDetailsModal(BuildContext context, UserModel user, bool isDark) {
-    final dateFormat = DateFormat('MMM dd, yyyy - hh:mm a');
+    final dateFormat = DateFormat('MMM dd, yyyy');
     final cardBg = isDark ? const Color(0xFF1C1427) : Colors.white;
     final zodiacInfo = ZodiacHelper.getZodiac(user.zodiacSign);
 
@@ -1911,14 +2184,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       builder: (ctx) => SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Drag Handle
               Center(
                 child: Container(
-                  width: 40,
+                  width: 38,
                   height: 4,
                   decoration: BoxDecoration(
                     color: isDark ? Colors.white24 : Colors.grey.shade300,
@@ -1927,130 +2201,212 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+
+              // Header: Avatar, Name, Email, and Close Icon
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 54,
+                    height: 54,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: user.isAdmin ? const Color(0xFFFF758C) : const Color(0xFFA18CD1),
-                        width: 2,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: ClipOval(
-                      child: SmartProfileImage(
-                        imageUrl: user.photoUrl,
-                        width: 56,
-                        height: 56,
-                        placeholder: Container(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                          child: Center(
-                            child: Text(
-                              user.displayName.isNotEmpty
-                                  ? user.displayName[0].toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(
-                                color: Color(0xFFFF758C),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 22,
+                    padding: const EdgeInsets.all(2),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: cardBg,
+                      ),
+                      padding: const EdgeInsets.all(2),
+                      child: ClipOval(
+                        child: SmartProfileImage(
+                          imageUrl: user.photoUrl,
+                          width: 46,
+                          height: 46,
+                          placeholder: Container(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                            child: Center(
+                              child: Text(
+                                user.displayName.isNotEmpty
+                                    ? user.displayName[0].toUpperCase()
+                                    : 'U',
+                                style: const TextStyle(
+                                  color: Color(0xFFFF758C),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        errorWidget: Container(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                          child: const Icon(Icons.person, color: Color(0xFFFF758C), size: 28),
+                          errorWidget: Container(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                            child: const Icon(Icons.person, color: Color(0xFFFF758C), size: 24),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          user.displayName,
-                          style: TextStyle(
-                            fontSize: 19,
+                          user.displayName.isNotEmpty ? user.displayName : 'Unnamed User',
+                          style: GoogleFonts.poppins(
+                            fontSize: 17.5,
                             fontWeight: FontWeight.bold,
                             color: isDark ? Colors.white : AppColors.deepCharcoal,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                        const SizedBox(height: 2),
                         Text(
                           user.email,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12.5,
                             color: isDark ? Colors.white60 : Colors.grey.shade600,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 22),
+                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    tooltip: 'Close',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
                 ],
               ),
-              const SizedBox(height: 18),
-              Divider(color: isDark ? Colors.white10 : Colors.grey.shade200),
-              const SizedBox(height: 12),
-              _buildDetailRow('User ID', user.id, isDark),
-              _buildDetailRow('Role', user.role.toUpperCase(), isDark),
-              _buildDetailRow('Account Status', user.isActive ? 'Active' : 'Deactivated', isDark),
-              if (user.zodiacSign != null && user.zodiacSign!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6.0),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 130,
-                        child: Text(
-                          'Zodiac Sign',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white60 : Colors.grey.shade600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      ZodiacIcon(
-                        zodiac: user.zodiacSign!,
-                        size: 14,
-                        color: zodiacInfo?.color ?? const Color(0xFFFF758C),
-                        strokeWidth: 2.0,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        user.zodiacSign!,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white : AppColors.deepCharcoal,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+
+              const SizedBox(height: 14),
+              Divider(height: 1, color: isDark ? Colors.white10 : Colors.grey.shade200),
+              const SizedBox(height: 14),
+
+              // Organized Details Grid (Clean 2-Column Info Cards)
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildModalInfoTile(
+                      label: 'Account Status',
+                      value: user.isActive ? 'Active' : 'Deactivated',
+                      icon: user.isActive ? Icons.check_circle_rounded : Icons.block_rounded,
+                      iconColor: user.isActive ? const Color(0xFF4CAF50) : const Color(0xFFFF5252),
+                      isDark: isDark,
+                    ),
                   ),
-                ),
-              _buildDetailRow('Phone', user.phoneNumber ?? 'Not provided', isDark),
-              _buildDetailRow('Couple ID', user.coupleId ?? 'Not linked', isDark),
-              _buildDetailRow('Profile Complete', user.profileComplete ? 'Yes' : 'No', isDark),
-              _buildDetailRow('Created At', dateFormat.format(user.createdAt), isDark),
-              _buildDetailRow('Updated At', dateFormat.format(user.updatedAt), isDark),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildModalInfoTile(
+                      label: 'System Role',
+                      value: user.isAdmin ? 'Admin' : 'User',
+                      icon: user.isAdmin ? Icons.shield_rounded : Icons.person_rounded,
+                      iconColor: user.isAdmin ? const Color(0xFFA18CD1) : const Color(0xFFFF758C),
+                      isDark: isDark,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildModalInfoTile(
+                      label: 'Relationship',
+                      value: user.hasRealPartner ? 'Coupled' : 'Single',
+                      icon: user.hasRealPartner ? Icons.favorite_rounded : Icons.person_outline_rounded,
+                      iconColor: user.hasRealPartner ? const Color(0xFFFF758C) : Colors.grey,
+                      isDark: isDark,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildModalInfoTile(
+                      label: 'Zodiac Sign',
+                      value: (user.zodiacSign != null && user.zodiacSign!.isNotEmpty)
+                          ? user.zodiacSign!
+                          : 'Not set',
+                      icon: Icons.auto_awesome_rounded,
+                      iconColor: zodiacInfo?.color ?? const Color(0xFFA18CD1),
+                      customIcon: (user.zodiacSign != null && user.zodiacSign!.isNotEmpty)
+                          ? ZodiacIcon(
+                              zodiac: user.zodiacSign!,
+                              size: 16,
+                              color: zodiacInfo?.color ?? const Color(0xFFA18CD1),
+                              strokeWidth: 2.0,
+                            )
+                          : null,
+                      isDark: isDark,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _buildModalInfoTile(
+                label: 'Member Since',
+                value: dateFormat.format(user.createdAt),
+                icon: Icons.calendar_today_rounded,
+                iconColor: const Color(0xFF5C6BC0),
+                isDark: isDark,
+              ),
+
               const SizedBox(height: 20),
-              SizedBox(
+
+              // Redesigned Close Button (Romantic Gradient Hero Button per AGENTS.md)
+              Container(
                 width: double.infinity,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFFF758C)),
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.close_rounded, color: Colors.white, size: 19),
+                  label: const Text(
+                    'Close',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text(
-                    'Close',
-                    style: TextStyle(color: Color(0xFFFF758C), fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -2061,31 +2417,62 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+  Widget _buildModalInfoTile({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    required bool isDark,
+    Widget? customIcon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 130,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white60 : Colors.grey.shade600,
-                fontSize: 13,
-              ),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: customIcon ?? Icon(icon, color: iconColor, size: 18),
             ),
           ),
+          const SizedBox(width: 10),
           Expanded(
-            child: SelectableText(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white : AppColors.deepCharcoal,
-                fontSize: 13,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white54 : Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ],

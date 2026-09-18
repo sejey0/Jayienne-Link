@@ -1,8 +1,8 @@
 {
-    "version":  "1.3.0",
-    "build_number":  11,
-    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.3.0/app-release.apk",
-    "release_notes":  "- feat: implement home screen and couple hero card widget\n- feat: add decision spinner, settings, and splash screens alongside sex positions service\n- feat: add sex positions feature with picker modal, media view, model, data asset, and decision spinner screen\n- feat: add decision spinner screen and sex position picker feature\n- feat: add settings and movie tracker screens along with a timed confirmation dialog widget\n- feat: implement mood letters feature with offline sync, provider, backend service, and UI components\n- feat: add SupabaseSecretMediaService to manage secret media and hidden vault operations\n- feat: add sent letters tab and mood letter data model\n- feat: add sent and received letters screen tabs for mood letters feature\n- feat: implement mood letters feature with database migration, service, provider, and UI components\n- feat: implement mood letters feature with screens, provider, offline sync, and backend service\n- feat: add received letters tab and compose letter sheet\n- feat: implement mood letters feature with database migration, UI screens, and offline sync manager\n- feat: add run_device.bat script for managing app deployment and wireless ADB connections\n- feat: add wireless adb keepalive utility, app runner script, and gradle build optimizations",
-    "min_required_version":  "1.3.0",
+    "version":  "1.4.0",
+    "build_number":  12,
+    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.4.0/app-release.apk",
+    "release_notes":  "- feat: add home screen with daily quote and bible verse cards\n- feat: implement home screen, daily sync service, and couple feature widgets\n- feat: add home screen and couple hero card widget\n- feat: implement application router with route guards, authentication screens, and settings UI\n- fix(script): add pre-flight GitHub auth verification in OTA release script\n- fix(ota): authenticate github release publisher and add browser fallback to update dialog",
+    "min_required_version":  "1.4.0",
     "force_update":  true
 }

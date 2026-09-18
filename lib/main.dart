@@ -34,6 +34,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:jayienne_link/services/firebase_location_service.dart';
 import 'package:jayienne_link/providers/voice_notes_provider.dart';
 import 'package:jayienne_link/services/supabase_voice_note_service.dart';
+import 'package:jayienne_link/providers/mood_letters_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -369,6 +370,7 @@ void main() async {
             return safeProv;
           },
         ),
+        ChangeNotifierProvider(create: (_) => MoodLettersProvider()),
       ],
       child: const JayienneLinkApp(),
     ),

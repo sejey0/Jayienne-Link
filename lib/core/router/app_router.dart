@@ -31,6 +31,7 @@ import '../../features/secret_media/screens/hidden_vault_screen.dart';
 import '../../features/anniversary/screens/relationship_timeline_screen.dart';
 import '../../features/links/screens/couple_links_screen.dart';
 import '../../features/voice_notes/screens/voice_notes_screen.dart';
+import '../../features/letters/screens/mood_letters_hub_screen.dart';
 import '../../features/auth/screens/deactivated_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
@@ -270,6 +271,10 @@ class AppRouter {
         GoRoute(
           path: RouteNames.voiceNotes,
           builder: (context, state) => const VoiceNotesScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.moodLetters,
+          builder: (context, state) => const MoodLettersHubScreen(),
         ),
         GoRoute(
           path: RouteNames.adminDashboard,

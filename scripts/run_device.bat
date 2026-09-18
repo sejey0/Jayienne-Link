@@ -194,26 +194,32 @@ if "%SAVED_IP%"=="" (
 if "%SAVED_IP%"=="" goto connection_menu
 
 echo.
+echo Disconnecting any stale ADB session...
+"%ADB%" disconnect %SAVED_IP%:5555 >nul 2>&1
+timeout /t 1 /nobreak >nul
 echo Connecting to %SAVED_IP%:5555...
 "%ADB%" connect %SAVED_IP%:5555
 timeout /t 1 /nobreak >nul
 set "DEVICE_ID=%SAVED_IP%:5555"
 
-"%ADB%" -s %DEVICE_ID% get-state >nul 2>&1
+"%ADB%" devices | findstr /c:"%DEVICE_ID%	device" >nul 2>&1
 if errorlevel 1 (
     echo [WARNING] Direct connect failed. Restarting ADB server and retrying...
     "%ADB%" kill-server >nul 2>&1
+    timeout /t 1 /nobreak >nul
     "%ADB%" start-server >nul 2>&1
     timeout /t 2 /nobreak >nul
     "%ADB%" connect %SAVED_IP%:5555
-    "%ADB%" -s %DEVICE_ID% get-state >nul 2>&1
+    timeout /t 1 /nobreak >nul
+    "%ADB%" devices | findstr /c:"%DEVICE_ID%	device" >nul 2>&1
     if errorlevel 1 (
         echo.
         echo [ERROR] Could not connect to %SAVED_IP%:5555!
+        echo The device is offline or Port 5555 was closed by the phone.
+        echo.
         echo Please ensure:
-        echo   1. Phone is on the same Wi-Fi network.
-        echo   2. Phone Wi-Fi is active and screen is unlocked.
-        echo   3. If port 5555 was reset, use Option 2 or Option 4.
+        echo   1. Plug phone into PC with USB cable [Use Option 2].
+        echo   2. Or on phone: Developer options - toggle Wireless debugging.
         echo.
         pause
         goto connection_menu
@@ -606,6 +612,13 @@ echo     q = Quit
 echo.
 echo ========================================
 echo.
+if not "%IS_WEB%"=="1" (
+    call :verify_device_connected
+    if errorlevel 1 (
+        echo [ERROR] Target %DEVICE_ID% is offline or disconnected!
+        goto handle_lost_connection
+    )
+)
 call :apply_device_optimizations
 call :start_keepalive
 call flutter run -d %DEVICE_ID%
@@ -918,10 +931,13 @@ goto connection_menu
 
 :fast_install_reconnect
 echo.
+echo Disconnecting stale session...
+if not "%SAVED_IP%"=="" "%ADB%" disconnect %SAVED_IP%:5555 >nul 2>&1
+timeout /t 1 /nobreak >nul
 echo Reconnecting to %DEVICE_ID%...
 if not "%SAVED_IP%"=="" "%ADB%" connect %SAVED_IP%:5555
 timeout /t 1 /nobreak >nul
-"%ADB%" -s %DEVICE_ID% get-state >nul 2>&1
+"%ADB%" devices | findstr /c:"%DEVICE_ID%	device" >nul 2>&1
 if errorlevel 1 (
     echo.
     echo [ERROR] Phone could not be reached on port 5555.
@@ -948,14 +964,17 @@ goto menu
 
 :handle_recon_1
 if "%SAVED_IP%"=="" goto connection_menu
+echo Disconnecting stale session...
+"%ADB%" disconnect %SAVED_IP%:5555 >nul 2>&1
+timeout /t 1 /nobreak >nul
 echo Connecting to %SAVED_IP%:5555...
 "%ADB%" connect %SAVED_IP%:5555
 set "DEVICE_ID=%SAVED_IP%:5555"
 timeout /t 1 /nobreak >nul
-"%ADB%" -s %DEVICE_ID% get-state >nul 2>&1
+"%ADB%" devices | findstr /c:"%DEVICE_ID%	device" >nul 2>&1
 if errorlevel 1 (
     echo.
-    echo [ERROR] Connection to %SAVED_IP%:5555 failed [Port 5555 closed].
+    echo [ERROR] Connection to %SAVED_IP%:5555 failed [Device is offline or refusing port 5555].
     echo Xiaomi/MIUI closes Port 5555 when USB cable is unplugged.
     echo Please plug phone into USB cable or toggle Wireless Debugging on phone.
     echo.
@@ -1079,6 +1098,27 @@ if not exist ".dart_tool\package_config.json" (
     )
 )
 exit /b 0
+
+:verify_device_connected
+if "%IS_WEB%"=="1" exit /b 0
+if "%DEVICE_ID%"=="" exit /b 1
+"%ADB%" devices | findstr /c:"%DEVICE_ID%	device" >nul 2>&1
+if not errorlevel 1 exit /b 0
+
+:: If device is listed as offline, try one quick disconnect/reconnect attempt
+"%ADB%" devices | findstr /c:"%DEVICE_ID%" >nul 2>&1
+if not errorlevel 1 (
+    echo [WARNING] Device %DEVICE_ID% is listed as OFFLINE. Attempting socket refresh...
+    if not "%SAVED_IP%"=="" (
+        "%ADB%" disconnect %SAVED_IP%:5555 >nul 2>&1
+        timeout /t 1 /nobreak >nul
+        "%ADB%" connect %SAVED_IP%:5555 >nul 2>&1
+        timeout /t 1 /nobreak >nul
+    )
+    "%ADB%" devices | findstr /c:"%DEVICE_ID%	device" >nul 2>&1
+    if not errorlevel 1 exit /b 0
+)
+exit /b 1
 
 :apply_device_optimizations
 if "%IS_WEB%"=="1" goto :eof

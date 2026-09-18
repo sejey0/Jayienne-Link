@@ -45,6 +45,9 @@ class RouteNames {
   // Voice Notes & Audio Messages
   static const String voiceNotes = '/voice-notes';
 
+  // Mood Letters ("Open When...")
+  static const String moodLetters = '/mood-letters';
+
   // Admin & Security routes
   static const String adminDashboard = '/admin';
   static const String deactivated = '/deactivated';

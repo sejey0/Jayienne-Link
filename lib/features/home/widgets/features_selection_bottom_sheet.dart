@@ -116,6 +116,13 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
         gradientColors: [Color(0xFFFF4D6D), Color(0xFFA18CD1)],
         route: RouteNames.voiceNotes,
       ),
+      _FeatureModalItem(
+        title: 'Mood Letters',
+        subtitle: 'Open when letters',
+        icon: Icons.mark_email_unread_rounded,
+        gradientColors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+        route: RouteNames.moodLetters,
+      ),
     ];
 
     final featureItems = [

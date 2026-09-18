@@ -49,11 +49,11 @@ class _ReceivedLettersTabState extends State<ReceivedLettersTab> {
 
     return Column(
       children: [
-        // Only show filter chips if there are 2 or more distinct categories
+        // Category Filter Chips
         if (categoriesWithLetters.length > 1) ...[
           const SizedBox(height: 12),
           SizedBox(
-            height: 42,
+            height: 38,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
@@ -62,37 +62,71 @@ class _ReceivedLettersTabState extends State<ReceivedLettersTab> {
               itemBuilder: (ctx, index) {
                 final category = availableCategories[index];
                 final isSelected = activeCategory == category;
-                return ChoiceChip(
-                  label: Text(
-                    category,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                return InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    lettersProvider.selectCategory(category);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: isSelected
+                          ? const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
                       color: isSelected
-                          ? Colors.white
-                          : (isDark ? Colors.white70 : AppColors.deepCharcoal),
+                          ? null
+                          : (isDark
+                              ? Colors.white.withValues(alpha: 0.07)
+                              : Colors.white),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: isSelected
+                            ? Colors.transparent
+                            : (isDark
+                                ? Colors.white.withValues(alpha: 0.12)
+                                : Colors.grey.shade300),
+                        width: 1,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                    ),
+                    child: Text(
+                      category,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected
+                            ? Colors.white
+                            : (isDark ? Colors.white70 : AppColors.deepCharcoal),
+                      ),
                     ),
                   ),
-                  selected: isSelected,
-                  selectedColor: const Color(0xFFFF758C),
-                  backgroundColor: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.grey.shade200,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  showCheckmark: false,
-                  onSelected: (val) {
-                    if (val) {
-                      HapticFeedback.selectionClick();
-                      lettersProvider.selectCategory(category);
-                    }
-                  },
                 );
               },
             ),
           ),
           const SizedBox(height: 8),
         ] else
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
         // Letters List
         Expanded(
@@ -102,81 +136,16 @@ class _ReceivedLettersTabState extends State<ReceivedLettersTab> {
               await lettersProvider.refreshReceivedLetters();
             },
             child: filteredLetters.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.18),
-                      Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(18),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFF758C).withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.mail_outline_rounded,
-                                size: 48,
-                                color: isDark ? Colors.white38 : Colors.grey.shade400,
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            Text(
-                              'No letters in this mood yet',
-                              style: TextStyle(
-                                color: isDark ? Colors.white70 : AppColors.deepCharcoal,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Letters written by your partner will appear here.',
-                              style: TextStyle(
-                                color: isDark ? Colors.white38 : Colors.grey.shade500,
-                                fontSize: 13,
-                              ),
-                            ),
-                            if (lettersProvider.sentLetters.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1F2B47) : const Color(0xFFFFF0F3),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.outbox_rounded, size: 16, color: Color(0xFFFF758C)),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'You have ${lettersProvider.sentLetters.length} letter${lettersProvider.sentLetters.length == 1 ? '' : 's'} in the Sent tab',
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: isDark ? Colors.white70 : const Color(0xFFD81B60),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
+                ? _buildEmptyState(context, isDark, lettersProvider)
                 : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 90),
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
                     itemCount: filteredLetters.length,
                     itemBuilder: (ctx, index) {
                       final letter = filteredLetters[index];
-                      return _buildLetterCard(letter, isDark);
+                      return _buildReceivedLetterCard(letter, isDark);
                     },
                   ),
           ),
@@ -185,33 +154,134 @@ class _ReceivedLettersTabState extends State<ReceivedLettersTab> {
     );
   }
 
-  Widget _buildLetterCard(MoodLetterModel letter, bool isDark) {
+  /// Empty state when no received letters exist
+  Widget _buildEmptyState(
+    BuildContext context,
+    bool isDark,
+    MoodLettersProvider lettersProvider,
+  ) {
+    return ListView(
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.16),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                        blurRadius: 18,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.mail_outline_rounded,
+                    size: 44,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Your letterbox is waiting',
+                  style: TextStyle(
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Letters written by your partner will be sealed here for you to open when the mood strikes.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    fontSize: 13.5,
+                    height: 1.45,
+                  ),
+                ),
+                if (lettersProvider.sentLetters.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1F2B47) : const Color(0xFFFFF0F3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.outbox_rounded, size: 16, color: Color(0xFFFF758C)),
+                        const SizedBox(width: 8),
+                        Text(
+                          'You have ${lettersProvider.sentLetters.length} letter${lettersProvider.sentLetters.length == 1 ? '' : 's'} in the Sent tab',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white70 : const Color(0xFFD81B60),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Modern romantic received letter card
+  Widget _buildReceivedLetterCard(MoodLetterModel letter, bool isDark) {
+    final isSealed = !letter.isRead;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1F2B47) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        color: isDark
+            ? (isSealed ? const Color(0xFF221A30) : const Color(0xFF1B1527))
+            : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isSealed
+              ? const Color(0xFFFF758C).withValues(alpha: 0.5)
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFFFF758C).withValues(alpha: 0.18)),
+          width: isSealed ? 1.4 : 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: letter.isRead
-                ? Colors.black.withValues(alpha: 0.03)
-                : const Color(0xFFFF758C).withValues(alpha: 0.16),
-            blurRadius: letter.isRead ? 6 : 12,
+            color: isSealed
+                ? const Color(0xFFFF758C).withValues(alpha: 0.18)
+                : Colors.black.withValues(alpha: 0.03),
+            blurRadius: isSealed ? 12 : 6,
             offset: const Offset(0, 3),
           ),
         ],
-        border: Border.all(
-          color: letter.isRead
-              ? Colors.transparent
-              : const Color(0xFFFF758C).withValues(alpha: 0.45),
-          width: 1.2,
-        ),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           onTap: () async {
+            HapticFeedback.lightImpact();
             await LetterDetailModal.show(context, letter);
           },
           child: Padding(
@@ -219,80 +289,172 @@ class _ReceivedLettersTabState extends State<ReceivedLettersTab> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Envelope Icon Badge
+                // Sealed Envelope Badge vs Read Badge
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  width: 50,
+                  height: 50,
                   decoration: BoxDecoration(
-                    gradient: letter.isRead
-                        ? null
-                        : const LinearGradient(
+                    gradient: isSealed
+                        ? const LinearGradient(
                             colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                          ),
-                    color: letter.isRead
-                        ? (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200)
+                          )
                         : null,
-                    borderRadius: BorderRadius.circular(14),
+                    color: isSealed
+                        ? null
+                        : (isDark
+                            ? Colors.white.withValues(alpha: 0.07)
+                            : const Color(0xFFF6F3F9)),
+                    shape: BoxShape.circle,
+                    boxShadow: isSealed
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.4),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : null,
                   ),
                   child: Icon(
-                    letter.isRead ? Icons.drafts_outlined : Icons.mark_email_unread_rounded,
-                    color: letter.isRead ? Colors.grey : Colors.white,
+                    isSealed ? Icons.mark_email_unread_rounded : Icons.drafts_rounded,
+                    color: isSealed
+                        ? Colors.white
+                        : (isDark ? const Color(0xFFA18CD1) : Colors.grey.shade600),
                     size: 24,
                   ),
                 ),
                 const SizedBox(width: 14),
 
-                // Details
+                // Letter Details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          letter.category,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFFF758C),
+                      // Mood Category + Date Row
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.favorite_rounded,
+                                    size: 10, color: Color(0xFFFF758C)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  letter.category,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFFF758C),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                          const Spacer(),
+                          Text(
+                            letter.formattedCreatedAt,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark ? Colors.white38 : Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
+
+                      // Title
                       Text(
                         letter.title,
                         style: TextStyle(
-                          fontSize: 15.5,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: isDark ? Colors.white : AppColors.deepCharcoal,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        letter.formattedCreatedAt,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: isDark ? Colors.white38 : Colors.grey.shade500,
-                        ),
+                      const SizedBox(height: 6),
+
+                      // Status & Action Indicator Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Status Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: isSealed
+                                  ? const Color(0xFFFF5252).withValues(alpha: 0.12)
+                                  : const Color(0xFF27AE60).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isSealed
+                                      ? Icons.lock_outline_rounded
+                                      : Icons.check_circle_outline_rounded,
+                                  size: 11,
+                                  color: isSealed
+                                      ? const Color(0xFFFF5252)
+                                      : const Color(0xFF27AE60),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isSealed
+                                      ? 'Sealed'
+                                      : (letter.readCount <= 1
+                                          ? 'Opened'
+                                          : 'Opened ${letter.readCount}x'),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSealed
+                                        ? const Color(0xFFFF5252)
+                                        : const Color(0xFF27AE60),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Open Affordance
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                isSealed ? 'Tap to open' : 'Read again',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSealed
+                                      ? const Color(0xFFFF758C)
+                                      : (isDark ? Colors.white38 : Colors.grey.shade500),
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 10,
+                                color: isSealed
+                                    ? const Color(0xFFFF758C)
+                                    : (isDark ? Colors.white38 : Colors.grey.shade400),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ),
-
-                const SizedBox(width: 8),
-
-                // Action Indicator
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: isDark ? Colors.white30 : Colors.grey.shade400,
                 ),
               ],
             ),

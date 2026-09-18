@@ -694,6 +694,31 @@ echo.
 set "GH_USER=sejey0"
 set "GH_REPO=Jayienne-Link"
 
+set "GH_BIN="
+where gh >nul 2>&1
+if not errorlevel 1 set "GH_BIN=gh"
+if not defined GH_BIN if exist "%LOCALAPPDATA%\Programs\GitHub CLI\bin\gh.exe" set "GH_BIN=%LOCALAPPDATA%\Programs\GitHub CLI\bin\gh.exe"
+if not defined GH_BIN if exist "C:\Program Files\GitHub CLI\gh.exe" set "GH_BIN=C:\Program Files\GitHub CLI\gh.exe"
+
+if not defined GH_TOKEN (
+    for /f "tokens=2 delims==" %%A in ('cmd /c "echo url=https://github.com| git credential fill | findstr /i password="') do (
+        set "GH_TOKEN=%%A"
+    )
+)
+
+if defined GH_BIN (
+    echo [Pre-Flight] Verifying GitHub authentication...
+    call "!GH_BIN!" auth status >nul 2>&1
+    if errorlevel 1 (
+        echo [ERROR] GitHub CLI is not authenticated!
+        echo Please run: gh auth login
+        echo or set GH_TOKEN before publishing.
+        pause
+        goto releasemenu
+    )
+    echo [OK] GitHub connection verified.
+)
+
 call powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0prepare_ota_release.ps1" -Action scan
 if errorlevel 1 (
     echo.

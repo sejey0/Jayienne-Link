@@ -550,6 +550,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       curve: Curves.easeOutCubic,
     );
 
+    SexPositionsService.isHiddenNotifier.addListener(_onSexPositionsHiddenChanged);
     _loadPersistentData();
 
     _sexPositionsService.loadPositions().then((_) {
@@ -575,6 +576,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   @override
   void dispose() {
+    SexPositionsService.isHiddenNotifier.removeListener(_onSexPositionsHiddenChanged);
     if (_spinnerChannel != null) {
       try {
         SupabaseDataService.client.removeChannel(_spinnerChannel!);
@@ -584,6 +586,19 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     _wheelController.dispose();
     _quickSlotTimer?.cancel();
     super.dispose();
+  }
+
+  void _onSexPositionsHiddenChanged() {
+    if (!mounted) return;
+    final isSexHidden = SexPositionsService.isHiddenNotifier.value;
+    if (isSexHidden && _selectedCategoryIndex == 3) {
+      setState(() {
+        _selectedCategoryIndex = 0;
+        _restoreDisplayResultForCategory(0);
+      });
+    } else {
+      setState(() {});
+    }
   }
 
   /// Setup Real-time Supabase Broadcast Channel for Live Dual Spinner Sync
@@ -1108,6 +1123,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
+
+      try {
+        final currentUserId =
+            Provider.of<UserProvider>(context, listen: false).user?.uid;
+        await _sexPositionsService.loadHiddenState(userId: currentUserId);
+      } catch (_) {}
+
+      if (!mounted) return;
+
       setState(() {
         // Always default to Movie Watchlist (Tab 0) when opening the Decision Spinner
         _selectedCategoryIndex = 0;
@@ -1225,6 +1249,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         }
 
         _spinSourceIndex = null; // Always require explicit selection before spin
+
+        if (SexPositionsService.isHiddenNotifier.value && _selectedCategoryIndex == 3) {
+          _selectedCategoryIndex = 0;
+        }
 
         // Restore display result for active category
         _restoreDisplayResultForCategory(_selectedCategoryIndex);
@@ -6315,6 +6343,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
   /// Full-screen category selection list shown when the spinner first opens
   Widget _buildCategoryPickerView(bool isDark) {
+    final isSexHidden = SexPositionsService.isHiddenNotifier.value;
     final categories = [
       (
         index: 0,
@@ -6337,13 +6366,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         icon: Icons.restaurant_rounded,
         color: const Color(0xFFFF9A5C),
       ),
-      (
-        index: 3,
-        label: 'Sex Positions',
-        subtitle: 'Spin a random intimate position',
-        icon: Icons.favorite_rounded,
-        color: const Color(0xFFFF758C),
-      ),
+      if (!isSexHidden)
+        (
+          index: 3,
+          label: 'Sex Positions',
+          subtitle: 'Spin a random intimate position',
+          icon: Icons.favorite_rounded,
+          color: const Color(0xFFFF758C),
+        ),
     ];
 
     return Padding(
@@ -6486,6 +6516,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     required IconData icon,
     required bool isDark,
   }) {
+    if (index == 3 && SexPositionsService.isHiddenNotifier.value) {
+      return const SizedBox.shrink();
+    }
     final isSelected = _selectedCategoryIndex == index;
 
     return InkWell(

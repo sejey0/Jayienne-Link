@@ -21,10 +21,15 @@ import '../../../services/update_service.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/timed_confirm_dialog.dart';
-import '../../admin/screens/admin_dashboard_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../services/sex_positions_service.dart';
 import '../../auth/screens/auth_screen.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../auth/screens/register_screen.dart';
+import '../../admin/screens/admin_dashboard_screen.dart';
+import '../../splash/splash_screen.dart';
+import '../../../widgets/common/romantic_loading_indicator.dart';
+import '../../../widgets/common/loading_overlay.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -38,6 +43,12 @@ class SettingsScreen extends StatelessWidget {
     final couple = coupleProvider.couple;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+
+    if (user != null && user.id.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        SexPositionsService().loadHiddenState(userId: user.id);
+      });
+    }
 
     final cardBg = isDark ? const Color(0xFF1E142B) : Colors.white;
 
@@ -344,7 +355,62 @@ class SettingsScreen extends StatelessWidget {
                   value: isVaultHidden,
                   onChanged: (val) {
                     HapticFeedback.selectionClick();
-                    secretMediaProvider.setVaultHiddenFromFeatures(val, userId: user?.id);
+                    _promptPasswordToToggleVault(
+                      context,
+                      targetValue: val,
+                      email: user?.email ??
+                          Supabase.instance.client.auth.currentUser?.email ??
+                          '',
+                      userId: user?.id,
+                      secretMediaProvider: secretMediaProvider,
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          // Hide Sex Positions from Decision Spinner
+          ValueListenableBuilder<bool>(
+            valueListenable: SexPositionsService.isHiddenNotifier,
+            builder: (context, isPositionsHidden, _) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.grey.shade200,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: _buildSwitchTile(
+                  icon: isPositionsHidden
+                      ? Icons.visibility_off_rounded
+                      : Icons.favorite_rounded,
+                  gradientColors: const [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  title: 'Hide Sex Positions from Spinner',
+                  subtitle: isPositionsHidden
+                      ? 'Sex Positions are concealed from Decision Spinner'
+                      : 'Sex Positions are visible in Decision Spinner',
+                  value: isPositionsHidden,
+                  onChanged: (val) {
+                    HapticFeedback.selectionClick();
+                    _promptPasswordToToggleSexPositions(
+                      context,
+                      targetValue: val,
+                      email: user?.email ??
+                          Supabase.instance.client.auth.currentUser?.email ??
+                          '',
+                      userId: user?.id,
+                    );
                   },
                 ),
               );
@@ -657,6 +723,109 @@ class SettingsScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
+                  // Preview App Loading (Splash Screen)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const SplashScreen(isPreview: true),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.hourglass_top_rounded,
+                          color: AppColors.lavender, size: 16),
+                      label: const Text(
+                        'Preview App Loading (Splash Screen)',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                            color: AppColors.lavender, width: 1.5),
+                        foregroundColor: AppColors.lavender,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Preview Fullscreen Loading & Loading Overlay Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const _RomanticLoadingScreenPreview(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.favorite_border_rounded,
+                              size: 15),
+                          label: const Text(
+                            'Screen Loading',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                                color:
+                                    AppColors.lavender.withValues(alpha: 0.6)),
+                            foregroundColor: AppColors.lavender,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const _LoadingOverlayPreview(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.layers_outlined, size: 15),
+                          label: const Text(
+                            'Overlay Loading',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                                color:
+                                    AppColors.lavender.withValues(alpha: 0.6)),
+                            foregroundColor: AppColors.lavender,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                   // Preview Welcome / First Install Screen
                   SizedBox(
                     width: double.infinity,
@@ -1339,6 +1508,87 @@ class SettingsScreen extends StatelessWidget {
       SnackbarHelper.showInfo(
         context,
         'App Passcode disabled',
+      );
+    }
+  }
+
+  Future<void> _promptPasswordToToggleVault(
+    BuildContext context, {
+    required bool targetValue,
+    required String email,
+    String? userId,
+    required SecretMediaProvider secretMediaProvider,
+  }) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => _VerifyPasswordDialog(
+        title: 'Vault Security Verification',
+        description: targetValue
+            ? 'Enter your account login password to conceal the Hidden Vault from your features menu.'
+            : 'Enter your account login password to reveal the Hidden Vault in your features menu.',
+        headerIcon:
+            targetValue ? Icons.visibility_off_rounded : Icons.lock_rounded,
+        gradientColors: const [Color(0xFFC2185B), Color(0xFF512DA8)],
+        email: email,
+        isDark: isDark,
+        onVerified: () async {
+          await secretMediaProvider.setVaultHiddenFromFeatures(
+            targetValue,
+            userId: userId,
+          );
+        },
+      ),
+    );
+
+    if (result == true && context.mounted) {
+      SnackbarHelper.showSuccess(
+        context,
+        targetValue
+            ? 'Hidden Vault is now concealed from features.'
+            : 'Hidden Vault is now visible in features.',
+      );
+    }
+  }
+
+  Future<void> _promptPasswordToToggleSexPositions(
+    BuildContext context, {
+    required bool targetValue,
+    required String email,
+    String? userId,
+  }) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => _VerifyPasswordDialog(
+        title: 'Security Verification',
+        description: targetValue
+            ? 'Enter your account login password to conceal Sex Positions from the Decision Spinner.'
+            : 'Enter your account login password to reveal Sex Positions in the Decision Spinner.',
+        headerIcon:
+            targetValue ? Icons.visibility_off_rounded : Icons.favorite_rounded,
+        gradientColors: const [Color(0xFFFF758C), Color(0xFFA18CD1)],
+        email: email,
+        isDark: isDark,
+        onVerified: () async {
+          await SexPositionsService().setSexPositionsHidden(
+            targetValue,
+            userId: userId,
+          );
+        },
+      ),
+    );
+
+    if (result == true && context.mounted) {
+      SnackbarHelper.showSuccess(
+        context,
+        targetValue
+            ? 'Sex Positions are now hidden from Decision Spinner.'
+            : 'Sex Positions are now visible in Decision Spinner.',
       );
     }
   }
@@ -2218,3 +2468,572 @@ class _DisablePinDialogState extends State<_DisablePinDialog> {
     );
   }
 }
+
+class _VerifyPasswordDialog extends StatefulWidget {
+  final String title;
+  final String description;
+  final String email;
+  final bool isDark;
+  final IconData headerIcon;
+  final List<Color> gradientColors;
+  final Future<void> Function() onVerified;
+
+  const _VerifyPasswordDialog({
+    this.title = 'Security Verification',
+    required this.description,
+    required this.email,
+    required this.isDark,
+    this.headerIcon = Icons.lock_rounded,
+    this.gradientColors = const [Color(0xFFFF758C), Color(0xFFA18CD1)],
+    required this.onVerified,
+  });
+
+  @override
+  State<_VerifyPasswordDialog> createState() => _VerifyPasswordDialogState();
+}
+
+class _VerifyPasswordDialogState extends State<_VerifyPasswordDialog> {
+  final TextEditingController _passwordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _isVerifying = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _verify() async {
+    final password = _passwordController.text;
+    if (password.isEmpty) {
+      setState(() => _errorMessage = 'Please enter your login password');
+      return;
+    }
+
+    setState(() {
+      _isVerifying = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final emailToUse = widget.email.isNotEmpty
+          ? widget.email
+          : (Supabase.instance.client.auth.currentUser?.email ?? '');
+
+      if (emailToUse.isEmpty) {
+        setState(() {
+          _isVerifying = false;
+          _errorMessage = 'No user email found to verify password';
+        });
+        return;
+      }
+
+      final authResponse =
+          await Supabase.instance.client.auth.signInWithPassword(
+        email: emailToUse,
+        password: password,
+      );
+
+      if (authResponse.user != null) {
+        await widget.onVerified();
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isVerifying = false;
+            _errorMessage = 'Incorrect password. Please try again.';
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isVerifying = false;
+          final errStr = e.toString().toLowerCase();
+          if (errStr.contains('network') ||
+              errStr.contains('socket') ||
+              errStr.contains('connection')) {
+            _errorMessage = 'Connection error. Check your internet.';
+          } else {
+            _errorMessage = 'Incorrect password. Please try again.';
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: widget.isDark ? const Color(0xFF1E142B) : Colors.white,
+      contentPadding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Top Badge Icon
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: widget.gradientColors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.gradientColors.first.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Icon(
+                widget.headerIcon,
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Title
+            Text(
+              widget.title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: widget.isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Subtitle
+            Text(
+              widget.description,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: widget.isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Password Field
+            TextField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              autofocus: true,
+              style: TextStyle(
+                color: widget.isDark ? Colors.white : AppColors.deepCharcoal,
+                fontSize: 14.5,
+              ),
+              onSubmitted: (_) => _verify(),
+              decoration: InputDecoration(
+                labelText: 'Login Password',
+                labelStyle: TextStyle(
+                  color: widget.isDark ? Colors.white60 : Colors.grey.shade600,
+                  fontSize: 13.5,
+                ),
+                prefixIcon: Icon(
+                  Icons.vpn_key_rounded,
+                  size: 20,
+                  color: widget.gradientColors.first,
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                    size: 20,
+                    color: widget.isDark ? Colors.white54 : Colors.grey.shade600,
+                  ),
+                  onPressed: () {
+                    setState(() => _obscurePassword = !_obscurePassword);
+                  },
+                ),
+                filled: true,
+                fillColor: widget.isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : const Color(0xFFFBF9FC),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: widget.isDark ? Colors.white12 : Colors.grey.shade300,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: widget.isDark ? Colors.white12 : Colors.grey.shade300,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: widget.gradientColors.first,
+                    width: 1.8,
+                  ),
+                ),
+              ),
+            ),
+
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 14,
+                    color: AppColors.error,
+                  ),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 20),
+
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: SecondaryCancelButton(
+                    label: 'Cancel',
+                    height: 44,
+                    borderRadius: 14,
+                    fontSize: 13.5,
+                    onPressed: () => Navigator.pop(context, false),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: _isVerifying
+                          ? null
+                          : LinearGradient(
+                              colors: widget.gradientColors,
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                      color: _isVerifying
+                          ? (widget.isDark
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : Colors.grey.shade300)
+                          : null,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: _isVerifying
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: widget.gradientColors.first
+                                    .withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _isVerifying ? null : _verify,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        padding: EdgeInsets.zero,
+                      ),
+                      child: _isVerifying
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check_rounded, size: 17),
+                                SizedBox(width: 5),
+                                Text(
+                                  'Confirm',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RomanticLoadingScreenPreview extends StatelessWidget {
+  const _RomanticLoadingScreenPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      body: Stack(
+        children: [
+          const RomanticLoadingScreen(
+            message: 'Connecting your hearts...',
+            subtitle: 'Syncing memories and love letters',
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            left: 16,
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: Icon(
+                  Icons.close_rounded,
+                  color: isDark ? Colors.white : Colors.black87,
+                  size: 22,
+                ),
+                tooltip: 'Close Preview',
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.16)
+                        : Colors.black.withValues(alpha: 0.12),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.visibility_rounded,
+                      size: 14,
+                      color: Color(0xFFFF758C),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Full Screen Loading Preview',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoadingOverlayPreview extends StatefulWidget {
+  const _LoadingOverlayPreview();
+
+  @override
+  State<_LoadingOverlayPreview> createState() => _LoadingOverlayPreviewState();
+}
+
+class _LoadingOverlayPreviewState extends State<_LoadingOverlayPreview> {
+  bool _isLoading = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor:
+          isDark ? const Color(0xFF140E1B) : const Color(0xFFFFF7F9),
+      appBar: AppBar(
+        title: const Text(
+          'Loading Overlay Preview',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                setState(() => _isLoading = !_isLoading);
+              },
+              icon: Icon(
+                _isLoading
+                    ? Icons.visibility_off_rounded
+                    : Icons.hourglass_top_rounded,
+                size: 18,
+                color: Colors.white,
+              ),
+              label: Text(
+                _isLoading
+                    ? 'Hide Loading Overlay'
+                    : 'Show Loading Overlay',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: LoadingOverlay(
+        isLoading: _isLoading,
+        message: 'Syncing your love updates...',
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E142B) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.grey.shade200,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                            Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.favorite_rounded,
+                            color: Colors.white, size: 28),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Sample App Content',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: isDark ? Colors.white : AppColors.deepCharcoal,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This simulates how app content looks behind the blurred romantic LoadingOverlay backdrop.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: isDark ? Colors.white60 : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

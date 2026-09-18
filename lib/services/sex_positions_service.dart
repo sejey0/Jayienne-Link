@@ -1,18 +1,59 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/sex_position_model.dart';
 
 class SexPositionsService {
   static final SexPositionsService _instance = SexPositionsService._internal();
   factory SexPositionsService() => _instance;
-  SexPositionsService._internal();
+  SexPositionsService._internal() {
+    loadHiddenState();
+  }
+
+  static final ValueNotifier<bool> isHiddenNotifier = ValueNotifier<bool>(false);
+  static const String _prefKeyPrefix = 'is_sex_positions_hidden_from_spinner';
 
   List<SexPositionModel> _positions = [];
   bool _isLoaded = false;
 
   bool get isLoaded => _isLoaded;
   List<SexPositionModel> get positions => List.unmodifiable(_positions);
+  bool get isSexPositionsHidden => isHiddenNotifier.value;
+
+  /// Load whether Sex Positions are hidden from the Decision Spinner
+  Future<bool> loadHiddenState({String? userId}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = (userId != null && userId.isNotEmpty)
+          ? '${_prefKeyPrefix}_$userId'
+          : _prefKeyPrefix;
+      final hidden = prefs.getBool(key) ?? prefs.getBool(_prefKeyPrefix) ?? false;
+      if (isHiddenNotifier.value != hidden) {
+        isHiddenNotifier.value = hidden;
+      }
+      return hidden;
+    } catch (_) {
+      return isHiddenNotifier.value;
+    }
+  }
+
+  /// Update whether Sex Positions are hidden from the Decision Spinner
+  Future<void> setSexPositionsHidden(bool hidden, {String? userId}) async {
+    if (isHiddenNotifier.value != hidden) {
+      isHiddenNotifier.value = hidden;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = (userId != null && userId.isNotEmpty)
+          ? '${_prefKeyPrefix}_$userId'
+          : _prefKeyPrefix;
+      await prefs.setBool(key, hidden);
+      await prefs.setBool(_prefKeyPrefix, hidden);
+    } catch (e) {
+      debugPrint('Error saving sex positions hidden state: $e');
+    }
+  }
 
   /// Load positions from the bundled assets/data/sex_positions.json
   Future<List<SexPositionModel>> loadPositions() async {

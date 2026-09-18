@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/mood_letter_model.dart';
 import '../../../providers/mood_letters_provider.dart';
+import '../widgets/letter_detail_modal.dart';
 
 class SentLettersTab extends StatelessWidget {
   const SentLettersTab({super.key});
@@ -72,16 +74,15 @@ class SentLettersTab extends StatelessWidget {
               itemCount: sentLetters.length,
               itemBuilder: (ctx, index) {
                 final letter = sentLetters[index];
-                return _buildSentLetterTile(letter, isDark);
+                return _buildSentLetterTile(context, letter, isDark);
               },
             ),
     );
   }
 
-  Widget _buildSentLetterTile(MoodLetterModel letter, bool isDark) {
+  Widget _buildSentLetterTile(BuildContext context, MoodLetterModel letter, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1F2B47) : Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -93,133 +94,172 @@ class SentLettersTab extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Row: Category and Status Pill
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFA18CD1).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  letter.category,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFA18CD1),
-                  ),
-                ),
-              ),
-              _buildStatusBadge(letter.isRead),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Title
-          Text(
-            letter.title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : AppColors.deepCharcoal,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-
-          // Analytics Row: Read Count and Timestamps
-          Row(
-            children: [
-              // Read Counter Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  gradient: letter.readCount > 0
-                      ? const LinearGradient(
-                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
-                      : null,
-                  color: letter.readCount == 0
-                      ? (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200)
-                      : null,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: letter.readCount > 0
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFFFF758C).withValues(alpha: 0.25),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            LetterDetailModal.show(
+              context,
+              letter,
+              isSenderView: true,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Row: Category and Status Pill
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(
-                      Icons.visibility_outlined,
-                      size: 13,
-                      color: letter.readCount > 0 ? Colors.white : Colors.grey,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      letter.readCount == 0 ? 'Unopened' : 'Opened ${letter.readCount}x',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: letter.readCount > 0 ? Colors.white : Colors.grey.shade700,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFA18CD1).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-
-              // Timestamp details
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (letter.firstReadAt != null)
-                    Text(
-                      'First read: ${letter.formattedFirstReadAt}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.white70 : Colors.grey.shade700,
-                      ),
-                    ),
-                  if (letter.lastReadAt != null && letter.readCount > 1)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
                       child: Text(
-                        'Last read: ${letter.formattedLastReadAt}',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: isDark ? Colors.white38 : Colors.grey.shade500,
+                        letter.category,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFA18CD1),
                         ),
                       ),
                     ),
-                  if (letter.firstReadAt == null)
-                    Text(
-                      'Sent ${letter.formattedCreatedAt}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDark ? Colors.white38 : Colors.grey.shade500,
+                    _buildStatusBadge(letter.isRead),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Title
+                Text(
+                  letter.title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+
+                // Analytics Row: Read Count and Timestamps
+                Row(
+                  children: [
+                    // Read Counter Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        gradient: letter.readCount > 0
+                            ? const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        color: letter.readCount == 0
+                            ? (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200)
+                            : null,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: letter.readCount > 0
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.visibility_outlined,
+                            size: 13,
+                            color: letter.readCount > 0 ? Colors.white : Colors.grey,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            letter.readCount == 0 ? 'Unopened' : 'Opened ${letter.readCount}x',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: letter.readCount > 0 ? Colors.white : Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                ],
-              ),
-            ],
+                    const Spacer(),
+
+                    // Timestamp details
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (letter.firstReadAt != null)
+                          Text(
+                            'First read: ${letter.formattedFirstReadAt}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? Colors.white70 : Colors.grey.shade700,
+                            ),
+                          ),
+                        if (letter.lastReadAt != null && letter.readCount > 1)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              'Last read: ${letter.formattedLastReadAt}',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: isDark ? Colors.white38 : Colors.grey.shade500,
+                              ),
+                            ),
+                          ),
+                        if (letter.firstReadAt == null)
+                          Text(
+                            'Sent ${letter.formattedCreatedAt}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? Colors.white38 : Colors.grey.shade500,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Tap to preview affordance row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Tap to view what you wrote',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? const Color(0xFFA18CD1) : const Color(0xFFFF758C),
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 15,
+                      color: isDark ? const Color(0xFFA18CD1) : const Color(0xFFFF758C),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }

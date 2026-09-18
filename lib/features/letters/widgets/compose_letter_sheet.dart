@@ -5,7 +5,6 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/mood_letters_provider.dart';
 import '../../../providers/user_provider.dart';
-import '../../../widgets/common/timed_confirm_dialog.dart';
 
 class ComposeLetterSheet extends StatefulWidget {
   const ComposeLetterSheet({super.key});
@@ -288,9 +287,47 @@ class _ComposeLetterSheetState extends State<ComposeLetterSheet> {
                 children: [
                   Expanded(
                     flex: 1,
-                    child: SecondaryCancelButton(
-                      label: 'Cancel',
-                      onPressed: () => Navigator.of(context).pop(),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF5252).withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton.icon(
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          size: 17,
+                          color: Colors.white,
+                        ),
+                        label: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.of(context).pop();
+                        },
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),

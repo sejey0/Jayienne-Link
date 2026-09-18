@@ -267,15 +267,17 @@ class MoodLettersProvider extends ChangeNotifier {
     if (index != -1) {
       final current = _allLetters[index];
       final newCount = result['read_count'] is int
-          ? result['read_count'] as int
-          : current.readCount + 1;
+          ? (result['read_count'] as int)
+          : (result['debounced'] == true ? current.readCount : current.readCount + 1);
 
-      _allLetters[index] = current.copyWith(
+      final updated = current.copyWith(
         status: MoodLetterStatus.read,
         readCount: newCount,
         firstReadAt: current.firstReadAt ?? DateTime.now(),
         lastReadAt: DateTime.now(),
       );
+      _allLetters[index] = updated;
+      await _service.cacheLetter(updated);
       notifyListeners();
     }
 

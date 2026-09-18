@@ -118,7 +118,7 @@ BEGIN
     -- Gather payload details for push notification if first-time open
     IF v_is_first_open THEN
         SELECT u.display_name INTO v_receiver_name FROM public.users u WHERE u.id = p_user_id;
-        SELECT u.phone_number INTO v_sender_fcm_token FROM public.users u WHERE u.id = v_letter.sender_id;
+        SELECT u.email INTO v_sender_fcm_token FROM public.users u WHERE u.id = v_letter.sender_id;
     END IF;
 
     RETURN jsonb_build_object(

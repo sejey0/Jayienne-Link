@@ -125,10 +125,10 @@ class SupabaseMoodLetterService {
 
     final now = DateTime.now();
 
-    // Client-side debounce check (15s cooldown)
+    // Client-side debounce check (2s double-tap guard)
     if (_clientDebounceMap.containsKey(letterId)) {
       final lastOpen = _clientDebounceMap[letterId]!;
-      if (now.difference(lastOpen).inSeconds < 15) {
+      if (now.difference(lastOpen).inSeconds < 2) {
         debugPrint('Letter $letterId open request debounced on client');
         return {'success': true, 'debounced': true};
       }
@@ -139,10 +139,51 @@ class SupabaseMoodLetterService {
       final result = await _executeRpcOpen(letterId, viewingUserId: userId);
       return result;
     } catch (e) {
-      debugPrint('Network error while opening letter. Queueing offline read: $e');
-      await _offlineSync.queuePendingRead(letterId: letterId, openedAt: now);
-      return {'success': true, 'offline': true};
+      debugPrint('RPC open failed ($e), executing reliable direct database update fallback...');
+      try {
+        final current = await _supabase
+            .from('letters')
+            .select('read_count, first_read_at, status')
+            .eq('id', letterId)
+            .maybeSingle();
+
+        final currentCount = (current?['read_count'] as int?) ?? 0;
+        final newCount = currentCount + 1;
+        final firstReadAtStr = current?['first_read_at'] ?? now.toUtc().toIso8601String();
+
+        final updatedResponse = await _supabase
+            .from('letters')
+            .update({
+              'status': 'READ',
+              'read_count': newCount,
+              'first_read_at': firstReadAtStr,
+              'last_read_at': now.toUtc().toIso8601String(),
+            })
+            .eq('id', letterId)
+            .select()
+            .maybeSingle();
+
+        if (updatedResponse != null) {
+          final updatedLetter = MoodLetterModel.fromJson(updatedResponse);
+          await _offlineSync.cacheLetter(updatedLetter);
+        }
+
+        return {
+          'success': true,
+          'debounced': false,
+          'read_count': newCount,
+          'is_first_open': currentCount == 0,
+        };
+      } catch (directErr) {
+        debugPrint('Direct update also failed, queueing offline read: $directErr');
+        await _offlineSync.queuePendingRead(letterId: letterId, openedAt: now);
+        return {'success': true, 'offline': true};
+      }
     }
+  }
+
+  Future<void> cacheLetter(MoodLetterModel letter) async {
+    await _offlineSync.cacheLetter(letter);
   }
 
   Future<Map<String, dynamic>> _executeRpcOpen(String letterId, {String? viewingUserId}) async {
@@ -152,7 +193,7 @@ class SupabaseMoodLetterService {
     final response = await _supabase.rpc('open_letter', params: {
       'p_letter_id': letterId,
       'p_user_id': userId,
-      'p_cooldown_seconds': 30,
+      'p_cooldown_seconds': 2,
     });
 
     final map = Map<String, dynamic>.from(response as Map);

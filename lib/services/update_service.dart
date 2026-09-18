@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:ota_update/ota_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/app_colors.dart';
 import '../core/utils/snackbar_helper.dart';
 
@@ -264,7 +265,7 @@ class _ForcedUpdateDialogState extends State<_ForcedUpdateDialog> {
             case OtaStatus.INSTALLATION_ERROR:
               setState(() {
                 _state = _UpdateProgressState.error;
-                _statusMessage = 'Failed to download or install update (${event.status.name}). Please check internet and retry.';
+                _statusMessage = 'Failed to download or install update (${event.status.name}). Please check your connection or download via browser.';
               });
               break;
 
@@ -531,36 +532,80 @@ class _ForcedUpdateDialogState extends State<_ForcedUpdateDialog> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.softRose, AppColors.lavender],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ElevatedButton.icon(
-                      onPressed: _startOtaUpdate,
-                      icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 18),
-                      label: const Text(
-                        'Retry Update',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton.icon(
+                            onPressed: _startOtaUpdate,
+                            icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 18),
+                            label: const Text(
+                              'Retry',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.1),
+                            border: Border.all(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.45),
+                              width: 1.2,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: TextButton.icon(
+                            onPressed: _openInBrowser,
+                            icon: const Icon(Icons.open_in_browser_rounded, color: AppColors.softRose, size: 18),
+                            label: const Text(
+                              'Browser',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.softRose,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -569,5 +614,15 @@ class _ForcedUpdateDialogState extends State<_ForcedUpdateDialog> {
         ),
       ),
     );
+  }
+
+  Future<void> _openInBrowser() async {
+    final rawUrl = widget.updateInfo.downloadUrl;
+    final fallbackUrl = 'https://github.com/sejey0/Jayienne-Link/releases/latest';
+    final target = rawUrl.isNotEmpty ? rawUrl : fallbackUrl;
+    final uri = Uri.tryParse(target);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 }

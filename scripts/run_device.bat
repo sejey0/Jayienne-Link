@@ -811,6 +811,12 @@ if not defined GH_BIN if exist "C:\Program Files\GitHub CLI\gh.exe" set "GH_BIN=
 
 if not defined GH_BIN goto gh_cli_missing
 
+if not defined GH_TOKEN (
+    for /f "tokens=2 delims==" %%A in ('cmd /c "echo url=https://github.com| git credential fill | findstr /i password="') do (
+        set "GH_TOKEN=%%A"
+    )
+)
+
 echo GitHub CLI detected. Creating GitHub Release automatically...
 call "!GH_BIN!" release create v!NEW_VERSION! "build\app\outputs\flutter-apk\app-release.apk" --repo "%GH_USER%/%GH_REPO%" --title "Jayienne Link v!NEW_VERSION!" -F "%~dp0.release_notes.txt"
 if errorlevel 1 goto gh_cli_failed
@@ -824,24 +830,50 @@ goto gh_release_done
 
 :gh_cli_failed
 echo.
-echo [WARNING] GitHub CLI release creation encountered an issue.
-echo Opening browser to GitHub Releases and local APK folder as fallback...
-if exist "build\app\outputs\flutter-apk" explorer "build\app\outputs\flutter-apk"
-start https://github.com/%GH_USER%/%GH_REPO%/releases/new?tag=v!NEW_VERSION!
-goto gh_release_done
-
-:gh_cli_missing
-echo GitHub CLI not detected on your system.
-echo Opening browser to GitHub Releases and local APK folder...
+echo ====================================================
+echo   [ERROR] GitHub CLI release creation encountered an issue.
+echo ====================================================
+echo   The git tag v!NEW_VERSION! was pushed, but the APK was NOT uploaded
+echo   to GitHub Releases automatically.
+echo.
+echo   Opening browser to GitHub Releases and local APK folder as fallback...
 if exist "build\app\outputs\flutter-apk" explorer "build\app\outputs\flutter-apk"
 start https://github.com/%GH_USER%/%GH_REPO%/releases/new?tag=v!NEW_VERSION!
 echo.
-echo Complete release manually:
-echo   1. Set Tag: v!NEW_VERSION!
-echo   2. Title: Jayienne Link v!NEW_VERSION!
-echo   3. Drag app-release.apk into binaries
-echo   4. Copy notes from scripts\.release_notes.txt
-echo   5. Click Publish release
+echo   ACTION REQUIRED to enable In-App OTA Update:
+echo     1. Verify the Tag is v!NEW_VERSION!
+echo     2. Title: Jayienne Link v!NEW_VERSION!
+echo     3. Drag and drop app-release.apk into the release binaries
+echo     4. Copy notes from scripts\.release_notes.txt
+echo     5. Click "Publish release"
+echo.
+echo   Release notes are preserved at: scripts\.release_notes.txt
+echo ====================================================
+echo.
+pause
+goto releasemenu
+
+:gh_cli_missing
+echo.
+echo ====================================================
+echo   [WARNING] GitHub CLI not detected on your system.
+echo ====================================================
+echo   Opening browser to GitHub Releases and local APK folder...
+if exist "build\app\outputs\flutter-apk" explorer "build\app\outputs\flutter-apk"
+start https://github.com/%GH_USER%/%GH_REPO%/releases/new?tag=v!NEW_VERSION!
+echo.
+echo   Complete release manually:
+echo     1. Set Tag: v!NEW_VERSION!
+echo     2. Title: Jayienne Link v!NEW_VERSION!
+echo     3. Drag app-release.apk into binaries
+echo     4. Copy notes from scripts\.release_notes.txt
+echo     5. Click "Publish release"
+echo.
+echo   Release notes are preserved at: scripts\.release_notes.txt
+echo ====================================================
+echo.
+pause
+goto releasemenu
 
 :gh_release_done
 if exist "%~dp0.release_notes.txt" del "%~dp0.release_notes.txt" >nul 2>&1

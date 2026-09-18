@@ -96,9 +96,11 @@ class _ComposeLetterSheetState extends State<ComposeLetterSheet> {
     HapticFeedback.mediumImpact();
     setState(() => _isSubmitting = true);
 
+    final targetReceiverId = lettersProvider.effectivePartnerId ?? partnerId;
+
     final success = await lettersProvider.sendLetter(
       coupleId: coupleId,
-      receiverId: partnerId,
+      receiverId: targetReceiverId,
       category: category,
       title: _titleController.text.trim(),
       content: _contentController.text.trim(),

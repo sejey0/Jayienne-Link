@@ -128,6 +128,22 @@ class LetterOfflineSyncManager {
     }
   }
 
+  Future<List<MoodLetterModel>> getCachedCoupleLetters(String coupleId) async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        'cached_letters',
+        where: 'couple_id = ?',
+        whereArgs: [coupleId],
+        orderBy: 'created_at DESC',
+      );
+      return rows.map((r) => MoodLetterModel.fromJson(r)).toList();
+    } catch (e) {
+      debugPrint('[LetterOfflineSyncManager] Error querying cached couple letters: $e');
+      return [];
+    }
+  }
+
   Future<List<MoodLetterModel>> getCachedSentLetters(String senderId) async {
     try {
       final db = await database;

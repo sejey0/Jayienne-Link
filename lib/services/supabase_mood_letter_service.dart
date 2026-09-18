@@ -34,8 +34,9 @@ class SupabaseMoodLetterService {
     required String category,
     required String title,
     required String content,
+    String? senderIdOverride,
   }) async {
-    final senderId = currentUserId;
+    final senderId = senderIdOverride ?? currentUserId;
     if (senderId == null) throw Exception('User not authenticated');
 
     final payload = {
@@ -62,8 +63,11 @@ class SupabaseMoodLetterService {
   }
 
   /// 2. getReceivedInbox(user_id) with optional category filter
-  Future<List<MoodLetterModel>> getReceivedInbox({String? categoryFilter}) async {
-    final userId = currentUserId;
+  Future<List<MoodLetterModel>> getReceivedInbox({
+    String? categoryFilter,
+    String? viewingUserId,
+  }) async {
+    final userId = viewingUserId ?? currentUserId;
     if (userId == null) return [];
 
     try {
@@ -90,8 +94,8 @@ class SupabaseMoodLetterService {
   }
 
   /// 3. getSentInbox(user_id)
-  Future<List<MoodLetterModel>> getSentInbox() async {
-    final userId = currentUserId;
+  Future<List<MoodLetterModel>> getSentInbox({String? viewingUserId}) async {
+    final userId = viewingUserId ?? currentUserId;
     if (userId == null) return [];
 
     try {
@@ -115,8 +119,8 @@ class SupabaseMoodLetterService {
 
   /// 4. openLetter(letter_id, user_id)
   /// Increments read_count atomically, updates status and timestamps, debounces rapid opens
-  Future<Map<String, dynamic>> openLetter(String letterId) async {
-    final userId = currentUserId;
+  Future<Map<String, dynamic>> openLetter(String letterId, {String? viewingUserId}) async {
+    final userId = viewingUserId ?? currentUserId;
     if (userId == null) throw Exception('User not authenticated');
 
     final now = DateTime.now();
@@ -132,7 +136,7 @@ class SupabaseMoodLetterService {
     _clientDebounceMap[letterId] = now;
 
     try {
-      final result = await _executeRpcOpen(letterId);
+      final result = await _executeRpcOpen(letterId, viewingUserId: userId);
       return result;
     } catch (e) {
       debugPrint('Network error while opening letter. Queueing offline read: $e');
@@ -141,8 +145,8 @@ class SupabaseMoodLetterService {
     }
   }
 
-  Future<Map<String, dynamic>> _executeRpcOpen(String letterId) async {
-    final userId = currentUserId;
+  Future<Map<String, dynamic>> _executeRpcOpen(String letterId, {String? viewingUserId}) async {
+    final userId = viewingUserId ?? currentUserId;
     if (userId == null) return {'success': false, 'reason': 'unauthenticated'};
 
     final response = await _supabase.rpc('open_letter', params: {
@@ -156,9 +160,81 @@ class SupabaseMoodLetterService {
     return map;
   }
 
-  /// Realtime Stream for Sent Letters (Analytics live-updates)
-  Stream<List<MoodLetterModel>> streamSentLetters() {
-    final userId = currentUserId;
+  /// 5. Fetch all letters belonging to a couple (used for robust offline & multi-POV caching)
+  Future<List<MoodLetterModel>> getAllCoupleLetters(String coupleId) async {
+    if (coupleId.isEmpty) return [];
+
+    try {
+      final response = await _supabase
+          .from('letters')
+          .select()
+          .eq('couple_id', coupleId)
+          .order('created_at', ascending: false);
+
+      final letters = (response as List)
+          .map((row) => MoodLetterModel.fromJson(row as Map<String, dynamic>))
+          .toList();
+
+      if (letters.isNotEmpty) {
+        await _offlineSync.cacheAll(letters);
+        return letters;
+      }
+
+      // If remote returned empty, check offline cache before concluding empty
+      final cached = await _offlineSync.getCachedCoupleLetters(coupleId);
+      return cached;
+    } catch (e) {
+      debugPrint('[SupabaseMoodLetterService] Failed to fetch couple letters, falling back to cache: $e');
+      return _offlineSync.getCachedCoupleLetters(coupleId);
+    }
+  }
+
+  Future<List<MoodLetterModel>> getCachedCoupleLetters(String coupleId) async {
+    return _offlineSync.getCachedCoupleLetters(coupleId);
+  }
+
+  RealtimeChannel? _realtimeSubscription;
+
+  /// Subscribe to realtime PostgreSQL changes for a couple's letters
+  void subscribeToCoupleLetters(String coupleId, {required VoidCallback onUpdate}) {
+    unsubscribe();
+    if (coupleId.isEmpty) return;
+
+    try {
+      _realtimeSubscription = _supabase
+          .channel('public:letters:$coupleId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'letters',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'couple_id',
+              value: coupleId,
+            ),
+            callback: (payload) {
+              debugPrint('[SupabaseMoodLetterService] Realtime letters event: ${payload.eventType}');
+              onUpdate();
+            },
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('[SupabaseMoodLetterService] Realtime subscription error: $e');
+    }
+  }
+
+  void unsubscribe() {
+    if (_realtimeSubscription != null) {
+      try {
+        _supabase.removeChannel(_realtimeSubscription!);
+      } catch (_) {}
+      _realtimeSubscription = null;
+    }
+  }
+
+  /// Fallback Realtime Streams
+  Stream<List<MoodLetterModel>> streamSentLetters({String? viewingUserId}) {
+    final userId = viewingUserId ?? currentUserId;
     if (userId == null) return const Stream.empty();
 
     return _supabase
@@ -169,9 +245,8 @@ class SupabaseMoodLetterService {
         .map((rows) => rows.map((r) => MoodLetterModel.fromJson(r)).toList());
   }
 
-  /// Realtime Stream for Received Letters
-  Stream<List<MoodLetterModel>> streamReceivedLetters() {
-    final userId = currentUserId;
+  Stream<List<MoodLetterModel>> streamReceivedLetters({String? viewingUserId}) {
+    final userId = viewingUserId ?? currentUserId;
     if (userId == null) return const Stream.empty();
 
     return _supabase

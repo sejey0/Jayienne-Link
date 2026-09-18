@@ -138,6 +138,34 @@ class _ReceivedLettersTabState extends State<ReceivedLettersTab> {
                                 fontSize: 13,
                               ),
                             ),
+                            if (lettersProvider.sentLetters.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1F2B47) : const Color(0xFFFFF0F3),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.outbox_rounded, size: 16, color: Color(0xFFFF758C)),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'You have ${lettersProvider.sentLetters.length} letter${lettersProvider.sentLetters.length == 1 ? '' : 's'} in the Sent tab',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? Colors.white70 : const Color(0xFFD81B60),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

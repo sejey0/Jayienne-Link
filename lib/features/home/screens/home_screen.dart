@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,8 @@ import '../../../core/router/route_names.dart';
 import '../../../models/anniversary_request_model.dart';
 import '../../../models/user_model.dart';
 import '../../../providers/couple_provider.dart';
+import '../../../providers/debug_provider.dart';
+import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/update_service.dart';
 import '../../../widgets/common/app_button.dart';
@@ -28,6 +31,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  Timer? _refreshTimer;
+
   @override
   void initState() {
     super.initState();
@@ -36,6 +41,19 @@ class _HomeScreenState extends State<HomeScreen> {
         UpdateService.instance.checkForUpdates(context);
       }
     });
+
+    // Refresh every 30 seconds so relative "last online" times remain fresh
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   String _getDynamicGreeting(UserModel? user, CoupleProvider coupleProvider) {
@@ -73,8 +91,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final coupleProvider = context.watch<CoupleProvider>();
+    final locationProvider = context.watch<LocationProvider>();
+    final debugProvider = context.watch<DebugProvider?>();
+
     final user = userProvider.user;
     final couple = coupleProvider.couple;
+    final partner = coupleProvider.partner;
     final incomingAnniversary = coupleProvider.incomingAnniversaryRequests;
 
     if (user == null && userProvider.isLoading) {
@@ -83,31 +105,142 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isLinked = (coupleProvider.isLinked || couple != null) && partner != null;
     final greetingText = _getDynamicGreeting(user, coupleProvider);
+
+    // Partner presence & last online status
+    final partnerLoc = locationProvider.partnerLocation;
+    final isAppOnline = locationProvider.isOnline;
+    final isPartnerOnline = debugProvider?.simulatedPartnerOnlineStatus ??
+        (locationProvider.isPartnerOnline() ||
+            (partner != null &&
+                isAppOnline &&
+                partnerLoc != null &&
+                partnerLoc.isRecent(threshold: const Duration(minutes: 3))));
+    final partnerLastSeen = locationProvider.partnerLastSeen ?? partner?.updatedAt;
+    final partnerName = (partner != null && partner.displayName.isNotEmpty)
+        ? partner.displayName
+        : (couple != null && user != null
+            ? couple.getPartnerName(user.uid, livePartnerName: partner?.displayName)
+            : 'Partner');
+
+    final partnerStatusSubtitle = CoupleHeroCard.formatPartnerStatusText(
+      isPartnerOnline: isPartnerOnline,
+      partnerLastSeen: partnerLastSeen,
+      partnerName: partnerName,
+      short: false,
+    );
 
     return LoveNudgeOverlayListener(
       child: Scaffold(
         appBar: AppBar(
-          title: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.favorite,
-                  color: AppColors.softRose,
-                  size: AppDimensions.iconSizeSmall,
-                ),
-                const SizedBox(width: AppDimensions.spacingSm),
-                Text(
-                  greetingText,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+          toolbarHeight: isLinked ? 64.0 : null,
+          title: isLinked
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.favorite,
+                          color: AppColors.softRose,
+                          size: 15,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            greetingText,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.2,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7.5,
+                          height: 7.5,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isPartnerOnline
+                                ? const Color(0xFF00E676)
+                                : (isDark
+                                    ? Colors.white.withValues(alpha: 0.4)
+                                    : Colors.black.withValues(alpha: 0.3)),
+                            boxShadow: isPartnerOnline
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF00E676)
+                                          .withValues(alpha: 0.5),
+                                      blurRadius: 4,
+                                      spreadRadius: 1,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            partnerStatusSubtitle,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: isPartnerOnline
+                                      ? (isDark
+                                          ? const Color(0xFF69F0AE)
+                                          : const Color(0xFF00897B))
+                                      : (isDark
+                                          ? Colors.white60
+                                          : Colors.black54),
+                                  fontWeight: isPartnerOnline
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                  fontSize: 11.5,
+                                  letterSpacing: 0.1,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.favorite,
+                        color: AppColors.softRose,
+                        size: AppDimensions.iconSizeSmall,
                       ),
+                      const SizedBox(width: AppDimensions.spacingSm),
+                      Text(
+                        greetingText,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ),
           actions: [
             IconButton(
               icon: const Icon(Icons.settings_outlined),

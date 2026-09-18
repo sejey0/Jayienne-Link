@@ -22,6 +22,73 @@ class CoupleHeroCard extends StatefulWidget {
     this.initialExpanded = false,
   });
 
+  /// Calculates friendly last online / active status text.
+  /// When [short] is true, returns compact text for chips/badges (e.g. "Active Now", "Last online 5m ago").
+  /// When [short] is false, returns descriptive text with optional partner name (e.g. "Sarah • Last online 5m ago").
+  static String formatPartnerStatusText({
+    required bool isPartnerOnline,
+    required DateTime? partnerLastSeen,
+    String? partnerName,
+    bool short = false,
+  }) {
+    final namePrefix = (partnerName != null && partnerName.trim().isNotEmpty)
+        ? partnerName.trim()
+        : null;
+
+    if (isPartnerOnline) {
+      if (short) return 'Active Now';
+      return namePrefix != null ? '$namePrefix is active now' : 'Active now';
+    }
+
+    if (partnerLastSeen == null) {
+      if (short) return 'Offline';
+      return namePrefix != null ? '$namePrefix is offline' : 'Offline';
+    }
+
+    final now = DateTime.now();
+    final localLast = partnerLastSeen.toLocal();
+    final diff = now.difference(localLast);
+    final totalSeconds = diff.inSeconds;
+
+    String timeSnippet;
+    if (diff.isNegative || totalSeconds < 60) {
+      timeSnippet = 'just now';
+    } else if (diff.inMinutes < 60) {
+      timeSnippet = '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24 && localLast.day == now.day) {
+      timeSnippet = '${diff.inHours}h ago';
+    } else {
+      final yesterday = now.subtract(const Duration(days: 1));
+      final isYesterday = localLast.year == yesterday.year &&
+          localLast.month == yesterday.month &&
+          localLast.day == yesterday.day;
+
+      if (isYesterday) {
+        timeSnippet = short
+            ? 'yesterday'
+            : 'yesterday at ${DateFormat('h:mm a').format(localLast)}';
+      } else if (diff.inDays < 7) {
+        timeSnippet = short
+            ? DateFormat('E').format(localLast)
+            : '${DateFormat('EEEE').format(localLast)} at ${DateFormat('h:mm a').format(localLast)}';
+      } else if (localLast.year == now.year) {
+        timeSnippet = short
+            ? DateFormat('MMM d').format(localLast)
+            : '${DateFormat('MMM d').format(localLast)} at ${DateFormat('h:mm a').format(localLast)}';
+      } else {
+        timeSnippet = DateFormat('MMM d, yyyy').format(localLast);
+      }
+    }
+
+    if (short) {
+      return 'Last online $timeSnippet';
+    }
+
+    return namePrefix != null
+        ? '$namePrefix • Last online $timeSnippet'
+        : 'Last online $timeSnippet';
+  }
+
   @override
   State<CoupleHeroCard> createState() => _CoupleHeroCardState();
 }
@@ -290,27 +357,16 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     );
   }
 
-  /// Calculates friendly last online / active status text
+  /// Backward-compatible instance helper for card header badge
   String _getPartnerStatusText({
     required bool isPartnerOnline,
     required DateTime? partnerLastSeen,
-  }) {
-    if (isPartnerOnline) return 'Active Now';
-
-    if (partnerLastSeen != null) {
-      final now = DateTime.now();
-      final localLast = partnerLastSeen.toLocal();
-      final diff = now.difference(localLast);
-      final totalSeconds = diff.inSeconds;
-
-      if (diff.isNegative || totalSeconds < 60) {
-        return 'Last online just now';
-      } else if (diff.inMinutes < 60) {
-        return 'Last online ${diff.inMinutes}m ago';
-      }
-    }
-    return 'Offline';
-  }
+  }) =>
+      CoupleHeroCard.formatPartnerStatusText(
+        isPartnerOnline: isPartnerOnline,
+        partnerLastSeen: partnerLastSeen,
+        short: true,
+      );
 
   /// Top Row: Active Status Badge on left, Date & Live Ticking Seconds Pill + Expand Arrow on right
   Widget _buildHeaderRow(
@@ -326,35 +382,41 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
       children: [
         // Re-aligned Active Now / Partner Status Badge on Left
         if (isLinked)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.22),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.circle,
-                  size: 7,
-                  color: isPartnerOnline
-                      ? const Color(0xFF69F0AE)
-                      : Colors.white.withValues(alpha: 0.55),
-                ),
-                const SizedBox(width: 5.5),
-                Text(
-                  statusText,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
-                    height: 1.0,
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.circle,
+                    size: 7,
+                    color: isPartnerOnline
+                        ? const Color(0xFF69F0AE)
+                        : Colors.white.withValues(alpha: 0.55),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 5.5),
+                  Flexible(
+                    child: Text(
+                      statusText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                        height: 1.0,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           )
         else

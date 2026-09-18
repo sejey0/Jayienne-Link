@@ -127,10 +127,6 @@ class SupabaseSecretMediaService {
       hiddenResult.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
 
       debugPrint('🔒 FOUND ACTIVE FILTERED HIDDEN VAULT COUNT: ${hiddenResult.length}');
-      for (int i = 0; i < hiddenResult.length; i++) {
-        final m = hiddenResult[i];
-        debugPrint('VAULT_ITEM[$i]: id=${m.id}, type=${m.mediaType}, url=${m.mediaUrl}');
-      }
 
       return hiddenResult;
     } catch (e) {

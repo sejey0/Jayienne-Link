@@ -37,7 +37,6 @@ class _ComposeLetterSheetState extends State<ComposeLetterSheet> {
     "Open when you're stressed",
     "Open when you can't sleep",
     "Open when we had an argument",
-    "Open on our anniversary",
     "Custom...",
   ];
 

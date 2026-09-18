@@ -14,17 +14,6 @@ class ReceivedLettersTab extends StatefulWidget {
 }
 
 class _ReceivedLettersTabState extends State<ReceivedLettersTab> {
-  final List<String> _categories = [
-    'All',
-    "Open when you're sad",
-    "Open when you miss me",
-    "Open when you need a smile",
-    "Open when you're stressed",
-    "Open when you can't sleep",
-    "Open when we had an argument",
-    "Open on our anniversary",
-  ];
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -36,51 +25,74 @@ class _ReceivedLettersTabState extends State<ReceivedLettersTab> {
       );
     }
 
-    final filteredLetters = lettersProvider.filteredReceivedLetters;
+    // Only include categories that actually have received letters
+    final categoriesWithLetters = lettersProvider.receivedLetters
+        .map((l) => l.category.trim())
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final availableCategories = ['All', ...categoriesWithLetters];
+
+    // Ensure current selected category is still valid
+    final currentSelectedCategory = lettersProvider.selectedCategory;
+    final activeCategory = (currentSelectedCategory != 'All' &&
+            !categoriesWithLetters.contains(currentSelectedCategory))
+        ? 'All'
+        : currentSelectedCategory;
+
+    final filteredLetters = activeCategory == 'All'
+        ? lettersProvider.receivedLetters
+        : lettersProvider.receivedLetters
+            .where((l) => l.category.trim() == activeCategory)
+            .toList();
 
     return Column(
       children: [
-        const SizedBox(height: 12),
-        // Filter Chips Horizontal Scroll
-        SizedBox(
-          height: 42,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            itemCount: _categories.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (ctx, index) {
-              final category = _categories[index];
-              final isSelected = lettersProvider.selectedCategory == category;
-              return ChoiceChip(
-                label: Text(
-                  category,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected
-                        ? Colors.white
-                        : (isDark ? Colors.white70 : AppColors.deepCharcoal),
+        // Only show filter chips if there are 2 or more distinct categories
+        if (categoriesWithLetters.length > 1) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 42,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: availableCategories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (ctx, index) {
+                final category = availableCategories[index];
+                final isSelected = activeCategory == category;
+                return ChoiceChip(
+                  label: Text(
+                    category,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : AppColors.deepCharcoal),
+                    ),
                   ),
-                ),
-                selected: isSelected,
-                selectedColor: const Color(0xFFFF758C),
-                backgroundColor: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.grey.shade200,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                showCheckmark: false,
-                onSelected: (val) {
-                  if (val) {
-                    HapticFeedback.selectionClick();
-                    lettersProvider.selectCategory(category);
-                  }
-                },
-              );
-            },
+                  selected: isSelected,
+                  selectedColor: const Color(0xFFFF758C),
+                  backgroundColor: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.grey.shade200,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  showCheckmark: false,
+                  onSelected: (val) {
+                    if (val) {
+                      HapticFeedback.selectionClick();
+                      lettersProvider.selectCategory(category);
+                    }
+                  },
+                );
+              },
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
+        ] else
+          const SizedBox(height: 12),
 
         // Letters List
         Expanded(

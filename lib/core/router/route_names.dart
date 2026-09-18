@@ -8,6 +8,7 @@ class RouteNames {
   static const String phoneAuth = '/auth/phone';
   static const String otpVerification = '/auth/otp';
   static const String resetPassword = '/auth/reset-password';
+  static const String signInLoading = '/auth/loading';
   static const String profileSetup = '/profile-setup';
   static const String coupleLink = '/couple-link';
   static const String coupleSuccess = '/couple-success';

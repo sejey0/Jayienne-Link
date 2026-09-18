@@ -10,8 +10,8 @@ import '../../../core/utils/validators.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_text_field.dart';
-import '../../../widgets/common/loading_overlay.dart';
 import 'deactivated_screen.dart';
+import 'sign_in_loading_screen.dart';
 
 /// Redesigned Romantic Login Screen matching the App Design Theme
 class LoginScreen extends StatefulWidget {
@@ -97,9 +97,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.watch<AuthProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return LoadingOverlay(
-      isLoading: auth.isLoading,
-      child: Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
         backgroundColor:
             isDark ? const Color(0xFF140E1B) : const Color(0xFFFFF7F9),
         appBar: AppBar(
@@ -354,7 +354,10 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
+      if (auth.isLoading)
+        const SignInLoadingScreen(),
+    ],
+  );
   }
 
 }

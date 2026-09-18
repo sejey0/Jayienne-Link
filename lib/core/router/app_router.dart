@@ -35,6 +35,7 @@ import '../../features/letters/screens/mood_letters_hub_screen.dart';
 import '../../features/auth/screens/deactivated_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
+import '../../features/auth/screens/sign_in_loading_screen.dart';
 
 class AppRouter {
   AppRouter._();
@@ -176,6 +177,10 @@ class AppRouter {
         GoRoute(
           path: RouteNames.resetPassword,
           builder: (context, state) => const ResetPasswordScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.signInLoading,
+          builder: (context, state) => const SignInLoadingScreen(isPreview: true),
         ),
         GoRoute(
           path: RouteNames.profileSetup,

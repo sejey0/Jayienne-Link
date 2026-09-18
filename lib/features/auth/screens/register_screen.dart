@@ -9,7 +9,7 @@ import '../../../core/utils/snackbar_helper.dart';
 import '../../../core/utils/validators.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../widgets/common/app_text_field.dart';
-import '../../../widgets/common/loading_overlay.dart';
+import 'sign_in_loading_screen.dart';
 
 /// Redesigned Romantic Register Screen matching the App Design Theme
 class RegisterScreen extends StatefulWidget {
@@ -64,9 +64,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final auth = context.watch<AuthProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return LoadingOverlay(
-      isLoading: auth.isLoading,
-      child: Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
         backgroundColor:
             isDark ? const Color(0xFF140E1B) : const Color(0xFFFFF7F9),
         appBar: AppBar(
@@ -339,7 +339,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
-    );
+      if (auth.isLoading)
+        const SignInLoadingScreen(
+          title: 'Creating your love space',
+          subtitle: 'Setting up your private universe',
+        ),
+    ],
+  );
   }
 
 }

@@ -26,6 +26,7 @@ import '../../../services/sex_positions_service.dart';
 import '../../auth/screens/auth_screen.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../auth/screens/register_screen.dart';
+import '../../auth/screens/sign_in_loading_screen.dart';
 import '../../admin/screens/admin_dashboard_screen.dart';
 import '../../splash/splash_screen.dart';
 import '../../../widgets/common/romantic_loading_indicator.dart';
@@ -915,6 +916,41 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Preview Sign In / Login Loading Screen
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const SignInLoadingScreen(isPreview: true),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.lock_clock_rounded,
+                          color: AppColors.lavender, size: 16),
+                      label: const Text(
+                        'Preview Sign In / Login Loading Screen',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                            color: AppColors.lavender, width: 1.5),
+                        foregroundColor: AppColors.lavender,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),

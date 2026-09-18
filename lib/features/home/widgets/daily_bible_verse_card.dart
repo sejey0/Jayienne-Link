@@ -195,59 +195,43 @@ class _DailyBibleVerseCardState extends State<DailyBibleVerseCard>
                       ],
                     ),
 
-                    // Actions: Cloud Sync Badge & Reroll Button
-                    Row(
-                      children: [
-                        if (coupleId != null && coupleId.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: Tooltip(
-                              message: 'Synced in real time with $partnerName',
-                              child: Icon(
-                                Icons.cloud_done_rounded,
-                                size: 16,
-                                color: isDark ? const Color(0xFF69F0AE) : const Color(0xFF2E7D32),
-                              ),
+                    // Actions: Reroll Button
+                    IconButton(
+                      onPressed: () => _rerollVerse(
+                        context,
+                        coupleId: coupleId,
+                        userId: userId,
+                        userName: userName,
+                      ),
+                      icon: RotationTransition(
+                        turns: _effectiveSpinController,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFF6D365), Color(0xFFFDA085)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ),
-                        IconButton(
-                          onPressed: () => _rerollVerse(
-                            context,
-                            coupleId: coupleId,
-                            userId: userId,
-                            userName: userName,
-                          ),
-                          icon: RotationTransition(
-                            turns: _effectiveSpinController,
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFF6D365), Color(0xFFFDA085)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFF6D365).withValues(alpha: 0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFF6D365).withValues(alpha: 0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
                               ),
-                              child: const Icon(
-                                Icons.refresh_rounded,
-                                color: Colors.white,
-                                size: 14,
-                              ),
-                            ),
+                            ],
                           ),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          tooltip: 'New scripture (Syncs with partner)',
+                          child: const Icon(
+                            Icons.refresh_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          ),
                         ),
-                      ],
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'New scripture (Syncs with partner)',
                     ),
                   ],
                 ),

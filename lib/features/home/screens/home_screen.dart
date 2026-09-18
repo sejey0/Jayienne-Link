@@ -31,6 +31,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   Timer? _refreshTimer;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -52,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -138,40 +140,57 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimensions.spacingSm,
-            vertical: AppDimensions.spacingMd,
-          ),
-          child: Column(
-            children: [
-              // Unified Masterpiece Couple Hero Card (Love Counter + Avatars + Names + Vitals)
-              const CoupleHeroCard(),
-              const SizedBox(height: 6),
+        body: RawScrollbar(
+          controller: _scrollController,
+          thumbVisibility: true,
+          trackVisibility: true,
+          thickness: 6.0,
+          radius: const Radius.circular(8),
+          trackRadius: const Radius.circular(8),
+          minThumbLength: 54.0,
+          thumbColor: const Color(0xFFFF758C).withValues(alpha: 0.90),
+          trackColor: (Theme.of(context).brightness == Brightness.dark)
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.06),
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimensions.spacingSm,
+              vertical: AppDimensions.spacingMd,
+            ),
+            child: Column(
+              children: [
+                // Unified Masterpiece Couple Hero Card (Love Counter + Avatars + Names + Vitals)
+                const CoupleHeroCard(),
+                const SizedBox(height: 6),
 
-              // Link with partner card (shown when skipped)
-              if (user != null && user.hasSkippedCoupleLink)
-                _buildLinkPartnerCard(context, user),
+                // Link with partner card (shown when skipped)
+                if (user != null && user.hasSkippedCoupleLink)
+                  _buildLinkPartnerCard(context, user),
 
-              // Incoming Anniversary Request Card
-              if (couple != null && incomingAnniversary.isNotEmpty)
-                _buildAnniversaryRequestCard(
-                  context,
-                  incomingAnniversary.first,
-                ),
+                // Incoming Anniversary Request Card
+                if (couple != null && incomingAnniversary.isNotEmpty)
+                  _buildAnniversaryRequestCard(
+                    context,
+                    incomingAnniversary.first,
+                  ),
 
-              // Features Launcher Button Card
-              const OpenFeaturesCard(),
-              const SizedBox(height: 6),
+                // Features Launcher Button Card
+                const OpenFeaturesCard(),
+                const SizedBox(height: 6),
 
-              // Sweet Daily Romantic Notes Card
-              const DailyQuoteCard(),
-              const SizedBox(height: 4),
+                // Sweet Daily Romantic Notes Card
+                const DailyQuoteCard(),
+                const SizedBox(height: 4),
 
-              // Daily Bible Verse Card
-              const DailyBibleVerseCard(),
-              const SizedBox(height: 28),
-            ],
+                // Daily Bible Verse Card
+                const DailyBibleVerseCard(),
+                const SizedBox(height: 28),
+              ],
+            ),
           ),
         ),
       ),

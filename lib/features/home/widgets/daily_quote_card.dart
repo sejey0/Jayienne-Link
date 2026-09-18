@@ -196,22 +196,8 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                       ],
                     ),
 
-                    // Actions: Cloud Sync Badge & Reroll Button
-                    Row(
-                      children: [
-                        if (coupleId != null && coupleId.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: Tooltip(
-                              message: 'Synced in real time with $partnerName',
-                              child: Icon(
-                                Icons.cloud_done_rounded,
-                                size: 16,
-                                color: isDark ? const Color(0xFF69F0AE) : const Color(0xFF2E7D32),
-                              ),
-                            ),
-                          ),
-                        IconButton(
+                    // Actions: Reroll Button
+                    IconButton(
                           onPressed: () => _rerollQuote(
                             context,
                             coupleId: coupleId,
@@ -251,9 +237,7 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                         ),
                       ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
                 // 2. Animated Quote Body Text
                 AnimatedSwitcher(

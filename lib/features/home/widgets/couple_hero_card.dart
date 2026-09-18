@@ -187,7 +187,8 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                 isAppOnline &&
                 partnerLoc != null &&
                 partnerLoc.isRecent(threshold: const Duration(minutes: 3))));
-    final partnerLastSeen = locationProvider.partnerLastSeen;
+    final partnerLastSeen =
+        locationProvider.partnerLastSeen ?? partner?.updatedAt;
 
     // Distance calculation
     final distanceMeters = locationProvider.distanceInMeters;
@@ -257,23 +258,16 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 1. Top Romantic Header Bar (Active Status on left, Seconds ticker & arrow on right)
-                  if (partner != null || hasDate) ...[
+                  // 1. Top Romantic Header Bar (Anniversary date on left, Seconds ticker & arrow on right)
+                  if (hasDate) ...[
                     _buildHeaderRow(
                       context,
                       anniversaryProvider,
-                      hasDate,
-                      isPartnerOnline: isPartnerOnline,
-                      isLinked: partner != null,
-                      statusText: _getPartnerStatusText(
-                        isPartnerOnline: isPartnerOnline,
-                        partnerLastSeen: partnerLastSeen,
-                      ),
                     ),
                     const SizedBox(height: 18),
                   ],
 
-                  // 2. Dual Avatars with Pulsing Beating Heart in Center & Zodiac Badges
+                  // 2. Dual Avatars with Pulsing Beating Heart in Center, Status & Zodiac Badges
                   _buildDualAvatarsSection(
                     context,
                     userPhotoUrl: user?.photoUrl,
@@ -281,6 +275,11 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                     userZodiac: user?.zodiacSign,
                     partnerZodiac: partner?.zodiacSign,
                     isPartnerOnline: isPartnerOnline,
+                    isLinked: partner != null,
+                    statusText: _getPartnerStatusText(
+                      isPartnerOnline: isPartnerOnline,
+                      partnerLastSeen: partnerLastSeen,
+                    ),
                   ),
 
                   // 3. Prominent Live Love Counter
@@ -368,116 +367,109 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
         short: true,
       );
 
-  /// Top Row: Active Status Badge on left, Date & Live Ticking Seconds Pill + Expand Arrow on right
+  /// Top Row: Anniversary Date on left, Live Ticking Seconds Pill + Expand Arrow on right
   Widget _buildHeaderRow(
     BuildContext context,
     AnniversaryProvider provider,
-    bool hasDate, {
-    required bool isPartnerOnline,
-    required bool isLinked,
-    required String statusText,
-  }) {
+  ) {
+    final anniversaryDate = provider.anniversaryDate;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Re-aligned Active Now / Partner Status Badge on Left
-        if (isLinked)
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(14),
+        // Anniversary Date Pill on Left
+        if (anniversaryDate != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.18),
+                width: 0.8,
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.circle,
-                    size: 7,
-                    color: isPartnerOnline
-                        ? const Color(0xFF69F0AE)
-                        : Colors.white.withValues(alpha: 0.55),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.favorite_rounded,
+                  color: Colors.white,
+                  size: 13,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  DateFormat('MMM d, yyyy').format(anniversaryDate),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    letterSpacing: 0.2,
                   ),
-                  const SizedBox(width: 5.5),
-                  Flexible(
-                    child: Text(
-                      statusText,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.3,
-                        height: 1.0,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           )
         else
           const SizedBox.shrink(),
 
-        // Date & Ticking Pill & Arrow
+        // Live Ticking Seconds Pill & Expand Arrow on Right
         Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (hasDate) ...[
-              // Live Ticking Seconds Pill
-              Selector<AnniversaryProvider, int>(
-                selector: (_, p) => p.secondsTogetherRemainder,
-                builder: (context, seconds, _) {
-                  return Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.timer_outlined,
+            // Live Ticking Seconds Pill
+            Selector<AnniversaryProvider, int>(
+              selector: (_, p) => p.secondsTogetherRemainder,
+              builder: (context, seconds, _) {
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.timer_outlined,
+                        color: Colors.white,
+                        size: 12,
+                      ),
+                      const SizedBox(width: 3.5),
+                      Text(
+                        '${seconds.toString().padLeft(2, '0')}s',
+                        style: const TextStyle(
                           color: Colors.white,
-                          size: 12,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
                         ),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${seconds.toString().padLeft(2, '0')}s',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 6),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(width: 4),
 
-              // Expand / Collapse Arrow
-              Icon(
-                _isExpanded
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
-            ],
+            // Expand / Collapse Arrow
+            Icon(
+              _isExpanded
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
           ],
         ),
       ],
     );
   }
 
-  /// Dual Glowing Avatars with Beating Heart Pulse and Zodiac Badges
+  /// Dual Glowing Avatars with Beating Heart Pulse, Status Indicators & Zodiac Badges
   Widget _buildDualAvatarsSection(
     BuildContext context, {
     required String? userPhotoUrl,
@@ -485,14 +477,16 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     required String? userZodiac,
     required String? partnerZodiac,
     required bool isPartnerOnline,
+    required bool isLinked,
+    required String statusText,
   }) {
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // User Avatar + Zodiac (Left)
+          // User Avatar + Status + Zodiac (Left)
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -500,8 +494,54 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                 context,
                 photoUrl: userPhotoUrl,
               ),
+              const SizedBox(height: 7),
+              // User "You" Active Status Pill
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8.5, vertical: 3.5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFF69F0AE),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFF69F0AE).withValues(alpha: 0.6),
+                            blurRadius: 3,
+                            spreadRadius: 0.5,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 4.5),
+                    const Text(
+                      'You',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               if (userZodiac != null && userZodiac.isNotEmpty) ...[
-                const SizedBox(height: 7),
+                const SizedBox(height: 5),
                 _buildZodiacBadge(userZodiac),
               ],
             ],
@@ -509,28 +549,31 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
 
           const SizedBox(width: 16),
 
-          // Beating Heart Animation with Haptic Feedback on Tap
-          GestureDetector(
-            onTap: () => HapticFeedback.lightImpact(),
-            child: ScaleTransition(
-              scale: _pulseAnimation,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.35),
-                      blurRadius: 18,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.favorite_rounded,
-                  color: Colors.white,
-                  size: 32,
+          // Beating Heart Animation with Haptic Feedback on Tap (vertically centered with circular avatars)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: GestureDetector(
+              onTap: () => HapticFeedback.lightImpact(),
+              child: ScaleTransition(
+                scale: _pulseAnimation,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        blurRadius: 18,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.favorite_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
                 ),
               ),
             ),
@@ -538,7 +581,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
 
           const SizedBox(width: 16),
 
-          // Partner Avatar + Zodiac (Right) with Online Status Ring
+          // Partner Avatar + Live Status Pill + Zodiac (Right)
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -548,8 +591,59 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                 isOnline: isPartnerOnline,
                 showStatus: true,
               ),
+              const SizedBox(height: 7),
+              // Partner Active / Last Online Status Pill directly on Partner Profile
+              if (isLinked)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8.5, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.25),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isPartnerOnline
+                              ? const Color(0xFF69F0AE)
+                              : Colors.white.withValues(alpha: 0.55),
+                          boxShadow: isPartnerOnline
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF69F0AE)
+                                        .withValues(alpha: 0.6),
+                                    blurRadius: 3,
+                                    spreadRadius: 0.5,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 4.5),
+                      Text(
+                        statusText,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (partnerZodiac != null && partnerZodiac.isNotEmpty) ...[
-                const SizedBox(height: 7),
+                const SizedBox(height: 5),
                 _buildZodiacBadge(partnerZodiac),
               ],
             ],
@@ -938,7 +1032,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  '$myBatteryLevel%${myIsCharging ? ' ⚡' : ''}',
+                  '$myBatteryLevel%',
                   style: TextStyle(
                     color: myIsCharging ? const Color(0xFF69F0AE) : Colors.white,
                     fontSize: 11.5,
@@ -996,7 +1090,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '$partnerBatteryLevel%${partnerIsCharging ? ' ⚡' : ''}',
+                    '$partnerBatteryLevel%',
                     style: TextStyle(
                       color: partnerIsCharging ? const Color(0xFF69F0AE) : Colors.white,
                       fontSize: 11.5,

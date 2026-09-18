@@ -175,7 +175,12 @@ call :apply_device_optimizations
 echo.
 echo ====================================================
 echo   [SUCCESS] Connected to %DEVICE_ID%!
-echo   You can now UNPLUG your USB cable.
+echo.
+echo   NOTE FOR XIAOMI / MIUI PHONES:
+echo   MIUI closes Port 5555 if the phone is not charging!
+echo   - Keep USB plugged into PC or charger, OR
+echo   - Use Option [1] USB Cable (fastest, most reliable)
+echo   - Use Option [4] Wireless Pairing (pure wireless on Android 11+)
 echo ====================================================
 echo.
 goto check_device_ready
@@ -889,28 +894,27 @@ call :stop_keepalive
 if "%IS_WEB%"=="1" goto web_menu
 
 "%ADB%" -s %DEVICE_ID% get-state >nul 2>&1
-if errorlevel 1 (
-    echo ====================================================
-    echo   [ALERT] Connection to %DEVICE_ID% was lost!
-    echo ====================================================
-    echo.
-    if exist "build\app\outputs\flutter-apk\app-debug.apk" (
-        echo   [F] Fast Install: Install already-built APK directly (3 seconds!)
-    )
-    echo   [1] Quick Reconnect ^& Re-run Debug
-    echo   [2] USB Auto-Switch (Plug USB cable to PC to re-open Port 5555)
-    echo   [3] Restart ADB Server, Reconnect ^& Re-run Debug
-    echo   [4] Return to Main Menu
-    echo.
-    set /p "RECON_CHOICE=Enter choice (F, 1-4): "
-    if /i "!RECON_CHOICE!"=="F" goto fast_install_reconnect
-    if "!RECON_CHOICE!"=="1" goto handle_recon_1
-    if "!RECON_CHOICE!"=="2" goto usb_to_wireless
-    if "!RECON_CHOICE!"=="3" goto handle_recon_3
-    goto connection_menu
-)
+if not errorlevel 1 goto menu
 
-goto menu
+:handle_lost_connection
+echo ====================================================
+echo   [ALERT] Connection to %DEVICE_ID% was lost!
+echo ====================================================
+echo.
+if exist "build\app\outputs\flutter-apk\app-debug.apk" (
+    echo   [F] Fast Install: Install already-built APK directly [3s - no rebuild]
+)
+echo   [1] Quick Reconnect ^& Re-run Debug
+echo   [2] USB Auto-Switch [Plug USB cable to PC to re-open Port 5555]
+echo   [3] Restart ADB Server, Reconnect ^& Re-run Debug
+echo   [4] Return to Main Menu
+echo.
+set /p "RECON_CHOICE=Enter choice (F, 1-4): "
+if /i "%RECON_CHOICE%"=="F" goto fast_install_reconnect
+if "%RECON_CHOICE%"=="1" goto handle_recon_1
+if "%RECON_CHOICE%"=="2" goto usb_to_wireless
+if "%RECON_CHOICE%"=="3" goto handle_recon_3
+goto connection_menu
 
 :fast_install_reconnect
 echo.
@@ -921,14 +925,14 @@ timeout /t 1 /nobreak >nul
 if errorlevel 1 (
     echo.
     echo [ERROR] Phone could not be reached on port 5555.
-    echo Port 5555 was closed by the phone when it went to sleep.
+    echo Port 5555 was closed by the phone when USB unplugged or phone went to sleep.
     echo.
     echo To fix this:
-    echo   1. Plug your phone into PC with USB cable, OR
-    echo   2. On phone: Developer options ^> toggle 'Wireless debugging' OFF then ON
+    echo   1. Plug your phone into PC with USB cable [Recommended], OR
+    echo   2. On phone: Developer options - toggle 'Wireless debugging' OFF then ON.
     echo.
     pause
-    goto handle_run_end
+    goto handle_lost_connection
 )
 call :apply_device_optimizations
 echo.
@@ -943,37 +947,41 @@ pause
 goto menu
 
 :handle_recon_1
-if not "%SAVED_IP%"=="" (
-    "%ADB%" connect %SAVED_IP%:5555
-    set "DEVICE_ID=%SAVED_IP%:5555"
-    timeout /t 1 /nobreak >nul
-    "%ADB%" -s !DEVICE_ID! get-state >nul 2>&1
-    if not errorlevel 1 (
-        goto debugrun
-    ) else (
-        echo.
-        echo [ERROR] Connection to %SAVED_IP%:5555 failed (Port 5555 closed).
-        echo Please plug in USB for 2s or toggle Wireless Debugging on your phone.
-        echo.
-        pause
-        goto handle_run_end
-    )
+if "%SAVED_IP%"=="" goto connection_menu
+echo Connecting to %SAVED_IP%:5555...
+"%ADB%" connect %SAVED_IP%:5555
+set "DEVICE_ID=%SAVED_IP%:5555"
+timeout /t 1 /nobreak >nul
+"%ADB%" -s %DEVICE_ID% get-state >nul 2>&1
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Connection to %SAVED_IP%:5555 failed [Port 5555 closed].
+    echo Xiaomi/MIUI closes Port 5555 when USB cable is unplugged.
+    echo Please plug phone into USB cable or toggle Wireless Debugging on phone.
+    echo.
+    pause
+    goto handle_lost_connection
 )
-goto connection_menu
+call :apply_device_optimizations
+goto debugrun
 
 :handle_recon_3
+echo Restarting ADB server...
 "%ADB%" kill-server >nul 2>&1
 timeout /t 1 /nobreak >nul
 "%ADB%" start-server >nul 2>&1
-if not "%SAVED_IP%"=="" (
-    "%ADB%" connect %SAVED_IP%:5555
-    set "DEVICE_ID=%SAVED_IP%:5555"
-    timeout /t 1 /nobreak >nul
-    "%ADB%" -s !DEVICE_ID! get-state >nul 2>&1
-    if not errorlevel 1 (
-        goto debugrun
-    )
+if "%SAVED_IP%"=="" goto connection_menu
+echo Reconnecting to %SAVED_IP%:5555...
+"%ADB%" connect %SAVED_IP%:5555
+set "DEVICE_ID=%SAVED_IP%:5555"
+timeout /t 1 /nobreak >nul
+"%ADB%" -s %DEVICE_ID% get-state >nul 2>&1
+if not errorlevel 1 (
+    call :apply_device_optimizations
+    goto debugrun
 )
+echo Connection failed. Returning to menu...
+pause
 goto connection_menu
 
 goto menu

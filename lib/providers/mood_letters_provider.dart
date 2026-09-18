@@ -164,15 +164,8 @@ class MoodLettersProvider extends ChangeNotifier {
         letters = map.values.toList();
       }
 
-      // Merge newly fetched letters with existing in-memory letters so nothing vanishes
-      final letterMap = <String, MoodLetterModel>{};
-      for (final l in _allLetters) {
-        letterMap[l.id] = l;
-      }
-      for (final l in letters) {
-        letterMap[l.id] = l;
-      }
-      _allLetters = letterMap.values.toList()
+      // Authoritative list from database replaces in-memory state so deletions propagate
+      _allLetters = letters
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       if (_coupleId != null && _coupleId!.isNotEmpty) {
@@ -199,19 +192,19 @@ class MoodLettersProvider extends ChangeNotifier {
     if (_coupleId == null || _coupleId!.isEmpty) return;
     try {
       final letters = await _service.getAllCoupleLetters(_coupleId!);
-      if (letters.isNotEmpty) {
-        final letterMap = <String, MoodLetterModel>{};
-        for (final l in _allLetters) {
-          letterMap[l.id] = l;
-        }
-        for (final l in letters) {
-          letterMap[l.id] = l;
-        }
-        _allLetters = letterMap.values.toList()
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        notifyListeners();
-      }
+      _allLetters = letters
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      notifyListeners();
     } catch (_) {}
+  }
+
+  Future<bool> deleteLetter(String letterId) async {
+    final success = await _service.deleteLetter(letterId);
+    if (success) {
+      _allLetters.removeWhere((l) => l.id == letterId);
+      notifyListeners();
+    }
+    return success;
   }
 
   Future<void> refreshReceivedLetters() async {

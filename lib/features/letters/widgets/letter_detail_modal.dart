@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/mood_letter_model.dart';
 import '../../../providers/mood_letters_provider.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 
 class LetterDetailModal extends StatefulWidget {
   final MoodLetterModel letter;
@@ -60,6 +61,39 @@ class _LetterDetailModalState extends State<LetterDetailModal> {
       setState(() {
         _isProcessing = false;
       });
+    }
+  }
+
+  Future<void> _handleDelete() async {
+    HapticFeedback.mediumImpact();
+    final confirmed = await showTimedConfirmDialog(
+      context: context,
+      title: 'Delete Mood Letter?',
+      message:
+          'This will permanently delete this letter for both you and your partner. This cannot be undone.',
+      confirmLabel: 'Delete Letter',
+      countdownSeconds: 5,
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() => _isProcessing = true);
+      final provider = context.read<MoodLettersProvider>();
+      final success = await provider.deleteLetter(widget.letter.id);
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success
+                  ? 'Letter deleted permanently'
+                  : 'Failed to delete letter. Please try again.',
+            ),
+            backgroundColor:
+                success ? const Color(0xFFD81B60) : Colors.red.shade800,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -125,12 +159,36 @@ class _LetterDetailModalState extends State<LetterDetailModal> {
                     ],
                   ),
                 ),
-                Text(
-                  widget.letter.formattedCreatedAt,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? Colors.white38 : Colors.grey.shade500,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.letter.formattedCreatedAt,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white38 : Colors.grey.shade500,
+                      ),
+                    ),
+                    if (widget.isSenderView) ...[
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: _handleDelete,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF5252).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 16,
+                            color: Color(0xFFFF5252),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -166,11 +224,11 @@ class _LetterDetailModalState extends State<LetterDetailModal> {
                     : _buildSealedFirstPage(isDark)),
           ),
 
-          // Bottom Action Bar: [Cancel] + [Read] if sealed, or [Close Letter] if unsealed
+          // Bottom Action Bar: [Cancel] + [Read] if sealed, or [Delete] + [Close] if sender, or [Close Letter] if recipient unsealed
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
             child: _isUnsealed
-                ? _buildCloseButton()
+                ? (widget.isSenderView ? _buildSenderActions() : _buildCloseButton())
                 : _buildCancelAndReadButtons(),
           ),
         ],
@@ -395,6 +453,106 @@ class _LetterDetailModalState extends State<LetterDetailModal> {
                 ),
               ),
               onPressed: _handleReadAction,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Dual-Action Row for Sender: [Delete] + [Close Letter]
+  Widget _buildSenderActions() {
+    return Row(
+      children: [
+        // Delete Button
+        Expanded(
+          flex: 1,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF5252).withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                size: 18,
+                color: Colors.white,
+              ),
+              label: const Text(
+                'Delete',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14.5,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: _handleDelete,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // Close Letter Button
+        Expanded(
+          flex: 2,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.check_rounded, color: Colors.white, size: 19),
+              label: const Text(
+                'Close Letter',
+                style: TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                Navigator.of(context).pop();
+              },
             ),
           ),
         ),

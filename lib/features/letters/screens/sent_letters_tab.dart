@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/mood_letter_model.dart';
 import '../../../providers/mood_letters_provider.dart';
+import '../../../widgets/common/timed_confirm_dialog.dart';
 import '../widgets/letter_detail_modal.dart';
 
 class SentLettersTab extends StatelessWidget {
@@ -305,6 +306,39 @@ class SentLettersTab extends StatelessWidget {
                       ),
                     ),
 
+                    // Delete quick-button
+                    InkWell(
+                      onTap: () => _confirmDeleteLetter(context, letter),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF5252).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.delete_outline_rounded,
+                              size: 13,
+                              color: Color(0xFFFF5252),
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Delete',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFFF5252),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
                     // Tap affordance pill
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -417,5 +451,36 @@ class SentLettersTab extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteLetter(BuildContext context, MoodLetterModel letter) async {
+    HapticFeedback.mediumImpact();
+    final confirmed = await showTimedConfirmDialog(
+      context: context,
+      title: 'Delete Mood Letter?',
+      message:
+          'This will permanently delete this letter for both you and your partner. This cannot be undone.',
+      confirmLabel: 'Delete Letter',
+      countdownSeconds: 5,
+    );
+
+    if (confirmed == true && context.mounted) {
+      final success =
+          await context.read<MoodLettersProvider>().deleteLetter(letter.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success
+                  ? 'Letter deleted permanently'
+                  : 'Failed to delete letter. Please try again.',
+            ),
+            backgroundColor:
+                success ? const Color(0xFFD81B60) : Colors.red.shade800,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }

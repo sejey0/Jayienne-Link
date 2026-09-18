@@ -201,6 +201,37 @@ class LetterOfflineSyncManager {
     }
   }
 
+  Future<void> replaceCoupleLetters(String coupleId, List<MoodLetterModel> letters) async {
+    try {
+      final db = await database;
+      await db.transaction((txn) async {
+        await txn.delete('cached_letters', where: 'couple_id = ?', whereArgs: [coupleId]);
+        final batch = txn.batch();
+        for (final l in letters) {
+          batch.insert(
+            'cached_letters',
+            l.toJson(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+        await batch.commit(noResult: true);
+      });
+      debugPrint('[LetterOfflineSyncManager] Successfully synchronized ${letters.length} letters for couple $coupleId');
+    } catch (e) {
+      debugPrint('[LetterOfflineSyncManager] Error replacing couple letters: $e');
+    }
+  }
+
+  Future<void> deleteCachedLetter(String letterId) async {
+    try {
+      final db = await database;
+      await db.delete('cached_letters', where: 'id = ?', whereArgs: [letterId]);
+      debugPrint('[LetterOfflineSyncManager] Deleted cached letter: $letterId');
+    } catch (e) {
+      debugPrint('[LetterOfflineSyncManager] Error deleting cached letter: $e');
+    }
+  }
+
   void dispose() {
     _connectivitySub?.cancel();
   }

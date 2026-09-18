@@ -186,6 +186,22 @@ class SupabaseMoodLetterService {
     await _offlineSync.cacheLetter(letter);
   }
 
+  Future<void> replaceCachedCoupleLetters(String coupleId, List<MoodLetterModel> letters) async {
+    await _offlineSync.replaceCoupleLetters(coupleId, letters);
+  }
+
+  Future<bool> deleteLetter(String letterId) async {
+    try {
+      await _supabase.from('letters').delete().eq('id', letterId);
+      await _offlineSync.deleteCachedLetter(letterId);
+      debugPrint('[SupabaseMoodLetterService] Successfully deleted letter: $letterId');
+      return true;
+    } catch (e) {
+      debugPrint('[SupabaseMoodLetterService] Error deleting letter: $e');
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>> _executeRpcOpen(String letterId, {String? viewingUserId}) async {
     final userId = viewingUserId ?? currentUserId;
     if (userId == null) return {'success': false, 'reason': 'unauthenticated'};
@@ -216,16 +232,10 @@ class SupabaseMoodLetterService {
           .map((row) => MoodLetterModel.fromJson(row as Map<String, dynamic>))
           .toList();
 
-      if (letters.isNotEmpty) {
-        await _offlineSync.cacheAll(letters);
-        return letters;
-      }
-
-      // If remote returned empty, check offline cache before concluding empty
-      final cached = await _offlineSync.getCachedCoupleLetters(coupleId);
-      return cached;
+      await _offlineSync.replaceCoupleLetters(coupleId, letters);
+      return letters;
     } catch (e) {
-      debugPrint('[SupabaseMoodLetterService] Failed to fetch couple letters, falling back to cache: $e');
+      debugPrint('Failed to query online couple letters, falling back to cache: $e');
       return _offlineSync.getCachedCoupleLetters(coupleId);
     }
   }

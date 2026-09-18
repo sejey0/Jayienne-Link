@@ -9,15 +9,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/movie_model.dart';
+import '../../../models/sex_position_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/debug_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/online_filipino_suggestion_service.dart';
+import '../../../services/sex_positions_service.dart';
 import '../../../services/supabase_data_service.dart';
 import '../../../services/supabase_movie_service.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
 import '../../movies/widgets/movie_poster_widget.dart';
+import '../widgets/sex_position_picker_modal.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/timed_confirm_dialog.dart';
 
@@ -35,7 +39,7 @@ class _WheelSliceItem {
 }
 
 /// Pure Custom & Online Decision Spinner Screen with Swapped Positions:
-/// 0: Movie Watchlist (Front) | 1: Dates & Activities | 2: Food & Drinks
+/// 0: Movie Watchlist (Front) | 1: Dates & Activities | 2: Food & Drinks | 3: Sex Positions
 class DecisionSpinnerScreen extends StatefulWidget {
   const DecisionSpinnerScreen({super.key});
 
@@ -47,40 +51,53 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     with SingleTickerProviderStateMixin {
   final Random _random = Random();
   final SupabaseMovieService _movieService = SupabaseMovieService();
+  final SexPositionsService _sexPositionsService = SexPositionsService();
   final GlobalKey<_WheelPointerWidgetState> _pointerKey = GlobalKey();
 
-  int _selectedCategoryIndex = 0; // 0: Movie Watchlist (Front), 1: Dates & Activities, 2: Food & Drinks
+  int _selectedCategoryIndex = 0; // 0: Movie Watchlist, 1: Dates & Activities, 2: Food & Drinks, 3: Sex Positions
   int _spinnerModeIndex = 0; // 0: Spin Wheel, 1: Quick Roulette
   int? _spinSourceIndex; // null: must select before spin, 0: Custom Ideas, 1: Online Ideas
   bool _isSpinning = false;
   bool _isInitialized = false;
+  bool _showCategoryPicker = true; // true = show category selection list
   bool _isMoviesLoading = true; // True until Supabase stream delivers first batch
   String _currentDisplayResult = 'Tap Spin to Decide!';
   RealtimeChannel? _spinnerChannel;
   MovieModel? _pickedMovie;
   String? _lastActivityResult;
   String? _lastFoodResult;
+  String? _lastSexResult;
+  SexPositionModel? _pickedSexPosition;
 
-  // Strict Alternating Turn Tracking per category (0: Movie Watchlist, 1: Dates & Activities, 2: Food & Drinks)
+  // Strict Alternating Turn Tracking per category (0: Movie Watchlist, 1: Dates & Activities, 2: Food & Drinks, 3: Sex Positions)
   String? _lastMovieSpinnerId;
   String? _lastActivitySpinnerId;
   String? _lastFoodSpinnerId;
+  String? _lastSexSpinnerId;
 
   // Decision Review States (Accepted / Rejected by Partner)
   bool _activityDecisionAccepted = false;
   bool _activityDecisionRejected = false;
   bool _foodDecisionAccepted = false;
   bool _foodDecisionRejected = false;
+  bool _sexDecisionAccepted = false;
+  bool _sexDecisionRejected = false;
+
+  // Sex Positions Category & Active Wheel Cache
+  String _selectedSexCategory = 'All';
+  List<SexPositionModel> _activeSexWheelPositions = [];
 
   bool _isCategoryDecisionAccepted(int categoryIndex) {
     if (categoryIndex == 1) return _activityDecisionAccepted;
     if (categoryIndex == 2) return _foodDecisionAccepted;
+    if (categoryIndex == 3) return _sexDecisionAccepted;
     return false;
   }
 
   bool _isCategoryDecisionRejected(int categoryIndex) {
     if (categoryIndex == 1) return _activityDecisionRejected;
     if (categoryIndex == 2) return _foodDecisionRejected;
+    if (categoryIndex == 3) return _sexDecisionRejected;
     return false;
   }
 
@@ -92,6 +109,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         return _lastActivitySpinnerId;
       case 2:
         return _lastFoodSpinnerId;
+      case 3:
+        return _lastSexSpinnerId;
       default:
         return null;
     }
@@ -107,6 +126,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         break;
       case 2:
         _lastFoodSpinnerId = userId;
+        break;
+      case 3:
+        _lastSexSpinnerId = userId;
         break;
     }
   }
@@ -189,6 +211,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         return 'Dates & Activities';
       case 2:
         return 'Food & Drinks';
+      case 3:
+        return 'Sex Positions';
       default:
         return 'Decision';
     }
@@ -207,6 +231,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   final List<String> _watchHistory = [];
   final List<String> _activityHistory = [];
   final List<String> _foodHistory = [];
+  final List<String> _sexHistory = [];
 
   // Weekly anti-repeat cycle start timestamps (7-day auto-reset)
   DateTime? _activityPoolCycleStart;
@@ -277,6 +302,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         return _watchOptions;
       case 1:
         return _activityOptions;
+      case 2:
+        return _foodOptions;
+      case 3:
+        return const []; // Sex Positions uses bundled JSON, no custom options
       default:
         return _foodOptions;
     }
@@ -288,8 +317,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         return _watchHistory;
       case 1:
         return _activityHistory;
-      default:
+      case 2:
         return _foodHistory;
+      case 3:
+        return _sexHistory;
+      default:
+        return _sexHistory;
     }
   }
 
@@ -342,6 +375,33 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 label: title,
                 isCustom: true,
                 onlineIcon: Icons.movie_rounded,
+              ))
+          .toList();
+    }
+
+    if (_selectedCategoryIndex == 3) {
+      // Sex Positions slices
+      if (_activeSexWheelPositions.isEmpty) {
+        _activeSexWheelPositions = _sexPositionsService.getRandomSliceSelection(
+          category: _selectedSexCategory,
+          count: 8,
+        );
+      }
+      if (_activeSexWheelPositions.isEmpty) {
+        return List.generate(
+          8,
+          (i) => const _WheelSliceItem(
+            label: '',
+            isCustom: false,
+            onlineIcon: Icons.favorite_rounded,
+          ),
+        );
+      }
+      return _activeSexWheelPositions
+          .map((pos) => _WheelSliceItem(
+                label: pos.name,
+                isCustom: true,
+                onlineIcon: Icons.favorite_rounded,
               ))
           .toList();
     }
@@ -490,6 +550,20 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
     _loadPersistentData();
 
+    _sexPositionsService.loadPositions().then((_) {
+      if (mounted) {
+        setState(() {
+          _activeSexWheelPositions = _sexPositionsService.getRandomSliceSelection(
+            category: _selectedSexCategory,
+            count: 8,
+          );
+          if (_pickedSexPosition == null && _lastSexResult != null) {
+            _pickedSexPosition = _sexPositionsService.findByName(_lastSexResult!);
+          }
+        });
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupRealtimeChannel();
       _fetchOnlineSyncedData();
@@ -565,6 +639,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           final remoteSource = payload['spinSourceIndex'] as int?;
           if (remoteSource != null) {
             _spinSourceIndex = remoteSource;
+          }
+
+          if (catIndex == 3) {
+            final sexJson = payload['sexPosition'] as Map<String, dynamic>?;
+            if (sexJson != null) {
+              _pickedSexPosition = SexPositionModel.fromJson(sexJson);
+            } else if (winner != null) {
+              _pickedSexPosition = _sexPositionsService.findByName(winner);
+            }
           }
 
           setState(() {
@@ -645,6 +728,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               _lastActivityResult = winner;
             } else if (catIndex == 2) {
               _lastFoodResult = winner;
+            } else if (catIndex == 3) {
+              _lastSexResult = winner;
+              final sexJson = payload['sexPosition'] as Map<String, dynamic>?;
+              if (sexJson != null) {
+                _pickedSexPosition = SexPositionModel.fromJson(sexJson);
+              } else {
+                _pickedSexPosition = _sexPositionsService.findByName(winner);
+              }
             }
           });
           _savePersistentData();
@@ -710,6 +801,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             } else if (catIndex == 2) {
               _foodHistory.clear();
               _lastFoodResult = null;
+            } else if (catIndex == 3) {
+              _sexHistory.clear();
+              _lastSexResult = null;
+              _pickedSexPosition = null;
             } else {
               _currentHistory.clear();
             }
@@ -755,6 +850,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             } else if (catIndex == 2) {
               _foodDecisionAccepted = true;
               _foodDecisionRejected = false;
+            } else if (catIndex == 3) {
+              _sexDecisionAccepted = true;
+              _sexDecisionRejected = false;
             }
           });
           _savePersistentData();
@@ -774,6 +872,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             } else if (catIndex == 2) {
               _foodDecisionAccepted = false;
               _foodDecisionRejected = true;
+            } else if (catIndex == 3) {
+              _sexDecisionAccepted = false;
+              _sexDecisionRejected = true;
             }
           });
           _savePersistentData();
@@ -795,6 +896,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               _lastFoodResult = null;
               _foodDecisionAccepted = false;
               _foodDecisionRejected = false;
+            } else if (catIndex == 3) {
+              _lastSexResult = null;
+              _pickedSexPosition = null;
+              _sexDecisionAccepted = false;
+              _sexDecisionRejected = false;
             }
             if (_selectedCategoryIndex == catIndex) {
               _currentDisplayResult = 'Tap Spin to Decide!';
@@ -923,6 +1029,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               'activeActivity': _lastActivityResult,
               'activeFood': _lastFoodResult,
               'activeMovie': _pickedMovie?.title,
+              'activeSex': _lastSexResult,
             },
           );
         },
@@ -961,6 +1068,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           if (activeFood != null && activeFood.isNotEmpty) {
             _lastFoodResult = activeFood;
             if (_selectedCategoryIndex == 2) _currentDisplayResult = activeFood;
+            changed = true;
+          }
+          final activeSex = payload['activeSex']?.toString();
+          if (activeSex != null && activeSex.isNotEmpty) {
+            _lastSexResult = activeSex;
+            _pickedSexPosition = _sexPositionsService.findByName(activeSex);
+            if (_selectedCategoryIndex == 3) _currentDisplayResult = activeSex;
             changed = true;
           }
           final activeMov = payload['activeMovie']?.toString();
@@ -1059,6 +1173,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             prefs.getString('decision_spinner_last_activity_result');
         _lastFoodResult =
             prefs.getString('decision_spinner_last_food_result');
+        _lastSexResult =
+            prefs.getString('decision_spinner_last_sex_result');
 
         // Load Last Spinner IDs per category
         _lastMovieSpinnerId =
@@ -1067,6 +1183,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             prefs.getString('decision_spinner_last_activity_spinner_id');
         _lastFoodSpinnerId =
             prefs.getString('decision_spinner_last_food_spinner_id');
+        _lastSexSpinnerId =
+            prefs.getString('decision_spinner_last_sex_spinner_id');
 
         // Load Decision Review States per category
         _activityDecisionAccepted =
@@ -1077,6 +1195,16 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             prefs.getBool('decision_spinner_food_accepted') ?? false;
         _foodDecisionRejected =
             prefs.getBool('decision_spinner_food_rejected') ?? false;
+        _sexDecisionAccepted =
+            prefs.getBool('decision_spinner_sex_accepted') ?? false;
+        _sexDecisionRejected =
+            prefs.getBool('decision_spinner_sex_rejected') ?? false;
+
+        _sexHistory.clear();
+        _sexHistory.addAll(prefs.getStringList('decision_spinner_sex_history') ?? []);
+        if (_lastSexResult != null && _lastSexResult!.isNotEmpty) {
+          _pickedSexPosition = _sexPositionsService.findByName(_lastSexResult!);
+        }
 
         // Load Active Picked Movie from Local Cache
         final cachedMovieTitle =
@@ -1154,6 +1282,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         await prefs.remove('decision_spinner_last_food_result');
       }
 
+      if (_lastSexResult != null && _lastSexResult!.isNotEmpty) {
+        await prefs.setString(
+            'decision_spinner_last_sex_result', _lastSexResult!);
+      } else {
+        await prefs.remove('decision_spinner_last_sex_result');
+      }
+
       if (_spinSourceIndex != null) {
         await prefs.setInt(
             'decision_spinner_spin_source_index', _spinSourceIndex!);
@@ -1195,6 +1330,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         await prefs.remove('decision_spinner_last_food_spinner_id');
       }
 
+      if (_lastSexSpinnerId != null && _lastSexSpinnerId!.isNotEmpty) {
+        await prefs.setString(
+            'decision_spinner_last_sex_spinner_id', _lastSexSpinnerId!);
+      } else {
+        await prefs.remove('decision_spinner_last_sex_spinner_id');
+      }
+
       await prefs.setBool(
           'decision_spinner_activity_accepted', _activityDecisionAccepted);
       await prefs.setBool(
@@ -1203,6 +1345,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'decision_spinner_food_accepted', _foodDecisionAccepted);
       await prefs.setBool(
           'decision_spinner_food_rejected', _foodDecisionRejected);
+      await prefs.setBool(
+          'decision_spinner_sex_accepted', _sexDecisionAccepted);
+      await prefs.setBool(
+          'decision_spinner_sex_rejected', _sexDecisionRejected);
+      await prefs.setStringList('decision_spinner_sex_history', _sexHistory);
     } catch (_) {}
   }
 
@@ -1228,6 +1375,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _lastActivityResult = null;
       } else if (_selectedCategoryIndex == 2) {
         _lastFoodResult = null;
+      } else if (_selectedCategoryIndex == 3) {
+        _lastSexResult = null;
+        _pickedSexPosition = null;
       }
       _currentDisplayResult = 'Tap Spin to Decide!';
     });
@@ -1237,7 +1387,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     if (coupleId.isNotEmpty && _selectedCategoryIndex != 0) {
       final categoryTag = _selectedCategoryIndex == 1
           ? 'active_activity_pick'
-          : 'active_food_pick';
+          : (_selectedCategoryIndex == 2
+              ? 'active_food_pick'
+              : 'active_sex_pick');
       try {
         await SupabaseDataService.client
             .from('decision_ideas')
@@ -1286,6 +1438,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       } else if (_selectedCategoryIndex == 2) {
         _foodDecisionAccepted = true;
         _foodDecisionRejected = false;
+      } else if (_selectedCategoryIndex == 3) {
+        _sexDecisionAccepted = true;
+        _sexDecisionRejected = false;
       }
     });
     await _savePersistentData();
@@ -1294,7 +1449,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     if (coupleId.isNotEmpty && _selectedCategoryIndex != 0) {
       final categoryTag = _selectedCategoryIndex == 1
           ? 'active_activity_pick'
-          : 'active_food_pick';
+          : (_selectedCategoryIndex == 2
+              ? 'active_food_pick'
+              : 'active_sex_pick');
       try {
         await SupabaseDataService.client.from('decision_ideas').upsert({
           'couple_id': coupleId,
@@ -1340,7 +1497,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
     final partnerName = _getPartnerDisplayName();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final catLabel = _selectedCategoryIndex == 1 ? 'activity' : 'food choice';
+    final catLabel = _selectedCategoryIndex == 1
+        ? 'activity'
+        : (_selectedCategoryIndex == 2 ? 'food choice' : 'sex position');
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1424,13 +1583,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
+                        padding: EdgeInsets.zero,
                       ),
-                      child: const Text(
-                        'Reject',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12.5,
-                        ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.close_rounded,
+                              size: 15, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text(
+                            'Reject',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1452,6 +1620,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       } else if (_selectedCategoryIndex == 2) {
         _foodDecisionAccepted = false;
         _foodDecisionRejected = true;
+      } else if (_selectedCategoryIndex == 3) {
+        _sexDecisionAccepted = false;
+        _sexDecisionRejected = true;
       }
     });
     await _savePersistentData();
@@ -1460,7 +1631,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     if (coupleId.isNotEmpty && _selectedCategoryIndex != 0) {
       final categoryTag = _selectedCategoryIndex == 1
           ? 'active_activity_pick'
-          : 'active_food_pick';
+          : (_selectedCategoryIndex == 2
+              ? 'active_food_pick'
+              : 'active_sex_pick');
       try {
         await SupabaseDataService.client.from('decision_ideas').upsert({
           'couple_id': coupleId,
@@ -1506,7 +1679,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
     final decisionName = _currentDisplayResult;
     final partnerName = _getPartnerDisplayName();
-    final catLabel = _selectedCategoryIndex == 1 ? 'activity' : 'food choice';
+    final catLabel = _selectedCategoryIndex == 1
+        ? 'activity'
+        : (_selectedCategoryIndex == 2 ? 'food choice' : 'sex position');
 
     showDialog(
       context: context,
@@ -1652,6 +1827,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _lastFoodResult = null;
         _foodDecisionAccepted = false;
         _foodDecisionRejected = false;
+      } else if (_selectedCategoryIndex == 3) {
+        _lastSexResult = null;
+        _pickedSexPosition = null;
+        _sexDecisionAccepted = false;
+        _sexDecisionRejected = false;
       }
       _currentDisplayResult = 'Tap Spin to Decide!';
     });
@@ -1661,7 +1841,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     if (coupleId.isNotEmpty && _selectedCategoryIndex != 0) {
       final categoryTag = _selectedCategoryIndex == 1
           ? 'active_activity_pick'
-          : 'active_food_pick';
+          : (_selectedCategoryIndex == 2
+              ? 'active_food_pick'
+              : 'active_sex_pick');
       try {
         await SupabaseDataService.client
             .from('decision_ideas')
@@ -2100,6 +2282,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       String? activeMovieTitle;
       String? activeActivityTitle;
       String? activeFoodTitle;
+      String? activeSexTitle;
 
       if (coupleId.isNotEmpty) {
         try {
@@ -2128,6 +2311,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               activeFoodTitle = title;
               continue;
             }
+            if (category == 'active_sex_pick' && title.isNotEmpty) {
+              activeSexTitle = title;
+              continue;
+            }
             if (category == 'turn_movie' && title.isNotEmpty) {
               _lastMovieSpinnerId = title;
               continue;
@@ -2138,6 +2325,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             }
             if (category == 'turn_food' && title.isNotEmpty) {
               _lastFoodSpinnerId = title;
+              continue;
+            }
+            if (category == 'turn_sex' && title.isNotEmpty) {
+              _lastSexSpinnerId = title;
               continue;
             }
 
@@ -2215,6 +2406,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           if (activeFoodTitle != null && activeFoodTitle.isNotEmpty) {
             _lastFoodResult = activeFoodTitle;
           }
+          if (activeSexTitle != null && activeSexTitle.isNotEmpty) {
+            _lastSexResult = activeSexTitle;
+            _pickedSexPosition = _sexPositionsService.findByName(activeSexTitle);
+          }
 
           if (_selectedCategoryIndex == 0) {
             _currentDisplayResult =
@@ -2225,6 +2420,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           } else if (_selectedCategoryIndex == 2) {
             _currentDisplayResult =
                 _lastFoodResult ?? 'Tap Spin to Decide!';
+          } else if (_selectedCategoryIndex == 3) {
+            _currentDisplayResult =
+                _lastSexResult ?? 'Tap Spin to Decide!';
           }
         });
 
@@ -2304,6 +2502,23 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       return pool[_random.nextInt(pool.length)];
     }
 
+    if (_selectedCategoryIndex == 3) {
+      // Sex Positions: uniform distribution from active wheel positions
+      final pool = _activeSexWheelPositions.isNotEmpty
+          ? _activeSexWheelPositions
+          : _sexPositionsService.getPositionsByCategory(_selectedSexCategory);
+      if (pool.isEmpty) return 'Missionary';
+      final available = pool
+          .where((p) => !_sexHistory.contains(p.name))
+          .toList();
+      final finalPool = available.isNotEmpty ? available : pool;
+      if (available.isEmpty) {
+        _sexHistory.clear();
+        _savePersistentData();
+      }
+      return finalPool[_random.nextInt(finalPool.length)].name;
+    }
+
     final availableCustom = _currentOptions
         .where((item) => !_currentHistory.contains(item))
         .toList();
@@ -2341,8 +2556,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     final slices = _wheelDisplaySlices;
     final winner = await _pickWinner();
 
-    if (_selectedCategoryIndex == 0) {
-      final idx = slices.indexWhere((s) => s.label == winner);
+    if (_selectedCategoryIndex == 0 || _selectedCategoryIndex == 3) {
+      final idx = slices.indexWhere(
+          (s) => s.label.trim().toLowerCase() == winner.trim().toLowerCase());
       return (
         winner: winner,
         targetSliceIndex: idx >= 0 ? idx : 0,
@@ -2455,13 +2671,25 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         );
         return;
       }
-    } else if (_selectedCategoryIndex != 0) {
+    } else if (_selectedCategoryIndex == 1 || _selectedCategoryIndex == 2) {
       _spinSourceIndex ??= (_currentOptions.length >= 7 ? 0 : 1);
       if (_spinSourceIndex == 0 && _currentOptions.length < 7) {
         HapticFeedback.vibrate();
         SnackbarHelper.showError(
           context,
           'Please add at least 7 custom options to spin custom ideas! (Currently ${_currentOptions.length}/7, Max: 10)',
+        );
+        return;
+      }
+    } else if (_selectedCategoryIndex == 3) {
+      if (_activeSexWheelPositions.isEmpty) {
+        _shuffleSexPositionsWheel();
+      }
+      if (_activeSexWheelPositions.isEmpty) {
+        HapticFeedback.vibrate();
+        SnackbarHelper.showError(
+          context,
+          'Loading positions, please wait a moment...',
         );
         return;
       }
@@ -2521,6 +2749,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         } catch (_) {}
       }
 
+      SexPositionModel? winningSexPosition;
+      if (_selectedCategoryIndex == 3) {
+        winningSexPosition = _sexPositionsService.findByName(finalWinner);
+      }
+
       _spinnerChannel?.sendBroadcastMessage(
         event: 'spin_start',
         payload: {
@@ -2537,6 +2770,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'foodOptions': _foodOptions,
           'activityOptions': _activityOptions,
           'spinSourceIndex': _spinSourceIndex,
+          'sexPosition': winningSexPosition?.toJson(),
         },
       );
     } else {
@@ -2623,6 +2857,10 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     final List<String> displayPool;
     if (_selectedCategoryIndex == 0) {
       displayPool = _watchOptions;
+    } else if (_selectedCategoryIndex == 3) {
+      displayPool = _activeSexWheelPositions.isNotEmpty
+          ? _activeSexWheelPositions.map((p) => p.name).toList()
+          : _sexPositionsService.positions.map((p) => p.name).toList();
     } else if (_spinSourceIndex == 0 && _currentOptions.isNotEmpty) {
       displayPool = _currentOptions;
     } else if (_spinSourceIndex == 1 || _currentOptions.isEmpty) {
@@ -2672,6 +2910,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         } catch (_) {}
       }
 
+      SexPositionModel? winningSexPosition;
+      if (_selectedCategoryIndex == 3) {
+        winningSexPosition = _sexPositionsService.findByName(finalWinner);
+      }
+
       _spinnerChannel?.sendBroadcastMessage(
         event: 'spin_start',
         payload: {
@@ -2686,6 +2929,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'foodOptions': _foodOptions,
           'activityOptions': _activityOptions,
           'spinSourceIndex': _spinSourceIndex,
+          'sexPosition': winningSexPosition?.toJson(),
         },
       );
     } else {
@@ -2789,7 +3033,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           }
           _activityPoolCycleStart ??= DateTime.now();
         }
-      } else {
+      } else if (_selectedCategoryIndex == 2) {
         _lastFoodResult = winner;
         _foodDecisionAccepted = false;
         _foodDecisionRejected = false;
@@ -2800,6 +3044,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           }
           _foodPoolCycleStart ??= DateTime.now();
         }
+      } else if (_selectedCategoryIndex == 3) {
+        _lastSexResult = winner;
+        _pickedSexPosition = _sexPositionsService.findByName(winner);
+        _sexDecisionAccepted = false;
+        _sexDecisionRejected = false;
+        if (!_sexHistory.contains(winner)) {
+          _sexHistory.add(winner);
+        }
       }
     });
 
@@ -2808,7 +3060,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     if (!fromRemote) {
       final myUserId = _effectiveMyUserId;
 
-      // Update turn locally for current user across all categories (Movie, Dates, Food)
+      // Update turn locally for current user across all categories (Movie, Dates, Food, Sex)
       if (myUserId != null && myUserId.isNotEmpty) {
         setState(() {
           _setLastSpinnerIdForCategory(_selectedCategoryIndex, myUserId);
@@ -2829,6 +3081,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           'lastSpinnerId': myUserId,
           'foodOptions': _foodOptions,
           'activityOptions': _activityOptions,
+          'sexPosition': _pickedSexPosition?.toJson(),
         },
       );
 
@@ -2839,13 +3092,17 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             ? 'active_movie_pick'
             : (_selectedCategoryIndex == 1
                 ? 'active_activity_pick'
-                : 'active_food_pick');
+                : (_selectedCategoryIndex == 2
+                    ? 'active_food_pick'
+                    : 'active_sex_pick'));
 
         final turnTag = _selectedCategoryIndex == 0
             ? 'turn_movie'
             : (_selectedCategoryIndex == 1
                 ? 'turn_activity'
-                : 'turn_food');
+                : (_selectedCategoryIndex == 2
+                    ? 'turn_food'
+                    : 'turn_sex'));
 
         SupabaseDataService.client
             .from('decision_ideas')
@@ -3554,7 +3811,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   color: Color(0xFFFF758C),
                 ),
               )
-            : SingleChildScrollView(
+            : _showCategoryPicker
+                ? _buildCategoryPickerView(isDark)
+                : SingleChildScrollView(
         padding: const EdgeInsets.all(AppDimensions.spacingMd),
         child: Column(
           children: [
@@ -3588,35 +3847,83 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
-              // Categories Header Chips (0: Movie Watchlist, 1: Dates & Activities, 2: Food & Drinks)
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildCategoryBadge(
-                      index: 0,
-                      label: 'Movie Watchlist',
-                      icon: Icons.movie_filter_rounded,
-                      isDark: isDark,
+              // Active category row with Change button (replaces horizontal tab chips)
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(width: 8),
-                    _buildCategoryBadge(
-                      index: 1,
-                      label: 'Dates & Activities',
-                      icon: Icons.local_activity_rounded,
-                      isDark: isDark,
+                    child: Icon(
+                      _selectedCategoryIndex == 0
+                          ? Icons.movie_filter_rounded
+                          : _selectedCategoryIndex == 1
+                              ? Icons.local_activity_rounded
+                              : _selectedCategoryIndex == 2
+                                  ? Icons.restaurant_rounded
+                                  : Icons.favorite_rounded,
+                      color: Colors.white,
+                      size: 18,
                     ),
-                    const SizedBox(width: 8),
-                    _buildCategoryBadge(
-                      index: 2,
-                      label: 'Food & Drinks',
-                      icon: Icons.restaurant_rounded,
-                      isDark: isDark,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _getCategoryName(_selectedCategoryIndex),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : const Color(0xFF2D2D2D),
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() => _showCategoryPicker = true);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.swap_horiz_rounded,
+                            size: 15,
+                            color: isDark ? Colors.white70 : const Color(0xFFFF758C),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Change',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white70 : const Color(0xFFFF758C),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
 
@@ -3709,6 +4016,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                           ),
                         ],
                       ),
+                    ] else if (_selectedCategoryIndex == 3) ...[
+                      _buildSexPositionsManagerView(context, isDark),
                     ] else ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -4064,8 +4373,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
                     const SizedBox(height: 10),
 
-                    // Redesigned Modern Empty State
-                    if (_currentOptions.isEmpty)
+                    // Redesigned Modern Empty State (hidden for Sex Positions which uses bundled data)
+                    if (_currentOptions.isEmpty && _selectedCategoryIndex != 3)
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
@@ -4390,7 +4699,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                           },
                         ),
                       )
-                    else ...[
+                    else if (_selectedCategoryIndex != 3) ...[
                       // Redesigned Modern Custom Options Cards List
                       ListView.separated(
                         shrinkWrap: true,
@@ -4680,7 +4989,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
-  /// Winner Decision Celebration Card for Dates & Activities and Food & Drinks
+  /// Winner Decision Celebration Card for Dates & Activities, Food & Drinks, and Sex Positions
   Widget _buildDecisionResultCard(BuildContext context, bool isDark) {
     if (_selectedCategoryIndex == 0) return const SizedBox.shrink();
     if (_currentDisplayResult == 'Tap Spin to Decide!' ||
@@ -4689,14 +4998,22 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       return const SizedBox.shrink();
     }
 
+    final isSex = _selectedCategoryIndex == 3;
     final isCustomIdea = _currentOptions.contains(_currentDisplayResult);
 
-    final categoryLabel = _selectedCategoryIndex == 1
-        ? 'DATE & ACTIVITY PICKED'
-        : 'FOOD & DRINKS CHOICE';
+    final categoryLabel = isSex
+        ? 'SEX POSITION PICKED'
+        : (_selectedCategoryIndex == 1
+            ? 'DATE & ACTIVITY PICKED'
+            : 'FOOD & DRINKS CHOICE');
 
-    final originLabel =
-        isCustomIdea ? 'Custom Couple Option' : 'Curated Online Suggestion';
+    final SexPositionModel? sexPos = isSex
+        ? (_pickedSexPosition ?? _sexPositionsService.findByName(_currentDisplayResult))
+        : null;
+
+    final originLabel = isSex
+        ? (sexPos?.category ?? 'Intimate Position')
+        : (isCustomIdea ? 'Custom Couple Option' : 'Curated Online Suggestion');
 
     return Container(
       width: double.infinity,
@@ -4760,8 +5077,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.stars_rounded,
+                    Icon(
+                      isSex ? Icons.favorite_rounded : Icons.stars_rounded,
                       color: Colors.white,
                       size: 13,
                     ),
@@ -4795,9 +5112,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isCustomIdea
-                          ? Icons.favorite_rounded
-                          : Icons.public_rounded,
+                      isSex
+                          ? Icons.category_rounded
+                          : (isCustomIdea
+                              ? Icons.favorite_rounded
+                              : Icons.public_rounded),
                       size: 12,
                       color: isDark
                           ? const Color(0xFFFF8DA1)
@@ -4815,8 +5134,78 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   ],
                 ),
               ),
+              if (isSex && sexPos != null && sexPos.difficulty.isNotEmpty)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFA18CD1).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.speed_rounded,
+                        size: 12,
+                        color: Color(0xFFA18CD1),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        sexPos.difficulty,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white70 : AppColors.deepCharcoal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
+
+          if (isSex && sexPos != null && sexPos.imageUrl.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: () => SexPositionPickerModal.showPositionDetails(context, sexPos),
+              child: Container(
+                height: 130,
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black26 : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CachedNetworkImage(
+                    imageUrl: sexPos.imageUrl,
+                    fit: BoxFit.contain,
+                    placeholder: (_, __) => const Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFFFF758C),
+                      ),
+                    ),
+                    errorWidget: (_, __, ___) => const Center(
+                      child: Icon(
+                        Icons.favorite_rounded,
+                        color: Color(0xFFFF758C),
+                        size: 38,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
 
           const SizedBox(height: 10),
 
@@ -4831,6 +5220,34 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               letterSpacing: -0.2,
             ),
           ),
+
+          if (isSex && sexPos != null) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => SexPositionPickerModal.showPositionDetails(context, sexPos),
+              icon: const Icon(Icons.travel_explore_rounded, size: 16),
+              label: const Text(
+                'View Position Guide & Tips',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12.5,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFFF758C),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                backgroundColor: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : const Color(0xFFFF758C).withValues(alpha: 0.1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -5508,16 +5925,24 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       } catch (_) {}
     }
 
+    final isSex = _selectedCategoryIndex == 3;
     final hasActivePick = _selectedCategoryIndex != 0 &&
         _currentDisplayResult != 'Tap Spin to Decide!' &&
         _currentDisplayResult != 'Spinning...' &&
         _currentDisplayResult.trim().isNotEmpty;
     final isCustomIdea = _currentOptions.contains(_currentDisplayResult);
-    final categoryLabel = _selectedCategoryIndex == 1
-        ? 'DATE & ACTIVITY PICKED'
-        : 'FOOD & DRINKS CHOICE';
-    final originLabel =
-        isCustomIdea ? 'Custom Couple Option' : 'Curated Online Suggestion';
+    final categoryLabel = isSex
+        ? 'SEX POSITION PICKED'
+        : (_selectedCategoryIndex == 1
+            ? 'DATE & ACTIVITY PICKED'
+            : 'FOOD & DRINKS CHOICE');
+    final SexPositionModel? sexPos = isSex
+        ? (_pickedSexPosition ??
+            _sexPositionsService.findByName(_currentDisplayResult))
+        : null;
+    final originLabel = isSex
+        ? (sexPos?.category ?? 'Sex Position')
+        : (isCustomIdea ? 'Custom Couple Option' : 'Curated Online Suggestion');
 
     return Container(
       width: double.infinity,
@@ -5547,8 +5972,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   ),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.public_rounded,
+                child: Icon(
+                  isSex ? Icons.favorite_rounded : Icons.public_rounded,
                   color: Colors.white,
                   size: 22,
                 ),
@@ -5594,8 +6019,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.stars_rounded,
+                      Icon(
+                        isSex ? Icons.favorite_rounded : Icons.stars_rounded,
                         color: Colors.white,
                         size: 13,
                       ),
@@ -5628,9 +6053,11 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        isCustomIdea
-                            ? Icons.favorite_rounded
-                            : Icons.public_rounded,
+                        isSex
+                            ? Icons.category_rounded
+                            : (isCustomIdea
+                                ? Icons.favorite_rounded
+                                : Icons.public_rounded),
                         size: 12,
                         color: isDark
                             ? const Color(0xFFFF8DA1)
@@ -5649,6 +6076,39 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     ],
                   ),
                 ),
+                if (isSex && sexPos != null && sexPos.difficulty.isNotEmpty)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFA18CD1).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.speed_rounded,
+                          size: 12,
+                          color: Color(0xFFA18CD1),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          sexPos.difficulty,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isDark
+                                ? Colors.white70
+                                : AppColors.deepCharcoal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ],
@@ -5671,6 +6131,31 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ),
             ),
             const SizedBox(height: 12),
+          ],
+
+          // Sex Position illustration thumbnail in slot roulette
+          if (isSex && sexPos != null && sexPos.imageUrl.isNotEmpty) ...[
+            GestureDetector(
+              onTap: () => SexPositionPickerModal.showPositionDetails(context, sexPos),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  height: 110,
+                  width: double.infinity,
+                  color: isDark ? Colors.black26 : Colors.white60,
+                  child: CachedNetworkImage(
+                    imageUrl: sexPos.imageUrl,
+                    fit: BoxFit.contain,
+                    errorWidget: (_, __, ___) => const Icon(
+                      Icons.favorite_rounded,
+                      color: Color(0xFFFF758C),
+                      size: 36,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
           ],
 
           AnimatedSwitcher(
@@ -5751,6 +6236,181 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
+  /// Full-screen category selection list shown when the spinner first opens
+  Widget _buildCategoryPickerView(bool isDark) {
+    final categories = [
+      (
+        index: 0,
+        label: 'Movie Watchlist',
+        subtitle: 'Spin a movie from your couple watchlist',
+        icon: Icons.movie_filter_rounded,
+        color: const Color(0xFFFF758C),
+      ),
+      (
+        index: 1,
+        label: 'Dates & Activities',
+        subtitle: 'Spin a fun date idea or activity',
+        icon: Icons.local_activity_rounded,
+        color: const Color(0xFFA18CD1),
+      ),
+      (
+        index: 2,
+        label: 'Food & Drinks',
+        subtitle: 'Let fate decide what you eat tonight',
+        icon: Icons.restaurant_rounded,
+        color: const Color(0xFFFF9A5C),
+      ),
+      (
+        index: 3,
+        label: 'Sex Positions',
+        subtitle: 'Spin a random intimate position',
+        icon: Icons.favorite_rounded,
+        color: const Color(0xFFFF758C),
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 24, 18, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'What are we deciding?',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : const Color(0xFF2D2D2D),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Pick a category to spin',
+            style: TextStyle(
+              fontSize: 13.5,
+              color: isDark ? Colors.white54 : Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ...categories.map((cat) {
+            final isActive = _selectedCategoryIndex == cat.index;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  setState(() {
+                    _selectedCategoryIndex = cat.index;
+                    _showCategoryPicker = false;
+                    _spinSourceIndex = null;
+                    _currentDisplayResult = 'Tap Spin to Decide!';
+                  });
+                  // Pre-load sex positions if switching to category 3
+                  if (cat.index == 3 && _activeSexWheelPositions.isEmpty) {
+                    _shuffleSexPositionsWheel();
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: isActive
+                        ? LinearGradient(
+                            colors: [
+                              cat.color.withValues(alpha: isDark ? 0.22 : 0.12),
+                              const Color(0xFFA18CD1).withValues(alpha: isDark ? 0.12 : 0.06),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    color: isActive
+                        ? null
+                        : (isDark
+                            ? const Color(0xFF1E162B)
+                            : Colors.white),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isActive
+                          ? cat.color.withValues(alpha: 0.5)
+                          : (isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : Colors.grey.shade200),
+                      width: isActive ? 1.5 : 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isActive
+                            ? cat.color.withValues(alpha: 0.15)
+                            : Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                        blurRadius: isActive ? 14 : 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [cat.color, const Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: cat.color.withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(cat.icon, color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              cat.label,
+                              style: TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : const Color(0xFF2D2D2D),
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              cat.subtitle,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white54 : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: isActive
+                            ? cat.color
+                            : (isDark ? Colors.white30 : Colors.grey.shade400),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCategoryBadge({
     required int index,
     required String label,
@@ -5775,6 +6435,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           } else if (index == 2) {
             _currentDisplayResult = _lastFoodResult ?? 'Tap Spin to Decide!';
             _spinSourceIndex = _foodOptions.length >= 7 ? 0 : 1;
+          } else if (index == 3) {
+            _currentDisplayResult = _lastSexResult ?? 'Tap Spin to Decide!';
+            _spinSourceIndex = null;
           }
         });
         _checkAndAutoResetWeeklyPool();
@@ -5842,9 +6505,291 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Sex Positions Helpers
+  // ---------------------------------------------------------------------------
+
+  /// Refresh the sex wheel pool from the service based on the current category filter.
+  void _shuffleSexPositionsWheel() {
+    final pool = _sexPositionsService.getRandomSliceSelection(
+      category: _selectedSexCategory,
+      count: 8,
+    );
+    setState(() {
+      _activeSexWheelPositions = pool;
+    });
+  }
+
+  /// Manager panel shown inside the options card when Sex Positions (index 3) is active.
+  Widget _buildSexPositionsManagerView(BuildContext context, bool isDark) {
+    final categories = _sexPositionsService.getCategories();
+    final count = _activeSexWheelPositions.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  const Icon(Icons.favorite_rounded, size: 16, color: Color(0xFFFF758C)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sex Positions ($count on wheel)',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                            color: isDark ? Colors.white : const Color(0xFF2D2D2D),
+                          ),
+                        ),
+                        Text(
+                          'Spin to pick a random position for tonight',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? const Color(0xFFFF8DA1) : const Color(0xFFC2185B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Browse button
+            GestureDetector(
+              onTap: () async {
+                final picked = await SexPositionPickerModal.show(
+                  context,
+                  initialCategory: _selectedSexCategory,
+                  onPositionSelected: (pos) {
+                    setState(() {
+                      _currentDisplayResult = pos.name;
+                      _pickedSexPosition = pos;
+                      _lastSexResult = pos.name;
+                      _sexDecisionAccepted = false;
+                      _sexDecisionRejected = false;
+                    });
+                    _savePersistentData();
+                  },
+                );
+                if (picked != null) {
+                  setState(() {
+                    _currentDisplayResult = picked.name;
+                    _pickedSexPosition = picked;
+                    _lastSexResult = picked.name;
+                    _sexDecisionAccepted = false;
+                    _sexDecisionRejected = false;
+                  });
+                  _savePersistentData();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.grid_view_rounded, color: Colors.white, size: 14),
+                    SizedBox(width: 5),
+                    Text(
+                      'Browse All',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Category filter chips
+        SizedBox(
+          height: 34,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: categories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 6),
+            itemBuilder: (ctx, idx) {
+              final cat = categories[idx];
+              final isSelected = _selectedSexCategory == cat;
+              return GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  setState(() => _selectedSexCategory = cat);
+                  _shuffleSexPositionsWheel();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: isSelected
+                        ? const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    color: isSelected
+                        ? null
+                        : (isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.grey.shade100),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Text(
+                      cat,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected
+                            ? Colors.white
+                            : (isDark ? Colors.white70 : const Color(0xFF2D2D2D)),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Reshuffle row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                _shuffleSexPositionsWheel();
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.shuffle_rounded,
+                    size: 13,
+                    color: isDark ? const Color(0xFFFF8DA1) : const Color(0xFFC2185B),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Reshuffle wheel',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? const Color(0xFFFF8DA1) : const Color(0xFFC2185B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Category filter pill shown in place of the spin-source toggle for Sex Positions.
+  Widget _buildSexPositionSubcategorySelector(BuildContext context, bool isDark) {
+    if (!_sexPositionsService.isLoaded) return const SizedBox.shrink();
+    final categories = _sexPositionsService.getCategories();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      child: SizedBox(
+        height: 38,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: categories.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (ctx, idx) {
+            final cat = categories[idx];
+            final isSelected = _selectedSexCategory == cat;
+            return GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                setState(() => _selectedSexCategory = cat);
+                _shuffleSexPositionsWheel();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: isSelected
+                      ? const LinearGradient(
+                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: isSelected
+                      ? null
+                      : (isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.grey.shade100),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: Text(
+                    cat,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : const Color(0xFF2D2D2D)),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   /// Unified Segmented Toggle Pill (Custom Ideas vs Online Suggestions)
   Widget _buildSpinSourceSelector(BuildContext context, bool isDark) {
     if (_selectedCategoryIndex == 0) return const SizedBox.shrink();
+    if (_selectedCategoryIndex == 3) {
+      return _buildSexPositionSubcategorySelector(context, isDark);
+    }
 
     final customCount = _currentOptions.length;
     final hasMinCustom = customCount >= 7;
@@ -6008,44 +6953,34 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
     // 1. When IDLE (No Active Pick): Direct sleek Spin Button (zero duplicate banners or nested card)
     if (!hasActivePick) {
+      final isSpinDisabled = _isSpinning ||
+          isPartnerTurnVal ||
+          (_selectedCategoryIndex == 0 && _watchOptions.length < 2) ||
+          ((_selectedCategoryIndex == 1 || _selectedCategoryIndex == 2) &&
+              _spinSourceIndex == 0 &&
+              _currentOptions.length < 7) ||
+          (_selectedCategoryIndex == 3 && _activeSexWheelPositions.isEmpty);
+
       return Padding(
         padding: const EdgeInsets.only(top: 8, bottom: 6),
         child: Container(
           width: double.infinity,
           height: 50,
           decoration: BoxDecoration(
-            gradient: _isSpinning ||
-                    isPartnerTurnVal ||
-                    (_selectedCategoryIndex == 0 &&
-                        _watchOptions.length < 2) ||
-                    (_selectedCategoryIndex != 0 &&
-                        _spinSourceIndex == 0 &&
-                        _currentOptions.length < 7)
+            gradient: isSpinDisabled
                 ? null
                 : const LinearGradient(
                     colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-            color: _isSpinning ||
-                    isPartnerTurnVal ||
-                    (_selectedCategoryIndex == 0 &&
-                        _watchOptions.length < 2) ||
-                    (_selectedCategoryIndex != 0 &&
-                        _spinSourceIndex == 0 &&
-                        _currentOptions.length < 7)
+            color: isSpinDisabled
                 ? (isDark
                     ? Colors.white.withValues(alpha: 0.08)
                     : Colors.grey.shade300)
                 : null,
             borderRadius: BorderRadius.circular(18),
-            boxShadow: _isSpinning ||
-                    isPartnerTurnVal ||
-                    (_selectedCategoryIndex == 0 &&
-                        _watchOptions.length < 2) ||
-                    (_selectedCategoryIndex != 0 &&
-                        _spinSourceIndex == 0 &&
-                        _currentOptions.length < 7)
+            boxShadow: isSpinDisabled
                 ? null
                 : [
                     BoxShadow(
@@ -6056,12 +6991,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   ],
           ),
           child: ElevatedButton.icon(
-            onPressed: _isSpinning ||
-                    (_selectedCategoryIndex != 0 &&
-                        _spinSourceIndex == 0 &&
-                        _currentOptions.length < 7)
-                ? null
-                : _onSpinPressed,
+            onPressed: isSpinDisabled ? null : _onSpinPressed,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.transparent,
               foregroundColor: Colors.white,
@@ -6099,17 +7029,21 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                               : (_spinnerModeIndex == 0
                                   ? 'Spin Wheel'
                                   : 'Spin Roulette'))
-                          : (_spinSourceIndex == 0
-                              ? (_currentOptions.length < 7
-                                  ? 'Need 7 Custom Ideas (${_currentOptions.length}/7)'
-                                  : (_spinnerModeIndex == 0
-                                      ? 'Spin Custom Wheel'
-                                      : 'Spin Custom Roulette'))
-                              : (_spinSourceIndex == 1
-                                  ? (_spinnerModeIndex == 0
-                                      ? 'Spin Online Wheel'
-                                      : 'Spin Online Roulette')
-                                  : 'Select Pool & Spin')))),
+                          : (_selectedCategoryIndex == 3
+                              ? (_spinnerModeIndex == 0
+                                  ? 'Spin Positions Wheel'
+                                  : 'Spin Positions Roulette')
+                              : (_spinSourceIndex == 0
+                                  ? (_currentOptions.length < 7
+                                      ? 'Need 7 Custom Ideas (${_currentOptions.length}/7)'
+                                      : (_spinnerModeIndex == 0
+                                          ? 'Spin Custom Wheel'
+                                          : 'Spin Custom Roulette'))
+                                  : (_spinSourceIndex == 1
+                                      ? (_spinnerModeIndex == 0
+                                          ? 'Spin Online Wheel'
+                                          : 'Spin Online Roulette')
+                                      : 'Select Pool & Spin'))))),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -6264,7 +7198,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               height: 44,
               decoration: BoxDecoration(
                 gradient: _isSpinning ||
-                        (_selectedCategoryIndex != 0 &&
+                        ((_selectedCategoryIndex == 1 ||
+                                _selectedCategoryIndex == 2) &&
                             _spinSourceIndex == 0 &&
                             _currentOptions.length < 7)
                     ? null
@@ -6274,7 +7209,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                         end: Alignment.bottomRight,
                       ),
                 color: _isSpinning ||
-                        (_selectedCategoryIndex != 0 &&
+                        ((_selectedCategoryIndex == 1 ||
+                                _selectedCategoryIndex == 2) &&
                             _spinSourceIndex == 0 &&
                             _currentOptions.length < 7)
                     ? (isDark
@@ -6283,7 +7219,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                     : null,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: _isSpinning ||
-                        (_selectedCategoryIndex != 0 &&
+                        ((_selectedCategoryIndex == 1 ||
+                                _selectedCategoryIndex == 2) &&
                             _spinSourceIndex == 0 &&
                             _currentOptions.length < 7)
                     ? null
@@ -6297,7 +7234,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               ),
               child: ElevatedButton.icon(
                 onPressed: _isSpinning ||
-                        (_selectedCategoryIndex != 0 &&
+                        ((_selectedCategoryIndex == 1 ||
+                                _selectedCategoryIndex == 2) &&
                             _spinSourceIndex == 0 &&
                             _currentOptions.length < 7)
                     ? null
@@ -6326,11 +7264,13 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                 label: Text(
                   _isSpinning
                       ? 'Spinning...'
-                      : (_spinSourceIndex == 0
-                          ? (_currentOptions.length < 7
-                              ? 'Need 7 Options (${_currentOptions.length}/7)'
-                              : 'Re-Spin Custom')
-                          : 'Re-Spin Online'),
+                      : (_selectedCategoryIndex == 3
+                          ? 'Re-Spin Position'
+                          : (_spinSourceIndex == 0
+                              ? (_currentOptions.length < 7
+                                  ? 'Need 7 Options (${_currentOptions.length}/7)'
+                                  : 'Re-Spin Custom')
+                              : 'Re-Spin Online')),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13.5,
@@ -6762,7 +7702,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     if (coupleId.isNotEmpty) {
       final turnTag = catIndex == 0
           ? 'turn_movie'
-          : (catIndex == 1 ? 'turn_activity' : 'turn_food');
+          : (catIndex == 1
+              ? 'turn_activity'
+              : (catIndex == 2 ? 'turn_food' : 'turn_sex'));
 
       try {
         await SupabaseDataService.client.from('decision_ideas').upsert({
@@ -6807,7 +7749,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     if (coupleId.isNotEmpty) {
       final turnTag = catIndex == 0
           ? 'turn_movie'
-          : (catIndex == 1 ? 'turn_activity' : 'turn_food');
+          : (catIndex == 1
+              ? 'turn_activity'
+              : (catIndex == 2 ? 'turn_food' : 'turn_sex'));
 
       SupabaseDataService.client
           .from('decision_ideas')
@@ -6875,7 +7819,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Are you sure you want to completely reset $catName?\n\nThis will clear all custom options from both local cache and Supabase, reset turn tracking, and clear decision history for a fresh start.',
+              'Are you sure you want to completely reset $catName?\n\nThis will clear options from local cache and Supabase, reset turn tracking, and clear decision history for a fresh start.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -6948,6 +7892,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     }
 
     final isActivity = _selectedCategoryIndex == 1;
+    final isFood = _selectedCategoryIndex == 2;
+    final isSex = _selectedCategoryIndex == 3;
 
     setState(() {
       if (isActivity) {
@@ -6958,7 +7904,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _lastActivitySpinnerId = null;
         _activityDecisionAccepted = false;
         _activityDecisionRejected = false;
-      } else {
+      } else if (isFood) {
         _foodOptions.clear();
         _foodHistory.clear();
         _foodPoolCycleStart = null;
@@ -6966,6 +7912,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         _lastFoodSpinnerId = null;
         _foodDecisionAccepted = false;
         _foodDecisionRejected = false;
+      } else if (isSex) {
+        _sexHistory.clear();
+        _lastSexResult = null;
+        _lastSexSpinnerId = null;
+        _sexDecisionAccepted = false;
+        _sexDecisionRejected = false;
+        _pickedSexPosition = null;
+        _activeSexWheelPositions = _sexPositionsService.getRandomSliceSelection(count: 8);
       }
       _currentDisplayResult = 'Tap Spin to Decide!';
       _spinSourceIndex = null;
@@ -6980,7 +7934,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       await prefs.remove('decision_spinner_last_activity_spinner_id');
       await prefs.remove('decision_spinner_activity_accepted');
       await prefs.remove('decision_spinner_activity_rejected');
-    } else {
+    } else if (isFood) {
       await prefs.remove('decision_spinner_custom_food');
       await prefs.remove('decision_spinner_food_history');
       await prefs.remove('decision_spinner_food_cycle_start');
@@ -6988,6 +7942,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       await prefs.remove('decision_spinner_last_food_spinner_id');
       await prefs.remove('decision_spinner_food_accepted');
       await prefs.remove('decision_spinner_food_rejected');
+    } else if (isSex) {
+      await prefs.remove('decision_spinner_sex_history');
+      await prefs.remove('decision_spinner_last_sex_result');
+      await prefs.remove('decision_spinner_last_sex_spinner_id');
+      await prefs.remove('decision_spinner_sex_accepted');
+      await prefs.remove('decision_spinner_sex_rejected');
     }
 
     await _savePersistentData();
@@ -6995,10 +7955,15 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     // 2. Clear from Supabase Database
     try {
       if (coupleId.isNotEmpty) {
-        final catString = isActivity ? 'activity' : 'food';
-        final pickString =
-            isActivity ? 'active_activity_pick' : 'active_food_pick';
-        final turnString = isActivity ? 'turn_activity' : 'turn_food';
+        final catString = isActivity
+            ? 'activity'
+            : (isFood ? 'food' : 'sex');
+        final pickString = isActivity
+            ? 'active_activity_pick'
+            : (isFood ? 'active_food_pick' : 'active_sex_pick');
+        final turnString = isActivity
+            ? 'turn_activity'
+            : (isFood ? 'turn_food' : 'turn_sex');
 
         await SupabaseDataService.client
             .from('decision_ideas')

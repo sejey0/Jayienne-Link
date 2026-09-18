@@ -1439,30 +1439,42 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                         ),
                         if (movie.isRewatch) ...[
                           const SizedBox(width: 5),
-                          SizedBox(
+                          Container(
                             height: 30,
-                            child: OutlinedButton.icon(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF5252), Color(0xFFD81B60)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFF5252).withValues(alpha: 0.3),
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton.icon(
                               onPressed: () => _cancelRewatch(movie),
-                              icon: const Icon(Icons.undo_rounded, size: 11, color: Color(0xFFA18CD1)),
+                              icon: const Icon(Icons.undo_rounded, size: 12, color: Colors.white),
                               label: const Text(
                                 'Cancel',
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 10.5,
                                   fontWeight: FontWeight.bold,
+                                  color: Colors.white,
                                 ),
                               ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: isDark ? Colors.white : const Color(0xFF2D4059),
-                                side: BorderSide(
-                                  color: const Color(0xFFA18CD1).withValues(alpha: 0.35),
-                                ),
-                                backgroundColor: isDark
-                                    ? Colors.white.withValues(alpha: 0.04)
-                                    : const Color(0xFFA18CD1).withValues(alpha: 0.06),
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
+                                elevation: 0,
                               ),
                             ),
                           ),

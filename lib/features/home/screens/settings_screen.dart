@@ -1639,9 +1639,12 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             actions: [
-              TextButton(
+              SecondaryCancelButton(
+                label: 'Close',
+                width: 100,
+                height: 38,
+                borderRadius: 12,
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close', style: TextStyle(color: Color(0xFFFF758C), fontWeight: FontWeight.bold)),
               ),
             ],
           ),

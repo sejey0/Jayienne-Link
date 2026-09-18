@@ -221,8 +221,8 @@ class _TimedDestructiveButtonState extends State<TimedDestructiveButton> {
   }
 }
 
-/// A standardized secondary / cancel button featuring a romantic outlined border,
-/// soft tinted background, and themed typography matching the app's aesthetic.
+/// A standardized Cancel / Dismiss button featuring a rich rose-crimson alert gradient,
+/// soft glowing drop shadow, bold typography, and close icon matching the app's aesthetic.
 class SecondaryCancelButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -231,6 +231,8 @@ class SecondaryCancelButton extends StatelessWidget {
   final double borderRadius;
   final double fontSize;
   final EdgeInsetsGeometry? padding;
+  final IconData? icon;
+  final List<Color>? gradientColors;
 
   const SecondaryCancelButton({
     super.key,
@@ -241,44 +243,93 @@ class SecondaryCancelButton extends StatelessWidget {
     this.borderRadius = 14,
     this.fontSize = 14,
     this.padding,
+    this.icon = Icons.close_rounded,
+    this.gradientColors,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = isDark ? const Color(0xFFFF8FA3) : const Color(0xFFFF758C);
-    final borderColor = isDark
-        ? const Color(0xFFA18CD1).withValues(alpha: 0.45)
-        : const Color(0xFFFF758C).withValues(alpha: 0.45);
-    final bgColor = isDark
-        ? const Color(0xFFA18CD1).withValues(alpha: 0.08)
-        : const Color(0xFFFF758C).withValues(alpha: 0.06);
+    final gradient = gradientColors ??
+        const [Color(0xFFFF5252), Color(0xFFD81B60)];
 
-    return SizedBox(
+    return Container(
       width: width,
       height: height,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColor,
-          backgroundColor: bgColor,
-          side: BorderSide(color: borderColor, width: 1.2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
-          ),
-          padding: padding ?? const EdgeInsets.symmetric(horizontal: 16),
-          elevation: 0,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradient,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: primaryColor,
-            fontWeight: FontWeight.w600,
-            fontSize: fontSize,
-            letterSpacing: 0.2,
+        borderRadius: BorderRadius.circular(borderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: gradient.first.withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        ),
+        ],
       ),
+      child: icon != null
+          ? ElevatedButton.icon(
+              onPressed: onPressed != null
+                  ? () {
+                      HapticFeedback.lightImpact();
+                      onPressed!();
+                    }
+                  : null,
+              icon: Icon(
+                icon,
+                size: fontSize + 3,
+                color: Colors.white,
+              ),
+              label: Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: fontSize,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                disabledBackgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(borderRadius),
+                ),
+                padding: padding ?? const EdgeInsets.symmetric(horizontal: 12),
+              ),
+            )
+          : ElevatedButton(
+              onPressed: onPressed != null
+                  ? () {
+                      HapticFeedback.lightImpact();
+                      onPressed!();
+                    }
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                disabledBackgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(borderRadius),
+                ),
+                padding: padding ?? const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: fontSize,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
     );
   }
 }

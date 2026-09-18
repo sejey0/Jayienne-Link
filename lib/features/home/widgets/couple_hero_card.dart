@@ -367,53 +367,15 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
         short: true,
       );
 
-  /// Top Row: Anniversary Date on left, Live Ticking Seconds Pill + Expand Arrow on right
+  /// Top Row: Live Ticking Seconds Pill + Expand Arrow on right
   Widget _buildHeaderRow(
     BuildContext context,
     AnniversaryProvider provider,
   ) {
-    final anniversaryDate = provider.anniversaryDate;
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Anniversary Date Pill on Left
-        if (anniversaryDate != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
-                width: 0.8,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.favorite_rounded,
-                  color: Colors.white,
-                  size: 13,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  DateFormat('MMM d, yyyy').format(anniversaryDate),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
-            ),
-          )
-        else
-          const SizedBox.shrink(),
-
         // Live Ticking Seconds Pill & Expand Arrow on Right
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -486,117 +448,22 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // User Avatar + Status + Zodiac (Left)
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildAvatarWithRing(
-                context,
-                photoUrl: userPhotoUrl,
-              ),
-              const SizedBox(height: 7),
-              // User "You" Active Status Pill
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8.5, vertical: 3.5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    width: 0.8,
-                  ),
+          // User Avatar + Status + Zodiac (Left) - Equalized width for perfect horizontal symmetry
+          SizedBox(
+            width: 140,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildAvatarWithRing(
+                  context,
+                  photoUrl: userPhotoUrl,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFF69F0AE),
-                        boxShadow: [
-                          BoxShadow(
-                            color:
-                                const Color(0xFF69F0AE).withValues(alpha: 0.6),
-                            blurRadius: 3,
-                            spreadRadius: 0.5,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 4.5),
-                    const Text(
-                      'You',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (userZodiac != null && userZodiac.isNotEmpty) ...[
-                const SizedBox(height: 5),
-                _buildZodiacBadge(userZodiac),
-              ],
-            ],
-          ),
-
-          const SizedBox(width: 16),
-
-          // Beating Heart Animation with Haptic Feedback on Tap (vertically centered with circular avatars)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: GestureDetector(
-              onTap: () => HapticFeedback.lightImpact(),
-              child: ScaleTransition(
-                scale: _pulseAnimation,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.white.withValues(alpha: 0.35),
-                        blurRadius: 18,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.favorite_rounded,
-                    color: Colors.white,
-                    size: 32,
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 16),
-
-          // Partner Avatar + Live Status Pill + Zodiac (Right)
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildAvatarWithRing(
-                context,
-                photoUrl: partnerPhotoUrl,
-                isOnline: isPartnerOnline,
-                showStatus: true,
-              ),
-              const SizedBox(height: 7),
-              // Partner Active / Last Online Status Pill directly on Partner Profile
-              if (isLinked)
+                const SizedBox(height: 7),
+                // User "You" Active Status Pill
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8.5, vertical: 3.5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8.5, vertical: 3.5),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(10),
@@ -614,25 +481,21 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                         height: 6,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isPartnerOnline
-                              ? const Color(0xFF69F0AE)
-                              : Colors.white.withValues(alpha: 0.55),
-                          boxShadow: isPartnerOnline
-                              ? [
-                                  BoxShadow(
-                                    color: const Color(0xFF69F0AE)
-                                        .withValues(alpha: 0.6),
-                                    blurRadius: 3,
-                                    spreadRadius: 0.5,
-                                  ),
-                                ]
-                              : null,
+                          color: const Color(0xFF69F0AE),
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  const Color(0xFF69F0AE).withValues(alpha: 0.6),
+                              blurRadius: 3,
+                              spreadRadius: 0.5,
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 4.5),
-                      Text(
-                        statusText,
-                        style: const TextStyle(
+                      const Text(
+                        'You',
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
@@ -642,11 +505,123 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
                     ],
                   ),
                 ),
-              if (partnerZodiac != null && partnerZodiac.isNotEmpty) ...[
-                const SizedBox(height: 5),
-                _buildZodiacBadge(partnerZodiac),
+                if (userZodiac != null && userZodiac.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  _buildZodiacBadge(userZodiac),
+                ],
               ],
-            ],
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Beating Heart Animation with Haptic Feedback on Tap (precisely centered with circular avatars)
+          SizedBox(
+            height: 78.4,
+            child: Center(
+              child: Transform.translate(
+                offset: const Offset(0, 7.0),
+                child: GestureDetector(
+                  onTap: () => HapticFeedback.lightImpact(),
+                  child: ScaleTransition(
+                    scale: _pulseAnimation,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.25),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withValues(alpha: 0.35),
+                            blurRadius: 18,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.favorite_rounded,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Partner Avatar + Live Status Pill + Zodiac (Right) - Equalized width for perfect horizontal symmetry
+          SizedBox(
+            width: 140,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildAvatarWithRing(
+                  context,
+                  photoUrl: partnerPhotoUrl,
+                  isOnline: isPartnerOnline,
+                  showStatus: true,
+                ),
+                const SizedBox(height: 7),
+                // Partner Active / Last Online Status Pill directly on Partner Profile
+                if (isLinked)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.5, vertical: 3.5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.25),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isPartnerOnline
+                                ? const Color(0xFF69F0AE)
+                                : Colors.white.withValues(alpha: 0.55),
+                            boxShadow: isPartnerOnline
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF69F0AE)
+                                          .withValues(alpha: 0.6),
+                                      blurRadius: 3,
+                                      spreadRadius: 0.5,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 4.5),
+                        Text(
+                          statusText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (partnerZodiac != null && partnerZodiac.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  _buildZodiacBadge(partnerZodiac),
+                ],
+              ],
+            ),
           ),
         ],
       ),

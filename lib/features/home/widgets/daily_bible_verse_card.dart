@@ -8,15 +8,15 @@ import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/daily_sync_service.dart';
 
-/// Senior Daily Love Quote & Sweet Note Glassmorphism Card Widget with Online Real-time Couple Sync
-class DailyQuoteCard extends StatefulWidget {
-  const DailyQuoteCard({super.key});
+/// Senior Daily Bible Verse Glassmorphism Card Widget with Online Real-time Couple Sync
+class DailyBibleVerseCard extends StatefulWidget {
+  const DailyBibleVerseCard({super.key});
 
   @override
-  State<DailyQuoteCard> createState() => _DailyQuoteCardState();
+  State<DailyBibleVerseCard> createState() => _DailyBibleVerseCardState();
 }
 
-class _DailyQuoteCardState extends State<DailyQuoteCard>
+class _DailyBibleVerseCardState extends State<DailyBibleVerseCard>
     with SingleTickerProviderStateMixin {
   AnimationController? _spinController;
   bool _isRerolling = false;
@@ -43,7 +43,7 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
     super.dispose();
   }
 
-  Future<void> _rerollQuote(
+  Future<void> _rerollVerse(
     BuildContext context, {
     required String? coupleId,
     required String? userId,
@@ -55,13 +55,13 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
     _effectiveSpinController.forward(from: 0.0);
 
     try {
-      await DailySyncService.instance.rerollSweetQuote(
+      await DailySyncService.instance.rerollBibleVerse(
         coupleId: coupleId,
         userId: userId,
         userName: userName,
       );
     } catch (e) {
-      debugPrint('⚠️ Reroll quote error: $e');
+      debugPrint('⚠️ Reroll verse error: $e');
     } finally {
       if (mounted) {
         setState(() => _isRerolling = false);
@@ -69,12 +69,12 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
     }
   }
 
-  void _copyQuote(DailyQuoteItem item) {
+  void _copyVerse(DailyBibleVerseItem item) {
     HapticFeedback.lightImpact();
     Clipboard.setData(ClipboardData(
-      text: '"${item.text}"',
+      text: '"${item.text}" — ${item.reference}',
     ));
-    SnackbarHelper.showSuccess(context, 'Love note copied to clipboard');
+    SnackbarHelper.showSuccess(context, 'Scripture copied to clipboard');
   }
 
   @override
@@ -91,8 +91,8 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
         ? partner!.displayName
         : 'your love';
 
-    return StreamBuilder<DailyQuoteItem>(
-      stream: DailySyncService.instance.streamSweetQuote(coupleId),
+    return StreamBuilder<DailyBibleVerseItem>(
+      stream: DailySyncService.instance.streamBibleVerse(coupleId),
       builder: (context, snapshot) {
         final item = snapshot.data;
         if (item == null) {
@@ -112,24 +112,24 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
             padding: const EdgeInsets.all(18.0),
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xFF1E1E2C).withValues(alpha: 0.92)
+                  ? const Color(0xFF1B1824).withValues(alpha: 0.92)
                   : Colors.white.withValues(alpha: 0.95),
               gradient: LinearGradient(
                 colors: [
-                  AppColors.softRose.withValues(alpha: isDark ? 0.16 : 0.10),
-                  AppColors.lavender.withValues(alpha: isDark ? 0.26 : 0.16),
+                  const Color(0xFFF6D365).withValues(alpha: isDark ? 0.15 : 0.10),
+                  const Color(0xFFA18CD1).withValues(alpha: isDark ? 0.22 : 0.14),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: AppColors.softRose.withValues(alpha: 0.28),
+                color: const Color(0xFFF6D365).withValues(alpha: isDark ? 0.35 : 0.4),
                 width: 1.4,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.softRose.withValues(alpha: 0.12),
+                  color: const Color(0xFFF6D365).withValues(alpha: 0.12),
                   blurRadius: 18,
                   offset: const Offset(0, 6),
                 ),
@@ -138,7 +138,7 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Header: Icon + Title + Sync indicator & Reroll Button
+                // 1. Header: Icon + Title + Theme Badge + Reroll Button
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -149,22 +149,21 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              colors: [Color(0xFFF6D365), Color(0xFFFDA085)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFFF758C)
-                                    .withValues(alpha: 0.35),
+                                color: const Color(0xFFF6D365).withValues(alpha: 0.35),
                                 blurRadius: 6,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                           ),
                           child: const Icon(
-                            Icons.format_quote_rounded,
+                            Icons.menu_book_rounded,
                             color: Colors.white,
                             size: 16,
                           ),
@@ -174,9 +173,9 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Sweet Daily Note',
+                              'Daily Scripture',
                               style: TextStyle(
-                                color: isDark ? Colors.white : AppColors.softRose,
+                                color: isDark ? Colors.white : const Color(0xFFB78103),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                                 letterSpacing: 0.3,
@@ -184,7 +183,7 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Heartfelt Love & Affirmation',
+                              item.theme,
                               style: TextStyle(
                                 color: isDark ? Colors.white60 : Colors.black54,
                                 fontSize: 11,
@@ -212,7 +211,7 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                             ),
                           ),
                         IconButton(
-                          onPressed: () => _rerollQuote(
+                          onPressed: () => _rerollVerse(
                             context,
                             coupleId: coupleId,
                             userId: userId,
@@ -224,15 +223,14 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                  colors: [Color(0xFFF6D365), Color(0xFFFDA085)],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFFF758C)
-                                        .withValues(alpha: 0.25),
+                                    color: const Color(0xFFF6D365).withValues(alpha: 0.3),
                                     blurRadius: 4,
                                     offset: const Offset(0, 2),
                                   ),
@@ -247,7 +245,7 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                           ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
-                          tooltip: 'New quote (Syncs with partner)',
+                          tooltip: 'New scripture (Syncs with partner)',
                         ),
                       ],
                     ),
@@ -255,7 +253,7 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                 ),
                 const SizedBox(height: 12),
 
-                // 2. Animated Quote Body Text
+                // 2. Animated Verse Scripture Body
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 350),
                   transitionBuilder: (child, animation) {
@@ -271,7 +269,7 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                     );
                   },
                   child: Padding(
-                    key: ValueKey<String>(item.text),
+                    key: ValueKey<String>(item.reference),
                     padding: const EdgeInsets.symmetric(horizontal: 2.0),
                     child: Text(
                       '"${item.text}"',
@@ -287,19 +285,19 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                 ),
                 const SizedBox(height: 12),
 
-                // 3. Footer: Subtitle / Synced With & Copy Action
+                // 3. Footer: Reference Pill + Copy Action & Sync Info
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Romantic Signature Pill
+                    // Reference Pill
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.softRose.withValues(alpha: isDark ? 0.22 : 0.12),
+                        color: const Color(0xFFF6D365).withValues(alpha: isDark ? 0.25 : 0.18),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: AppColors.softRose.withValues(alpha: 0.35),
+                          color: const Color(0xFFF6D365).withValues(alpha: 0.4),
                           width: 0.8,
                         ),
                       ),
@@ -307,19 +305,17 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.favorite_rounded,
+                            Icons.auto_awesome_rounded,
                             size: 11,
-                            color: AppColors.softRose,
+                            color: Color(0xFFFFA000),
                           ),
                           const SizedBox(width: 4.5),
                           Text(
-                            isUpdatedByPartner
-                                ? 'From ${item.updatedByName ?? partnerName}'
-                                : 'For Us',
-                            style: const TextStyle(
-                              color: AppColors.softRose,
+                            item.reference,
+                            style: TextStyle(
+                              color: isDark ? Colors.white : const Color(0xFFB78103),
                               fontWeight: FontWeight.bold,
-                              fontSize: 11,
+                              fontSize: 11.5,
                               letterSpacing: 0.2,
                             ),
                           ),
@@ -344,7 +340,7 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                             ),
                           ),
                         IconButton(
-                          onPressed: () => _copyQuote(item),
+                          onPressed: () => _copyVerse(item),
                           icon: Icon(
                             Icons.copy_rounded,
                             size: 16,
@@ -352,7 +348,7 @@ class _DailyQuoteCardState extends State<DailyQuoteCard>
                           ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
-                          tooltip: 'Copy love note',
+                          tooltip: 'Copy scripture',
                         ),
                       ],
                     ),

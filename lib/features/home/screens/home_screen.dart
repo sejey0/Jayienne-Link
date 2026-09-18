@@ -19,6 +19,7 @@ import '../../../widgets/common/love_nudge_overlay_listener.dart';
 import '../../../widgets/common/romantic_loading_indicator.dart';
 import '../widgets/couple_hero_card.dart';
 import '../widgets/daily_quote_card.dart';
+import '../widgets/daily_bible_verse_card.dart';
 import '../widgets/open_features_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -159,12 +160,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   incomingAnniversary.first,
                 ),
 
+              // Features Launcher Button Card
+              const OpenFeaturesCard(),
+              const SizedBox(height: 6),
+
               // Sweet Daily Romantic Notes Card
               const DailyQuoteCard(),
               const SizedBox(height: 4),
 
-              // Features Launcher Button Card
-              const OpenFeaturesCard(),
+              // Daily Bible Verse Card
+              const DailyBibleVerseCard(),
               const SizedBox(height: 28),
             ],
           ),

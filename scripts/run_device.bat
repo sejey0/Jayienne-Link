@@ -170,10 +170,7 @@ echo %PHONE_IP%>"%IP_FILE%"
 set "DEVICE_ID=%PHONE_IP%:5555"
 
 echo.
-echo Applying Anti-Sleep and Wi-Fi stability settings to phone...
-"%ADB%" -s %DEVICE_ID% shell settings put global stay_on_while_plugged_in 7 >nul 2>&1
-"%ADB%" -s %DEVICE_ID% shell settings put global wifi_sleep_policy 2 >nul 2>&1
-"%ADB%" -s %DEVICE_ID% shell dumpsys deviceidle whitelist +%PACKAGE% >nul 2>&1
+call :apply_device_optimizations
 
 echo.
 echo ====================================================
@@ -222,6 +219,7 @@ echo %SAVED_IP%>"%IP_FILE%"
 echo.
 echo [SUCCESS] Connected to %DEVICE_ID%!
 echo.
+call :apply_device_optimizations
 goto check_device_ready
 
 :wireless_manual_connect
@@ -301,10 +299,7 @@ if not "%EXTRACTED_IP%"=="" (
 )
 
 echo.
-echo Applying anti-disconnect optimizations...
-"%ADB%" -s %DEVICE_ID% shell settings put global stay_on_while_plugged_in 7 >nul 2>&1
-"%ADB%" -s %DEVICE_ID% shell settings put global wifi_sleep_policy 2 >nul 2>&1
-"%ADB%" -s %DEVICE_ID% shell dumpsys deviceidle whitelist +%PACKAGE% >nul 2>&1
+call :apply_device_optimizations
 
 echo.
 echo [SUCCESS] Connected to %DEVICE_ID%!
@@ -402,6 +397,7 @@ echo ----------------------------------------
 echo Active Target: %DEVICE_ID% (Android)
 echo ----------------------------------------
 echo.
+call :apply_device_optimizations
 
 "%ADB%" -s %DEVICE_ID% shell pm list packages | findstr /i "%PACKAGE%" >nul 2>&1
 if errorlevel 1 (
@@ -549,6 +545,8 @@ echo   Window 1 (Mobile) : %DEVICE_ID%
 echo   Window 2 (Web)    : Microsoft Edge (edge)
 echo ====================================================
 echo.
+call :apply_device_optimizations
+call :start_keepalive
 echo [1/2] Spawning Mobile Debug Window (%DEVICE_ID%)...
 powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k title Jayienne Link - Mobile Debug (%DEVICE_ID%) && echo. && echo ======================================================== && echo   Jayienne Link - MOBILE DEBUG (%DEVICE_ID%) && echo   Hot Reload: press ''r''  ^|  Hot Restart: press ''R''  ^|  Quit: ''q'' && echo ======================================================== && echo. && flutter run -d %DEVICE_ID%' -WorkingDirectory '%PROJECT_DIR%'"
 
@@ -603,7 +601,10 @@ echo     q = Quit
 echo.
 echo ========================================
 echo.
+call :apply_device_optimizations
+call :start_keepalive
 call flutter run -d %DEVICE_ID%
+call :stop_keepalive
 goto handle_run_end
 
 :releasemenu
@@ -847,7 +848,10 @@ echo Auto-uninstalling existing build to prevent signature mismatch...
 if not "%IS_WEB%"=="1" if not "%DEVICE_ID%"=="" "%ADB%" -s %DEVICE_ID% uninstall %PACKAGE% >nul 2>&1
 
 echo Step 3/3: Running Release build on device...
+call :apply_device_optimizations
+call :start_keepalive
 call flutter run --release -d %DEVICE_ID%
+call :stop_keepalive
 goto handle_run_end
 
 :buildrun
@@ -857,7 +861,10 @@ if not "%IS_WEB%"=="1" if not "%DEVICE_ID%"=="" "%ADB%" -s %DEVICE_ID% uninstall
 
 echo Building and running app (release)...
 echo.
+call :apply_device_optimizations
+call :start_keepalive
 call flutter run --release -d %DEVICE_ID%
+call :stop_keepalive
 goto handle_run_end
 
 :cleanrebuild
@@ -870,11 +877,15 @@ call flutter pub get
 echo Auto-uninstalling existing build to prevent signature mismatch...
 if not "%IS_WEB%"=="1" if not "%DEVICE_ID%"=="" "%ADB%" -s %DEVICE_ID% uninstall %PACKAGE% >nul 2>&1
 
+call :apply_device_optimizations
+call :start_keepalive
 call flutter run --release -d %DEVICE_ID%
+call :stop_keepalive
 goto handle_run_end
 
 :handle_run_end
 echo.
+call :stop_keepalive
 if "%IS_WEB%"=="1" goto web_menu
 
 "%ADB%" -s %DEVICE_ID% get-state >nul 2>&1
@@ -883,31 +894,87 @@ if errorlevel 1 (
     echo   [ALERT] Connection to %DEVICE_ID% was lost!
     echo ====================================================
     echo.
-    echo Options:
+    if exist "build\app\outputs\flutter-apk\app-debug.apk" (
+        echo   [F] Fast Install: Install already-built APK directly (3 seconds!)
+    )
     echo   [1] Quick Reconnect ^& Re-run Debug
-    echo   [2] Restart ADB Server, Reconnect ^& Re-run Debug
-    echo   [3] Return to Main Menu
+    echo   [2] USB Auto-Switch (Plug USB cable to PC to re-open Port 5555)
+    echo   [3] Restart ADB Server, Reconnect ^& Re-run Debug
+    echo   [4] Return to Main Menu
     echo.
-    set /p "RECON_CHOICE=Enter choice 1-3: "
-    if "!RECON_CHOICE!"=="1" (
-        if not "%SAVED_IP%"=="" (
-            "%ADB%" connect %SAVED_IP%:5555
-            set "DEVICE_ID=%SAVED_IP%:5555"
-            goto debugrun
-        )
-    )
-    if "!RECON_CHOICE!"=="2" (
-        "%ADB%" kill-server >nul 2>&1
-        timeout /t 1 /nobreak >nul
-        "%ADB%" start-server >nul 2>&1
-        if not "%SAVED_IP%"=="" (
-            "%ADB%" connect %SAVED_IP%:5555
-            set "DEVICE_ID=%SAVED_IP%:5555"
-            goto debugrun
-        )
-    )
+    set /p "RECON_CHOICE=Enter choice (F, 1-4): "
+    if /i "!RECON_CHOICE!"=="F" goto fast_install_reconnect
+    if "!RECON_CHOICE!"=="1" goto handle_recon_1
+    if "!RECON_CHOICE!"=="2" goto usb_to_wireless
+    if "!RECON_CHOICE!"=="3" goto handle_recon_3
     goto connection_menu
 )
+
+goto menu
+
+:fast_install_reconnect
+echo.
+echo Reconnecting to %DEVICE_ID%...
+if not "%SAVED_IP%"=="" "%ADB%" connect %SAVED_IP%:5555
+timeout /t 1 /nobreak >nul
+"%ADB%" -s %DEVICE_ID% get-state >nul 2>&1
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Phone could not be reached on port 5555.
+    echo Port 5555 was closed by the phone when it went to sleep.
+    echo.
+    echo To fix this:
+    echo   1. Plug your phone into PC with USB cable, OR
+    echo   2. On phone: Developer options ^> toggle 'Wireless debugging' OFF then ON
+    echo.
+    pause
+    goto handle_run_end
+)
+call :apply_device_optimizations
+echo.
+echo [SUCCESS] Reconnected!
+echo Installing build\app\outputs\flutter-apk\app-debug.apk directly...
+"%ADB%" -s %DEVICE_ID% install -r "build\app\outputs\flutter-apk\app-debug.apk"
+echo Launching app...
+"%ADB%" -s %DEVICE_ID% shell am start -n %PACKAGE%/.MainActivity
+echo.
+echo [SUCCESS] App installed and launched on %DEVICE_ID%!
+pause
+goto menu
+
+:handle_recon_1
+if not "%SAVED_IP%"=="" (
+    "%ADB%" connect %SAVED_IP%:5555
+    set "DEVICE_ID=%SAVED_IP%:5555"
+    timeout /t 1 /nobreak >nul
+    "%ADB%" -s !DEVICE_ID! get-state >nul 2>&1
+    if not errorlevel 1 (
+        goto debugrun
+    ) else (
+        echo.
+        echo [ERROR] Connection to %SAVED_IP%:5555 failed (Port 5555 closed).
+        echo Please plug in USB for 2s or toggle Wireless Debugging on your phone.
+        echo.
+        pause
+        goto handle_run_end
+    )
+)
+goto connection_menu
+
+:handle_recon_3
+"%ADB%" kill-server >nul 2>&1
+timeout /t 1 /nobreak >nul
+"%ADB%" start-server >nul 2>&1
+if not "%SAVED_IP%"=="" (
+    "%ADB%" connect %SAVED_IP%:5555
+    set "DEVICE_ID=%SAVED_IP%:5555"
+    timeout /t 1 /nobreak >nul
+    "%ADB%" -s !DEVICE_ID! get-state >nul 2>&1
+    if not errorlevel 1 (
+        goto debugrun
+    )
+)
+goto connection_menu
 
 goto menu
 
@@ -975,7 +1042,11 @@ goto web_menu
 
 :disconnect
 echo.
+call :stop_keepalive
 if "%IS_WEB%"=="0" (
+    if not "%DEVICE_ID%"=="" (
+        "%ADB%" -s %DEVICE_ID% shell svc power stayon false >nul 2>&1
+    )
     echo Disconnecting wireless devices...
     "%ADB%" disconnect
     echo.
@@ -1000,3 +1071,28 @@ if not exist ".dart_tool\package_config.json" (
     )
 )
 exit /b 0
+
+:apply_device_optimizations
+if "%IS_WEB%"=="1" goto :eof
+if "%DEVICE_ID%"=="" goto :eof
+echo Keeping device awake and optimizing wireless ADB...
+"%ADB%" -s %DEVICE_ID% shell svc power stayon true >nul 2>&1
+"%ADB%" -s %DEVICE_ID% shell settings put global stay_on_while_plugged_in 7 >nul 2>&1
+"%ADB%" -s %DEVICE_ID% shell settings put global wifi_sleep_policy 2 >nul 2>&1
+"%ADB%" -s %DEVICE_ID% shell settings put global adb_wifi_enabled 1 >nul 2>&1
+"%ADB%" -s %DEVICE_ID% shell dumpsys deviceidle whitelist +%PACKAGE% >nul 2>&1
+"%ADB%" -s %DEVICE_ID% shell dumpsys deviceidle disable >nul 2>&1
+"%ADB%" -s %DEVICE_ID% shell input keyevent 224 >nul 2>&1
+"%ADB%" -s %DEVICE_ID% shell wm dismiss-keyguard >nul 2>&1
+goto :eof
+
+:start_keepalive
+if "%IS_WEB%"=="1" goto :eof
+if "%DEVICE_ID%"=="" goto :eof
+call :stop_keepalive
+start /B powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0adb_keepalive.ps1" -DeviceId "%DEVICE_ID%" -SavedIp "%SAVED_IP%" -AdbPath "%ADB%" >nul 2>&1
+goto :eof
+
+:stop_keepalive
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*adb_keepalive.ps1*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+goto :eof

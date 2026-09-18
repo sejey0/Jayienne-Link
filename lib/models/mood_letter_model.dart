@@ -113,12 +113,12 @@ class MoodLetterModel {
     );
   }
 
-  String formatTimestamp(DateTime? dt) {
-    if (dt == null) return 'Never';
+  String? formatTimestamp(DateTime? dt) {
+    if (dt == null) return null;
     return DateFormat('MMM d, yyyy • h:mm a').format(dt.toLocal());
   }
 
   String get formattedCreatedAt => DateFormat('MMM d, yyyy • h:mm a').format(createdAt.toLocal());
-  String get formattedFirstReadAt => formatTimestamp(firstReadAt);
-  String get formattedLastReadAt => formatTimestamp(lastReadAt);
+  String? get formattedFirstReadAt => formatTimestamp(firstReadAt ?? lastReadAt);
+  String? get formattedLastReadAt => formatTimestamp(lastReadAt ?? firstReadAt);
 }

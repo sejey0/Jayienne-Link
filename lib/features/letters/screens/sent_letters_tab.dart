@@ -288,8 +288,10 @@ class SentLettersTab extends StatelessWidget {
                           const SizedBox(width: 5),
                           Flexible(
                             child: Text(
-                              isReadByPartner && letter.formattedFirstReadAt != null
-                                  ? 'First read: ${letter.formattedFirstReadAt}'
+                              isReadByPartner
+                                  ? (letter.formattedFirstReadAt != null
+                                      ? 'Read: ${letter.formattedFirstReadAt}'
+                                      : 'Read by partner')
                                   : 'Sent ${letter.formattedCreatedAt}',
                               style: TextStyle(
                                 fontSize: 11,

@@ -6,6 +6,7 @@ class SexPositionModel {
   final String description;
   final String href;
   final String difficulty;
+  final String animationUrl;
 
   const SexPositionModel({
     required this.name,
@@ -15,7 +16,10 @@ class SexPositionModel {
     required this.description,
     required this.href,
     this.difficulty = '',
+    this.animationUrl = '',
   });
+
+  bool get hasAnimation => animationUrl.trim().isNotEmpty;
 
   factory SexPositionModel.fromJson(Map<String, dynamic> json) {
     return SexPositionModel(
@@ -26,6 +30,7 @@ class SexPositionModel {
       description: json['description'] as String? ?? '',
       href: json['href'] as String? ?? '',
       difficulty: json['difficulty'] as String? ?? '',
+      animationUrl: json['animationUrl'] as String? ?? '',
     );
   }
 
@@ -38,6 +43,7 @@ class SexPositionModel {
       'description': description,
       'href': href,
       'difficulty': difficulty,
+      'animationUrl': animationUrl,
     };
   }
 
@@ -49,6 +55,7 @@ class SexPositionModel {
     String? description,
     String? href,
     String? difficulty,
+    String? animationUrl,
   }) {
     return SexPositionModel(
       name: name ?? this.name,
@@ -58,6 +65,7 @@ class SexPositionModel {
       description: description ?? this.description,
       href: href ?? this.href,
       difficulty: difficulty ?? this.difficulty,
+      animationUrl: animationUrl ?? this.animationUrl,
     );
   }
 

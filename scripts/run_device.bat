@@ -436,6 +436,7 @@ echo   [2] Restart App (force stop + launch)
 echo.
 echo   DEBUG MODE (Hot Reload):
 echo   [3] Debug Run (r=hot reload, R=hot restart)
+echo   [W] Dedicated Debug Window (Separate clean terminal, instant r/R/q)
 echo.
 echo   RELEASE MODE ^& SHARE:
 echo   [4] Release Build ^& Run (Clean / Build APK / Run)
@@ -446,9 +447,10 @@ echo   [6] Switch Target Device / Reconnect
 echo   [0] Exit
 echo ----------------------------------------
 echo.
-set /p "CHOICE=Enter choice (1-6, D, 0): "
+set /p "CHOICE=Enter choice (1-6, D, W, 0): "
 
 if /i "%CHOICE%"=="D" goto dual_debug_run
+if /i "%CHOICE%"=="W" goto debugrun_window
 if "%CHOICE%"=="1" goto launch
 if "%CHOICE%"=="2" goto restart
 if "%CHOICE%"=="3" goto debugrun
@@ -456,7 +458,7 @@ if "%CHOICE%"=="4" goto releasemenu
 if "%CHOICE%"=="5" goto uninstall
 if "%CHOICE%"=="6" goto disconnect
 if "%CHOICE%"=="0" exit /b 0
-echo Invalid choice. Please enter 1-6, D, or 0.
+echo Invalid choice. Please enter 1-6, D, W, or 0.
 echo.
 goto menu
 
@@ -603,6 +605,30 @@ echo App restarted!
 echo.
 goto menu
 
+:debugrun_window
+echo.
+echo ====================================================
+echo   LAUNCHING DEBUG IN DEDICATED WINDOW
+echo ====================================================
+echo   Target: %DEVICE_ID%
+echo.
+if not "%IS_WEB%"=="1" (
+    call :verify_device_connected
+    if errorlevel 1 (
+        echo [ERROR] Target %DEVICE_ID% is offline or disconnected!
+        goto handle_lost_connection
+    )
+)
+call :apply_device_optimizations
+call :start_keepalive
+powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k title Jayienne Link - Debug (%DEVICE_ID%) && echo. && echo ======================================================== && echo   Jayienne Link - DEBUG (%DEVICE_ID%) && echo   Hot Reload: press ''r''  ^|  Hot Restart: press ''R''  ^|  Quit: ''q'' && echo ======================================================== && echo. && flutter run -d %DEVICE_ID%' -WorkingDirectory '%PROJECT_DIR%'"
+echo.
+echo [SUCCESS] Dedicated debug terminal opened in new window!
+echo Hot reload (r) and hot restart (R) are active in that window.
+echo.
+pause
+goto menu
+
 :debugrun
 echo.
 echo ========================================
@@ -610,10 +636,13 @@ echo   DEBUG MODE - Hot Reload Enabled
 echo ========================================
 echo.
 echo   Target: %DEVICE_ID%
-echo   While running, press:
-echo     r = Hot Reload (update UI instantly)
+echo   While running:
+echo     r = Hot Reload  (update UI instantly)
 echo     R = Hot Restart (restart app state)
 echo     q = Quit
+echo.
+echo   Tip: Press 'r' directly. If your terminal buffers input, press 'r' then Enter!
+echo   Tip: If console paused from mouse click, press Enter or Esc to unfreeze.
 echo.
 echo ========================================
 echo.
@@ -626,7 +655,7 @@ if not "%IS_WEB%"=="1" (
 )
 call :apply_device_optimizations
 call :start_keepalive
-powershell -NoProfile -ExecutionPolicy Bypass -Command "flutter run -d '%DEVICE_ID%'"
+call flutter run -d %DEVICE_ID%
 call :stop_keepalive
 goto handle_run_end
 
@@ -873,7 +902,7 @@ if not "%IS_WEB%"=="1" if not "%DEVICE_ID%"=="" "%ADB%" -s %DEVICE_ID% uninstall
 echo Step 3/3: Running Release build on device...
 call :apply_device_optimizations
 call :start_keepalive
-powershell -NoProfile -ExecutionPolicy Bypass -Command "flutter run --release -d '%DEVICE_ID%'"
+call flutter run --release -d %DEVICE_ID%
 call :stop_keepalive
 goto handle_run_end
 
@@ -886,7 +915,7 @@ echo Building and running app (release)...
 echo.
 call :apply_device_optimizations
 call :start_keepalive
-powershell -NoProfile -ExecutionPolicy Bypass -Command "flutter run --release -d '%DEVICE_ID%'"
+call flutter run --release -d %DEVICE_ID%
 call :stop_keepalive
 goto handle_run_end
 
@@ -902,7 +931,7 @@ if not "%IS_WEB%"=="1" if not "%DEVICE_ID%"=="" "%ADB%" -s %DEVICE_ID% uninstall
 
 call :apply_device_optimizations
 call :start_keepalive
-powershell -NoProfile -ExecutionPolicy Bypass -Command "flutter run --release -d '%DEVICE_ID%'"
+call flutter run --release -d %DEVICE_ID%
 call :stop_keepalive
 goto handle_run_end
 
@@ -1143,7 +1172,7 @@ goto :eof
 if "%IS_WEB%"=="1" goto :eof
 if "%DEVICE_ID%"=="" goto :eof
 call :stop_keepalive
-start /B powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0adb_keepalive.ps1" -DeviceId "%DEVICE_ID%" -SavedIp "%SAVED_IP%" -AdbPath "%ADB%" >nul 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process powershell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"\"%~dp0adb_keepalive.ps1\"\" -DeviceId \"%DEVICE_ID%\" -SavedIp \"%SAVED_IP%\" -AdbPath \"%ADB%\"' -WindowStyle Hidden" >nul 2>&1
 goto :eof
 
 :stop_keepalive

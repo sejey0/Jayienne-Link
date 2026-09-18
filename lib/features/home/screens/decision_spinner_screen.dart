@@ -22,6 +22,7 @@ import '../../../services/supabase_movie_service.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
 import '../../movies/widgets/movie_poster_widget.dart';
 import '../widgets/sex_position_picker_modal.dart';
+import '../widgets/sex_position_media_view.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/timed_confirm_dialog.dart';
 
@@ -60,6 +61,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
   bool _isSpinning = false;
   bool _isInitialized = false;
   bool _showCategoryPicker = true; // true = show category selection list
+  bool _hasPicked = false; // false until user picks a category for the first time
   bool _isMoviesLoading = true; // True until Supabase stream delivers first batch
   String _currentDisplayResult = 'Tap Spin to Decide!';
   RealtimeChannel? _spinnerChannel;
@@ -1224,8 +1226,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
 
         _spinSourceIndex = null; // Always require explicit selection before spin
 
-        // Initial display result for Movie Watchlist (Front tab)
-        _currentDisplayResult = _pickedMovie?.title ?? 'Tap Spin to Decide!';
+        // Restore display result for active category
+        _restoreDisplayResultForCategory(_selectedCategoryIndex);
 
         _isInitialized = true;
       });
@@ -1759,53 +1761,73 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             ),
           ],
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
         actions: [
-          SecondaryCancelButton(
-            label: 'Cancel',
-            width: 100,
-            height: 42,
-            borderRadius: 12,
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              Navigator.pop(dialogCtx);
-            },
-          ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: SecondaryCancelButton(
+                  label: 'Cancel',
+                  height: 44,
+                  borderRadius: 14,
+                  fontSize: 13.5,
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.pop(dialogCtx);
+                  },
                 ),
-              ],
-            ),
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                Navigator.pop(dialogCtx);
-                await _markDecisionDoneAndUnlock();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                foregroundColor: Colors.white,
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 3,
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(dialogCtx);
+                      await _markDecisionDoneAndUnlock();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shadowColor: Colors.transparent,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    icon: const Icon(Icons.check_circle_rounded, size: 16),
+                    label: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Mark Done & Unlock',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
-              icon: const Icon(Icons.check_circle_rounded, size: 16),
-              label: const Text(
-                'Mark Done & Unlock',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
+            ],
           ),
         ],
       ),
@@ -3713,7 +3735,14 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         ? 0
         : _currentOptions.where((opt) => _currentHistory.contains(opt)).length;
 
-    return Scaffold(
+    return PopScope(
+      canPop: _showCategoryPicker, // Only allow real pop when on the picker screen
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_showCategoryPicker) {
+          setState(() => _showCategoryPicker = true);
+        }
+      },
+      child: Scaffold(
       backgroundColor:
           isDark ? const Color(0xFF120E19) : const Color(0xFFFFF7F9),
       appBar: AppBar(
@@ -3739,7 +3768,12 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
               const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
           onPressed: () {
             HapticFeedback.lightImpact();
-            Navigator.pop(context);
+            if (!_showCategoryPicker) {
+              // Return to picker instead of exiting the screen
+              setState(() => _showCategoryPicker = true);
+            } else {
+              Navigator.pop(context);
+            }
           },
         ),
         actions: [
@@ -4986,8 +5020,9 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ),
         ),
       ),
-    );
-  }
+    ), // closes Scaffold (child of PopScope)
+    ); // closes PopScope (return statement)
+  } // closes build
 
   /// Winner Decision Celebration Card for Dates & Activities, Food & Drinks, and Sex Positions
   Widget _buildDecisionResultCard(BuildContext context, bool isDark) {
@@ -5168,42 +5203,51 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
             ],
           ),
 
-          if (isSex && sexPos != null && sexPos.imageUrl.isNotEmpty) ...[
+          if (isSex && sexPos != null && (sexPos.imageUrl.isNotEmpty || sexPos.hasAnimation)) ...[
             const SizedBox(height: 12),
             GestureDetector(
               onTap: () => SexPositionPickerModal.showPositionDetails(context, sexPos),
-              child: Container(
-                height: 130,
-                width: double.infinity,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.black26 : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFFFF758C).withValues(alpha: 0.25),
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: sexPos.imageUrl,
-                    fit: BoxFit.contain,
-                    placeholder: (_, __) => const Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Color(0xFFFF758C),
+              child: sexPos.hasAnimation
+                  ? SexPositionMediaView(
+                      position: sexPos,
+                      height: 155,
+                      isDark: isDark,
+                      borderRadius: 16,
+                    )
+                  : Container(
+                      height: 140,
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.black26 : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Center(
+                          child: CachedNetworkImage(
+                            imageUrl: sexPos.imageUrl,
+                            fit: BoxFit.contain,
+                            placeholder: (_, __) => const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFFFF758C),
+                              ),
+                            ),
+                            errorWidget: (_, __, ___) => const Center(
+                              child: Icon(
+                                Icons.favorite_rounded,
+                                color: Color(0xFFFF758C),
+                                size: 38,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    errorWidget: (_, __, ___) => const Center(
-                      child: Icon(
-                        Icons.favorite_rounded,
-                        color: Color(0xFFFF758C),
-                        size: 38,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             ),
           ],
 
@@ -6115,7 +6159,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           const SizedBox(height: 14),
 
           // Movie Poster banner thumbnail in slot roulette
-          if (currentPreviewMovie != null &&
+          if (hasActivePick &&
+              currentPreviewMovie != null &&
               currentPreviewMovie.posterUrl != null &&
               currentPreviewMovie.posterUrl!.isNotEmpty) ...[
             ClipRRect(
@@ -6134,26 +6179,36 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ],
 
           // Sex Position illustration thumbnail in slot roulette
-          if (isSex && sexPos != null && sexPos.imageUrl.isNotEmpty) ...[
+          if (hasActivePick &&
+              isSex &&
+              sexPos != null &&
+              (sexPos.imageUrl.isNotEmpty || sexPos.hasAnimation)) ...[
             GestureDetector(
               onTap: () => SexPositionPickerModal.showPositionDetails(context, sexPos),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  height: 110,
-                  width: double.infinity,
-                  color: isDark ? Colors.black26 : Colors.white60,
-                  child: CachedNetworkImage(
-                    imageUrl: sexPos.imageUrl,
-                    fit: BoxFit.contain,
-                    errorWidget: (_, __, ___) => const Icon(
-                      Icons.favorite_rounded,
-                      color: Color(0xFFFF758C),
-                      size: 36,
+              child: sexPos.hasAnimation
+                  ? SexPositionMediaView(
+                      position: sexPos,
+                      height: 120,
+                      isDark: isDark,
+                      borderRadius: 12,
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        height: 110,
+                        width: double.infinity,
+                        color: isDark ? Colors.black26 : Colors.white60,
+                        child: CachedNetworkImage(
+                          imageUrl: sexPos.imageUrl,
+                          fit: BoxFit.contain,
+                          errorWidget: (_, __, ___) => const Icon(
+                            Icons.favorite_rounded,
+                            color: Color(0xFFFF758C),
+                            size: 36,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
             ),
             const SizedBox(height: 10),
           ],
@@ -6236,6 +6291,28 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
     );
   }
 
+  /// Restore display result and active position for a given category
+  void _restoreDisplayResultForCategory(int index) {
+    if (index == 0) {
+      _currentDisplayResult = _pickedMovie?.title ?? 'Tap Spin to Decide!';
+      _spinSourceIndex = null;
+    } else if (index == 1) {
+      _currentDisplayResult = _lastActivityResult ?? 'Tap Spin to Decide!';
+      _spinSourceIndex = _activityOptions.length >= 7 ? 0 : 1;
+    } else if (index == 2) {
+      _currentDisplayResult = _lastFoodResult ?? 'Tap Spin to Decide!';
+      _spinSourceIndex = _foodOptions.length >= 7 ? 0 : 1;
+    } else if (index == 3) {
+      _currentDisplayResult = _lastSexResult ?? 'Tap Spin to Decide!';
+      if (_lastSexResult != null && _lastSexResult!.isNotEmpty) {
+        _pickedSexPosition = _sexPositionsService.findByName(_lastSexResult!);
+      } else {
+        _pickedSexPosition = null;
+      }
+      _spinSourceIndex = null;
+    }
+  }
+
   /// Full-screen category selection list shown when the spinner first opens
   Widget _buildCategoryPickerView(bool isDark) {
     final categories = [
@@ -6292,7 +6369,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
           ),
           const SizedBox(height: 24),
           ...categories.map((cat) {
-            final isActive = _selectedCategoryIndex == cat.index;
+            final isActive = _hasPicked && _selectedCategoryIndex == cat.index;
             return Padding(
               padding: const EdgeInsets.only(bottom: 14),
               child: GestureDetector(
@@ -6301,8 +6378,8 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                   setState(() {
                     _selectedCategoryIndex = cat.index;
                     _showCategoryPicker = false;
-                    _spinSourceIndex = null;
-                    _currentDisplayResult = 'Tap Spin to Decide!';
+                    _hasPicked = true;
+                    _restoreDisplayResultForCategory(cat.index);
                   });
                   // Pre-load sex positions if switching to category 3
                   if (cat.index == 3 && _activeSexWheelPositions.isEmpty) {
@@ -6381,14 +6458,6 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
                                 color: isDark ? Colors.white : const Color(0xFF2D2D2D),
                               ),
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              cat.subtitle,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? Colors.white54 : Colors.grey.shade600,
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -6425,20 +6494,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
         HapticFeedback.lightImpact();
         setState(() {
           _selectedCategoryIndex = index;
-          if (index == 0) {
-            _currentDisplayResult =
-                _pickedMovie?.title ?? 'Tap Spin to Decide!';
-          } else if (index == 1) {
-            _currentDisplayResult =
-                _lastActivityResult ?? 'Tap Spin to Decide!';
-            _spinSourceIndex = _activityOptions.length >= 7 ? 0 : 1;
-          } else if (index == 2) {
-            _currentDisplayResult = _lastFoodResult ?? 'Tap Spin to Decide!';
-            _spinSourceIndex = _foodOptions.length >= 7 ? 0 : 1;
-          } else if (index == 3) {
-            _currentDisplayResult = _lastSexResult ?? 'Tap Spin to Decide!';
-            _spinSourceIndex = null;
-          }
+          _restoreDisplayResultForCategory(index);
         });
         _checkAndAutoResetWeeklyPool();
         _savePersistentData();

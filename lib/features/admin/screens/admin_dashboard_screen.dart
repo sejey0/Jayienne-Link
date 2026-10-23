@@ -13,6 +13,7 @@ import '../../../providers/debug_provider.dart';
 import '../../../providers/secret_media_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/supabase_data_service.dart';
+import '../../../services/nhost_gallery_service.dart';
 import '../../../services/vault_cache_manager.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
@@ -28,13 +29,32 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final TextEditingController _searchController = TextEditingController();
+  Future<Map<String, dynamic>>? _cloudStatsFuture;
 
   @override
   void initState() {
     super.initState();
+    _fetchCloudStats();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AdminProvider>().initAdminDashboard();
     });
+  }
+
+  void _fetchCloudStats() {
+    setState(() {
+      _cloudStatsFuture = _loadBothCloudStats();
+    });
+  }
+
+  Future<Map<String, dynamic>> _loadBothCloudStats() async {
+    final results = await Future.wait([
+      SupabaseDataService.getDatabaseHealth(),
+      NhostGalleryService.instance.getStorageAndDatabaseStats(),
+    ]);
+    return {
+      'supabase': results[0],
+      'nhost': results[1],
+    };
   }
 
   @override
@@ -93,13 +113,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             tooltip: 'Refresh Data',
             onPressed: () {
               HapticFeedback.lightImpact();
+              _fetchCloudStats();
               adminProvider.loadUsers();
             },
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => adminProvider.loadUsers(),
+        onRefresh: () async {
+          _fetchCloudStats();
+          await adminProvider.loadUsers();
+        },
         color: const Color(0xFFFF758C),
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -109,6 +133,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: _buildStatsHeader(context, adminProvider, isDark),
+              ),
+            ),
+
+            // 2. Cloud Database & Storage Monitor (Supabase & Nhost)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: _buildCloudDatabasesCard(context, isDark),
               ),
             ),
 
@@ -339,6 +371,454 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- CLOUD DATABASES & STORAGE QUOTA MONITOR (SUPABASE & NHOST) ---
+  Widget _buildCloudDatabasesCard(BuildContext context, bool isDark) {
+    final cardBg = isDark ? const Color(0xFF1C1427) : Colors.white;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF758C).withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.cloud_sync_rounded, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cloud Database & Storage Quotas',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppColors.deepCharcoal,
+                      ),
+                    ),
+                    Text(
+                      'Live table counts & remaining limits for Supabase & Nhost',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                color: const Color(0xFFFF758C),
+                tooltip: 'Refresh Cloud Stats',
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _fetchCloudStats();
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          FutureBuilder<Map<String, dynamic>>(
+            future: _cloudStatsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: CircularProgressIndicator(color: Color(0xFFFF758C)),
+                  ),
+                );
+              }
+
+              final data = snapshot.data ?? {};
+              final supabase = data['supabase'] as Map<String, dynamic>? ?? {};
+              final nhost = data['nhost'] as Map<String, dynamic>? ?? {};
+
+              return Column(
+                children: [
+                  _buildProviderQuotaCard(
+                    title: 'Supabase PostgreSQL',
+                    subtitle: 'Main App Database (500 MB) & Storage (1 GB)',
+                    badge: supabase['connected'] == true ? 'CONNECTED' : 'DISCONNECTED',
+                    badgeColor: supabase['connected'] == true ? const Color(0xFF4CAF50) : const Color(0xFFFF5252),
+                    icon: Icons.storage_rounded,
+                    isDark: isDark,
+                    dbUsedMb: (supabase['db_used_mb'] as num?)?.toDouble() ?? 0.0,
+                    dbLimitMb: 500.0,
+                    storageUsedMb: (supabase['storage_used_mb'] as num?)?.toDouble() ?? 0.0,
+                    storageLimitMb: 1024.0,
+                    tableRows: [
+                      {'table': 'users', 'count': supabase['users_count'] ?? 0, 'icon': Icons.person_rounded},
+                      {'table': 'couples', 'count': supabase['couples_count'] ?? 0, 'icon': Icons.favorite_rounded},
+                      {'table': 'secret_media', 'count': supabase['secret_media_count'] ?? 0, 'icon': Icons.lock_rounded},
+                      {'table': 'movies', 'count': supabase['movies_count'] ?? 0, 'icon': Icons.movie_rounded},
+                      {'table': 'ratings', 'count': supabase['movie_ratings_count'] ?? 0, 'icon': Icons.star_rounded},
+                      {'table': 'milestones', 'count': supabase['milestones_count'] ?? 0, 'icon': Icons.flag_rounded},
+                      {'table': 'letters', 'count': supabase['letters_count'] ?? 0, 'icon': Icons.mail_rounded},
+                      {'table': 'decision_ideas', 'count': supabase['decision_ideas_count'] ?? 0, 'icon': Icons.casino_rounded},
+                      {'table': 'heartbeats', 'count': supabase['heartbeats_count'] ?? 0, 'icon': Icons.touch_app_rounded},
+                      {'table': 'photo_msgs', 'count': supabase['photo_messages_count'] ?? 0, 'icon': Icons.photo_camera_rounded},
+                      {'table': 'mood_msgs', 'count': supabase['mood_messages_count'] ?? 0, 'icon': Icons.mood_rounded},
+                      {'table': 'links', 'count': supabase['couple_links_count'] ?? 0, 'icon': Icons.link_rounded},
+                      {'table': 'voice_notes', 'count': supabase['voice_notes_count'] ?? 0, 'icon': Icons.mic_rounded},
+                    ],
+                    totalRecords: (supabase['total_records'] as num?)?.toInt() ?? 0,
+                    storageFiles: (supabase['storage_files_count'] as num?)?.toInt() ?? 0,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildProviderQuotaCard(
+                    title: 'Nhost PostgreSQL & Storage',
+                    subtitle: 'Shared Gallery DB (1 GB) & Media Vault (5 GB)',
+                    badge: nhost['connected'] == true ? 'CONNECTED' : 'DISCONNECTED',
+                    badgeColor: nhost['connected'] == true ? const Color(0xFF4CAF50) : const Color(0xFFFF5252),
+                    icon: Icons.photo_library_rounded,
+                    isDark: isDark,
+                    dbUsedMb: (nhost['db_used_mb'] as num?)?.toDouble() ?? 0.0,
+                    dbLimitMb: 1024.0,
+                    storageUsedMb: (nhost['storage_used_mb'] as num?)?.toDouble() ?? 0.0,
+                    storageLimitMb: 5120.0,
+                    tableRows: [
+                      {'table': 'gallery_folders', 'count': nhost['folders_count'] ?? 0, 'icon': Icons.folder_rounded},
+                      {'table': 'gallery_images', 'count': nhost['images_count'] ?? 0, 'icon': Icons.image_rounded},
+                      {'table': 'storage_files', 'count': nhost['storage_files_count'] ?? 0, 'icon': Icons.cloud_queue_rounded},
+                    ],
+                    totalRecords: (nhost['total_records'] as num?)?.toInt() ?? 0,
+                    storageFiles: (nhost['storage_files_count'] as num?)?.toInt() ?? 0,
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProviderQuotaCard({
+    required String title,
+    required String subtitle,
+    required String badge,
+    required Color badgeColor,
+    required IconData icon,
+    required bool isDark,
+    required double dbUsedMb,
+    required double dbLimitMb,
+    required double storageUsedMb,
+    required double storageLimitMb,
+    required List<Map<String, dynamic>> tableRows,
+    required int totalRecords,
+    required int storageFiles,
+  }) {
+    final dbPercent = (dbUsedMb / dbLimitMb).clamp(0.0, 1.0);
+    final dbRemaining = (dbLimitMb - dbUsedMb).clamp(0.0, dbLimitMb);
+
+    final storagePercent = (storageUsedMb / storageLimitMb).clamp(0.0, 1.0);
+    final storageRemaining = (storageLimitMb - storageUsedMb).clamp(0.0, storageLimitMb);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title Row
+          Row(
+            children: [
+              Icon(icon, size: 18, color: const Color(0xFFFF758C)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: badgeColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Left to Database & Left to Storage Highlight Cards
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.storage_rounded, size: 12, color: Color(0xFFFF758C)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'DB REMAINING',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white70 : Colors.grey.shade700,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${dbRemaining.toStringAsFixed(1)} MB',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF4CAF50),
+                        ),
+                      ),
+                      Text(
+                        '${((1.0 - dbPercent) * 100).toStringAsFixed(0)}% free (${dbUsedMb.toStringAsFixed(1)} MB used)',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFA18CD1).withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.cloud_rounded, size: 12, color: Color(0xFFA18CD1)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'STORAGE LEFT',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white70 : Colors.grey.shade700,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${storageRemaining.toStringAsFixed(0)} MB',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF4CAF50),
+                        ),
+                      ),
+                      Text(
+                        '${((1.0 - storagePercent) * 100).toStringAsFixed(0)}% free ($storageFiles files)',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Database Usage Bar
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Database: ${dbUsedMb.toStringAsFixed(2)} MB / ${dbLimitMb >= 1024 ? '${(dbLimitMb / 1024).toStringAsFixed(0)} GB' : '${dbLimitMb.toStringAsFixed(0)} MB'}',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    '${dbRemaining.toStringAsFixed(1)} MB left (${((1.0 - dbPercent) * 100).toStringAsFixed(0)}%)',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF4CAF50), fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: dbPercent.clamp(0.01, 1.0),
+                  minHeight: 6,
+                  backgroundColor: isDark ? Colors.white12 : Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation(
+                    dbPercent > 0.85 ? const Color(0xFFFF5252) : const Color(0xFFFF758C),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Storage Usage Bar
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Storage: ${storageUsedMb.toStringAsFixed(1)} MB / ${storageLimitMb >= 1024 ? '${(storageLimitMb / 1024).toStringAsFixed(0)} GB' : '${storageLimitMb.toStringAsFixed(0)} MB'} ($storageFiles files)',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    '${storageRemaining.toStringAsFixed(0)} MB left (${((1.0 - storagePercent) * 100).toStringAsFixed(0)}%)',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF4CAF50), fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: storagePercent.clamp(0.01, 1.0),
+                  minHeight: 6,
+                  backgroundColor: isDark ? Colors.white12 : Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation(
+                    storagePercent > 0.85 ? const Color(0xFFFF5252) : const Color(0xFFA18CD1),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Table Rows Breakdown Chips
+          Text(
+            'Table Counts ($totalRecords total records):',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white70 : Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: tableRows.map((t) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? Colors.white12 : Colors.grey.shade300,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(t['icon'] as IconData, size: 12, color: const Color(0xFFFF758C)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${t['table']}: ',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      ),
+                    ),
+                    Text(
+                      '${t['count']}',
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
@@ -750,133 +1230,188 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
       builder: (ctx) {
         return FutureBuilder<Map<String, dynamic>>(
-          future: SupabaseDataService.getDatabaseHealth(),
+          future: _loadBothCloudStats(),
           builder: (context, snapshot) {
             final isLoading = snapshot.connectionState == ConnectionState.waiting;
             final data = snapshot.data ?? {};
-            final isConnected = data['connected'] == true;
-            final latency = data['latency_ms'] ?? 0;
+            final supabase = data['supabase'] as Map<String, dynamic>? ?? {};
+            final nhost = data['nhost'] as Map<String, dynamic>? ?? {};
+            final isConnected = supabase['connected'] == true;
+            final latency = supabase['latency_ms'] ?? 0;
 
             return SafeArea(
               top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Handle
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white24 : Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(2),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Handle
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white24 : Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                    // Header
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      // Header
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            borderRadius: BorderRadius.circular(14),
+                            child: const Icon(Icons.monitor_heart_rounded, color: Colors.white, size: 22),
                           ),
-                          child: const Icon(Icons.monitor_heart_rounded, color: Colors.white, size: 22),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'System & Database Health',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                  ),
+                                ),
+                                Text(
+                                  isConnected
+                                      ? 'Supabase & Nhost Cloud • Online'
+                                      : 'Cloud Databases • Checking...',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isConnected ? const Color(0xFF4CAF50) : Colors.orange,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFFF758C).withValues(alpha: 0.4)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.speed_rounded, size: 13, color: Color(0xFFFF758C)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${latency}ms',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFFF758C),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+                      Divider(color: isDark ? Colors.white10 : Colors.grey.shade200),
+                      const SizedBox(height: 12),
+
+                      if (isLoading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(28.0),
+                            child: CircularProgressIndicator(color: Color(0xFFFF758C)),
+                          ),
+                        )
+                      else ...[
+                        // Supabase Metrics
+                        Text(
+                          'Supabase Database & Storage',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white70 : Colors.grey.shade800,
+                          ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: isDark ? Colors.white10 : Colors.grey.shade200,
+                            ),
+                          ),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'System & Database Health',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : AppColors.deepCharcoal,
-                                ),
-                              ),
-                              Text(
-                                isConnected
-                                    ? 'Supabase PostgreSQL • Online'
-                                    : 'Supabase PostgreSQL • Checking...',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isConnected ? const Color(0xFF4CAF50) : Colors.orange,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              _buildHealthMetricRow('Database Engine', supabase['database_type'] ?? 'PostgreSQL', isDark, Icons.storage_rounded),
+                              _buildHealthMetricRow('Registered Users', '${supabase['users_count'] ?? 0}', isDark, Icons.people_rounded),
+                              _buildHealthMetricRow('Couples Linked', '${supabase['couples_count'] ?? 0}', isDark, Icons.favorite_rounded),
+                              _buildHealthMetricRow('Secret Vault Media', '${supabase['secret_media_count'] ?? 0}', isDark, Icons.lock_rounded),
+                              _buildHealthMetricRow('Movie Dates Logged', '${supabase['movies_count'] ?? 0}', isDark, Icons.movie_rounded),
+                              _buildHealthMetricRow('Movie Ratings Logged', '${supabase['movie_ratings_count'] ?? 0}', isDark, Icons.star_rounded),
+                              _buildHealthMetricRow('Milestones Logged', '${supabase['milestones_count'] ?? 0}', isDark, Icons.flag_rounded),
+                              _buildHealthMetricRow('Love Letters Logged', '${supabase['letters_count'] ?? 0}', isDark, Icons.mail_rounded),
+                              _buildHealthMetricRow('Decision Ideas Logged', '${supabase['decision_ideas_count'] ?? 0}', isDark, Icons.casino_rounded),
+                              _buildHealthMetricRow('Heartbeats & Touches', '${supabase['heartbeats_count'] ?? 0}', isDark, Icons.touch_app_rounded),
+                              _buildHealthMetricRow('Photo Messages', '${supabase['photo_messages_count'] ?? 0}', isDark, Icons.photo_camera_rounded),
+                              _buildHealthMetricRow('Mood Messages', '${supabase['mood_messages_count'] ?? 0}', isDark, Icons.mood_rounded),
+                              _buildHealthMetricRow('Shared Links', '${supabase['couple_links_count'] ?? 0}', isDark, Icons.link_rounded),
+                              _buildHealthMetricRow('Voice Notes', '${supabase['voice_notes_count'] ?? 0}', isDark, Icons.mic_rounded),
+                              _buildHealthMetricRow('Total Supabase Rows', '${supabase['total_records'] ?? 0} records', isDark, Icons.table_chart_rounded),
+                              _buildHealthMetricRow('DB Quota Remaining', '${((supabase['db_remaining_mb'] as num?)?.toDouble() ?? 500.0).toStringAsFixed(1)} MB / 500 MB', isDark, Icons.data_usage_rounded),
+                              _buildHealthMetricRow('Storage Remaining', '${((supabase['storage_remaining_mb'] as num?)?.toDouble() ?? 1024.0).toStringAsFixed(0)} MB / 1024 MB', isDark, Icons.cloud_done_rounded),
                             ],
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF758C).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFFF758C).withValues(alpha: 0.4)),
+                        const SizedBox(height: 14),
+
+                        // Nhost Metrics
+                        Text(
+                          'Nhost Cloud Vault & Storage',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white70 : Colors.grey.shade800,
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: isDark ? Colors.white10 : Colors.grey.shade200,
+                            ),
+                          ),
+                          child: Column(
                             children: [
-                              const Icon(Icons.speed_rounded, size: 13, color: Color(0xFFFF758C)),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${latency}ms',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFFF758C),
-                                ),
-                              ),
+                              _buildHealthMetricRow('Shared Albums (Folders)', '${nhost['folders_count'] ?? 0}', isDark, Icons.folder_rounded),
+                              _buildHealthMetricRow('Shared Photos (Images)', '${nhost['images_count'] ?? 0}', isDark, Icons.image_rounded),
+                              _buildHealthMetricRow('Storage Vault Files', '${nhost['storage_files_count'] ?? 0}', isDark, Icons.cloud_queue_rounded),
+                              _buildHealthMetricRow('Total Nhost Records', '${nhost['total_records'] ?? 0} records', isDark, Icons.table_chart_rounded),
+                              _buildHealthMetricRow('DB Quota Remaining', '${((nhost['db_remaining_mb'] as num?)?.toDouble() ?? 1024.0).toStringAsFixed(1)} MB / 1024 MB (1 GB)', isDark, Icons.data_usage_rounded),
+                              _buildHealthMetricRow('Storage Remaining', '${((nhost['storage_remaining_mb'] as num?)?.toDouble() ?? 5120.0).toStringAsFixed(0)} MB / 5120 MB (5 GB)', isDark, Icons.cloud_done_rounded),
                             ],
                           ),
                         ),
                       ],
-                    ),
-
-                    const SizedBox(height: 18),
-                    Divider(color: isDark ? Colors.white10 : Colors.grey.shade200),
-                    const SizedBox(height: 12),
-
-                    if (isLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(28.0),
-                          child: CircularProgressIndicator(color: Color(0xFFFF758C)),
-                        ),
-                      )
-                    else ...[
-                      // Metrics Grid
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: isDark ? Colors.white10 : Colors.grey.shade200,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            _buildHealthMetricRow('Database Engine', data['database_type'] ?? 'PostgreSQL', isDark, Icons.storage_rounded),
-                            _buildHealthMetricRow('Registered Users', '${data['users_count'] ?? 0}', isDark, Icons.people_rounded),
-                            _buildHealthMetricRow('Couples Linked', '${data['couples_count'] ?? 0}', isDark, Icons.favorite_rounded),
-                            _buildHealthMetricRow('Secret Vault Media', '${data['secret_media_count'] ?? 0}', isDark, Icons.lock_rounded),
-                            _buildHealthMetricRow('Movie Dates Logged', '${data['movies_count'] ?? 0}', isDark, Icons.movie_rounded),
-                            _buildHealthMetricRow('Storage Buckets', '4 Active (avatars, photos, vault, audio)', isDark, Icons.cloud_done_rounded),
-                          ],
-                        ),
-                      ),
-                    ],
 
                     const SizedBox(height: 20),
 
@@ -963,11 +1498,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ),
-            );
-          },
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    },
+  );
   }
 
   Widget _buildHealthMetricRow(String label, String value, bool isDark, IconData icon) {

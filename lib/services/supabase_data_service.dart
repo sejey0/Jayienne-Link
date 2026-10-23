@@ -361,39 +361,166 @@ class SupabaseDataService {
       final stats = <String, dynamic>{};
       final stopwatch = Stopwatch()..start();
 
-      try {
-        final userCount =
-            await client.from('users').select('*').count(CountOption.exact);
-        stats['users_count'] = userCount.count;
-      } catch (e) {
-        stats['users_count'] = 'Error: $e';
-      }
+      int usersCount = 0;
+      int couplesCount = 0;
+      int secretMediaCount = 0;
+      int moviesCount = 0;
+      int movieRatingsCount = 0;
+      int milestonesCount = 0;
+      int lettersCount = 0;
+      int decisionIdeasCount = 0;
+      int heartbeatsCount = 0;
+      int photoMessagesCount = 0;
+      int moodMessagesCount = 0;
+      int coupleLinksCount = 0;
+      int voiceNotesCount = 0;
 
       try {
-        final coupleCount =
-            await client.from('couples').select('*').count(CountOption.exact);
-        stats['couples_count'] = coupleCount.count;
-      } catch (e) {
-        stats['couples_count'] = 'Error: $e';
-      }
+        final res = await client.from('users').select('id').count(CountOption.exact);
+        usersCount = res.count;
+      } catch (_) {}
 
       try {
-        final mediaCount =
-            await client.from('secret_media').select('*').count(CountOption.exact);
-        stats['secret_media_count'] = mediaCount.count;
+        final res = await client.from('couples').select('id').count(CountOption.exact);
+        couplesCount = res.count;
+      } catch (_) {}
+
+      try {
+        final res = await client.from('secret_media').select('id').count(CountOption.exact);
+        secretMediaCount = res.count;
+      } catch (_) {}
+
+      try {
+        final res = await client.from('movies').select('id').count(CountOption.exact);
+        moviesCount = res.count;
+      } catch (_) {}
+
+      try {
+        final res = await client.from('movie_ratings').select('id').count(CountOption.exact);
+        movieRatingsCount = res.count;
+      } catch (_) {}
+
+      try {
+        final res = await client.from('relationship_milestones').select('id').count(CountOption.exact);
+        milestonesCount = res.count;
       } catch (_) {
-        stats['secret_media_count'] = 0;
+        try {
+          final res = await client.from('milestones').select('id').count(CountOption.exact);
+          milestonesCount = res.count;
+        } catch (_) {}
       }
 
       try {
-        final movieCount =
-            await client.from('movies').select('*').count(CountOption.exact);
-        stats['movies_count'] = movieCount.count;
-      } catch (_) {
-        stats['movies_count'] = 0;
+        final res = await client.from('letters').select('id').count(CountOption.exact);
+        lettersCount = res.count;
+      } catch (_) {}
+
+      try {
+        final res = await client.from('decision_ideas').select('id').count(CountOption.exact);
+        decisionIdeasCount = res.count;
+      } catch (_) {}
+
+      try {
+        final res = await client.from('heartbeats').select('id').count(CountOption.exact);
+        heartbeatsCount = res.count;
+      } catch (_) {}
+
+      try {
+        final res = await client.from('photo_messages').select('id').count(CountOption.exact);
+        photoMessagesCount = res.count;
+      } catch (_) {}
+
+      try {
+        final res = await client.from('mood_messages').select('id').count(CountOption.exact);
+        moodMessagesCount = res.count;
+      } catch (_) {}
+
+      try {
+        final res = await client.from('couple_links').select('id').count(CountOption.exact);
+        coupleLinksCount = res.count;
+      } catch (_) {}
+
+      try {
+        final res = await client.from('couple_voice_notes').select('id').count(CountOption.exact);
+        voiceNotesCount = res.count;
+      } catch (_) {}
+
+      final totalRecords = usersCount +
+          couplesCount +
+          secretMediaCount +
+          moviesCount +
+          movieRatingsCount +
+          milestonesCount +
+          lettersCount +
+          decisionIdeasCount +
+          heartbeatsCount +
+          photoMessagesCount +
+          moodMessagesCount +
+          coupleLinksCount +
+          voiceNotesCount;
+
+      // Real bucket inspection if storage API allows
+      int totalStorageFiles = 0;
+      double totalStorageBytes = 0.0;
+      final buckets = [
+        'profile-photos',
+        'chat-photos',
+        'secret-media',
+        'secret_media',
+        'movie-posters',
+        'milestones',
+      ];
+      for (final bucket in buckets) {
+        try {
+          final files = await client.storage.from(bucket).list();
+          for (final f in files) {
+            if (f.name == '.emptyFolderPlaceholder') continue;
+            totalStorageFiles++;
+            final size = f.metadata?['size'] as num?;
+            if (size != null) {
+              totalStorageBytes += size;
+            } else {
+              totalStorageBytes += 1.2 * 1024 * 1024;
+            }
+          }
+        } catch (_) {}
       }
+
+      double estStorageMb;
+      if (totalStorageFiles > 0) {
+        estStorageMb = (totalStorageBytes / (1024 * 1024)).clamp(0.01, 1024.0);
+      } else {
+        totalStorageFiles = secretMediaCount + usersCount;
+        estStorageMb = (secretMediaCount * 2.0 + usersCount * 0.4).clamp(0.0, 1024.0);
+      }
+
+      // Storage & DB estimates based on Supabase Free Tier (500 MB DB, 1 GB Storage)
+      final estDbSizeMb = (12.0 + (totalRecords * 3.5) / 1024).clamp(12.0, 500.0);
+      final remainingDbMb = (500.0 - estDbSizeMb).clamp(0.0, 500.0);
+      final remainingStorageMb = (1024.0 - estStorageMb).clamp(0.0, 1024.0);
 
       stopwatch.stop();
+      stats['users_count'] = usersCount;
+      stats['couples_count'] = couplesCount;
+      stats['secret_media_count'] = secretMediaCount;
+      stats['movies_count'] = moviesCount;
+      stats['movie_ratings_count'] = movieRatingsCount;
+      stats['milestones_count'] = milestonesCount;
+      stats['letters_count'] = lettersCount;
+      stats['decision_ideas_count'] = decisionIdeasCount;
+      stats['heartbeats_count'] = heartbeatsCount;
+      stats['photo_messages_count'] = photoMessagesCount;
+      stats['mood_messages_count'] = moodMessagesCount;
+      stats['couple_links_count'] = coupleLinksCount;
+      stats['voice_notes_count'] = voiceNotesCount;
+      stats['total_records'] = totalRecords;
+      stats['db_limit_mb'] = 500.0;
+      stats['db_used_mb'] = estDbSizeMb;
+      stats['db_remaining_mb'] = remainingDbMb;
+      stats['storage_limit_mb'] = 1024.0;
+      stats['storage_used_mb'] = estStorageMb;
+      stats['storage_remaining_mb'] = remainingStorageMb;
+      stats['storage_files_count'] = totalStorageFiles;
       stats['latency_ms'] = stopwatch.elapsedMilliseconds;
       stats['database_type'] = 'Supabase PostgreSQL';
       stats['connected'] = true;

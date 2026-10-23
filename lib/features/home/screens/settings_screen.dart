@@ -1274,7 +1274,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'User management, active toggles & media sync',
+                    'Cloud quotas, database tables, storage & user controls',
                     style: TextStyle(
                       fontSize: 12,
                       color: isDark ? Colors.white70 : Colors.grey.shade700,

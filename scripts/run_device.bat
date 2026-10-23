@@ -669,7 +669,7 @@ echo   [2] Clean Release Build ^& Run
 echo   [3] Build APK ^& Open Folder (share manually)
 echo   [4] Full Release (Clean + Build APK + Open Folder + Run)
 echo   [5] One-Click Auto Publish All (GitHub OTA APK + Firebase Web)
-echo   [6] Build & Deploy Web Only (Firebase Hosting)
+echo   [6] Build ^& Deploy Web Only (Firebase Hosting)
 echo   [0] Back to Main Menu
 echo ----------------------------------------
 echo.
@@ -817,7 +817,7 @@ if not exist "build\app\outputs\flutter-apk\app-release.apk" (
 )
 
 echo.
-echo [5/6] Building & Deploying Web App to Firebase Hosting...
+echo [5/6] Building ^& Deploying Web App to Firebase Hosting...
 call flutter build web --release --build-name=!NEW_VERSION! --build-number=!NEW_BUILD!
 if errorlevel 1 (
     echo [WARNING] Flutter web build failed, continuing with GitHub release...

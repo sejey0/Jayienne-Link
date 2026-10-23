@@ -289,12 +289,61 @@ class NhostGalleryService {
     }
   }
 
+  /// Upload raw file bytes to Nhost Storage and return its public URL
+  Future<String> uploadStorageFile({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final uploadUri = Uri.parse('$storageUrl/files');
+    final request = http.MultipartRequest('POST', uploadUri);
+    request.headers['x-hasura-admin-secret'] = adminSecret;
+    request.headers['x-nhost-bucket-id'] = 'default';
+
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file[]',
+        bytes,
+        filename: fileName,
+      ),
+    );
+
+    final streamedResponse = await request.send();
+    final responseBody = await streamedResponse.stream.bytesToString();
+
+    if (streamedResponse.statusCode != 200 && streamedResponse.statusCode != 201) {
+      throw Exception('Nhost Storage upload failed (${streamedResponse.statusCode}): $responseBody');
+    }
+
+    final dynamic decoded = jsonDecode(responseBody);
+    final String fileId;
+    if (decoded is List && decoded.isNotEmpty) {
+      final first = decoded.first as Map<String, dynamic>;
+      fileId = (first['id'] as String?) ?? '';
+    } else if (decoded is Map<String, dynamic>) {
+      if (decoded['processedFiles'] is List && (decoded['processedFiles'] as List).isNotEmpty) {
+        final first = (decoded['processedFiles'] as List).first as Map<String, dynamic>;
+        fileId = (first['id'] as String?) ?? '';
+      } else {
+        fileId = (decoded['id'] as String?) ?? '';
+      }
+    } else {
+      fileId = '';
+    }
+
+    if (fileId.isEmpty) {
+      throw Exception('Invalid Nhost Storage response: missing file ID ($responseBody)');
+    }
+
+    return '$storageUrl/files/$fileId';
+  }
+
   /// Create a new folder
   Future<GalleryFolderModel> createFolder({
     required String coupleId,
     required String createdById,
     required String name,
     String? description,
+    String? coverImageUrl,
   }) async {
     await ensureTablesProvisioned();
 
@@ -303,6 +352,7 @@ class NhostGalleryService {
         $coupleId: String!
         $name: String!
         $description: String
+        $coverImageUrl: String
         $createdById: String!
       ) {
         insert_gallery_folders_one(
@@ -310,6 +360,7 @@ class NhostGalleryService {
             couple_id: $coupleId
             name: $name
             description: $description
+            cover_image_url: $coverImageUrl
             created_by_id: $createdById
           }
         ) {
@@ -329,6 +380,7 @@ class NhostGalleryService {
       'coupleId': coupleId,
       'name': name.trim(),
       'description': description?.trim().isEmpty ?? true ? null : description?.trim(),
+      'coverImageUrl': coverImageUrl?.trim().isEmpty ?? true ? null : coverImageUrl?.trim(),
       'createdById': createdById,
     });
 

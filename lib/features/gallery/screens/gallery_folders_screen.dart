@@ -1,5 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/constants/app_colors.dart';
@@ -70,171 +72,329 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
     final nameController = TextEditingController();
     final descController = TextEditingController();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    Uint8List? thumbnailBytes;
+    String? thumbnailFileName;
+    bool isSubmitting = false;
 
-    final created = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+      barrierDismissible: !isSubmitting,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.create_new_folder_rounded, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'New Album Folder',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : AppColors.deepCharcoal,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Create a shared album for your memories.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isDark ? Colors.white70 : Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                decoration: InputDecoration(
-                  labelText: 'Folder Name',
-                  hintText: 'e.g. Baguio Trip, Date Nights',
-                  prefixIcon: const Icon(Icons.folder_outlined),
-                  filled: true,
-                  fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descController,
-                maxLines: 2,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                decoration: InputDecoration(
-                  labelText: 'Description (Optional)',
-                  hintText: 'Add a sweet note about this album...',
-                  prefixIcon: const Icon(Icons.description_outlined),
-                  filled: true,
-                  fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: SecondaryCancelButton(
-                      label: 'Cancel',
-                      height: 46,
-                      borderRadius: 14,
-                      onPressed: () => Navigator.pop(ctx, false),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      height: 46,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                        ],
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.create_new_folder_rounded, color: Colors.white, size: 20),
                       ),
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'New Album Folder',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppColors.deepCharcoal,
+                          ),
                         ),
-                        onPressed: () async {
-                          final name = nameController.text.trim();
-                          if (name.isEmpty) return;
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Create a shared album for your memories.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? Colors.white70 : Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-                          final userProvider = context.read<UserProvider>();
-                          final coupleProvider = context.read<CoupleProvider>();
-                          final coupleId = coupleProvider.couple?.id ?? userProvider.coupleId;
-                          final userId = userProvider.user?.id;
-
-                          if (coupleId == null || userId == null) return;
-
-                          Navigator.pop(ctx, true);
-
-                          try {
-                            await _galleryService.createFolder(
-                              coupleId: coupleId,
-                              createdById: userId,
-                              name: name,
-                              description: descController.text.trim(),
+                  // Thumbnail Picker Tile
+                  InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: isSubmitting
+                        ? null
+                        : () async {
+                            final picker = ImagePicker();
+                            final picked = await picker.pickImage(
+                              source: ImageSource.gallery,
+                              imageQuality: 85,
+                              maxWidth: 1200,
                             );
-                            _loadFolders();
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Failed to create folder: $e')),
-                              );
+                            if (picked != null) {
+                              final bytes = await picked.readAsBytes();
+                              setDialogState(() {
+                                thumbnailBytes = bytes;
+                                thumbnailFileName = picked.name;
+                              });
                             }
-                          }
-                        },
-                        icon: const Icon(Icons.check_rounded, color: Colors.white, size: 18),
-                        label: const Text(
-                          'Create',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          },
+                    child: Container(
+                      height: 110,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: thumbnailBytes != null
+                              ? const Color(0xFFFF758C).withValues(alpha: 0.6)
+                              : (isDark ? Colors.white12 : Colors.grey.shade300),
+                          width: 1.5,
                         ),
+                      ),
+                      child: thumbnailBytes != null
+                          ? Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(15),
+                                  child: Image.memory(
+                                    thumbnailBytes!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setDialogState(() {
+                                        thumbnailBytes = null;
+                                        thumbnailFileName = null;
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(5),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black54,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.close_rounded, size: 16, color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 8,
+                                  left: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.65),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.photo_camera_rounded, color: Colors.white, size: 12),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Change Thumbnail',
+                                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        const Color(0xFFFF758C).withValues(alpha: 0.15),
+                                        const Color(0xFFA18CD1).withValues(alpha: 0.20),
+                                      ],
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.add_photo_alternate_rounded, color: Color(0xFFFF758C), size: 22),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Upload Album Thumbnail (Optional)',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Tap to choose a cover picture',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  TextField(
+                    controller: nameController,
+                    autofocus: false,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: 'Folder Name',
+                      hintText: 'e.g. Baguio Trip, Date Nights',
+                      prefixIcon: const Icon(Icons.folder_outlined),
+                      filled: true,
+                      fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descController,
+                    maxLines: 2,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: 'Description (Optional)',
+                      hintText: 'Add a sweet note about this album...',
+                      prefixIcon: const Icon(Icons.description_outlined),
+                      filled: true,
+                      fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SecondaryCancelButton(
+                          label: 'Cancel',
+                          height: 46,
+                          borderRadius: 14,
+                          onPressed: isSubmitting ? null : () => Navigator.pop(ctx, false),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            onPressed: isSubmitting
+                                ? null
+                                : () async {
+                                    final name = nameController.text.trim();
+                                    if (name.isEmpty) return;
+
+                                    final userProvider = context.read<UserProvider>();
+                                    final coupleProvider = context.read<CoupleProvider>();
+                                    final coupleId = coupleProvider.couple?.id ?? userProvider.coupleId;
+                                    final userId = userProvider.user?.id;
+
+                                    if (coupleId == null || userId == null) return;
+
+                                    setDialogState(() => isSubmitting = true);
+
+                                    try {
+                                      String? coverUrl;
+                                      if (thumbnailBytes != null) {
+                                        coverUrl = await _galleryService.uploadStorageFile(
+                                          bytes: thumbnailBytes!,
+                                          fileName: thumbnailFileName ?? 'cover_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                        );
+                                      }
+
+                                      await _galleryService.createFolder(
+                                        coupleId: coupleId,
+                                        createdById: userId,
+                                        name: name,
+                                        description: descController.text.trim(),
+                                        coverImageUrl: coverUrl,
+                                      );
+
+                                      if (ctx.mounted) {
+                                        Navigator.pop(ctx, true);
+                                      }
+                                      _loadFolders();
+                                    } catch (e) {
+                                      setDialogState(() => isSubmitting = false);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Failed to create folder: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                            icon: isSubmitting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.check_rounded, color: Colors.white, size: 18),
+                            label: Text(
+                              isSubmitting ? 'Creating...' : 'Create',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -246,158 +406,355 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
     final nameController = TextEditingController(text: folder.name);
     final descController = TextEditingController(text: folder.description ?? '');
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    Uint8List? newThumbnailBytes;
+    String? newThumbnailFileName;
+    String? currentCoverUrl = folder.coverImageUrl;
+    bool isSubmitting = false;
 
     await showDialog<bool>(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+      barrierDismissible: !isSubmitting,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Edit Album',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : AppColors.deepCharcoal,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                autofocus: false,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                decoration: InputDecoration(
-                  labelText: 'Folder Name',
-                  hintText: 'e.g. Baguio Trip, Date Nights',
-                  prefixIcon: const Icon(Icons.folder_outlined),
-                  filled: true,
-                  fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descController,
-                maxLines: 2,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                decoration: InputDecoration(
-                  labelText: 'Description (Optional)',
-                  hintText: 'Add a sweet note about this album...',
-                  prefixIcon: const Icon(Icons.description_outlined),
-                  filled: true,
-                  fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: SecondaryCancelButton(
-                      label: 'Cancel',
-                      height: 46,
-                      borderRadius: 14,
-                      onPressed: () => Navigator.pop(ctx, false),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      height: 46,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                        ],
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 20),
                       ),
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Edit Album',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppColors.deepCharcoal,
+                          ),
                         ),
-                        onPressed: () async {
-                          final newName = nameController.text.trim();
-                          if (newName.isEmpty) return;
-                          Navigator.pop(ctx, true);
-                          try {
-                            await _galleryService.updateFolder(
-                              folderId: folder.id,
-                              name: newName,
-                              description: descController.text.trim(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Thumbnail Tile (shows existing cover or newly chosen thumbnail)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: isSubmitting
+                        ? null
+                        : () async {
+                            final picker = ImagePicker();
+                            final picked = await picker.pickImage(
+                              source: ImageSource.gallery,
+                              imageQuality: 85,
+                              maxWidth: 1200,
                             );
-                            _loadFolders();
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Album updated successfully.')),
-                              );
+                            if (picked != null) {
+                              final bytes = await picked.readAsBytes();
+                              setDialogState(() {
+                                newThumbnailBytes = bytes;
+                                newThumbnailFileName = picked.name;
+                              });
                             }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Failed to update album: $e')),
-                              );
-                            }
-                          }
-                        },
-                        icon: const Icon(Icons.check_rounded, color: Colors.white, size: 18),
-                        label: const Text(
-                          'Save',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          },
+                    child: Container(
+                      height: 110,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: (newThumbnailBytes != null || (currentCoverUrl != null && currentCoverUrl!.isNotEmpty))
+                              ? const Color(0xFFFF758C).withValues(alpha: 0.6)
+                              : (isDark ? Colors.white12 : Colors.grey.shade300),
+                          width: 1.5,
                         ),
+                      ),
+                      child: newThumbnailBytes != null
+                          ? Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(15),
+                                  child: Image.memory(
+                                    newThumbnailBytes!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setDialogState(() {
+                                        newThumbnailBytes = null;
+                                        newThumbnailFileName = null;
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(5),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black54,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.close_rounded, size: 16, color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 8,
+                                  left: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.65),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.photo_camera_rounded, color: Colors.white, size: 12),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Change Thumbnail',
+                                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : (currentCoverUrl != null && currentCoverUrl!.isNotEmpty)
+                              ? Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(15),
+                                      child: CachedNetworkImage(
+                                        imageUrl: currentCoverUrl!,
+                                        httpHeaders: _galleryService.storageHeaders,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      bottom: 8,
+                                      left: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.65),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.photo_camera_rounded, color: Colors.white, size: 12),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'Change Thumbnail',
+                                              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            const Color(0xFFFF758C).withValues(alpha: 0.15),
+                                            const Color(0xFFA18CD1).withValues(alpha: 0.20),
+                                          ],
+                                        ),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.add_photo_alternate_rounded, color: Color(0xFFFF758C), size: 22),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Upload Album Thumbnail (Optional)',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? Colors.white : AppColors.deepCharcoal,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Tap to select a cover picture',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  TextField(
+                    controller: nameController,
+                    autofocus: false,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: 'Folder Name',
+                      hintText: 'e.g. Baguio Trip, Date Nights',
+                      prefixIcon: const Icon(Icons.folder_outlined),
+                      filled: true,
+                      fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descController,
+                    maxLines: 2,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: 'Description (Optional)',
+                      hintText: 'Add a sweet note about this album...',
+                      prefixIcon: const Icon(Icons.description_outlined),
+                      filled: true,
+                      fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SecondaryCancelButton(
+                          label: 'Cancel',
+                          height: 46,
+                          borderRadius: 14,
+                          onPressed: isSubmitting ? null : () => Navigator.pop(ctx, false),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            onPressed: isSubmitting
+                                ? null
+                                : () async {
+                                    final newName = nameController.text.trim();
+                                    if (newName.isEmpty) return;
+
+                                    setDialogState(() => isSubmitting = true);
+
+                                    try {
+                                      String? updatedCoverUrl = currentCoverUrl;
+                                      if (newThumbnailBytes != null) {
+                                        updatedCoverUrl = await _galleryService.uploadStorageFile(
+                                          bytes: newThumbnailBytes!,
+                                          fileName: newThumbnailFileName ?? 'cover_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                        );
+                                      }
+
+                                      await _galleryService.updateFolder(
+                                        folderId: folder.id,
+                                        name: newName,
+                                        description: descController.text.trim(),
+                                        coverImageUrl: updatedCoverUrl,
+                                      );
+
+                                      if (ctx.mounted) {
+                                        Navigator.pop(ctx, true);
+                                      }
+                                      _loadFolders();
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Album updated successfully.')),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      setDialogState(() => isSubmitting = false);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Failed to update album: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                            icon: isSubmitting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.check_rounded, color: Colors.white, size: 18),
+                            label: Text(
+                              isSubmitting ? 'Saving...' : 'Save',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

@@ -40,13 +40,24 @@ import 'package:jayienne_link/services/nhost_gallery_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
-  await dotenv.load(fileName: ".env");
+  // Load environment variables (graceful on Web if .env asset is excluded)
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint('Notice: .env load handled with fallbacks: $e');
+  }
 
-  // Initialize Supabase
+  // Initialize Supabase with fallback for Web and Mobile
+  final supabaseUrl = (dotenv.env['SUPABASE_URL']?.trim().isNotEmpty == true)
+      ? dotenv.env['SUPABASE_URL']!.trim()
+      : 'https://pijdaghzdwsujfiwftxb.supabase.co';
+  final supabaseAnonKey = (dotenv.env['SUPABASE_ANON_KEY']?.trim().isNotEmpty == true)
+      ? dotenv.env['SUPABASE_ANON_KEY']!.trim()
+      : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpamRhZ2h6ZHdzdWpmaXdmdHhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODY5MjAsImV4cCI6MjA4OTU2MjkyMH0.58pTgom7uW-x3IGk9oSm7g3Si4ixbsCXbJ82RfmHBO8';
+
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL'] ?? '',
-    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
   );
 
   // Initialize Firebase Realtime Engine (Live Locations & Battery Status)

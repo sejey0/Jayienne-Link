@@ -513,7 +513,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     storageLimitMb: 5120.0,
                     tableRows: [
                       {'table': 'gallery_folders', 'count': nhost['folders_count'] ?? 0, 'icon': Icons.folder_rounded},
-                      {'table': 'gallery_images', 'count': nhost['images_count'] ?? 0, 'icon': Icons.image_rounded},
+                      {'table': 'gallery_media', 'count': nhost['images_count'] ?? 0, 'icon': Icons.perm_media_rounded},
                       {'table': 'storage_files', 'count': nhost['storage_files_count'] ?? 0, 'icon': Icons.cloud_queue_rounded},
                     ],
                     totalRecords: (nhost['total_records'] as num?)?.toInt() ?? 0,

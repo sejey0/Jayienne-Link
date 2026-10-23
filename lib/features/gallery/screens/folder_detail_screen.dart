@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:video_player/video_player.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/gallery_folder_model.dart';
 import '../../../models/gallery_image_model.dart';
@@ -346,7 +349,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 24),
+          padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -360,14 +363,14 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                 ),
               ),
               Text(
-                'Upload Photos to ${_currentFolder.name}',
+                'Upload Media to ${_currentFolder.name}',
                 style: TextStyle(
                   fontSize: 16.5,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : AppColors.deepCharcoal,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               Row(
                 children: [
                   Expanded(
@@ -375,10 +378,10 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                       borderRadius: BorderRadius.circular(18),
                       onTap: () {
                         Navigator.pop(ctx);
-                        _pickMultipleImages();
+                        _pickMultipleMedia();
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
                           color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(18),
@@ -396,20 +399,20 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                                 ),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 24),
+                              child: const Icon(Icons.perm_media_rounded, color: Colors.white, size: 22),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8),
                             Text(
-                              'Multiple Photos',
+                              'Photos & Videos',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 color: isDark ? Colors.white : AppColors.deepCharcoal,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Select from gallery',
+                              'Multi-select gallery',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: isDark ? Colors.white60 : Colors.grey.shade600,
@@ -420,7 +423,62 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _pickSingleVideo();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isDark ? Colors.white12 : Colors.grey.shade300,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFFFF4D6D), Color(0xFFFF758C)],
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.video_library_rounded, color: Colors.white, size: 22),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Upload Video',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: isDark ? Colors.white : AppColors.deepCharcoal,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Choose from gallery',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
                   Expanded(
                     child: InkWell(
                       borderRadius: BorderRadius.circular(18),
@@ -429,7 +487,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                         _pickCameraImage();
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
                           color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(18),
@@ -447,20 +505,71 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                                 ),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
+                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 22),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8),
                             Text(
                               'Take Photo',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 color: isDark ? Colors.white : AppColors.deepCharcoal,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               'Snap with camera',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.white60 : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _recordVideo();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isDark ? Colors.white12 : Colors.grey.shade300,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFF6C5CE7), Color(0xFF4834D4)],
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.videocam_rounded, color: Colors.white, size: 22),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Record Video',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: isDark ? Colors.white : AppColors.deepCharcoal,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Record with camera',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: isDark ? Colors.white60 : Colors.grey.shade600,
@@ -480,22 +589,20 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     );
   }
 
-  Future<void> _pickMultipleImages() async {
+  Future<void> _pickMultipleMedia() async {
     HapticFeedback.lightImpact();
     try {
-      final List<XFile> pickedFiles = await _picker.pickMultiImage(
+      final List<XFile> pickedFiles = await _picker.pickMultipleMedia(
         imageQuality: 85,
         maxWidth: 2048,
         maxHeight: 2048,
       );
 
       if (pickedFiles.isEmpty) return;
-
       if (!mounted) return;
 
-      // Ask for optional common caption & date taken for the batch
       final result = await _showBatchCaptionDialog(pickedFiles.length);
-      if (result == null) return; // User cancelled
+      if (result == null) return;
 
       _uploadMultipleFiles(
         pickedFiles,
@@ -505,7 +612,77 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to pick images: $e')),
+          SnackBar(content: Text('Failed to pick media: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickSingleVideo() async {
+    HapticFeedback.lightImpact();
+    try {
+      final XFile? pickedFile = await _picker.pickVideo(
+        source: ImageSource.gallery,
+      );
+
+      if (pickedFile == null) return;
+
+      final videoBytes = await pickedFile.readAsBytes();
+      final fileName = pickedFile.name.isNotEmpty
+          ? pickedFile.name
+          : 'video_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+      if (!mounted) return;
+
+      final result = await _showSingleCaptionDialog(videoBytes, isVideo: true, fileName: fileName);
+      if (result == null) return;
+
+      _startUploadingSingle(
+        videoBytes,
+        fileName,
+        caption: result.caption,
+        takenAt: result.takenAt,
+        mediaType: 'video',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick video: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _recordVideo() async {
+    HapticFeedback.lightImpact();
+    try {
+      final XFile? pickedFile = await _picker.pickVideo(
+        source: ImageSource.camera,
+      );
+
+      if (pickedFile == null) return;
+
+      final videoBytes = await pickedFile.readAsBytes();
+      final fileName = pickedFile.name.isNotEmpty
+          ? pickedFile.name
+          : 'recorded_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+      if (!mounted) return;
+
+      final result = await _showSingleCaptionDialog(videoBytes, isVideo: true, fileName: fileName);
+      if (result == null) return;
+
+      _startUploadingSingle(
+        videoBytes,
+        fileName,
+        caption: result.caption,
+        takenAt: result.takenAt,
+        mediaType: 'video',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to record video: $e')),
         );
       }
     }
@@ -530,7 +707,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
 
       if (!mounted) return;
 
-      final result = await _showSingleCaptionDialog(imageBytes);
+      final result = await _showSingleCaptionDialog(imageBytes, isVideo: false, fileName: fileName);
       if (result == null) return;
 
       _startUploadingSingle(
@@ -538,6 +715,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         fileName,
         caption: result.caption,
         takenAt: result.takenAt,
+        mediaType: 'image',
       );
     } catch (e) {
       if (mounted) {
@@ -749,7 +927,11 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     );
   }
 
-  Future<_CaptionDialogResult?> _showSingleCaptionDialog(Uint8List imageBytes) async {
+  Future<_CaptionDialogResult?> _showSingleCaptionDialog(
+    Uint8List mediaBytes, {
+    bool isVideo = false,
+    String? fileName,
+  }) async {
     final captionController = TextEditingController();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     DateTime? selectedDateTaken;
@@ -777,25 +959,93 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                         ),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.add_photo_alternate_rounded, color: Colors.white, size: 18),
+                      child: Icon(
+                        isVideo ? Icons.videocam_rounded : Icons.add_photo_alternate_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                     const SizedBox(width: 10),
-                    const Text(
-                      'Add Photo Details',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    Text(
+                      isVideo ? 'Add Video Details' : 'Add Photo Details',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.memory(
-                    imageBytes,
+                if (isVideo)
+                  Container(
                     height: 160,
                     width: double.infinity,
-                    fit: BoxFit.cover,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: LinearGradient(
+                        colors: isDark
+                            ? [const Color(0xFF2A1E3F), const Color(0xFF191224)]
+                            : [const Color(0xFF3B284C), const Color(0xFF241434)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(
+                        color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 30),
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            fileName ?? 'Video File',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${(mediaBytes.lengthInBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.memory(
+                      mediaBytes,
+                      height: 160,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
                   ),
-                ),
                 const SizedBox(height: 14),
                 TextField(
                   controller: captionController,
@@ -852,7 +1102,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                           child: Text(
                             selectedDateTaken != null
                                 ? 'Date Taken: ${DateFormat('MMM d, y').format(selectedDateTaken!)}'
-                                : 'Date Picture Taken (Optional)',
+                                : 'Date Taken (Optional)',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: selectedDateTaken != null ? FontWeight.bold : FontWeight.normal,
@@ -942,10 +1192,11 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   }
 
   Future<void> _startUploadingSingle(
-    Uint8List imageBytes,
+    Uint8List mediaBytes,
     String fileName, {
     String? caption,
     DateTime? takenAt,
+    String? mediaType,
   }) async {
     final userProvider = context.read<UserProvider>();
     final coupleProvider = context.read<CoupleProvider>();
@@ -954,9 +1205,11 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
 
     if (coupleId == null || userId == null) return;
 
+    final isVid = mediaType == 'video';
+
     setState(() {
       _isUploading = true;
-      _uploadStatusText = 'Uploading photo...';
+      _uploadStatusText = isVid ? 'Uploading video...' : 'Uploading photo...';
       _uploadProgress = 0.5;
     });
 
@@ -965,11 +1218,12 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         folderId: _currentFolder.id,
         coupleId: coupleId,
         uploadedById: userId,
-        imageBytes: imageBytes,
+        imageBytes: mediaBytes,
         fileName: fileName,
         caption: caption,
         takenAt: takenAt,
-        updateFolderCoverIfEmpty: _currentFolder.coverImageUrl == null,
+        mediaType: mediaType,
+        updateFolderCoverIfEmpty: _currentFolder.coverImageUrl == null && !isVid,
       );
 
       if (mounted) {
@@ -979,7 +1233,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
           _uploadStatusText = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Photo uploaded successfully!')),
+          SnackBar(content: Text('${isVid ? 'Video' : 'Photo'} uploaded successfully!')),
         );
       }
     } catch (e) {
@@ -1009,11 +1263,12 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
 
     final total = files.length;
     final List<GalleryImageModel> uploadedBatch = [];
+    String? lastError;
 
     setState(() {
       _isUploading = true;
       _uploadProgress = 0.0;
-      _uploadStatusText = 'Preparing 1 of $total photos...';
+      _uploadStatusText = 'Preparing 1 of $total items...';
     });
 
     for (int i = 0; i < total; i++) {
@@ -1023,27 +1278,38 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
 
       setState(() {
         _uploadProgress = (i / total).clamp(0.0, 1.0);
-        _uploadStatusText = 'Uploading $currentNum of $total photos...';
+        _uploadStatusText = 'Uploading $currentNum of $total items...';
       });
 
       try {
-        final imageBytes = await file.readAsBytes();
+        final mediaBytes = await file.readAsBytes();
+        final lower = file.name.toLowerCase();
+        final isVid = lower.endsWith('.mp4') ||
+            lower.endsWith('.mov') ||
+            lower.endsWith('.mkv') ||
+            lower.endsWith('.webm') ||
+            lower.endsWith('.avi') ||
+            lower.endsWith('.m4v');
         final fileName = file.name.isNotEmpty
             ? file.name
-            : 'photo_${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
+            : (isVid
+                ? 'video_${DateTime.now().millisecondsSinceEpoch}_$i.mp4'
+                : 'photo_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
 
         final newImage = await _galleryService.uploadImage(
           folderId: _currentFolder.id,
           coupleId: coupleId,
           uploadedById: userId,
-          imageBytes: imageBytes,
+          imageBytes: mediaBytes,
           fileName: fileName,
           caption: caption,
           takenAt: takenAt,
-          updateFolderCoverIfEmpty: _currentFolder.coverImageUrl == null && i == 0,
+          mediaType: isVid ? 'video' : 'image',
+          updateFolderCoverIfEmpty: _currentFolder.coverImageUrl == null && !isVid && i == 0,
         );
         uploadedBatch.add(newImage);
       } catch (e) {
+        lastError = e.toString().replaceFirst('Exception: ', '');
         debugPrint('Failed to upload file ${file.name}: $e');
       }
     }
@@ -1055,9 +1321,15 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         _uploadStatusText = null;
         _uploadProgress = 1.0;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${uploadedBatch.length} of $total photos uploaded successfully!')),
-      );
+      if (uploadedBatch.isEmpty && lastError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $lastError')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${uploadedBatch.length} of $total media items uploaded successfully!')),
+        );
+      }
     }
   }
 
@@ -1167,7 +1439,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                 highlightElevation: 0,
                 icon: const Icon(Icons.add_photo_alternate_rounded, color: Colors.white),
                 label: const Text(
-                  'Add Photos',
+                  'Add Media',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -1201,7 +1473,9 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
           ),
           Text(
-            '${_images.length} photos',
+            _images.any((img) => img.isVideo)
+                ? '${_images.length} item${_images.length == 1 ? '' : 's'}'
+                : '${_images.length} photo${_images.length == 1 ? '' : 's'}',
             style: const TextStyle(fontSize: 11.5, color: Colors.white70),
           ),
         ],
@@ -1353,7 +1627,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Tap "Add Photos" to upload multiple pictures together into "${_currentFolder.name}".',
+                'Tap "Add Media" to upload photos and videos into "${_currentFolder.name}".',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13.5,
@@ -1401,21 +1675,84 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  CachedNetworkImage(
-                    imageUrl: image.imageUrl,
-                    httpHeaders: NhostGalleryService.instance.storageHeaders,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      color: isDark ? Colors.white10 : Colors.grey.shade200,
-                      child: const Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                  if (image.isVideo)
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isDark
+                              ? [const Color(0xFF2E1C38), const Color(0xFF160F20)]
+                              : [const Color(0xFF42275A), const Color(0xFF734B6E)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black.withValues(alpha: 0.5),
+                                border: Border.all(
+                                  color: const Color(0xFFFF758C).withValues(alpha: 0.7),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 26,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 6,
+                            left: 6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.videocam_rounded, color: Colors.white, size: 10),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'VIDEO',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    CachedNetworkImage(
+                      imageUrl: image.imageUrl,
+                      httpHeaders: NhostGalleryService.instance.storageHeaders,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        color: isDark ? Colors.white10 : Colors.grey.shade200,
+                        child: const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) => Container(
+                        color: isDark ? Colors.white10 : Colors.grey.shade300,
+                        child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
                       ),
                     ),
-                    errorWidget: (_, __, ___) => Container(
-                      color: isDark ? Colors.white10 : Colors.grey.shade300,
-                      child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
-                    ),
-                  ),
 
                   // Caption badge
                   if (image.caption != null && image.caption!.isNotEmpty && !_isSelectionMode)
@@ -1630,25 +1967,42 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
     super.dispose();
   }
 
-  Future<void> _saveToDevice(String imageUrl) async {
+  Future<void> _saveToDevice(GalleryImageModel image) async {
     HapticFeedback.lightImpact();
     setState(() => _isSaving = true);
     try {
       final response = await http.get(
-        Uri.parse(imageUrl),
+        Uri.parse(image.imageUrl),
         headers: NhostGalleryService.instance.storageHeaders,
       );
       if (response.statusCode == 200) {
-        final result = await ImageGallerySaver.saveImage(
-          Uint8List.fromList(response.bodyBytes),
-          quality: 100,
-          name: 'JayienneLink_${DateTime.now().millisecondsSinceEpoch}',
-        );
-        if (mounted) {
-          setState(() => _isSaving = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Saved to device photos.')),
+        if (image.isVideo) {
+          final tempDir = await getTemporaryDirectory();
+          final ext = image.imageUrl.toLowerCase().contains('.mov') ? 'mov' : 'mp4';
+          final tempFile = File('${tempDir.path}/JayienneLink_${DateTime.now().millisecondsSinceEpoch}.$ext');
+          await tempFile.writeAsBytes(response.bodyBytes);
+          await ImageGallerySaver.saveFile(tempFile.path);
+          if (await tempFile.exists()) {
+            await tempFile.delete();
+          }
+          if (mounted) {
+            setState(() => _isSaving = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Video saved to device gallery.')),
+            );
+          }
+        } else {
+          final result = await ImageGallerySaver.saveImage(
+            Uint8List.fromList(response.bodyBytes),
+            quality: 100,
+            name: 'JayienneLink_${DateTime.now().millisecondsSinceEpoch}',
           );
+          if (mounted) {
+            setState(() => _isSaving = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Saved to device photos.')),
+            );
+          }
         }
       } else {
         throw Exception('Download failed with status ${response.statusCode}');
@@ -1657,7 +2011,7 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
       if (mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save image: $e')),
+          SnackBar(content: Text('Failed to save media: $e')),
         );
       }
     }
@@ -1876,11 +2230,12 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
 
   Future<void> _confirmAndDelete(GalleryImageModel image) async {
     HapticFeedback.lightImpact();
+    final itemType = image.isVideo ? 'Video' : 'Photo';
     final confirmed = await showTimedConfirmDialog(
       context: context,
-      title: 'Delete Photo',
-      message: 'Are you sure you want to delete this photo from your shared album? This cannot be undone.',
-      confirmLabel: 'Delete Photo',
+      title: 'Delete $itemType',
+      message: 'Are you sure you want to delete this $itemType from your shared album? This cannot be undone.',
+      confirmLabel: 'Delete $itemType',
       icon: Icons.delete_forever_rounded,
       countdownSeconds: 5,
     );
@@ -1903,7 +2258,7 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Photo deleted.')),
+            SnackBar(content: Text('$itemType deleted.')),
           );
 
           if (_imageList.isEmpty) {
@@ -1913,7 +2268,7 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete photo: $e')),
+            SnackBar(content: Text('Failed to delete $itemType: $e')),
           );
         }
       }
@@ -1925,7 +2280,7 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
     if (_imageList.isEmpty) {
       return const Scaffold(
         backgroundColor: Colors.black,
-        body: Center(child: Text('No photos', style: TextStyle(color: Colors.white))),
+        body: Center(child: Text('No media items', style: TextStyle(color: Colors.white))),
       );
     }
 
@@ -1961,7 +2316,7 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                   )
                 : const Icon(Icons.download_rounded),
             tooltip: 'Save to Device',
-            onPressed: _isSaving ? null : () => _saveToDevice(currentImage.imageUrl),
+            onPressed: _isSaving ? null : () => _saveToDevice(currentImage),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF5252)),
@@ -1978,6 +2333,13 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
             onPageChanged: (idx) => setState(() => _currentIndex = idx),
             itemBuilder: (context, index) {
               final img = _imageList[index];
+              if (img.isVideo) {
+                return _GalleryVideoPlayerItem(
+                  key: ValueKey(img.id),
+                  videoUrl: img.imageUrl,
+                  storageHeaders: NhostGalleryService.instance.storageHeaders,
+                );
+              }
               return InteractiveViewer(
                 minScale: 0.8,
                 maxScale: 4.0,
@@ -2047,6 +2409,32 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                           ],
                         ),
                       ),
+                      if (currentImage.isVideo) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF4D6D).withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFF4D6D).withValues(alpha: 0.5)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.videocam_rounded, color: Colors.white, size: 12),
+                              SizedBox(width: 4),
+                              Text(
+                                'Video',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (currentImage.takenAt != null) ...[
                         const SizedBox(width: 8),
                         Container(
@@ -2111,6 +2499,242 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GalleryVideoPlayerItem extends StatefulWidget {
+  final String videoUrl;
+  final Map<String, String> storageHeaders;
+
+  const _GalleryVideoPlayerItem({
+    super.key,
+    required this.videoUrl,
+    required this.storageHeaders,
+  });
+
+  @override
+  State<_GalleryVideoPlayerItem> createState() => _GalleryVideoPlayerItemState();
+}
+
+class _GalleryVideoPlayerItemState extends State<_GalleryVideoPlayerItem> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+  String _errorMessage = '';
+  bool _showControls = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      _controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+        httpHeaders: widget.storageHeaders,
+      );
+      await _controller.initialize();
+      _controller.setLooping(true);
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = e.toString();
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _togglePlayPause() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (_controller.value.isPlaying) {
+        _controller.pause();
+      } else {
+        _controller.play();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Color(0xFFFF5252), size: 48),
+              const SizedBox(height: 12),
+              const Text(
+                'Could not play video',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _errorMessage,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white60, fontSize: 12),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF758C),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  setState(() {
+                    _hasError = false;
+                    _isInitialized = false;
+                  });
+                  _initializeVideo();
+                },
+                icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 16),
+                label: const Text('Retry', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_isInitialized) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF758C)),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Loading video...',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _showControls = !_showControls;
+        });
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: _controller.value.aspectRatio > 0 ? _controller.value.aspectRatio : 16 / 9,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              VideoPlayer(_controller),
+
+              // Play/Pause center overlay button
+              if (_showControls || !_controller.value.isPlaying)
+                GestureDetector(
+                  onTap: _togglePlayPause,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.4),
+                          blurRadius: 12,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      _controller.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 38,
+                    ),
+                  ),
+                ),
+
+              // Progress bar & timer at bottom of video
+              if (_showControls)
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        ValueListenableBuilder(
+                          valueListenable: _controller,
+                          builder: (context, VideoPlayerValue value, child) {
+                            final pos = value.position;
+                            final dur = value.duration;
+                            final posStr = '${pos.inMinutes}:${(pos.inSeconds % 60).toString().padLeft(2, '0')}';
+                            final durStr = '${dur.inMinutes}:${(dur.inSeconds % 60).toString().padLeft(2, '0')}';
+                            return Text(
+                              '$posStr / $durStr',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: VideoProgressIndicator(
+                            _controller,
+                            allowScrubbing: true,
+                            colors: const VideoProgressColors(
+                              playedColor: Color(0xFFFF758C),
+                              bufferedColor: Colors.white30,
+                              backgroundColor: Colors.white12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _controller.setVolume(_controller.value.volume > 0 ? 0.0 : 1.0);
+                            });
+                          },
+                          child: Icon(
+                            _controller.value.volume > 0 ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -22,9 +22,12 @@ class GalleryFolderModel {
   });
 
   factory GalleryFolderModel.fromJson(Map<String, dynamic> json) {
-    // Handle image count whether aggregate was returned or raw
+    // Handle media/image count whether aggregate was returned or raw
     int count = 0;
-    if (json['images_aggregate'] != null &&
+    if (json['media_aggregate'] != null &&
+        json['media_aggregate']['aggregate'] != null) {
+      count = json['media_aggregate']['aggregate']['count'] as int? ?? 0;
+    } else if (json['images_aggregate'] != null &&
         json['images_aggregate']['aggregate'] != null) {
       count = json['images_aggregate']['aggregate']['count'] as int? ?? 0;
     } else if (json['image_count'] != null) {

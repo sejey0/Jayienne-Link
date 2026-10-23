@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -58,6 +59,15 @@ class UpdateService {
     bool isManualCheck = false,
     String versionUrl = defaultVersionUrl,
   }) async {
+    // OTA APK downloads are strictly for Android native devices
+    if (kIsWeb) {
+      if (isManualCheck && context.mounted) {
+        SnackbarHelper.showSuccess(
+            context, 'You are running the latest web version.');
+      }
+      return;
+    }
+
     if (_isChecking || _isDialogOpen) return;
     _isChecking = true;
 

@@ -53,16 +53,31 @@ class FirebaseLocationService {
 
     try {
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
+        if (kIsWeb) {
+          await Firebase.initializeApp(
+            options: const FirebaseOptions(
+              apiKey: 'AIzaSyBdUpqfu7f6i2BJS8ZbGR1YgS305Dxk_oY',
+              appId: '1:553234996513:web:jayienne-link',
+              messagingSenderId: '553234996513',
+              projectId: 'jayienne-link-51c81',
+              databaseURL: _databaseUrl,
+              storageBucket: 'jayienne-link-51c81.firebasestorage.app',
+            ),
+          );
+        } else {
+          await Firebase.initializeApp();
+        }
       }
 
-      _database = FirebaseDatabase.instanceFor(
-        app: Firebase.app(),
-        databaseURL: _databaseUrl,
-      );
+      if (Firebase.apps.isNotEmpty) {
+        _database = FirebaseDatabase.instanceFor(
+          app: Firebase.app(),
+          databaseURL: _databaseUrl,
+        );
+      }
 
       // Enable offline disk persistence on native platforms for fast cache
-      if (!kIsWeb) {
+      if (!kIsWeb && _database != null) {
         try {
           _database!.setPersistenceEnabled(true);
           _database!.setPersistenceCacheSizeBytes(10 * 1024 * 1024); // 10MB
@@ -77,25 +92,25 @@ class FirebaseLocationService {
   }
 
   /// Safe getter ensuring database instance is always ready
-  FirebaseDatabase get _db {
-    if (_database != null) return _database!;
+  FirebaseDatabase? get _db {
+    if (_database != null) return _database;
     try {
       if (Firebase.apps.isNotEmpty) {
         _database = FirebaseDatabase.instanceFor(
           app: Firebase.app(),
           databaseURL: _databaseUrl,
         );
-      } else {
-        _database = FirebaseDatabase.instance;
       }
     } catch (e) {
-      _database = FirebaseDatabase.instance;
+      debugPrint('⚠️ [FirebaseLocationService] Database access notice: $e');
     }
-    return _database!;
+    return _database;
   }
 
-  DatabaseReference _getCoupleNode(String coupleId) {
-    return _db.ref('$_rootNode/$coupleId');
+  DatabaseReference? _getCoupleNode(String coupleId) {
+    final db = _db;
+    if (db == null) return null;
+    return db.ref('$_rootNode/$coupleId');
   }
 
   /// Publish the current user's live coordinates, telemetry, and battery status
@@ -112,7 +127,9 @@ class FirebaseLocationService {
     }
 
     try {
-      final userNode = _getCoupleNode(coupleId).child(userId);
+      final coupleNode = _getCoupleNode(coupleId);
+      if (coupleNode == null) return;
+      final userNode = coupleNode.child(userId);
 
       final payload = location.toFirebase(
         batteryLevel: batteryLevel,
@@ -140,7 +157,9 @@ class FirebaseLocationService {
     if (DebugProvider.isOfflineForced) return;
 
     try {
-      final userNode = _getCoupleNode(coupleId).child(userId);
+      final coupleNode = _getCoupleNode(coupleId);
+      if (coupleNode == null) return;
+      final userNode = coupleNode.child(userId);
       await userNode.update({
         'batteryLevel': batteryLevel,
         'isCharging': isCharging,
@@ -165,7 +184,9 @@ class FirebaseLocationService {
     _activePartnerId = partnerId;
 
     try {
-      final partnerNode = _getCoupleNode(coupleId).child(partnerId);
+      final coupleNode = _getCoupleNode(coupleId);
+      if (coupleNode == null) return;
+      final partnerNode = coupleNode.child(partnerId);
 
       _partnerLocationSub = partnerNode.onValue.listen(
         (event) {
@@ -220,7 +241,9 @@ class FirebaseLocationService {
     if (DebugProvider.isOfflineForced) return null;
 
     try {
-      final partnerNode = _getCoupleNode(coupleId).child(partnerId);
+      final coupleNode = _getCoupleNode(coupleId);
+      if (coupleNode == null) return null;
+      final partnerNode = coupleNode.child(partnerId);
       final snapshot = await partnerNode.get();
       final data = snapshot.value;
 
@@ -267,10 +290,13 @@ class FirebaseLocationService {
     if (DebugProvider.isOfflineForced) return;
 
     try {
+      final db = _db;
+      if (db == null) return;
+
       final localDate = location.timestamp.toLocal();
       final dateKey =
           '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
-      final pointNode = _db
+      final pointNode = db
           .ref('$_historyNode/$coupleId/$userId/$dateKey/${location.timestamp.millisecondsSinceEpoch}');
 
       final payload = location.toFirebase();
@@ -292,6 +318,9 @@ class FirebaseLocationService {
     if (DebugProvider.isOfflineForced || locations.isEmpty) return;
 
     try {
+      final db = _db;
+      if (db == null) return;
+
       final Map<String, dynamic> updates = {};
       for (final loc in locations) {
         final localDate = loc.timestamp.toLocal();
@@ -305,7 +334,7 @@ class FirebaseLocationService {
         updates[path] = payload;
       }
 
-      await _db.ref().update(updates);
+      await db.ref().update(updates);
       debugPrint('✅ [FirebaseLocationService] Batched ${locations.length} points to Firebase');
     } catch (e) {
       debugPrint('⚠️ [FirebaseLocationService] recordHistoryBatch error: $e');
@@ -326,7 +355,10 @@ class FirebaseLocationService {
     if (DebugProvider.isOfflineForced) return [];
 
     try {
-      final historyNode = _db.ref('$_historyNode/$coupleId/$userId');
+      final db = _db;
+      if (db == null) return [];
+
+      final historyNode = db.ref('$_historyNode/$coupleId/$userId');
       final snapshot = await historyNode.get();
       final data = snapshot.value;
 
@@ -373,11 +405,14 @@ class FirebaseLocationService {
     if (DebugProvider.isOfflineForced) return [];
 
     try {
+      final db = _db;
+      if (db == null) return [];
+
       final localDate = date.toLocal();
       final dateKey =
           '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
       final historyNode =
-          _db.ref('$_historyNode/$coupleId/$userId/$dateKey');
+          db.ref('$_historyNode/$coupleId/$userId/$dateKey');
       final snapshot = await historyNode.get();
       final data = snapshot.value;
 

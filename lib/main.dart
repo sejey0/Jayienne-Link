@@ -62,11 +62,23 @@ void main() async {
 
   // Initialize Firebase Realtime Engine (Live Locations & Battery Status)
   try {
-    if (!kIsWeb) {
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: 'AIzaSyBdUpqfu7f6i2BJS8ZbGR1YgS305Dxk_oY',
+          appId: '1:553234996513:web:jayienne-link',
+          messagingSenderId: '553234996513',
+          projectId: 'jayienne-link-51c81',
+          databaseURL:
+              'https://jayienne-link-51c81-default-rtdb.asia-southeast1.firebasedatabase.app',
+          storageBucket: 'jayienne-link-51c81.firebasestorage.app',
+        ),
+      );
+    } else {
       await Firebase.initializeApp();
-      await FirebaseLocationService.instance.initialize();
-      debugPrint('🔥 Firebase Realtime Engine initialized successfully');
     }
+    await FirebaseLocationService.instance.initialize();
+    debugPrint('🔥 Firebase Realtime Engine initialized successfully');
   } catch (e) {
     debugPrint('⚠️ Firebase initialization notice: $e');
   }

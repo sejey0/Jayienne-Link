@@ -1,8 +1,8 @@
 {
-    "version":  "1.4.0",
-    "build_number":  12,
-    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.4.0/app-release.apk",
-    "release_notes":  "- feat: add home screen with daily quote and bible verse cards\n- feat: implement home screen, daily sync service, and couple feature widgets\n- feat: add home screen and couple hero card widget\n- feat: implement application router with route guards, authentication screens, and settings UI\n- fix(script): add pre-flight GitHub auth verification in OTA release script\n- fix(ota): authenticate github release publisher and add browser fallback to update dialog",
-    "min_required_version":  "1.4.0",
+    "version":  "1.6.0",
+    "build_number":  14,
+    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.6.0/app-release.apk",
+    "release_notes":  "- feat: add interactive device runner batch script for physical and wireless deployment\n- chore: update firebase hosting targets and dependencies\n- feat: add Firebase hosting configuration and project settings\n- feat: implement folder detail screen and nhost gallery service for photo management\n- feat: add Nhost gallery service, models, and admin/folder UI screens\n- feat: add Nhost gallery service, Supabase data service, admin dashboard, and settings screen\n- feat: add gallery folders and folder detail screens for shared photo albums\n- feat: add gallery folders screen and Nhost gallery service for shared photo albums\n- feat: add core relationship features, screens, and third-party gallery integration",
+    "min_required_version":  "1.6.0",
     "force_update":  true
 }

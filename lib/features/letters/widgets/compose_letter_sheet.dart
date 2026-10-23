@@ -194,7 +194,7 @@ class _ComposeLetterSheetState extends State<ComposeLetterSheet> {
 
               // Category Selector
               DropdownButtonFormField<String>(
-                value: _selectedMood,
+                initialValue: _selectedMood,
                 decoration: InputDecoration(
                   labelText: 'Select Mood / Open When...',
                   prefixIcon: const Icon(Icons.label_outline_rounded, color: Color(0xFFFF758C)),

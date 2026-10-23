@@ -618,7 +618,7 @@ class _ForcedUpdateDialogState extends State<_ForcedUpdateDialog> {
 
   Future<void> _openInBrowser() async {
     final rawUrl = widget.updateInfo.downloadUrl;
-    final fallbackUrl = 'https://github.com/sejey0/Jayienne-Link/releases/latest';
+    const fallbackUrl = 'https://github.com/sejey0/Jayienne-Link/releases/latest';
     final target = rawUrl.isNotEmpty ? rawUrl : fallbackUrl;
     final uri = Uri.tryParse(target);
     if (uri != null) {

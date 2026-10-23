@@ -35,6 +35,7 @@ import 'package:jayienne_link/services/firebase_location_service.dart';
 import 'package:jayienne_link/providers/voice_notes_provider.dart';
 import 'package:jayienne_link/services/supabase_voice_note_service.dart';
 import 'package:jayienne_link/providers/mood_letters_provider.dart';
+import 'package:jayienne_link/services/nhost_gallery_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,6 +69,9 @@ void main() async {
   if (!kIsWeb) {
     await BackgroundLocationService.instance.initialize();
   }
+
+  // Keep Nhost free tier active
+  NhostGalleryService.instance.pingKeepAlive();
 
   final authService = SupabaseAuthService();
   final userService = SupabaseUserService();

@@ -473,7 +473,7 @@ class _RomanticLoadingScreenState extends State<RomanticLoadingScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  RomanticLoadingIndicator(
+                  const RomanticLoadingIndicator(
                     size: 84,
                     message: null,
                     primaryColor: rosePink,

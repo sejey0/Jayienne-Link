@@ -404,8 +404,6 @@ class OfflineStorageService {
   List<LocationModel> _downsampleLocations(
     List<LocationModel> raw, {
     int maxPoints = 300,
-    double minDistanceMeters = 10.0,
-    int minIntervalSeconds = 10,
   }) {
     if (raw.isEmpty) return raw;
 

@@ -7819,7 +7819,7 @@ class _DecisionSpinnerScreenState extends State<DecisionSpinnerScreen>
       final partnerName = _getPartnerDisplayName();
       SnackbarHelper.showSuccess(
         context,
-        'Turn updated! Next spin is ${isNowPartner ? "$partnerName\'s" : "YOUR"} turn.',
+        'Turn updated! Next spin is ${isNowPartner ? "${partnerName}'s" : "YOUR"} turn.',
       );
     }
   }

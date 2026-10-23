@@ -23,6 +23,7 @@ import '../../features/location/screens/location_history_screen.dart';
 import '../../features/heartbeat/screens/heartbeat_screen.dart';
 import '../../features/mood/screens/mood_screen.dart';
 import '../../features/photos/screens/photos_screen.dart';
+import '../../features/gallery/screens/gallery_folders_screen.dart';
 import '../../models/secret_media_model.dart';
 import 'route_names.dart';
 import '../../features/secret_media/screens/add_secret_media_screen.dart';
@@ -238,6 +239,10 @@ class AppRouter {
         GoRoute(
           path: RouteNames.photos,
           builder: (context, state) => const PhotosScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.gallery,
+          builder: (context, state) => const GalleryFoldersScreen(),
         ),
         GoRoute(
           path: RouteNames.secretMediaGallery,

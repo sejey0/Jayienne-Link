@@ -31,6 +31,9 @@ class RouteNames {
   // Photos routes
   static const String photos = '/photos';
 
+  // Shared Gallery routes (Nhost Cloud)
+  static const String gallery = '/gallery';
+
   // Secret Media routes
   static const String secretMediaGallery = '/secret-media/gallery';
   static const String secretMediaAdd = '/secret-media/add';

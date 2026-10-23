@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/router/route_names.dart';
 import '../../../providers/secret_media_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../gallery/screens/gallery_folders_screen.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
 import '../../secret_media/screens/hidden_vault_screen.dart';
 import '../screens/decision_spinner_screen.dart';
@@ -17,6 +18,7 @@ enum _ActionType {
   loveNudgeScreen,
   decisionSpinnerScreen,
   movieDiaryScreen,
+  galleryScreen,
 }
 
 /// Senior Feature Selection Modal Bottom Sheet with Single Instance Back-Stack Persistence & Haptic Feedback
@@ -80,6 +82,13 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
         icon: Icons.photo_library_rounded,
         gradientColors: [Color(0xFFF06292), Color(0xFF9C27B0)],
         route: RouteNames.photos,
+      ),
+      _FeatureModalItem(
+        title: 'Shared Gallery',
+        subtitle: 'Folder-based Nhost albums',
+        icon: Icons.collections_rounded,
+        gradientColors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+        actionType: _ActionType.galleryScreen,
       ),
       _FeatureModalItem(
         title: 'Love Nudge',
@@ -288,6 +297,13 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const MovieTrackerScreen(),
+                          ),
+                        );
+                      } else if (item.actionType == _ActionType.galleryScreen) {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const GalleryFoldersScreen(),
                           ),
                         );
                       } else {

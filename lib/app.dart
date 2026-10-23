@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -52,6 +53,50 @@ class _JayienneLinkAppState extends State<JayienneLinkApp> {
       darkTheme: AppTheme.darkTheme,
       themeMode: themeProvider.themeMode,
       routerConfig: _router,
+      builder: (context, child) {
+        if (!kIsWeb) return child ?? const SizedBox.shrink();
+
+        final mediaQuery = MediaQuery.of(context);
+        final screenWidth = mediaQuery.size.width;
+
+        // On mobile web (phones / narrow screens), render full width
+        if (screenWidth <= 520) {
+          return child ?? const SizedBox.shrink();
+        }
+
+        // On widescreen desktop web, constrain to a centered mobile canvas
+        const maxContentWidth = 460.0;
+        final isDark = themeProvider.isDarkMode;
+
+        return ColoredBox(
+          color: isDark ? const Color(0xFF0D0D12) : const Color(0xFFF1F3F8),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: maxContentWidth),
+              child: MediaQuery(
+                data: mediaQuery.copyWith(
+                  size: Size(maxContentWidth, mediaQuery.size.height),
+                ),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.08),
+                        blurRadius: 28,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRect(
+                    child: child ?? const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

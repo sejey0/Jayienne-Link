@@ -442,7 +442,9 @@ class FirebaseLocationService {
     required String userId,
   }) async {
     try {
-      await _db.ref('$_historyNode/$coupleId/$userId').remove();
+      final db = _db;
+      if (db == null) return;
+      await db.ref('$_historyNode/$coupleId/$userId').remove();
       debugPrint('🗑️ [FirebaseLocationService] Deleted remote history node for $userId');
     } catch (e) {
       debugPrint('⚠️ [FirebaseLocationService] deleteHistory error: $e');
@@ -452,7 +454,9 @@ class FirebaseLocationService {
   /// Disconnect user presence when logging out
   Future<void> markUserOffline(String coupleId, String userId) async {
     try {
-      final userNode = _getCoupleNode(coupleId).child(userId);
+      final coupleNode = _getCoupleNode(coupleId);
+      if (coupleNode == null) return;
+      final userNode = coupleNode.child(userId);
       await userNode.update({
         'isOnline': false,
         'lastSeen': DateTime.now().millisecondsSinceEpoch,

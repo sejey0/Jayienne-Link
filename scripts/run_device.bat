@@ -668,19 +668,21 @@ echo   [1] Release Build ^& Run (Quick)
 echo   [2] Clean Release Build ^& Run
 echo   [3] Build APK ^& Open Folder (share manually)
 echo   [4] Full Release (Clean + Build APK + Open Folder + Run)
-echo   [5] One-Click Auto Publish to GitHub OTA Release
+echo   [5] One-Click Auto Publish All (GitHub OTA APK + Firebase Web)
+echo   [6] Build & Deploy Web Only (Firebase Hosting)
 echo   [0] Back to Main Menu
 echo ----------------------------------------
 echo.
-set /p "REL_CHOICE=Enter choice (1-5, 0): "
+set /p "REL_CHOICE=Enter choice (1-6, 0): "
 
 if "%REL_CHOICE%"=="1" goto buildrun
 if "%REL_CHOICE%"=="2" goto cleanrebuild
 if "%REL_CHOICE%"=="3" goto buildapk
 if "%REL_CHOICE%"=="4" goto fullrelease
 if "%REL_CHOICE%"=="5" goto github_ota_release
+if "%REL_CHOICE%"=="6" goto deploy_web_only
 if "%REL_CHOICE%"=="0" goto menu
-echo Invalid choice. Please enter 1-5 or 0.
+echo Invalid choice. Please enter 1-6 or 0.
 echo.
 goto releasemenu
 
@@ -815,8 +817,23 @@ if not exist "build\app\outputs\flutter-apk\app-release.apk" (
 )
 
 echo.
-echo [5/5] Committing and tagging release in Git repository...
-git add version.json pubspec.yaml
+echo [5/6] Building & Deploying Web App to Firebase Hosting...
+call flutter build web --release --build-name=!NEW_VERSION! --build-number=!NEW_BUILD!
+if errorlevel 1 (
+    echo [WARNING] Flutter web build failed, continuing with GitHub release...
+) else (
+    echo Deploying Web build to Firebase Hosting...
+    call npx firebase-tools deploy --only hosting
+    if errorlevel 1 (
+        echo [WARNING] Firebase Hosting deploy failed, continuing with GitHub release...
+    ) else (
+        echo [SUCCESS] Web App deployed to https://jayiennelink.web.app
+    )
+)
+
+echo.
+echo [6/6] Committing and tagging release in Git repository...
+git add version.json pubspec.yaml firebase.json .firebaserc
 git commit -m "chore(release): bump version to v!NEW_VERSION! (build !NEW_BUILD!)"
 git tag -a "v!NEW_VERSION!" -m "Jayienne Link v!NEW_VERSION!"
 git push origin main
@@ -904,13 +921,51 @@ goto releasemenu
 if exist "%~dp0.release_notes.txt" del "%~dp0.release_notes.txt" >nul 2>&1
 echo.
 echo ====================================================
-echo   [SUCCESS] OTA Release v!NEW_VERSION! Published to GitHub!
+echo   [SUCCESS] Full Release v!NEW_VERSION! Published!
 echo ====================================================
-echo   Direct APK: https://github.com/%GH_USER%/%GH_REPO%/releases/download/v!NEW_VERSION!/app-release.apk
+echo   * Android APK (In-App OTA):
+echo     https://github.com/%GH_USER%/%GH_REPO%/releases/download/v!NEW_VERSION!/app-release.apk
+echo.
+echo   * Web App (Firebase Hosting):
+echo     https://jayiennelink.web.app
 echo.
 echo   Note: The new build was NOT auto-installed via ADB.
 echo   You can now open the app on your phone to test the
 echo   in-app OTA update flow!
+echo ====================================================
+echo.
+pause
+goto releasemenu
+
+:deploy_web_only
+echo.
+echo ====================================================
+echo   Build and Deploy Web App to Firebase Hosting
+echo ====================================================
+echo.
+echo [1/2] Building Flutter Web Release...
+call flutter build web --release
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Flutter web build failed.
+    pause
+    goto releasemenu
+)
+echo.
+echo [2/2] Deploying to Firebase Hosting...
+call npx firebase-tools deploy --only hosting
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Firebase deploy failed.
+    pause
+    goto releasemenu
+)
+echo.
+echo ====================================================
+echo   [SUCCESS] Web App Deployed!
+echo   * https://jayiennelink.web.app
+echo   * https://jayienne-app.web.app
+echo   * https://jay-ienne.web.app
 echo ====================================================
 echo.
 pause

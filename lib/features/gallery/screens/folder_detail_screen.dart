@@ -2508,12 +2508,12 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
 
 class _GalleryVideoPlayerItem extends StatefulWidget {
   final String videoUrl;
-  final Map<String, String> storageHeaders;
+  final Map<String, String>? storageHeaders;
 
   const _GalleryVideoPlayerItem({
     super.key,
     required this.videoUrl,
-    required this.storageHeaders,
+    this.storageHeaders,
   });
 
   @override
@@ -2537,7 +2537,7 @@ class _GalleryVideoPlayerItemState extends State<_GalleryVideoPlayerItem> {
     try {
       _controller = VideoPlayerController.networkUrl(
         Uri.parse(widget.videoUrl),
-        httpHeaders: widget.storageHeaders,
+        httpHeaders: widget.storageHeaders ?? const {},
       );
       await _controller.initialize();
       _controller.setLooping(true);

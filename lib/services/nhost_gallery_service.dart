@@ -41,9 +41,8 @@ class NhostGalleryService {
         'x-hasura-admin-secret': adminSecret,
       };
 
-  Map<String, String> get storageHeaders => {
-        'x-hasura-admin-secret': adminSecret,
-      };
+  Map<String, String>? get storageHeaders =>
+      kIsWeb ? null : {'x-hasura-admin-secret': adminSecret};
 
   /// Light ping to keep Nhost free tier instance awake
   Future<void> pingKeepAlive() async {

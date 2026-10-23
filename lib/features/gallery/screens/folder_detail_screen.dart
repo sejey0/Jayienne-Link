@@ -956,7 +956,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
 
     setState(() {
       _isUploading = true;
-      _uploadStatusText = 'Uploading to Nhost Cloud...';
+      _uploadStatusText = 'Uploading photo...';
       _uploadProgress = 0.5;
     });
 

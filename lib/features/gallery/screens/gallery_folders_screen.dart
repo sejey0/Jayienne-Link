@@ -817,35 +817,9 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
             Navigator.pop(context);
           },
         ),
-        title: Column(
-          children: [
-            const Text(
-              'Shared Gallery',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF4CAF50),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                const Text(
-                  'Nhost Cloud Vault',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white70,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ],
+        title: const Text(
+          'Shared Gallery',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         centerTitle: true,
         actions: [
@@ -962,7 +936,7 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Create your first folder to start uploading shared photos together on Nhost.',
+                'Create your first folder to start uploading shared photos together.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13.5,

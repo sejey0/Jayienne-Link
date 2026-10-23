@@ -1348,6 +1348,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         await _galleryService.deleteImage(
           imageId: image.id,
           fileId: image.fileId,
+          imageUrl: image.imageUrl,
         );
         if (mounted) {
           setState(() {
@@ -2245,6 +2246,7 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
         await NhostGalleryService.instance.deleteImage(
           imageId: image.id,
           fileId: image.fileId,
+          imageUrl: image.imageUrl,
         );
 
         widget.onDelete(image);

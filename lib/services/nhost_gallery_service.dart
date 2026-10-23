@@ -543,8 +543,49 @@ class NhostGalleryService {
     });
   }
 
-  /// Delete folder and all its images
+  /// Delete folder and all its media files from bucket storage and database
   Future<void> deleteFolder(String folderId) async {
+    // 1. Fetch all media file IDs inside this folder to purge from bucket storage
+    try {
+      const getMediaSql = '''
+        SELECT coalesce(file_id, '') as file_id, coalesce(image_url, '') as image_url 
+        FROM public.gallery_media 
+        WHERE folder_id = '%FOLDER_ID%';
+      ''';
+      final response = await http.post(
+        Uri.parse(sqlQueryUrl),
+        headers: _headers,
+        body: jsonEncode({
+          'type': 'run_sql',
+          'args': {
+            'source': 'default',
+            'sql': getMediaSql.replaceAll('%FOLDER_ID%', folderId),
+            'cascade': false,
+            'read_only': true,
+          },
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final resData = jsonDecode(response.body);
+        final rows = resData['result'] as List?;
+        if (rows != null && rows.length > 1) {
+          for (int i = 1; i < rows.length; i++) {
+            final row = rows[i] as List;
+            final fId = row[0]?.toString();
+            final imgUrl = row[1]?.toString();
+            final cleanFileId = extractFileId(fileId: fId, imageUrl: imgUrl);
+            if (cleanFileId != null && cleanFileId.isNotEmpty) {
+              await deleteStorageFile(cleanFileId);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('NhostGalleryService: deleteFolder storage purge error: $e');
+    }
+
+    // 2. Delete folder record from database (cascades to gallery_media)
     const mutation = r'''
       mutation DeleteGalleryFolder($folderId: uuid!) {
         delete_gallery_folders_by_pk(id: $folderId) {
@@ -817,44 +858,110 @@ class NhostGalleryService {
     return createdImage;
   }
 
-  /// Delete media from Nhost GraphQL & Storage
+  /// Safely extracts the UUID file ID from either direct fileId or an imageUrl string
+  String? extractFileId({String? fileId, String? imageUrl}) {
+    if (fileId != null && fileId.trim().isNotEmpty) {
+      return fileId.trim();
+    }
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      final match = RegExp(r'/files/([a-zA-Z0-9\-_]+)').firstMatch(imageUrl);
+      if (match != null && match.groupCount >= 1) {
+        return match.group(1);
+      }
+    }
+    return null;
+  }
+
+  /// Delete a file directly from Nhost Storage bucket and storage.files metadata table
+  Future<void> deleteStorageFile(String fileId) async {
+    final cleanId = fileId.trim();
+    if (cleanId.isEmpty) return;
+
+    // 1. Delete file object from Nhost Storage bucket via REST API
+    try {
+      final res = await http.delete(
+        Uri.parse('$storageUrl/files/$cleanId'),
+        headers: {
+          'x-hasura-admin-secret': adminSecret,
+        },
+      );
+      debugPrint('Nhost Storage bucket DELETE /files/$cleanId (${res.statusCode})');
+    } catch (e) {
+      debugPrint('Nhost Storage bucket delete warning for $cleanId: $e');
+    }
+
+    // 2. Ensure storage.files database record is purged via SQL
+    try {
+      await http.post(
+        Uri.parse(sqlQueryUrl),
+        headers: _headers,
+        body: jsonEncode({
+          'type': 'run_sql',
+          'args': {
+            'source': 'default',
+            'sql': "DELETE FROM storage.files WHERE id = '$cleanId';",
+            'cascade': true,
+            'read_only': false,
+          },
+        }),
+      );
+    } catch (e) {
+      debugPrint('Nhost storage.files SQL delete warning for $cleanId: $e');
+    }
+  }
+
+  /// Delete media from Nhost GraphQL & Storage bucket
   Future<void> deleteImage({
     required String imageId,
     String? fileId,
+    String? imageUrl,
   }) async {
+    String? targetFileId = extractFileId(fileId: fileId, imageUrl: imageUrl);
+
     const mutation = r'''
       mutation DeleteGalleryMedia($imageId: uuid!) {
         delete_gallery_media_by_pk(id: $imageId) {
           id
           file_id
+          image_url
         }
       }
     ''';
 
     try {
-      await _executeGraphQL(mutation, variables: {'imageId': imageId});
+      final result = await _executeGraphQL(mutation, variables: {'imageId': imageId});
+      final deleted = result['delete_gallery_media_by_pk'] as Map<String, dynamic>?;
+      if (deleted != null) {
+        targetFileId ??= extractFileId(
+          fileId: deleted['file_id'] as String?,
+          imageUrl: deleted['image_url'] as String?,
+        );
+      }
     } catch (e) {
       const fallbackMutation = r'''
         mutation DeleteGalleryImageFallback($imageId: uuid!) {
           delete_gallery_images_by_pk(id: $imageId) {
             id
             file_id
+            image_url
           }
         }
       ''';
-      await _executeGraphQL(fallbackMutation, variables: {'imageId': imageId});
+      try {
+        final result = await _executeGraphQL(fallbackMutation, variables: {'imageId': imageId});
+        final deleted = result['delete_gallery_images_by_pk'] as Map<String, dynamic>?;
+        if (deleted != null) {
+          targetFileId ??= extractFileId(
+            fileId: deleted['file_id'] as String?,
+            imageUrl: deleted['image_url'] as String?,
+          );
+        }
+      } catch (_) {}
     }
 
-    // Clean up file in Nhost storage if fileId is present
-    if (fileId != null && fileId.isNotEmpty) {
-      try {
-        await http.delete(
-          Uri.parse('$storageUrl/files/$fileId'),
-          headers: {'x-hasura-admin-secret': adminSecret},
-        );
-      } catch (e) {
-        debugPrint('Nhost Storage delete warning: $e');
-      }
+    // Delete the file from Nhost bucket storage & storage.files
+    if (targetFileId != null && targetFileId.isNotEmpty) {
+      await deleteStorageFile(targetFileId);
     }
   }
 
@@ -862,7 +969,11 @@ class NhostGalleryService {
   Future<void> deleteImagesBatch(List<GalleryImageModel> images) async {
     for (final image in images) {
       try {
-        await deleteImage(imageId: image.id, fileId: image.fileId);
+        await deleteImage(
+          imageId: image.id,
+          fileId: image.fileId,
+          imageUrl: image.imageUrl,
+        );
       } catch (e) {
         debugPrint('NhostGalleryService: batch delete error for ${image.id}: $e');
       }

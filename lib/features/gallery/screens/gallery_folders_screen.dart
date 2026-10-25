@@ -57,14 +57,16 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
         setState(() {
           _folders = folders;
           _isLoading = false;
-          _errorMessage = null;
+          _errorMessage = _galleryService.isQuotaPaused
+              ? 'Cloud sync is paused until quota resets (Nov 1). Showing available albums.'
+              : null;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Failed to load folders: $e';
+          _errorMessage = 'Cloud sync is paused until quota resets (Nov 1). Showing available albums.';
         });
       }
     }
@@ -133,20 +135,11 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Create an album for your shared memories.',
+                    'Create an album in ${_sectionTitle(selectedSection, partnerName)}.',
                     style: TextStyle(
                       fontSize: 13,
                       color: isDark ? Colors.white70 : Colors.grey.shade600,
                     ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Section Selector
-                  _buildSectionSelector(
-                    selectedSection: selectedSection,
-                    onSelected: (val) => setDialogState(() => selectedSection = val),
-                    isDark: isDark,
-                    partnerName: partnerName,
                   ),
                   const SizedBox(height: 16),
 
@@ -928,38 +921,9 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
   }
 
   Widget _buildBody(bool isDark, String currentUserId, String partnerName) {
-    if (_isLoading) {
+    if (_isLoading && _folders.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(),
-      );
-    }
-
-    if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.cloud_off_rounded, size: 48, color: Colors.grey.shade400),
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? Colors.white70 : Colors.grey.shade700,
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: _loadFolders,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
       );
     }
 
@@ -968,6 +932,113 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
     }
 
     return _buildFoldersContent(isDark, currentUserId, partnerName);
+  }
+
+  Widget _buildQuotaNoticeBanner(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF281A32) : const Color(0xFFF9F0F8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFA18CD1).withValues(alpha: isDark ? 0.35 : 0.45),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFA18CD1).withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFFF758C).withValues(alpha: 0.2),
+                  const Color(0xFFA18CD1).withValues(alpha: 0.2),
+                ],
+              ),
+            ),
+            child: const Icon(
+              Icons.cloud_sync_outlined,
+              size: 20,
+              color: Color(0xFFFF758C),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Cloud Sync Paused (Quota Reset Nov 1)',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF3D234A),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Browsing cached albums and photos while sync rests.',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: isDark ? Colors.white70 : Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              _loadFolders(force: true);
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.refresh_rounded, size: 14, color: Colors.white),
+                  SizedBox(width: 4),
+                  Text(
+                    'Retry',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSectionPickerView(bool isDark, String partnerName, String currentUserId) {
@@ -1003,10 +1074,11 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
     ];
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 24, 18, 24),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_errorMessage != null) _buildQuotaNoticeBanner(isDark),
           Text(
             'What are we viewing?',
             style: TextStyle(
@@ -1251,6 +1323,11 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
 
     return Column(
       children: [
+        if (_errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: _buildQuotaNoticeBanner(isDark),
+          ),
         _buildSectionBanner(isDark, partnerName),
         Expanded(
           child: filteredFolders.isEmpty
@@ -1410,103 +1487,7 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
     return 'Us';
   }
 
-  Widget _buildSectionSelector({
-    required String selectedSection,
-    required ValueChanged<String> onSelected,
-    required bool isDark,
-    String? partnerName,
-  }) {
-    final sections = [
-      {'id': 'us', 'label': 'Us', 'icon': Icons.favorite_rounded},
-      {'id': 'my_pictures', 'label': 'My Pictures', 'icon': Icons.person_rounded},
-      {'id': 'partner', 'label': partnerName != null ? partnerName : 'My Partner', 'icon': Icons.favorite_border_rounded},
-    ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Section',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white70 : Colors.grey.shade700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: sections.map((sec) {
-            final isSelected = selectedSection == sec['id'];
-            return Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  onSelected(sec['id'] as String);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                  decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? const LinearGradient(
-                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: isSelected
-                        ? null
-                        : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected
-                          ? Colors.transparent
-                          : (isDark ? Colors.white12 : Colors.grey.shade300),
-                    ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        sec['icon'] as IconData,
-                        size: 18,
-                        color: isSelected
-                            ? Colors.white
-                            : (isDark ? Colors.white70 : Colors.grey.shade700),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        sec['label'] as String,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected
-                              ? Colors.white
-                              : (isDark ? Colors.white70 : Colors.grey.shade700),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
 }
 
 class _FolderCard extends StatelessWidget {

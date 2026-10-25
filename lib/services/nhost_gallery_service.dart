@@ -147,6 +147,9 @@ class NhostGalleryService {
   bool _hasBootstrapped = false;
   DateTime? _lastBootstrapAttempt;
 
+  /// Indicates if Nhost is currently unreachable, paused, or quota exceeded
+  bool isQuotaPaused = false;
+
   // In-memory query caching to eliminate repeated redundant API / database requests
   List<GalleryFolderModel>? _cachedFolders;
   String? _cachedFoldersCoupleId;
@@ -434,25 +437,37 @@ class NhostGalleryService {
     String query, {
     Map<String, dynamic>? variables,
   }) async {
-    final response = await http.post(
-      Uri.parse(graphqlUrl),
-      headers: _headers,
-      body: jsonEncode({
-        'query': query,
-        if (variables != null) 'variables': variables,
-      }),
-    );
+    http.Response response;
+    try {
+      response = await http.post(
+        Uri.parse(graphqlUrl),
+        headers: _headers,
+        body: jsonEncode({
+          'query': query,
+          if (variables != null) 'variables': variables,
+        }),
+      );
+    } catch (e) {
+      isQuotaPaused = true;
+      rethrow;
+    }
 
     if (response.statusCode != 200) {
+      isQuotaPaused = true;
       throw Exception('Nhost GraphQL request failed: ${response.statusCode} - ${response.body}');
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     if (data.containsKey('errors')) {
       final errors = data['errors'] as List<dynamic>;
-      throw Exception('Nhost GraphQL Error: ${errors.first['message']}');
+      final msg = errors.first['message']?.toString() ?? '';
+      if (msg.contains('needs attention') || msg.contains('quota') || msg.contains('paused')) {
+        isQuotaPaused = true;
+      }
+      throw Exception('Nhost GraphQL Error: $msg');
     }
 
+    isQuotaPaused = false;
     return (data['data'] as Map<String, dynamic>?) ?? {};
   }
 
@@ -498,6 +513,14 @@ class NhostGalleryService {
       _cachedFolders = folders;
       _cachedFoldersCoupleId = coupleId;
       _cachedFoldersTime = DateTime.now();
+
+      // Persist to local device storage for offline and quota-paused fallback
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final jsonList = folders.map((f) => f.toJson()).toList();
+        await prefs.setString('nhost_cached_folders_$coupleId', jsonEncode(jsonList));
+      } catch (_) {}
+
       return folders;
     } catch (e) {
       // Fallback query if media_aggregate relationship is not tracked yet
@@ -555,9 +578,34 @@ class NhostGalleryService {
         _cachedFolders = folders;
         _cachedFoldersCoupleId = coupleId;
         _cachedFoldersTime = DateTime.now();
+
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final jsonList = folders.map((f) => f.toJson()).toList();
+          await prefs.setString('nhost_cached_folders_$coupleId', jsonEncode(jsonList));
+        } catch (_) {}
+
         return folders;
       }
     }
+
+    // If network/GraphQL failed (e.g. quota exceeded or paused project), load from local device storage
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedJsonStr = prefs.getString('nhost_cached_folders_$coupleId');
+      if (cachedJsonStr != null && cachedJsonStr.isNotEmpty) {
+        final decoded = jsonDecode(cachedJsonStr) as List<dynamic>;
+        final cachedList = decoded
+            .map((item) => GalleryFolderModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+        _cachedFolders = cachedList;
+        _cachedFoldersCoupleId = coupleId;
+        _cachedFoldersTime = DateTime.now();
+        return cachedList;
+      }
+    } catch (_) {}
+
+    return _cachedFolders ?? [];
   }
 
   /// Upload raw file bytes to Nhost Storage and return its public URL
@@ -801,6 +849,14 @@ class NhostGalleryService {
       final images = list.map((item) => GalleryImageModel.fromJson(item as Map<String, dynamic>)).toList();
       _cachedFolderImages[folderId] = images;
       _cachedFolderImagesTime[folderId] = DateTime.now();
+
+      // Persist to local device storage for quota-paused fallback
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final jsonList = images.map((i) => i.toJson()).toList();
+        await prefs.setString('nhost_cached_images_$folderId', jsonEncode(jsonList));
+      } catch (_) {}
+
       return images;
     } catch (e) {
       // Fallback query if gallery_media is not yet tracked or renamed
@@ -839,7 +895,21 @@ class NhostGalleryService {
         _cachedFolderImagesTime[folderId] = DateTime.now();
         return images;
       } catch (_) {
-        rethrow;
+        // Fallback to local storage cache on network/quota failure
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final cachedJsonStr = prefs.getString('nhost_cached_images_$folderId');
+          if (cachedJsonStr != null && cachedJsonStr.isNotEmpty) {
+            final decoded = jsonDecode(cachedJsonStr) as List<dynamic>;
+            final cachedList = decoded
+                .map((item) => GalleryImageModel.fromJson(item as Map<String, dynamic>))
+                .toList();
+            _cachedFolderImages[folderId] = cachedList;
+            _cachedFolderImagesTime[folderId] = DateTime.now();
+            return cachedList;
+          }
+        } catch (_) {}
+        return _cachedFolderImages[folderId] ?? [];
       }
     }
   }

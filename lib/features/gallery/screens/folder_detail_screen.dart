@@ -101,9 +101,11 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load photos: $e')),
-        );
+        if (_images.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cloud sync is resting (quota reset Nov 1). Showing cached photos.')),
+          );
+        }
       }
     }
   }

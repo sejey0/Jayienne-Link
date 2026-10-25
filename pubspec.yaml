@@ -1,7 +1,7 @@
 name: jayienne_link
 description: "A couples connection app for staying linked with your person."
 publish_to: "none"
-version: 1.9.0+17
+version: 1.10.0+18
 
 environment:
   sdk: ^3.5.0

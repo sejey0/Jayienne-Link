@@ -1,8 +1,8 @@
 {
-    "version":  "1.9.0",
-    "build_number":  17,
-    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.9.0/app-release.apk",
-    "release_notes":  "- feat: implement Nhost-powered couple shared gallery service and screens\n- feat: add gallery data models, Nhost service, and screens for media management\n- chore: add .firebase directory to .gitignore\n- chore: ignore firebase cache and add firebase directory to gitignore",
-    "min_required_version":  "1.9.0",
+    "version":  "1.10.0",
+    "build_number":  18,
+    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.10.0/app-release.apk",
+    "release_notes":  "- feat: add supabase and minio dependencies along with required project packages\n- feat: initialize app with Firebase, Supabase, and providers setup\n- feat: add Nhost gallery service and UI screens for shared photo folders\n- feat: add NhostGalleryService for handling Nhost backend shared gallery integration",
+    "min_required_version":  "1.10.0",
     "force_update":  true
 }

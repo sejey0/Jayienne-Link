@@ -145,6 +145,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
+  buffer:
+    dependency: transitive
+    description:
+      name: buffer
+      sha256: "389da2ec2c16283c8787e0adaede82b1842102f8c8aae2f49003a766c5c6b3d1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.3"
   cached_network_image:
     dependency: "direct main"
     description:
@@ -1013,13 +1021,21 @@ packages:
     source: hosted
     version: "3.0.0"
   mime:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: mime
       sha256: bd47de35f07e27267e69c8c8b22edf9473bfee170a60d60fcc93730c5144b7f6
       url: "https://pub.dev"
     source: hosted
     version: "2.1.0"
+  minio_new:
+    dependency: "direct main"
+    description:
+      name: minio_new
+      sha256: f7fd883ee2458a7a02e00d8e095584961b78ae94742078c332d553f9ee7e1f58
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   nested:
     dependency: transitive
     description:
@@ -1522,7 +1538,7 @@ packages:
     source: hosted
     version: "1.4.1"
   supabase:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: supabase
       sha256: "123fe08792b24e5e7c4b9a01145de8e95ebaa9183cd5f3c9d48dd2ff890f28a6"
@@ -1837,10 +1853,10 @@ packages:
     dependency: transitive
     description:
       name: xml
-      sha256: "0fe8cc98946def31cbcbc8734aa4067031e6f65ea3a78a508060bfed2200bfeb"
+      sha256: "971043b3a0d3da28727e40ed3e0b5d18b742fa5a68665cca88e74b7876d5e025"
       url: "https://pub.dev"
     source: hosted
-    version: "7.1.0"
+    version: "6.6.1"
   yaml:
     dependency: transitive
     description:

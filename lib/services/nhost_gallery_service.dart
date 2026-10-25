@@ -124,14 +124,23 @@ class NhostGalleryService {
     return '$baseUrl?$encodedQuery';
   }
 
-  /// Light ping to keep Nhost free tier instance awake
+  /// Light ping to keep Nhost free tier instance awake (throttled to max once every 24 hours)
   Future<void> pingKeepAlive() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastPing = prefs.getInt('nhost_last_keepalive_ping') ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - lastPing < const Duration(hours: 24).inMilliseconds) {
+        return; // Skip redundant ping
+      }
+
       await http.post(
         Uri.parse(graphqlUrl),
         headers: _headers,
         body: jsonEncode({'query': 'query { __typename }'}),
       ).timeout(const Duration(seconds: 5));
+
+      await prefs.setInt('nhost_last_keepalive_ping', now);
     } catch (_) {}
   }
 

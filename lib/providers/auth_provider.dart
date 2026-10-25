@@ -248,6 +248,48 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> sendPasswordReset(String email) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.sendPasswordResetEmail(email.trim());
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> resetPasswordWithOtp({
+    required String email,
+    required String token,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.verifyPasswordResetOtp(email: email.trim(), token: token.trim());
+      await _authService.updatePassword(newPassword);
+      _isPasswordRecovery = false;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> directChangePassword({
     required String email,
     required String newPassword,

@@ -137,11 +137,16 @@ class SupabaseAuthService {
   /// Send password reset email
   Future<void> sendPasswordResetEmail(String email, {String? redirectTo}) async {
     try {
-      debugPrint('🔓 Sending password reset email to: $email');
+      final cleanEmail = email.trim();
+      debugPrint('🔓 Sending password reset email to: $cleanEmail');
+
+      final defaultRedirect = kIsWeb
+          ? '${Uri.base.origin}/#/auth/reset-password'
+          : 'jayiennelink://reset-password';
 
       await _supabase.auth.resetPasswordForEmail(
-        email,
-        redirectTo: redirectTo ?? 'jayiennelink://reset-password',
+        cleanEmail,
+        redirectTo: redirectTo ?? defaultRedirect,
       );
 
       debugPrint('✅ Password reset email sent successfully');

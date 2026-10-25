@@ -964,8 +964,6 @@ echo.
 echo ====================================================
 echo   [SUCCESS] Web App Deployed!
 echo   * https://jayiennelink.web.app
-echo   * https://jayienne-app.web.app
-echo   * https://jay-ienne.web.app
 echo ====================================================
 echo.
 pause

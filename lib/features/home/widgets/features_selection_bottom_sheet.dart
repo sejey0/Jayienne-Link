@@ -85,7 +85,7 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
       ),
       _FeatureModalItem(
         title: 'Shared Gallery',
-        subtitle: 'Folder-based Nhost albums',
+        subtitle: 'Photo albums & folders',
         icon: Icons.collections_rounded,
         gradientColors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
         actionType: _ActionType.galleryScreen,

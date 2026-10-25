@@ -108,10 +108,17 @@ class NhostGalleryService {
   }
 
   bool _hasBootstrapped = false;
+  DateTime? _lastBootstrapAttempt;
 
   /// Ensures tables and Hasura tracking are provisioned in Nhost
   Future<void> ensureTablesProvisioned({bool force = false}) async {
     if (_hasBootstrapped && !force) return;
+    if (!force && _lastBootstrapAttempt != null) {
+      final elapsed = DateTime.now().difference(_lastBootstrapAttempt!);
+      if (elapsed < const Duration(minutes: 5)) return;
+    }
+    _lastBootstrapAttempt = DateTime.now();
+
     try {
       final sql = '''
         DO \$\$
@@ -156,7 +163,7 @@ class NhostGalleryService {
         CREATE INDEX IF NOT EXISTS idx_gallery_media_folder ON public.gallery_media(folder_id);
       ''';
 
-      // Execute SQL via Hasura run_sql endpoint
+      // Execute SQL via Hasura run_sql endpoint with short timeout
       final response = await http.post(
         Uri.parse(sqlQueryUrl),
         headers: _headers,
@@ -169,7 +176,7 @@ class NhostGalleryService {
             'read_only': false,
           },
         }),
-      );
+      ).timeout(const Duration(seconds: 4));
       debugPrint('Nhost run_sql response (${response.statusCode}): ${response.body}');
 
       // Drop any inconsistent metadata from renaming gallery_images -> gallery_media
@@ -178,7 +185,7 @@ class NhostGalleryService {
           Uri.parse(metadataUrl),
           headers: _headers,
           body: jsonEncode({'type': 'drop_inconsistent_metadata', 'args': {}}),
-        );
+        ).timeout(const Duration(seconds: 3));
       } catch (_) {}
 
       // Untrack obsolete gallery_images table
@@ -212,7 +219,7 @@ class NhostGalleryService {
               'reload_sources': true,
             },
           }),
-        );
+        ).timeout(const Duration(seconds: 3));
       } catch (_) {}
 
       _hasBootstrapped = true;
@@ -240,7 +247,7 @@ class NhostGalleryService {
             'cascade': true,
           },
         }),
-      );
+      ).timeout(const Duration(seconds: 3));
     } catch (_) {}
 
     // Hasura v1 untrack_table fallback
@@ -258,7 +265,7 @@ class NhostGalleryService {
             'cascade': true,
           },
         }),
-      );
+      ).timeout(const Duration(seconds: 3));
     } catch (_) {}
   }
 
@@ -278,7 +285,7 @@ class NhostGalleryService {
             },
           },
         }),
-      );
+      ).timeout(const Duration(seconds: 3));
       debugPrint('Track $tableName v2 response (${res.statusCode}): ${res.body}');
     } catch (_) {}
 
@@ -294,7 +301,7 @@ class NhostGalleryService {
             'name': tableName,
           },
         }),
-      );
+      ).timeout(const Duration(seconds: 3));
     } catch (_) {}
   }
 
@@ -322,7 +329,7 @@ class NhostGalleryService {
             }
           },
         }),
-      );
+      ).timeout(const Duration(seconds: 3));
     } catch (_) {}
   }
 

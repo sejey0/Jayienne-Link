@@ -754,8 +754,10 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     final captionController = TextEditingController();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final coupleProvider = context.read<CoupleProvider>();
+    final userProvider = context.read<UserProvider>();
+    final currentUserId = userProvider.user?.id ?? '';
     final partnerName = coupleProvider.partner?.displayName ?? 'Partner';
-    String selectedSection = _currentFolder.section;
+    String selectedSection = _currentFolder.effectiveSection(currentUserId);
     DateTime? selectedDateTaken;
 
     return showDialog<_CaptionDialogResult>(
@@ -966,8 +968,10 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     final captionController = TextEditingController();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final coupleProvider = context.read<CoupleProvider>();
+    final userProvider = context.read<UserProvider>();
+    final currentUserId = userProvider.user?.id ?? '';
     final partnerName = coupleProvider.partner?.displayName ?? 'Partner';
-    String selectedSection = _currentFolder.section;
+    String selectedSection = _currentFolder.effectiveSection(currentUserId);
     DateTime? selectedDateTaken;
 
     return showDialog<_CaptionDialogResult>(
@@ -1829,66 +1833,12 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                 fit: StackFit.expand,
                 children: [
                   if (image.isVideo)
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isDark
-                              ? [const Color(0xFF2E1C38), const Color(0xFF160F20)]
-                              : [const Color(0xFF42275A), const Color(0xFF734B6E)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                    _VideoThumbnailPreview(
+                      videoUrl: NhostGalleryService.instance.getMediaUrl(image.imageUrl),
+                      storageHeaders: NhostGalleryService.instance.getStorageHeaders(
+                        url: NhostGalleryService.instance.getMediaUrl(image.imageUrl),
                       ),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.black.withValues(alpha: 0.5),
-                                border: Border.all(
-                                  color: const Color(0xFFFF758C).withValues(alpha: 0.7),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.play_arrow_rounded,
-                                color: Colors.white,
-                                size: 26,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 6,
-                            left: 6,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFF758C).withValues(alpha: 0.9),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.videocam_rounded, color: Colors.white, size: 10),
-                                  SizedBox(width: 3),
-                                  Text(
-                                    'VIDEO',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      isDark: isDark,
                     )
                   else
                     Builder(
@@ -2260,6 +2210,8 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
   bool _isSaving = false;
   bool get _showNavArrows => PhotoViewerNavPreference.showArrows;
 
+  bool _isLandscape = false;
+
   @override
   void initState() {
     super.initState();
@@ -2270,8 +2222,32 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
 
   @override
   void dispose() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _toggleOrientation() {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isLandscape = !_isLandscape;
+    });
+    if (_isLandscape) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    }
   }
 
   void _goToPrevious() {
@@ -2356,7 +2332,9 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
     HapticFeedback.lightImpact();
     final captionController = TextEditingController(text: image.cleanCaption);
     DateTime? selectedDateTaken = image.takenAt;
-    String selectedSection = image.section;
+    final userProvider = context.read<UserProvider>();
+    final currentUserId = userProvider.user?.id ?? '';
+    String selectedSection = image.effectiveSection(currentUserId);
     final coupleProvider = context.read<CoupleProvider>();
     final partnerName = coupleProvider.partner?.displayName ?? 'Partner';
 
@@ -2519,9 +2497,17 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                           ),
                           onPressed: () {
                             final text = captionController.text.trim();
+                            String sectionToStore = selectedSection;
+                            if (image.uploadedById.isNotEmpty && image.uploadedById != currentUserId) {
+                              if (selectedSection == 'my_pictures') {
+                                sectionToStore = 'partner';
+                              } else if (selectedSection == 'partner') {
+                                sectionToStore = 'my_pictures';
+                              }
+                            }
                             final encodedCaption = text.isNotEmpty
-                                ? '$text\n[section:$selectedSection]'
-                                : '[section:$selectedSection]';
+                                ? '$text\n[section:$sectionToStore]'
+                                : '[section:$sectionToStore]';
                             Navigator.pop(
                               ctx,
                               _CaptionDialogResult(
@@ -2727,7 +2713,8 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
     final currentImage = _imageList[_currentIndex];
     final userProvider = context.watch<UserProvider>();
     final coupleProvider = context.watch<CoupleProvider>();
-    final isMe = currentImage.uploadedById == userProvider.user?.id;
+    final currentUserId = userProvider.user?.id ?? '';
+    final isMe = currentImage.uploadedById == currentUserId;
     final partnerName = coupleProvider.partner?.displayName ?? 'Partner';
     final uploaderName = isMe ? 'You' : partnerName;
 
@@ -2749,6 +2736,8 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                   key: ValueKey(img.id),
                   videoUrl: videoUrl,
                   storageHeaders: NhostGalleryService.instance.getStorageHeaders(url: videoUrl),
+                  isLandscape: _isLandscape,
+                  onToggleOrientation: _toggleOrientation,
                 );
               }
               final viewerUrl = NhostGalleryService.instance.getMediaUrl(img.imageUrl);
@@ -2893,6 +2882,18 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                           ),
                         ),
 
+                        if (currentImage.isVideo)
+                          IconButton(
+                            icon: Icon(
+                              _isLandscape
+                                  ? Icons.screen_lock_portrait_rounded
+                                  : Icons.screen_lock_landscape_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                            tooltip: _isLandscape ? 'Portrait Mode' : 'Landscape Mode',
+                            onPressed: _toggleOrientation,
+                          ),
                         IconButton(
                           icon: const Icon(Icons.edit_note_rounded, color: Colors.white),
                           tooltip: 'Edit Caption',
@@ -3036,9 +3037,9 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              currentImage.section == 'my_pictures'
+                              currentImage.effectiveSection(currentUserId) == 'my_pictures'
                                   ? Icons.person_rounded
-                                  : (currentImage.section == 'partner'
+                                  : (currentImage.effectiveSection(currentUserId) == 'partner'
                                       ? Icons.favorite_border_rounded
                                       : Icons.favorite_rounded),
                               color: const Color(0xFFFF758C),
@@ -3046,9 +3047,9 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              currentImage.section == 'my_pictures'
+                              currentImage.effectiveSection(currentUserId) == 'my_pictures'
                                   ? 'My Pictures'
-                                  : (currentImage.section == 'partner'
+                                  : (currentImage.effectiveSection(currentUserId) == 'partner'
                                       ? 'My Partner'
                                       : 'Us'),
                               style: const TextStyle(
@@ -3107,11 +3108,15 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
 class _GalleryVideoPlayerItem extends StatefulWidget {
   final String videoUrl;
   final Map<String, String>? storageHeaders;
+  final bool isLandscape;
+  final VoidCallback? onToggleOrientation;
 
   const _GalleryVideoPlayerItem({
     super.key,
     required this.videoUrl,
     this.storageHeaders,
+    this.isLandscape = false,
+    this.onToggleOrientation,
   });
 
   @override
@@ -3328,6 +3333,19 @@ class _GalleryVideoPlayerItemState extends State<_GalleryVideoPlayerItem> {
                             size: 18,
                           ),
                         ),
+                        if (widget.onToggleOrientation != null) ...[
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: widget.onToggleOrientation,
+                            child: Icon(
+                              widget.isLandscape
+                                  ? Icons.screen_lock_portrait_rounded
+                                  : Icons.screen_lock_landscape_rounded,
+                              color: Colors.white,
+                              size: 19,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -3339,3 +3357,177 @@ class _GalleryVideoPlayerItemState extends State<_GalleryVideoPlayerItem> {
     );
   }
 }
+
+/// Thumbnail preview widget for video items in the shared gallery grid.
+/// Decodes and displays a live video frame preview with play overlay and duration badge.
+class _VideoThumbnailPreview extends StatefulWidget {
+  final String videoUrl;
+  final Map<String, String>? storageHeaders;
+  final bool isDark;
+
+  const _VideoThumbnailPreview({
+    required this.videoUrl,
+    this.storageHeaders,
+    required this.isDark,
+  });
+
+  @override
+  State<_VideoThumbnailPreview> createState() => _VideoThumbnailPreviewState();
+}
+
+class _VideoThumbnailPreviewState extends State<_VideoThumbnailPreview> {
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initThumbnail();
+  }
+
+  Future<void> _initThumbnail() async {
+    try {
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+        httpHeaders: widget.storageHeaders ?? const {},
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
+      _controller = controller;
+      await controller.initialize();
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      // Seek slightly into the video to capture a meaningful first frame instead of a black start screen
+      if (controller.value.duration.inMilliseconds > 1000) {
+        await controller.seekTo(const Duration(milliseconds: 1000));
+      } else if (controller.value.duration.inMilliseconds > 200) {
+        await controller.seekTo(const Duration(milliseconds: 200));
+      }
+      await controller.pause();
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (_) {
+      // Fallback gradient remains on failure
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  String get _durationText {
+    if (_isInitialized && _controller != null && _controller!.value.isInitialized) {
+      final dur = _controller!.value.duration;
+      final minutes = dur.inMinutes;
+      final seconds = dur.inSeconds % 60;
+      return '$minutes:${seconds.toString().padLeft(2, '0')}';
+    }
+    return 'VIDEO';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 1. Live video preview frame or gradient placeholder
+        if (_isInitialized && _controller != null && _controller!.value.isInitialized)
+          SizedBox.expand(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              clipBehavior: Clip.hardEdge,
+              child: SizedBox(
+                width: _controller!.value.size.width > 0 ? _controller!.value.size.width : 160,
+                height: _controller!.value.size.height > 0 ? _controller!.value.size.height : 160,
+                child: VideoPlayer(_controller!),
+              ),
+            ),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: widget.isDark
+                    ? [const Color(0xFF2E1C38), const Color(0xFF160F20)]
+                    : [const Color(0xFF42275A), const Color(0xFF734B6E)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+
+        // 2. Darkening scrim for high contrast readability of play button & duration
+        Container(
+          color: Colors.black.withValues(alpha: 0.22),
+        ),
+
+        // 3. Play Button in Center with romantic glow
+        Center(
+          child: Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black.withValues(alpha: 0.55),
+              border: Border.all(
+                color: const Color(0xFFFF758C).withValues(alpha: 0.8),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+        ),
+
+        // 4. Video duration badge at top-left
+        Positioned(
+          top: 6,
+          left: 6,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+                width: 0.8,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.videocam_rounded, color: Colors.white, size: 10),
+                const SizedBox(width: 3.5),
+                Text(
+                  _durationText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+

@@ -43,6 +43,20 @@ class GalleryFolderModel {
         .trim();
   }
 
+  /// Returns the section from the perspective of [currentUserId].
+  /// Folders created by the partner in 'my_pictures' appear in this user's 'partner' section, and vice versa.
+  String effectiveSection(String currentUserId) {
+    if (section == 'us') return 'us';
+    if (currentUserId.isEmpty || createdById.isEmpty) return section;
+    if (createdById == currentUserId) {
+      return section;
+    } else {
+      if (section == 'my_pictures') return 'partner';
+      if (section == 'partner') return 'my_pictures';
+      return section;
+    }
+  }
+
   factory GalleryFolderModel.fromJson(Map<String, dynamic> json) {
     // Handle media/image count whether aggregate was returned or raw
     int count = 0;

@@ -68,6 +68,20 @@ class GalleryImageModel {
         .trim();
   }
 
+  /// Returns the section from the perspective of [currentUserId].
+  /// Images uploaded by the partner in 'my_pictures' appear in this user's 'partner' section, and vice versa.
+  String effectiveSection(String currentUserId) {
+    if (section == 'us') return 'us';
+    if (currentUserId.isEmpty || uploadedById.isEmpty) return section;
+    if (uploadedById == currentUserId) {
+      return section;
+    } else {
+      if (section == 'my_pictures') return 'partner';
+      if (section == 'partner') return 'my_pictures';
+      return section;
+    }
+  }
+
   factory GalleryImageModel.fromJson(Map<String, dynamic> json) {
     final url = (json['image_url'] as String? ?? '').trim();
     final type = (json['media_type'] as String?) ?? (_isUrlVideo(url) ? 'video' : 'image');

@@ -9,6 +9,7 @@ import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/utils/snackbar_helper.dart';
@@ -35,6 +36,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
   File? _selectedImage;
   bool _isComposerHidden = false;
   bool _isSaving = false;
+  bool _showGalleryNavArrows = true;
   static const String _editConfirmationPhrase = 'i love you';
 
   @override
@@ -279,13 +281,18 @@ class _PhotosScreenState extends State<PhotosScreen> {
                                     height: AppDimensions.spacingSm,
                                   ),
                                   itemBuilder: (context, index) {
+                                    final currentUserId = user.id.isNotEmpty ? user.id : user.uid;
+                                    final currentPartnerId = partner?.id ?? couple?.getPartnerId(currentUserId);
                                     return _buildPhotoTile(
                                       context,
                                       message: messages[index],
                                       photoProvider: photoProvider,
-                                      userId: user.id,
+                                      userId: currentUserId,
                                       userPhotoUrl: user.photoUrl,
                                       partnerPhotoUrl: partner?.photoUrl,
+                                      partnerId: currentPartnerId,
+                                      messages: messages,
+                                      index: index,
                                     );
                                   },
                                 ),
@@ -450,7 +457,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                     _selectedImage!,
                     height: previewHeight,
                     width: double.infinity,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
@@ -952,9 +959,22 @@ class _PhotosScreenState extends State<PhotosScreen> {
     required String? userId,
     required String? userPhotoUrl,
     required String? partnerPhotoUrl,
+    String? partnerId,
+    required List<PhotoMessageModel> messages,
+    required int index,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isMine = message.senderId == userId;
+    final currentAuthId = Supabase.instance.client.auth.currentUser?.id;
+    final myId = (userId ?? '').trim().toLowerCase();
+    final authId = (currentAuthId ?? '').trim().toLowerCase();
+    final pId = (partnerId ?? '').trim().toLowerCase();
+    final senderId = message.senderId.trim().toLowerCase();
+    final receiverId = message.receiverId.trim().toLowerCase();
+
+    final isMine = (myId.isNotEmpty && senderId == myId) ||
+        (authId.isNotEmpty && senderId == authId) ||
+        (pId.isNotEmpty && senderId != pId) ||
+        (pId.isNotEmpty && receiverId == pId);
     final bubbleRadius = BorderRadius.only(
       topLeft: const Radius.circular(AppDimensions.borderRadiusMedium),
       topRight: const Radius.circular(AppDimensions.borderRadiusMedium),
@@ -992,9 +1012,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                     isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   Container(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.60,
-                    ),
+                    width: MediaQuery.of(context).size.width * 0.60,
                     decoration: BoxDecoration(
                       color: isDark ? const Color(0xFF231A33) : Colors.white,
                       borderRadius: bubbleRadius,
@@ -1021,7 +1039,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: bubbleRadius,
-                        onTap: () => _showPhotoViewer(context, message),
+                        onTap: () => _showPhotoGalleryViewer(context, messages, index),
                         child: ClipRRect(
                           borderRadius: bubbleRadius,
                           child: _buildPhotoImage(message.imageUrl),
@@ -1236,8 +1254,9 @@ class _PhotosScreenState extends State<PhotosScreen> {
         final bytes = base64Decode(base64String);
         return Image.memory(
           bytes,
-          height: 200,
-          fit: BoxFit.cover,
+          width: double.infinity,
+          height: 220,
+          fit: BoxFit.contain,
         );
       } catch (_) {
         return _buildImageFallback();
@@ -1246,82 +1265,35 @@ class _PhotosScreenState extends State<PhotosScreen> {
 
     return CachedNetworkImage(
       imageUrl: imageUrl,
-      height: 200,
-      fit: BoxFit.cover,
+      width: double.infinity,
+      height: 220,
+      fit: BoxFit.contain,
       placeholder: (_, __) => _buildImageFallback(isLoading: true),
       errorWidget: (_, __, ___) => _buildImageFallback(),
     );
   }
 
-  void _showPhotoViewer(BuildContext context, PhotoMessageModel message) {
+  void _showPhotoGalleryViewer(
+    BuildContext context,
+    List<PhotoMessageModel> messages,
+    int initialIndex,
+  ) {
+    if (messages.isEmpty) return;
     showDialog(
       context: context,
       barrierColor: Colors.black,
       builder: (dialogContext) {
-        return Dialog.fullscreen(
-          backgroundColor: Colors.black,
-          child: Stack(
-            children: [
-              Center(
-                child: InteractiveViewer(
-                  minScale: 0.8,
-                  maxScale: 4,
-                  child: _buildFullPhotoImage(message.imageUrl),
-                ),
-              ),
-              if (message.caption != null && message.caption!.trim().isNotEmpty)
-                SafeArea(
-                  top: false,
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white24),
-                      ),
-                      child: Text(
-                        message.caption!.trim(),
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ),
-              SafeArea(
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: 'Save to gallery',
-                        icon: _isSaving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.download, color: Colors.white),
-                        onPressed: _isSaving
-                            ? null
-                            : () => _downloadToGallery(message),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+        return _PhotoGalleryViewerDialog(
+          messages: messages,
+          initialIndex: initialIndex,
+          showArrows: _showGalleryNavArrows,
+          onToggleArrows: (show) {
+            setState(() {
+              _showGalleryNavArrows = show;
+            });
+          },
+          onDownload: _downloadToGallery,
+          isSaving: _isSaving,
         );
       },
     );
@@ -1403,6 +1375,310 @@ class _PhotosScreenState extends State<PhotosScreen> {
         icon,
         size: 18,
         color: accentColor,
+      ),
+    );
+  }
+}
+
+class _PhotoGalleryViewerDialog extends StatefulWidget {
+  final List<PhotoMessageModel> messages;
+  final int initialIndex;
+  final bool showArrows;
+  final ValueChanged<bool> onToggleArrows;
+  final Future<void> Function(PhotoMessageModel) onDownload;
+  final bool isSaving;
+
+  const _PhotoGalleryViewerDialog({
+    required this.messages,
+    required this.initialIndex,
+    required this.showArrows,
+    required this.onToggleArrows,
+    required this.onDownload,
+    required this.isSaving,
+  });
+
+  @override
+  State<_PhotoGalleryViewerDialog> createState() => _PhotoGalleryViewerDialogState();
+}
+
+class _PhotoGalleryViewerDialogState extends State<_PhotoGalleryViewerDialog> {
+  late final PageController _pageController;
+  late int _currentIndex;
+  late bool _showArrows;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex.clamp(0, widget.messages.length - 1);
+    _pageController = PageController(initialPage: _currentIndex);
+    _showArrows = widget.showArrows;
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _goToPrevious() {
+    if (_currentIndex > 0) {
+      HapticFeedback.lightImpact();
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _goToNext() {
+    if (_currentIndex < widget.messages.length - 1) {
+      HapticFeedback.lightImpact();
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _toggleArrows() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _showArrows = !_showArrows;
+    });
+    widget.onToggleArrows(_showArrows);
+  }
+
+  Widget _buildFullPhotoImage(String imageUrl) {
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        final base64String = imageUrl.split(',')[1];
+        final bytes = base64Decode(base64String);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.contain,
+        );
+      } catch (_) {
+        return const Icon(Icons.broken_image_outlined, color: Colors.white54);
+      }
+    }
+
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      fit: BoxFit.contain,
+      placeholder: (_, __) => const CircularProgressIndicator(
+        color: Colors.white,
+      ),
+      errorWidget: (_, __, ___) =>
+          const Icon(Icons.broken_image_outlined, color: Colors.white54),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentMessage = widget.messages[_currentIndex];
+    final caption = currentMessage.caption?.trim();
+    final hasCaption = caption != null && caption.isNotEmpty;
+
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Swipeable PageView with InteractiveViewer for zooming
+          PageView.builder(
+            controller: _pageController,
+            physics: const BouncingScrollPhysics(),
+            itemCount: widget.messages.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            itemBuilder: (context, index) {
+              final message = widget.messages[index];
+              return Center(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4.0,
+                  child: _buildFullPhotoImage(message.imageUrl),
+                ),
+              );
+            },
+          ),
+
+          // Left navigation arrow button (shown when _showArrows is true)
+          if (_showArrows && _currentIndex > 0)
+            Positioned(
+              left: 14,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _goToPrevious,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white24, width: 1.2),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Right navigation arrow button (shown when _showArrows is true)
+          if (_showArrows && _currentIndex < widget.messages.length - 1)
+            Positioned(
+              right: 14,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _goToNext,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white24, width: 1.2),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Top App Bar Controls: Counter, Toggle Arrows, Download, Close
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Photo counter badge (e.g. 1 / 15)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Text(
+                        '${_currentIndex + 1} / ${widget.messages.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                    // Actions Row
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Toggle/Hide Navigation Arrows Button (Text Label)
+                        InkWell(
+                          onTap: _toggleArrows,
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5.5),
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              color: _showArrows
+                                  ? Colors.white.withValues(alpha: 0.18)
+                                  : Colors.black54,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.28),
+                                width: 0.9,
+                              ),
+                            ),
+                            child: Text(
+                              _showArrows ? 'Hide Arrows' : 'Show Arrows',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Save to gallery button
+                        IconButton(
+                          tooltip: 'Save to gallery',
+                          icon: widget.isSaving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.download, color: Colors.white),
+                          onPressed: widget.isSaving
+                              ? null
+                              : () => widget.onDownload(currentMessage),
+                        ),
+
+                        // Close dialog button
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Bottom Caption Box
+          if (hasCaption)
+            SafeArea(
+              top: false,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Text(
+                    caption,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

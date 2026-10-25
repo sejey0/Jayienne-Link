@@ -234,7 +234,11 @@ class PhotoMessageProvider extends ChangeNotifier {
 
     final index = _messages.indexWhere((message) => message.id == messageId);
     if (index == -1) return false;
-    if (_messages[index].senderId != _userId) {
+    final msg = _messages[index];
+    final isMine = msg.senderId == _userId ||
+        (_partnerId != null && msg.senderId != _partnerId) ||
+        (_partnerId != null && msg.receiverId == _partnerId);
+    if (!isMine) {
       _error = 'You can only edit your own photos.';
       notifyListeners();
       return false;
@@ -270,7 +274,11 @@ class PhotoMessageProvider extends ChangeNotifier {
 
     final index = _messages.indexWhere((message) => message.id == messageId);
     if (index == -1) return false;
-    if (_messages[index].senderId != _userId) {
+    final msg = _messages[index];
+    final isMine = msg.senderId == _userId ||
+        (_partnerId != null && msg.senderId != _partnerId) ||
+        (_partnerId != null && msg.receiverId == _partnerId);
+    if (!isMine) {
       _error = 'You can only delete your own photos.';
       notifyListeners();
       return false;

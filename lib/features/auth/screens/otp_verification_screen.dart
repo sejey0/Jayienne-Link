@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:pin_code_fields/pin_code_fields.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
@@ -94,29 +94,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppDimensions.spacingXl),
-                PinCodeTextField(
-                  appContext: context,
-                  length: 6,
+                _OtpInputFields(
                   controller: _otpController,
-                  keyboardType: TextInputType.number,
-                  animationType: AnimationType.fade,
-                  pinTheme: PinTheme(
-                    shape: PinCodeFieldShape.box,
-                    borderRadius: BorderRadius.circular(
-                      AppDimensions.borderRadiusMedium,
-                    ),
-                    fieldHeight: 56,
-                    fieldWidth: 48,
-                    activeColor: AppColors.softRose,
-                    inactiveColor: Colors.grey.shade300,
-                    selectedColor: AppColors.lavender,
-                    activeFillColor: Colors.white,
-                    inactiveFillColor: Colors.white,
-                    selectedFillColor: Colors.white,
-                  ),
-                  enableActiveFill: true,
                   onCompleted: _verifyOtp,
-                  onChanged: (_) {},
                 ),
                 const SizedBox(height: AppDimensions.spacingLg),
                 Center(
@@ -140,6 +120,114 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _OtpInputFields extends StatefulWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onCompleted;
+
+  const _OtpInputFields({
+    required this.controller,
+    required this.onCompleted,
+  });
+
+  @override
+  State<_OtpInputFields> createState() => _OtpInputFieldsState();
+}
+
+class _OtpInputFieldsState extends State<_OtpInputFields> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    setState(() {});
+    if (widget.controller.text.length == 6) {
+      widget.onCompleted(widget.controller.text);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = widget.controller.text;
+    final isFocused = _focusNode.hasFocus;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _focusNode.requestFocus(),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Opacity(
+            opacity: 0,
+            child: TextField(
+              controller: widget.controller,
+              focusNode: _focusNode,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6),
+              ],
+              autofocus: true,
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(6, (index) {
+              final digit = index < text.length ? text[index] : '';
+              final isCurrent = isFocused && index == text.length;
+              final isFilled = index < text.length;
+
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 48,
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(
+                    AppDimensions.borderRadiusMedium,
+                  ),
+                  border: Border.all(
+                    color: isCurrent
+                        ? AppColors.lavender
+                        : (isFilled ? AppColors.softRose : Colors.grey.shade300),
+                    width: isCurrent || isFilled ? 2 : 1,
+                  ),
+                  boxShadow: isCurrent
+                      ? [
+                          BoxShadow(
+                            color: AppColors.lavender.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  digit,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              );
+            }),
+          ),
+        ],
       ),
     );
   }

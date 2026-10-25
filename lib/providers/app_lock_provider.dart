@@ -22,7 +22,7 @@ class AppLockProvider extends ChangeNotifier with WidgetsBindingObserver {
   static const Duration lockoutDuration = Duration(seconds: 30);
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(resetOnError: true),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
@@ -273,10 +273,8 @@ class AppLockProvider extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final authenticated = await _localAuth.authenticate(
         localizedReason: 'Authenticate to unlock Jayienne Link',
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly: true,
-        ),
+        persistAcrossBackgrounding: true,
+        biometricOnly: true,
       );
 
       if (authenticated) {

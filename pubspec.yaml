@@ -41,7 +41,6 @@ dependencies:
   share_plus: ^13.3.1
   image_picker: ^1.1.0
   cached_network_image: ^4.0.5
-  pin_code_fields: ^10.1.1
   shared_preferences: ^2.3.0
   image_gallery_saver: ^2.0.3
   image: ^4.1.0 # For Base64 image processing
@@ -79,12 +78,15 @@ dev_dependencies:
 dependency_overrides:
   image_gallery_saver:
     path: third_party/image_gallery_saver
-  record_platform_interface: 1.2.0
-  record_web: 1.1.9
 
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#FF758C"
+    theme_color: "#FF758C"
   image_path: "assets/icon/app_icon.png"
   adaptive_icon_background: "assets/icon/app_icon_background.png"
   adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"

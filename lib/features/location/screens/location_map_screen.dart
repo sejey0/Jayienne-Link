@@ -559,7 +559,7 @@ class _LocationMapScreenState extends State<LocationMapScreen>
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.55)
                             : const Color(0xFF6B5F7F),
-                        isDotted: true,
+                        pattern: const StrokePattern.dotted(),
                       ),
                     // 2. Traveled Route Outer Soft Glow Aura
                     if (traveledPoints.length > 1)

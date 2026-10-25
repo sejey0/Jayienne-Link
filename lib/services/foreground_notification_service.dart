@@ -31,7 +31,7 @@ class ForegroundNotificationService {
     const initSettings = InitializationSettings(android: androidSettings);
 
     await _notifications.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: _onNotificationTap,
     );
 
@@ -84,10 +84,10 @@ class ForegroundNotificationService {
     const details = NotificationDetails(android: androidDetails);
 
     await _notifications.show(
-      _notificationId,
-      title,
-      body,
-      details,
+      id: _notificationId,
+      title: title,
+      body: body,
+      notificationDetails: details,
     );
 
     _isShowing = true;
@@ -123,17 +123,17 @@ class ForegroundNotificationService {
     const details = NotificationDetails(android: androidDetails);
 
     await _notifications.show(
-      _notificationId,
-      title,
-      body,
-      details,
+      id: _notificationId,
+      title: title,
+      body: body,
+      notificationDetails: details,
     );
   }
 
   /// Hide the tracking notification
   Future<void> hideTrackingNotification() async {
     if (kIsWeb) return;
-    await _notifications.cancel(_notificationId);
+    await _notifications.cancel(id: _notificationId);
     _isShowing = false;
     debugPrint('Tracking notification hidden');
   }
@@ -160,12 +160,12 @@ class ForegroundNotificationService {
     const details = NotificationDetails(android: androidDetails);
 
     await _notifications.show(
-      _notificationId + 1,
-      isError ? 'Sync failed' : 'Locations synced',
-      isError
+      id: _notificationId + 1,
+      title: isError ? 'Sync failed' : 'Locations synced',
+      body: isError
           ? 'Will retry when online'
           : '$syncedCount location${syncedCount > 1 ? 's' : ''} uploaded',
-      details,
+      notificationDetails: details,
     );
   }
 }

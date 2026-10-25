@@ -1,11 +1,11 @@
 {
-    "name": "jayienne_link",
-    "short_name": "jayienne_link",
+    "name": "Jayienne Link",
+    "short_name": "Jayienne Link",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FF758C",
+    "theme_color": "#FF758C",
+    "description": "A couples connection app for staying linked with your person.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

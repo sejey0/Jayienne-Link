@@ -484,15 +484,6 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Section Selector
-                  _buildSectionSelector(
-                    selectedSection: selectedSection,
-                    onSelected: (val) => setDialogState(() => selectedSection = val),
-                    isDark: isDark,
-                    partnerName: partnerName,
-                  ),
-                  const SizedBox(height: 16),
-
                   // Thumbnail Tile (shows existing cover or newly chosen thumbnail)
                   InkWell(
                     borderRadius: BorderRadius.circular(16),

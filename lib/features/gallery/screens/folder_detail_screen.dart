@@ -189,9 +189,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     final nameController = TextEditingController(text: _currentFolder.name);
     final descController = TextEditingController(text: _currentFolder.cleanDescription);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final coupleProvider = context.read<CoupleProvider>();
-    final partnerName = coupleProvider.partner?.displayName ?? 'Partner';
-    String selectedSection = _currentFolder.section;
+    final selectedSection = _currentFolder.section;
 
     await showDialog<bool>(
       context: context,
@@ -241,14 +239,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  _buildSectionSelector(
-                    selectedSection: selectedSection,
-                    onSelected: (val) => setDialogState(() => selectedSection = val),
-                    isDark: isDark,
-                    partnerName: partnerName,
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   TextField(
                     controller: nameController,
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),

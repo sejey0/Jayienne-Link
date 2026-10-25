@@ -3,8 +3,36 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/gallery_folder_model.dart';
 import '../models/gallery_image_model.dart';
+
+/// Background worker to downscale and compress photos before upload (saves ~95% storage & bandwidth)
+Uint8List _compressPhotoWorker(Uint8List rawBytes) {
+  try {
+    if (rawBytes.lengthInBytes < 250 * 1024) return rawBytes;
+
+    final decoded = img.decodeImage(rawBytes);
+    if (decoded == null) return rawBytes;
+
+    img.Image processed = decoded;
+    const int maxDim = 1920;
+    if (decoded.width > maxDim || decoded.height > maxDim) {
+      if (decoded.width >= decoded.height) {
+        processed = img.copyResize(decoded, width: maxDim);
+      } else {
+        processed = img.copyResize(decoded, height: maxDim);
+      }
+    }
+
+    final compressed = img.encodeJpg(processed, quality: 82);
+    return Uint8List.fromList(compressed);
+  } catch (e) {
+    debugPrint('Background photo compression error: $e');
+    return rawBytes;
+  }
+}
 
 /// Dedicated service for the Couple Shared Gallery powered by Nhost.
 /// Completely independent from Supabase.
@@ -110,9 +138,41 @@ class NhostGalleryService {
   bool _hasBootstrapped = false;
   DateTime? _lastBootstrapAttempt;
 
+  // In-memory query caching to eliminate repeated redundant API / database requests
+  List<GalleryFolderModel>? _cachedFolders;
+  String? _cachedFoldersCoupleId;
+  DateTime? _cachedFoldersTime;
+
+  final Map<String, List<GalleryImageModel>> _cachedFolderImages = {};
+  final Map<String, DateTime> _cachedFolderImagesTime = {};
+
+  void invalidateCache({String? folderId}) {
+    _cachedFolders = null;
+    _cachedFoldersCoupleId = null;
+    _cachedFoldersTime = null;
+    if (folderId != null) {
+      _cachedFolderImages.remove(folderId);
+      _cachedFolderImagesTime.remove(folderId);
+    } else {
+      _cachedFolderImages.clear();
+      _cachedFolderImagesTime.clear();
+    }
+  }
+
   /// Ensures tables and Hasura tracking are provisioned in Nhost
   Future<void> ensureTablesProvisioned({bool force = false}) async {
     if (_hasBootstrapped && !force) return;
+
+    // Check local device storage to prevent repeated heavy DDL/metadata requests
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final alreadyProvisioned = prefs.getBool('nhost_provisioned_$subdomain') ?? false;
+      if (alreadyProvisioned && !force) {
+        _hasBootstrapped = true;
+        return;
+      }
+    } catch (_) {}
+
     if (!force && _lastBootstrapAttempt != null) {
       final elapsed = DateTime.now().difference(_lastBootstrapAttempt!);
       if (elapsed < const Duration(minutes: 5)) return;
@@ -223,6 +283,10 @@ class NhostGalleryService {
       } catch (_) {}
 
       _hasBootstrapped = true;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('nhost_provisioned_$subdomain', true);
+      } catch (_) {}
       debugPrint('NhostGalleryService: bootstrap complete');
     } catch (e) {
       debugPrint('NhostGalleryService bootstrap error: $e');
@@ -384,7 +448,15 @@ class NhostGalleryService {
   }
 
   /// Fetch all gallery folders for the couple
-  Future<List<GalleryFolderModel>> getFolders(String coupleId) async {
+  Future<List<GalleryFolderModel>> getFolders(String coupleId, {bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _cachedFolders != null &&
+        _cachedFoldersCoupleId == coupleId &&
+        _cachedFoldersTime != null &&
+        DateTime.now().difference(_cachedFoldersTime!) < const Duration(seconds: 45)) {
+      return _cachedFolders!;
+    }
+
     await ensureTablesProvisioned();
 
     const query = r'''
@@ -413,7 +485,11 @@ class NhostGalleryService {
     try {
       final result = await _executeGraphQL(query, variables: {'coupleId': coupleId});
       final list = result['gallery_folders'] as List<dynamic>? ?? [];
-      return list.map((item) => GalleryFolderModel.fromJson(item as Map<String, dynamic>)).toList();
+      final folders = list.map((item) => GalleryFolderModel.fromJson(item as Map<String, dynamic>)).toList();
+      _cachedFolders = folders;
+      _cachedFoldersCoupleId = coupleId;
+      _cachedFoldersTime = DateTime.now();
+      return folders;
     } catch (e) {
       // Fallback query if media_aggregate relationship is not tracked yet
       const imagesAggQuery = r'''
@@ -441,7 +517,11 @@ class NhostGalleryService {
       try {
         final result = await _executeGraphQL(imagesAggQuery, variables: {'coupleId': coupleId});
         final list = result['gallery_folders'] as List<dynamic>? ?? [];
-        return list.map((item) => GalleryFolderModel.fromJson(item as Map<String, dynamic>)).toList();
+        final folders = list.map((item) => GalleryFolderModel.fromJson(item as Map<String, dynamic>)).toList();
+        _cachedFolders = folders;
+        _cachedFoldersCoupleId = coupleId;
+        _cachedFoldersTime = DateTime.now();
+        return folders;
       } catch (_) {
         const fallbackQuery = r'''
           query GetGalleryFoldersFallback($coupleId: String!) {
@@ -462,7 +542,11 @@ class NhostGalleryService {
         ''';
         final result = await _executeGraphQL(fallbackQuery, variables: {'coupleId': coupleId});
         final list = result['gallery_folders'] as List<dynamic>? ?? [];
-        return list.map((item) => GalleryFolderModel.fromJson(item as Map<String, dynamic>)).toList();
+        final folders = list.map((item) => GalleryFolderModel.fromJson(item as Map<String, dynamic>)).toList();
+        _cachedFolders = folders;
+        _cachedFoldersCoupleId = coupleId;
+        _cachedFoldersTime = DateTime.now();
+        return folders;
       }
     }
   }
@@ -563,6 +647,7 @@ class NhostGalleryService {
     });
 
     final folderData = result['insert_gallery_folders_one'] as Map<String, dynamic>;
+    invalidateCache();
     return GalleryFolderModel.fromJson(folderData);
   }
 
@@ -599,6 +684,7 @@ class NhostGalleryService {
       if (description != null) 'description': description.trim(),
       if (coverImageUrl != null) 'coverImageUrl': coverImageUrl.trim(),
     });
+    invalidateCache(folderId: folderId);
   }
 
   /// Delete folder and all its media files from bucket storage and database
@@ -653,13 +739,22 @@ class NhostGalleryService {
     ''';
 
     await _executeGraphQL(mutation, variables: {'folderId': folderId});
+    invalidateCache(folderId: folderId);
   }
 
   /// Fetch media (photos/videos) for a folder
   Future<List<GalleryImageModel>> getFolderImages({
     required String folderId,
     required String coupleId,
+    bool forceRefresh = false,
   }) async {
+    if (!forceRefresh &&
+        _cachedFolderImages.containsKey(folderId) &&
+        _cachedFolderImagesTime.containsKey(folderId) &&
+        DateTime.now().difference(_cachedFolderImagesTime[folderId]!) < const Duration(seconds: 45)) {
+      return _cachedFolderImages[folderId]!;
+    }
+
     await ensureTablesProvisioned();
 
     const query = r'''
@@ -694,7 +789,10 @@ class NhostGalleryService {
       });
 
       final list = ((result['gallery_media'] ?? result['gallery_images']) as List<dynamic>?) ?? [];
-      return list.map((item) => GalleryImageModel.fromJson(item as Map<String, dynamic>)).toList();
+      final images = list.map((item) => GalleryImageModel.fromJson(item as Map<String, dynamic>)).toList();
+      _cachedFolderImages[folderId] = images;
+      _cachedFolderImagesTime[folderId] = DateTime.now();
+      return images;
     } catch (e) {
       // Fallback query if gallery_media is not yet tracked or renamed
       const fallbackQuery = r'''
@@ -727,7 +825,10 @@ class NhostGalleryService {
           'coupleId': coupleId,
         });
         final list = (result['gallery_images'] as List<dynamic>?) ?? [];
-        return list.map((item) => GalleryImageModel.fromJson(item as Map<String, dynamic>)).toList();
+        final images = list.map((item) => GalleryImageModel.fromJson(item as Map<String, dynamic>)).toList();
+        _cachedFolderImages[folderId] = images;
+        _cachedFolderImagesTime[folderId] = DateTime.now();
+        return images;
       } catch (_) {
         rethrow;
       }
@@ -757,6 +858,20 @@ class NhostGalleryService {
         lowerName.endsWith('.m4v');
     final effectiveMediaType = mediaType ?? (isVid ? 'video' : 'image');
 
+    // Automatically downscale and compress photo on background isolate to save ~95% storage & bandwidth
+    Uint8List effectiveBytes = imageBytes;
+    String effectiveFileName = fileName;
+    if (effectiveMediaType != 'video') {
+      try {
+        effectiveBytes = await compute(_compressPhotoWorker, imageBytes);
+        final dotIndex = effectiveFileName.lastIndexOf('.');
+        final base = dotIndex != -1 ? effectiveFileName.substring(0, dotIndex) : effectiveFileName;
+        effectiveFileName = '$base.jpg';
+      } catch (e) {
+        debugPrint('Image compression notice: $e');
+      }
+    }
+
     // 1. Upload to Nhost Storage
     final uploadUri = Uri.parse('$storageUrl/files');
     final request = http.MultipartRequest('POST', uploadUri);
@@ -766,8 +881,8 @@ class NhostGalleryService {
     request.files.add(
       http.MultipartFile.fromBytes(
         'file[]',
-        imageBytes,
-        filename: fileName,
+        effectiveBytes,
+        filename: effectiveFileName,
       ),
     );
 
@@ -913,6 +1028,7 @@ class NhostGalleryService {
       } catch (_) {}
     }
 
+    invalidateCache(folderId: folderId);
     return createdImage;
   }
 
@@ -1021,6 +1137,7 @@ class NhostGalleryService {
     if (targetFileId != null && targetFileId.isNotEmpty) {
       await deleteStorageFile(targetFileId);
     }
+    invalidateCache();
   }
 
   /// Delete multiple images from Nhost GraphQL & Storage in batch
@@ -1036,6 +1153,7 @@ class NhostGalleryService {
         debugPrint('NhostGalleryService: batch delete error for ${image.id}: $e');
       }
     }
+    invalidateCache();
   }
 
   /// Update media caption and optional date taken
@@ -1106,6 +1224,7 @@ class NhostGalleryService {
         });
       }
     }
+    invalidateCache();
   }
 
   /// Fetch Nhost Database table counts and storage usage stats

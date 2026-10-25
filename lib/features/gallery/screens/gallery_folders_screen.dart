@@ -34,7 +34,7 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
     _loadFolders();
   }
 
-  Future<void> _loadFolders() async {
+  Future<void> _loadFolders({bool force = false}) async {
     final coupleProvider = context.read<CoupleProvider>();
     final userProvider = context.read<UserProvider>();
     final coupleId = coupleProvider.couple?.id ?? userProvider.coupleId;
@@ -52,7 +52,7 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
     if (mounted) setState(() => _isLoading = true);
 
     try {
-      final folders = await _galleryService.getFolders(coupleId);
+      final folders = await _galleryService.getFolders(coupleId, forceRefresh: force);
       if (mounted) {
         setState(() {
           _folders = folders;

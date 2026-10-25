@@ -69,7 +69,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     return _images.where((img) => !img.isVideo).toList();
   }
 
-  Future<void> _loadImages() async {
+  Future<void> _loadImages({bool force = false}) async {
     final coupleProvider = context.read<CoupleProvider>();
     final userProvider = context.read<UserProvider>();
     final coupleId = coupleProvider.couple?.id ?? userProvider.coupleId;
@@ -85,6 +85,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
       final images = await _galleryService.getFolderImages(
         folderId: _currentFolder.id,
         coupleId: coupleId,
+        forceRefresh: force,
       );
       if (mounted) {
         setState(() {
@@ -3376,6 +3377,8 @@ class _VideoThumbnailPreview extends StatefulWidget {
 }
 
 class _VideoThumbnailPreviewState extends State<_VideoThumbnailPreview> {
+  static int _activeThumbnailPlayers = 0;
+  bool _countedActive = false;
   VideoPlayerController? _controller;
   bool _isInitialized = false;
 
@@ -3386,6 +3389,11 @@ class _VideoThumbnailPreviewState extends State<_VideoThumbnailPreview> {
   }
 
   Future<void> _initThumbnail() async {
+    // Bandwidth throttle: limit concurrent background video players in grid to max 2
+    if (_activeThumbnailPlayers >= 2) return;
+    _activeThumbnailPlayers++;
+    _countedActive = true;
+
     try {
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(widget.videoUrl),
@@ -3393,7 +3401,7 @@ class _VideoThumbnailPreviewState extends State<_VideoThumbnailPreview> {
         videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
       );
       _controller = controller;
-      await controller.initialize();
+      await controller.initialize().timeout(const Duration(seconds: 4));
       if (!mounted) {
         controller.dispose();
         return;
@@ -3411,12 +3419,16 @@ class _VideoThumbnailPreviewState extends State<_VideoThumbnailPreview> {
         });
       }
     } catch (_) {
-      // Fallback gradient remains on failure
+      // Fallback gradient remains on failure or timeout
     }
   }
 
   @override
   void dispose() {
+    if (_countedActive) {
+      _activeThumbnailPlayers = (_activeThumbnailPlayers - 1).clamp(0, 50);
+      _countedActive = false;
+    }
     _controller?.dispose();
     super.dispose();
   }

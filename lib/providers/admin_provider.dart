@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import '../services/supabase_user_service.dart';
 
 enum UserFilter { all, active, deactivated, admins }
 
-class AdminProvider extends ChangeNotifier {
+class AdminProvider extends ChangeNotifier with WidgetsBindingObserver {
   final SupabaseUserService _userService;
 
   List<UserModel> _allUsers = [];
@@ -14,10 +16,42 @@ class AdminProvider extends ChangeNotifier {
   String _searchQuery = '';
   UserFilter _selectedFilter = UserFilter.all;
 
+  bool _isAdminUnlocked = false;
+  bool get isAdminUnlocked => _isAdminUnlocked;
+
   StreamSubscription<List<UserModel>>? _usersSubscription;
+  StreamSubscription<AuthState>? _authSubscription;
   bool _disposed = false;
 
-  AdminProvider(this._userService);
+  AdminProvider(this._userService) {
+    WidgetsBinding.instance.addObserver(this);
+    try {
+      _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        if (data.event == AuthChangeEvent.signedOut || data.session == null) {
+          lockAdminSession();
+        }
+      });
+    } catch (_) {}
+  }
+
+  void unlockAdminSession() {
+    _isAdminUnlocked = true;
+    notifyListeners();
+  }
+
+  void lockAdminSession() {
+    if (!_isAdminUnlocked) return;
+    _isAdminUnlocked = false;
+    notifyListeners();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Re-lock when app is backgrounded, paused, or detached
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      lockAdminSession();
+    }
+  }
 
   @override
   void notifyListeners() {
@@ -159,7 +193,9 @@ class AdminProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _usersSubscription?.cancel();
+    _authSubscription?.cancel();
     super.dispose();
   }
 }

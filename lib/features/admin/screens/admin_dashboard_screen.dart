@@ -18,6 +18,7 @@ import '../../../services/vault_cache_manager.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/timed_confirm_dialog.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Senior Admin Dashboard Screen redesigned to match Jayienne Link's signature romantic theme
 class AdminDashboardScreen extends StatefulWidget {
@@ -29,15 +30,95 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _passcodeController = TextEditingController();
   Future<Map<String, dynamic>>? _cloudStatsFuture;
+
+  bool _isVerifying = false;
+  bool _obscurePassword = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _fetchCloudStats();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AdminProvider>().initAdminDashboard();
+    final adminProvider = context.read<AdminProvider>();
+    if (adminProvider.isAdminUnlocked) {
+      _fetchCloudStats();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<AdminProvider>().initAdminDashboard();
+        }
+      });
+    }
+  }
+
+  Future<void> _verifyPasscode() async {
+    final password = _passcodeController.text;
+    if (password.isEmpty) {
+      setState(() => _errorMessage = 'Please enter your login password');
+      return;
+    }
+
+    setState(() {
+      _isVerifying = true;
+      _errorMessage = null;
     });
+
+    try {
+      final userProvider = context.read<UserProvider>();
+      final emailToUse = (userProvider.user?.email.trim().isNotEmpty == true)
+          ? userProvider.user!.email.trim()
+          : (Supabase.instance.client.auth.currentUser?.email?.trim() ?? '');
+
+      if (emailToUse.isEmpty) {
+        setState(() {
+          _isVerifying = false;
+          _errorMessage = 'No user email found to verify login password.';
+        });
+        return;
+      }
+
+      final authResponse = await Supabase.instance.client.auth.signInWithPassword(
+        email: emailToUse,
+        password: password,
+      );
+
+      if (authResponse.user != null) {
+        HapticFeedback.heavyImpact();
+        if (mounted) {
+          context.read<AdminProvider>().unlockAdminSession();
+          setState(() {
+            _isVerifying = false;
+            _errorMessage = null;
+          });
+          _fetchCloudStats();
+          context.read<AdminProvider>().initAdminDashboard();
+          SnackbarHelper.showSuccess(context, 'Admin Console unlocked successfully');
+        }
+      } else {
+        HapticFeedback.vibrate();
+        if (mounted) {
+          setState(() {
+            _isVerifying = false;
+            _errorMessage = 'Incorrect login password. Access denied.';
+          });
+        }
+      }
+    } catch (e) {
+      HapticFeedback.vibrate();
+      if (mounted) {
+        setState(() {
+          _isVerifying = false;
+          final errStr = e.toString().toLowerCase();
+          if (errStr.contains('network') ||
+              errStr.contains('socket') ||
+              errStr.contains('connection')) {
+            _errorMessage = 'Connection error. Check your internet connection.';
+          } else {
+            _errorMessage = 'Incorrect login password. Access denied.';
+          }
+        });
+      }
+    }
   }
 
   void _fetchCloudStats() {
@@ -60,7 +141,344 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _passcodeController.dispose();
     super.dispose();
+  }
+
+  Widget _buildPasscodeLockBody(
+    BuildContext context,
+    UserModel? currentUser,
+    bool isDark,
+  ) {
+    final effectiveEmail = (currentUser?.email.trim().isNotEmpty == true)
+        ? currentUser!.email.trim()
+        : (Supabase.instance.client.auth.currentUser?.email?.trim() ?? '');
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Container(
+            padding: const EdgeInsets.all(26),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E142B) : Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : const Color(0xFFFF758C).withValues(alpha: 0.2),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.45)
+                      : const Color(0xFFFF758C).withValues(alpha: 0.12),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Glowing Badge Header
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF758C).withValues(alpha: 0.4),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.admin_panel_settings_rounded,
+                      size: 38,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Title
+                Text(
+                  'Admin Passcode Required',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Subtitle
+                Text(
+                  'Please enter your account login password to verify your administrative privileges and unlock the dashboard.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    height: 1.45,
+                    color: isDark ? Colors.white70 : Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // User Account Chip
+                if (effectiveEmail.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : const Color(0xFFF7F4FA),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isDark ? Colors.white12 : Colors.grey.shade300,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.account_circle_rounded,
+                          size: 18,
+                          color: Color(0xFFFF758C),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            effectiveEmail,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.9)
+                                  : const Color(0xFF2D4059),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 18),
+
+                // Password Field
+                TextField(
+                  controller: _passcodeController,
+                  obscureText: _obscurePassword,
+                  autofocus: true,
+                  enabled: !_isVerifying,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : AppColors.deepCharcoal,
+                    fontSize: 14.5,
+                  ),
+                  onSubmitted: (_) {
+                    if (!_isVerifying) _verifyPasscode();
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Login Password',
+                    hintText: 'Enter login password',
+                    labelStyle: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                      fontSize: 13.5,
+                    ),
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.white30 : Colors.grey.shade400,
+                      fontSize: 13.5,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.vpn_key_rounded,
+                      size: 20,
+                      color: Color(0xFFFF758C),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        size: 20,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600,
+                      ),
+                      onPressed: () {
+                        setState(() => _obscurePassword = !_obscurePassword);
+                      },
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : const Color(0xFFFBF9FC),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: isDark ? Colors.white12 : Colors.grey.shade300,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: isDark ? Colors.white12 : Colors.grey.shade300,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: Color(0xFFFF758C),
+                        width: 1.8,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Error Display
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF5252).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFFF5252).withValues(alpha: 0.35),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          size: 18,
+                          color: Color(0xFFFF5252),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(
+                              color: Color(0xFFFF5252),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 22),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: SecondaryCancelButton(
+                        label: 'Cancel',
+                        height: 48,
+                        borderRadius: 14,
+                        fontSize: 14,
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 1,
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: _isVerifying
+                              ? null
+                              : const LinearGradient(
+                                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                          color: _isVerifying
+                              ? (isDark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : Colors.grey.shade300)
+                              : null,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: _isVerifying
+                              ? null
+                              : [
+                                  BoxShadow(
+                                    color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                        ),
+                        child: ElevatedButton(
+                          onPressed: _isVerifying ? null : _verifyPasscode,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            disabledBackgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: _isVerifying
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.lock_open_rounded,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Unlock',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -70,6 +488,48 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final adminProvider = context.watch<AdminProvider>();
     final currentUser = context.watch<UserProvider>().user;
     final debugProvider = context.watch<DebugProvider?>();
+
+    if (!adminProvider.isAdminUnlocked) {
+      return Scaffold(
+        backgroundColor: isDark ? const Color(0xFF120E19) : const Color(0xFFFFF7F9),
+        appBar: AppBar(
+          title: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.admin_panel_settings_rounded, color: Colors.white, size: 22),
+              SizedBox(width: 8),
+              Text(
+                'Admin Console',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          centerTitle: true,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.pop(context);
+            },
+          ),
+          elevation: 0,
+        ),
+        body: _buildPasscodeLockBody(context, currentUser, isDark),
+      );
+    }
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF120E19) : const Color(0xFFFFF7F9),
@@ -108,6 +568,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.lock_rounded, color: Colors.white),
+            tooltip: 'Lock Console',
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              context.read<AdminProvider>().lockAdminSession();
+              setState(() {
+                _passcodeController.clear();
+                _errorMessage = null;
+              });
+              SnackbarHelper.showInfo(context, 'Admin Console locked');
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'Refresh Data',

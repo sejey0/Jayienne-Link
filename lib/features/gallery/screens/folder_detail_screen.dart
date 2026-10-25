@@ -1818,6 +1818,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     return RefreshIndicator(
       onRefresh: _loadImages,
       child: GridView.builder(
+        cacheExtent: 200,
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
@@ -1913,20 +1914,59 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                       ),
                     )
                   else
-                    CachedNetworkImage(
-                      imageUrl: image.imageUrl,
-                      httpHeaders: NhostGalleryService.instance.storageHeaders,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: isDark ? Colors.white10 : Colors.grey.shade200,
-                        child: const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        color: isDark ? Colors.white10 : Colors.grey.shade300,
-                        child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final thumbUrl = NhostGalleryService.instance.getMediaUrl(
+                          image.imageUrl,
+                        );
+                        return CachedNetworkImage(
+                          imageUrl: thumbUrl,
+                          httpHeaders: NhostGalleryService.instance.getStorageHeaders(url: thumbUrl),
+                          memCacheWidth: 320,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            color: isDark ? Colors.white10 : Colors.grey.shade200,
+                            child: const Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF758C)),
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (ctx, url, _) => GestureDetector(
+                            onTap: () {
+                              CachedNetworkImage.evictFromCache(url);
+                              (ctx as Element).markNeedsBuild();
+                            },
+                            child: Container(
+                              color: isDark ? Colors.white10 : Colors.grey.shade300,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.refresh_rounded,
+                                    color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                    size: 22,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Retry',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
 
                   // Caption badge
@@ -2378,9 +2418,10 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
     HapticFeedback.lightImpact();
     setState(() => _isSaving = true);
     try {
+      final downloadUrl = NhostGalleryService.instance.getMediaUrl(image.imageUrl);
       final response = await http.get(
-        Uri.parse(image.imageUrl),
-        headers: NhostGalleryService.instance.storageHeaders,
+        Uri.parse(downloadUrl),
+        headers: NhostGalleryService.instance.getStorageHeaders(url: downloadUrl),
       );
       if (response.statusCode == 200) {
         if (image.isVideo) {
@@ -2816,19 +2857,21 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
             itemBuilder: (context, index) {
               final img = _imageList[index];
               if (img.isVideo) {
+                final videoUrl = NhostGalleryService.instance.getMediaUrl(img.imageUrl);
                 return _GalleryVideoPlayerItem(
                   key: ValueKey(img.id),
-                  videoUrl: img.imageUrl,
-                  storageHeaders: NhostGalleryService.instance.storageHeaders,
+                  videoUrl: videoUrl,
+                  storageHeaders: NhostGalleryService.instance.getStorageHeaders(url: videoUrl),
                 );
               }
+              final viewerUrl = NhostGalleryService.instance.getMediaUrl(img.imageUrl);
               return Center(
                 child: InteractiveViewer(
                   minScale: 0.8,
                   maxScale: 4.0,
                   child: CachedNetworkImage(
-                    imageUrl: img.imageUrl,
-                    httpHeaders: NhostGalleryService.instance.storageHeaders,
+                    imageUrl: viewerUrl,
+                    httpHeaders: NhostGalleryService.instance.getStorageHeaders(url: viewerUrl),
                     fit: BoxFit.contain,
                     placeholder: (_, __) => const Center(
                       child: CircularProgressIndicator(color: Colors.white54),

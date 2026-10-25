@@ -41,8 +41,60 @@ class NhostGalleryService {
         'x-hasura-admin-secret': adminSecret,
       };
 
+  /// Optional Cloudflare CDN base URL (e.g. https://gallery-cdn.yourdomain.workers.dev/v1)
+  String get cdnUrl => dotenv.env['NHOST_STORAGE_CDN_URL']?.trim() ?? '';
+
   Map<String, String>? get storageHeaders =>
       kIsWeb ? null : {'x-hasura-admin-secret': adminSecret};
+
+  /// Returns storage headers. If request is directed to the Cloudflare CDN,
+  /// headers are omitted since the CDN worker injects authentication and caches at edge.
+  Map<String, String>? getStorageHeaders({String? url}) {
+    if (kIsWeb) return null;
+    if (cdnUrl.isNotEmpty && url != null && url.startsWith(cdnUrl)) {
+      return null;
+    }
+    return {'x-hasura-admin-secret': adminSecret};
+  }
+
+  /// Transforms raw Nhost storage URLs to use Cloudflare CDN edge cache (if configured)
+  /// and safely encodes spaces/special characters in query params.
+  /// Dynamic server-side resizing params (w/q) are intentionally omitted because
+  /// Nhost's Hasura storage service runs on a minimal CPU container where on-the-fly
+  /// transforms fail with 502/503 during parallel image loading. Flutter downsamples
+  /// natively on device via `memCacheWidth`.
+  String getMediaUrl(String rawUrl, {int? width, int? quality}) {
+    if (rawUrl.isEmpty) return rawUrl;
+    String url = rawUrl.trim();
+    if (cdnUrl.isNotEmpty) {
+      url = url.replaceAll(storageUrl, cdnUrl);
+    }
+
+    final qIndex = url.indexOf('?');
+    final baseUrl = qIndex != -1 ? url.substring(0, qIndex) : url;
+    final queryString = qIndex != -1 ? url.substring(qIndex + 1) : '';
+
+    final queryParams = <String, String>{};
+    if (queryString.isNotEmpty) {
+      for (final part in queryString.split('&')) {
+        if (part.isEmpty) continue;
+        final kv = part.split('=');
+        final key = Uri.decodeComponent(kv[0]);
+        // Strip server-side transformation params that cause Nhost storage to crash/503
+        if (key == 'w' || key == 'q' || key == 'width' || key == 'quality') continue;
+        final val = kv.length > 1 ? Uri.decodeComponent(kv.sublist(1).join('=')) : '';
+        queryParams[key] = val;
+      }
+    }
+
+    if (queryParams.isEmpty) return baseUrl;
+
+    final encodedQuery = queryParams.entries
+        .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+
+    return '$baseUrl?$encodedQuery';
+  }
 
   /// Light ping to keep Nhost free tier instance awake
   Future<void> pingKeepAlive() async {

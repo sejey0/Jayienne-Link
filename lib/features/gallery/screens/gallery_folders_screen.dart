@@ -587,10 +587,20 @@ class _GalleryFoldersScreenState extends State<GalleryFoldersScreen> {
                                   children: [
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(15),
-                                      child: CachedNetworkImage(
-                                        imageUrl: currentCoverUrl!,
-                                        httpHeaders: _galleryService.storageHeaders,
-                                        fit: BoxFit.cover,
+                                      child: Builder(
+                                        builder: (context) {
+                                          final coverUrl = _galleryService.getMediaUrl(
+                                            currentCoverUrl!,
+                                            width: 500,
+                                            quality: 75,
+                                          );
+                                          return CachedNetworkImage(
+                                            imageUrl: coverUrl,
+                                            httpHeaders: _galleryService.getStorageHeaders(url: coverUrl),
+                                            memCacheWidth: 500,
+                                            fit: BoxFit.cover,
+                                          );
+                                        },
                                       ),
                                     ),
                                     Positioned(
@@ -1593,17 +1603,27 @@ class _FolderCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (hasCover)
-                    CachedNetworkImage(
-                      imageUrl: folder.coverImageUrl!,
-                      httpHeaders: NhostGalleryService.instance.storageHeaders,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: isDark ? Colors.white10 : Colors.grey.shade200,
-                        child: const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                      errorWidget: (_, __, ___) => _buildFallbackCover(),
+                    Builder(
+                      builder: (context) {
+                        final coverUrl = NhostGalleryService.instance.getMediaUrl(
+                          folder.coverImageUrl!,
+                          width: 450,
+                          quality: 75,
+                        );
+                        return CachedNetworkImage(
+                          imageUrl: coverUrl,
+                          httpHeaders: NhostGalleryService.instance.getStorageHeaders(url: coverUrl),
+                          memCacheWidth: 450,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            color: isDark ? Colors.white10 : Colors.grey.shade200,
+                            child: const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: (_, __, ___) => _buildFallbackCover(),
+                        );
+                      },
                     )
                   else
                     _buildFallbackCover(),

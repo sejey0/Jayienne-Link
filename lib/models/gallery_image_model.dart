@@ -10,6 +10,7 @@ class GalleryImageModel {
   final DateTime? takenAt;
   final DateTime createdAt;
   final DateTime? deletedAt;
+  final String section;
 
   const GalleryImageModel({
     required this.id,
@@ -23,6 +24,7 @@ class GalleryImageModel {
     this.takenAt,
     required this.createdAt,
     this.deletedAt,
+    this.section = 'us',
   });
 
   bool get isVideo {
@@ -47,6 +49,25 @@ class GalleryImageModel {
         lower.contains('.m4v');
   }
 
+  static String parseSection(String? rawSection, String? cap) {
+    if (rawSection != null && rawSection.trim().isNotEmpty) {
+      return rawSection.trim().toLowerCase();
+    }
+    if (cap != null) {
+      if (cap.contains('[section:my_pictures]')) return 'my_pictures';
+      if (cap.contains('[section:partner]')) return 'partner';
+      if (cap.contains('[section:us]')) return 'us';
+    }
+    return 'us'; // Existing photos default to 'us'
+  }
+
+  String get cleanCaption {
+    if (caption == null) return '';
+    return caption!
+        .replaceAll(RegExp(r'\[section:(us|my_pictures|partner)\]'), '')
+        .trim();
+  }
+
   factory GalleryImageModel.fromJson(Map<String, dynamic> json) {
     final url = (json['image_url'] as String? ?? '').trim();
     final type = (json['media_type'] as String?) ?? (_isUrlVideo(url) ? 'video' : 'image');
@@ -69,6 +90,7 @@ class GalleryImageModel {
       deletedAt: json['deleted_at'] != null
           ? DateTime.tryParse(json['deleted_at'] as String)
           : null,
+      section: parseSection(json['section'] as String?, json['caption'] as String?),
     );
   }
 
@@ -86,6 +108,7 @@ class GalleryImageModel {
       if (takenAt != null) 'taken_at': takenAt!.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       if (deletedAt != null) 'deleted_at': deletedAt!.toIso8601String(),
+      'section': section,
     };
   }
 
@@ -101,6 +124,7 @@ class GalleryImageModel {
     DateTime? takenAt,
     DateTime? createdAt,
     DateTime? deletedAt,
+    String? section,
     bool clearTakenAt = false,
   }) {
     return GalleryImageModel(
@@ -115,6 +139,7 @@ class GalleryImageModel {
       takenAt: clearTakenAt ? null : (takenAt ?? this.takenAt),
       createdAt: createdAt ?? this.createdAt,
       deletedAt: deletedAt ?? this.deletedAt,
+      section: section ?? this.section,
     );
   }
 }

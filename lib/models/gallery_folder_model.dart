@@ -9,6 +9,8 @@ class GalleryFolderModel {
   final DateTime updatedAt;
   final int imageCount;
 
+  final String section;
+
   const GalleryFolderModel({
     required this.id,
     required this.coupleId,
@@ -19,7 +21,27 @@ class GalleryFolderModel {
     required this.createdAt,
     required this.updatedAt,
     this.imageCount = 0,
+    this.section = 'us',
   });
+
+  static String parseSection(String? rawSection, String? desc) {
+    if (rawSection != null && rawSection.trim().isNotEmpty) {
+      return rawSection.trim().toLowerCase();
+    }
+    if (desc != null) {
+      if (desc.contains('[section:my_pictures]')) return 'my_pictures';
+      if (desc.contains('[section:partner]')) return 'partner';
+      if (desc.contains('[section:us]')) return 'us';
+    }
+    return 'us';
+  }
+
+  String get cleanDescription {
+    if (description == null) return '';
+    return description!
+        .replaceAll(RegExp(r'\[section:(us|my_pictures|partner)\]'), '')
+        .trim();
+  }
 
   factory GalleryFolderModel.fromJson(Map<String, dynamic> json) {
     // Handle media/image count whether aggregate was returned or raw
@@ -48,6 +70,7 @@ class GalleryFolderModel {
           ? DateTime.tryParse(json['updated_at'] as String) ?? DateTime.now()
           : DateTime.now(),
       imageCount: count,
+      section: parseSection(json['section'] as String?, json['description'] as String?),
     );
   }
 
@@ -61,6 +84,7 @@ class GalleryFolderModel {
       'created_by_id': createdById,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'section': section,
     };
   }
 
@@ -74,6 +98,7 @@ class GalleryFolderModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     int? imageCount,
+    String? section,
   }) {
     return GalleryFolderModel(
       id: id ?? this.id,
@@ -85,6 +110,7 @@ class GalleryFolderModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       imageCount: imageCount ?? this.imageCount,
+      section: section ?? this.section,
     );
   }
 }

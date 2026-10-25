@@ -19,6 +19,7 @@ import '../../../providers/photo_message_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/app_text_field.dart';
+import '../../../widgets/common/photo_viewer_nav_preference.dart';
 import '../../../widgets/common/timed_confirm_dialog.dart';
 import '../../../widgets/smart_profile_image.dart';
 
@@ -36,7 +37,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
   File? _selectedImage;
   bool _isComposerHidden = false;
   bool _isSaving = false;
-  bool _showGalleryNavArrows = true;
+  bool get _showGalleryNavArrows => PhotoViewerNavPreference.showArrows;
+  set _showGalleryNavArrows(bool val) => PhotoViewerNavPreference.showArrows = val;
   static const String _editConfirmationPhrase = 'i love you';
 
   @override
@@ -1444,6 +1446,7 @@ class _PhotoGalleryViewerDialogState extends State<_PhotoGalleryViewerDialog> {
     HapticFeedback.lightImpact();
     setState(() {
       _showArrows = !_showArrows;
+      PhotoViewerNavPreference.showArrows = _showArrows;
     });
     widget.onToggleArrows(_showArrows);
   }

@@ -16,13 +16,15 @@ import '../../../models/gallery_image_model.dart';
 import '../../../providers/couple_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/nhost_gallery_service.dart';
+import '../../../widgets/common/photo_viewer_nav_preference.dart';
 import '../../../widgets/common/timed_confirm_dialog.dart';
 
 class _CaptionDialogResult {
   final String? caption;
   final DateTime? takenAt;
+  final String section;
 
-  const _CaptionDialogResult({this.caption, this.takenAt});
+  const _CaptionDialogResult({this.caption, this.takenAt, this.section = 'us'});
 }
 
 class FolderDetailScreen extends StatefulWidget {
@@ -48,6 +50,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   bool _isUploading = false;
   String? _uploadStatusText;
   double _uploadProgress = 0.0;
+  String _selectedMediaType = 'photos'; // 'photos' or 'videos'
 
   // Selection mode for batch delete
   bool _isSelectionMode = false;
@@ -57,6 +60,13 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   void initState() {
     super.initState();
     _loadImages();
+  }
+
+  List<GalleryImageModel> get _filteredImages {
+    if (_selectedMediaType == 'videos') {
+      return _images.where((img) => img.isVideo).toList();
+    }
+    return _images.where((img) => !img.isVideo).toList();
   }
 
   Future<void> _loadImages() async {
@@ -80,6 +90,11 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         setState(() {
           _images = images;
           _isLoading = false;
+          final photosCount = _images.where((img) => !img.isVideo).length;
+          final videosCount = _images.where((img) => img.isVideo).length;
+          if (photosCount == 0 && videosCount > 0) {
+            _selectedMediaType = 'videos';
+          }
         });
       }
     } catch (e) {
@@ -172,165 +187,183 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   Future<void> _showEditFolderDialog() async {
     HapticFeedback.lightImpact();
     final nameController = TextEditingController(text: _currentFolder.name);
-    final descController = TextEditingController(text: _currentFolder.description ?? '');
+    final descController = TextEditingController(text: _currentFolder.cleanDescription);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final coupleProvider = context.read<CoupleProvider>();
+    final partnerName = coupleProvider.partner?.displayName ?? 'Partner';
+    String selectedSection = _currentFolder.section;
 
     await showDialog<bool>(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          backgroundColor: isDark ? const Color(0xFF1E162B) : Colors.white,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Edit Album Details',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : AppColors.deepCharcoal,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                decoration: InputDecoration(
-                  labelText: 'Folder Name',
-                  hintText: 'e.g. Baguio Trip, Date Nights',
-                  prefixIcon: const Icon(Icons.folder_outlined),
-                  filled: true,
-                  fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descController,
-                maxLines: 2,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                decoration: InputDecoration(
-                  labelText: 'Description (Optional)',
-                  hintText: 'Add or edit sweet note about this album...',
-                  prefixIcon: const Icon(Icons.description_outlined),
-                  filled: true,
-                  fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: SecondaryCancelButton(
-                      label: 'Cancel',
-                      height: 46,
-                      borderRadius: 14,
-                      onPressed: () => Navigator.pop(ctx, false),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      height: 46,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                        ],
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 20),
                       ),
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Edit Album Details',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppColors.deepCharcoal,
+                          ),
                         ),
-                        onPressed: () async {
-                          final newName = nameController.text.trim();
-                          if (newName.isEmpty) return;
-                          final newDesc = descController.text.trim();
-                          Navigator.pop(ctx, true);
-                          try {
-                            await _galleryService.updateFolder(
-                              folderId: _currentFolder.id,
-                              name: newName,
-                              description: newDesc,
-                            );
-                            if (mounted) {
-                              setState(() {
-                                _customFolder = _currentFolder.copyWith(
-                                  name: newName,
-                                  description: newDesc,
-                                );
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Album details updated.')),
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Failed to update album: $e')),
-                              );
-                            }
-                          }
-                        },
-                        icon: const Icon(Icons.check_rounded, color: Colors.white, size: 18),
-                        label: const Text(
-                          'Save',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildSectionSelector(
+                    selectedSection: selectedSection,
+                    onSelected: (val) => setDialogState(() => selectedSection = val),
+                    isDark: isDark,
+                    partnerName: partnerName,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameController,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: 'Folder Name',
+                      hintText: 'e.g. Baguio Trip, Date Nights',
+                      prefixIcon: const Icon(Icons.folder_outlined),
+                      filled: true,
+                      fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descController,
+                    maxLines: 2,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: 'Description (Optional)',
+                      hintText: 'Add or edit sweet note about this album...',
+                      prefixIcon: const Icon(Icons.description_outlined),
+                      filled: true,
+                      fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SecondaryCancelButton(
+                          label: 'Cancel',
+                          height: 46,
+                          borderRadius: 14,
+                          onPressed: () => Navigator.pop(ctx, false),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            onPressed: () async {
+                              final newName = nameController.text.trim();
+                              if (newName.isEmpty) return;
+                              final newDesc = descController.text.trim();
+                              final encodedDesc = newDesc.isNotEmpty
+                                  ? '$newDesc\n[section:$selectedSection]'
+                                  : '[section:$selectedSection]';
+                              Navigator.pop(ctx, true);
+                              try {
+                                await _galleryService.updateFolder(
+                                  folderId: _currentFolder.id,
+                                  name: newName,
+                                  description: encodedDesc,
+                                );
+                                if (mounted) {
+                                  setState(() {
+                                    _customFolder = _currentFolder.copyWith(
+                                      name: newName,
+                                      description: encodedDesc,
+                                      section: selectedSection,
+                                    );
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Album details updated.')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Failed to update album: $e')),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.check_rounded, color: Colors.white, size: 18),
+                            label: const Text(
+                              'Save',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -729,6 +762,9 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   Future<_CaptionDialogResult?> _showBatchCaptionDialog(int count) async {
     final captionController = TextEditingController();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final coupleProvider = context.read<CoupleProvider>();
+    final partnerName = coupleProvider.partner?.displayName ?? 'Partner';
+    String selectedSection = _currentFolder.section;
     DateTime? selectedDateTaken;
 
     return showDialog<_CaptionDialogResult>(
@@ -781,7 +817,14 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
+                _buildSectionSelector(
+                  selectedSection: selectedSection,
+                  onSelected: (val) => setDialogState(() => selectedSection = val),
+                  isDark: isDark,
+                  partnerName: partnerName,
+                ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: captionController,
                   maxLines: 2,
@@ -902,11 +945,15 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                           ),
                           onPressed: () {
                             final text = captionController.text.trim();
+                            final encodedCaption = text.isNotEmpty
+                                ? '$text\n[section:$selectedSection]'
+                                : '[section:$selectedSection]';
                             Navigator.pop(
                               ctx,
                               _CaptionDialogResult(
-                                caption: text.isEmpty ? null : text,
+                                caption: encodedCaption,
                                 takenAt: selectedDateTaken,
+                                section: selectedSection,
                               ),
                             );
                           },
@@ -934,6 +981,9 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   }) async {
     final captionController = TextEditingController();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final coupleProvider = context.read<CoupleProvider>();
+    final partnerName = coupleProvider.partner?.displayName ?? 'Partner';
+    String selectedSection = _currentFolder.section;
     DateTime? selectedDateTaken;
 
     return showDialog<_CaptionDialogResult>(
@@ -1046,6 +1096,13 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                       fit: BoxFit.cover,
                     ),
                   ),
+                const SizedBox(height: 14),
+                _buildSectionSelector(
+                  selectedSection: selectedSection,
+                  onSelected: (val) => setDialogState(() => selectedSection = val),
+                  isDark: isDark,
+                  partnerName: partnerName,
+                ),
                 const SizedBox(height: 14),
                 TextField(
                   controller: captionController,
@@ -1166,11 +1223,15 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                           ),
                           onPressed: () {
                             final text = captionController.text.trim();
+                            final encodedCaption = text.isNotEmpty
+                                ? '$text\n[section:$selectedSection]'
+                                : '[section:$selectedSection]';
                             Navigator.pop(
                               ctx,
                               _CaptionDialogResult(
-                                caption: text.isEmpty ? null : text,
+                                caption: encodedCaption,
                                 takenAt: selectedDateTaken,
+                                section: selectedSection,
                               ),
                             );
                           },
@@ -1369,12 +1430,15 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   }
 
   void _openPhotoViewer(int initialIndex) {
+    final imagesToView = _filteredImages.isNotEmpty ? _filteredImages : _images;
+    if (imagesToView.isEmpty) return;
+    final clampedIndex = initialIndex.clamp(0, imagesToView.length - 1);
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => _FullScreenGalleryViewer(
-          images: _images,
-          initialIndex: initialIndex,
+          images: imagesToView,
+          initialIndex: clampedIndex,
           onDelete: (image) {
             setState(() {
               _images.removeWhere((img) => img.id == image.id);
@@ -1396,6 +1460,8 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final coupleProvider = context.watch<CoupleProvider>();
+    final partnerName = coupleProvider.partner?.displayName ?? 'Partner';
 
     return Scaffold(
       appBar: _isSelectionMode
@@ -1406,6 +1472,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
           Column(
             children: [
               _buildFolderHeader(isDark),
+              _buildMediaTypeTabs(isDark),
               Expanded(child: _buildGridContent(isDark)),
             ],
           ),
@@ -1540,7 +1607,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   }
 
   Widget _buildFolderHeader(bool isDark) {
-    if (_currentFolder.description == null || _currentFolder.description!.isEmpty) {
+    if (_currentFolder.cleanDescription.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -1568,7 +1635,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              _currentFolder.description!,
+              _currentFolder.cleanDescription,
               style: TextStyle(
                 fontSize: 13,
                 fontStyle: FontStyle.italic,
@@ -1588,72 +1655,179 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     );
   }
 
+  Widget _buildMediaTypeTabs(bool isDark) {
+    final photosCount = _images.where((img) => !img.isVideo).length;
+    final videosCount = _images.where((img) => img.isVideo).length;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E162B) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white12 : Colors.grey.shade200,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Photos Option Tab
+          Expanded(
+            child: _buildMediaTabItem(
+              title: 'Photos',
+              icon: Icons.photo_library_rounded,
+              count: photosCount,
+              isSelected: _selectedMediaType == 'photos',
+              isDark: isDark,
+              onTap: () {
+                if (_selectedMediaType == 'photos') return;
+                HapticFeedback.selectionClick();
+                setState(() {
+                  _selectedMediaType = 'photos';
+                  _selectedImageIds.clear();
+                  _isSelectionMode = false;
+                });
+              },
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Videos Option Tab
+          Expanded(
+            child: _buildMediaTabItem(
+              title: 'Videos',
+              icon: Icons.videocam_rounded,
+              count: videosCount,
+              isSelected: _selectedMediaType == 'videos',
+              isDark: isDark,
+              onTap: () {
+                if (_selectedMediaType == 'videos') return;
+                HapticFeedback.selectionClick();
+                setState(() {
+                  _selectedMediaType = 'videos';
+                  _selectedImageIds.clear();
+                  _isSelectionMode = false;
+                });
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMediaTabItem({
+    required String title,
+    required IconData icon,
+    required int count,
+    required bool isSelected,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected
+              ? null
+              : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected
+                  ? Colors.white
+                  : (isDark ? Colors.white70 : Colors.grey.shade700),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? Colors.white70 : Colors.grey.shade700),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.white.withValues(alpha: 0.25)
+                    : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected
+                      ? Colors.white
+                      : (isDark ? Colors.white70 : Colors.grey.shade800),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildGridContent(bool isDark) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_images.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFFFF758C).withValues(alpha: 0.15),
-                      const Color(0xFFA18CD1).withValues(alpha: 0.20),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.photo_library_outlined,
-                  size: 48,
-                  color: Color(0xFFFF758C),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'This Album is Empty',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : AppColors.deepCharcoal,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Tap "Add Media" to upload photos and videos into "${_currentFolder.name}".',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  color: isDark ? Colors.white70 : Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+    final filteredList = _filteredImages;
+
+    if (filteredList.isEmpty) {
+      return _buildEmptyMediaView(isDark);
     }
 
     return RefreshIndicator(
       onRefresh: _loadImages,
       child: GridView.builder(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 96),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
           childAspectRatio: 1.0,
         ),
-        itemCount: _images.length,
+        itemCount: filteredList.length,
         itemBuilder: (context, index) {
-          final image = _images[index];
+          final image = filteredList[index];
           final isSelected = _selectedImageIds.contains(image.id);
 
           return GestureDetector(
@@ -1756,7 +1930,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                     ),
 
                   // Caption badge
-                  if (image.caption != null && image.caption!.isNotEmpty && !_isSelectionMode)
+                  if (image.cleanCaption.isNotEmpty && !_isSelectionMode)
                     Positioned(
                       bottom: 6,
                       left: 6,
@@ -1929,6 +2103,210 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
       ),
     );
   }
+
+  Widget _buildEmptyMediaView(bool isDark) {
+    final isVideos = _selectedMediaType == 'videos';
+    final title = isVideos ? 'No Videos in this Album' : 'No Photos in this Album';
+    final subtitle = isVideos
+        ? 'Capture or upload video memories to this album.'
+        : 'Snap or upload photo memories to this album.';
+    final icon = isVideos ? Icons.videocam_rounded : Icons.photo_library_rounded;
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFFF758C).withValues(alpha: 0.15),
+                    const Color(0xFFA18CD1).withValues(alpha: 0.20),
+                  ],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 50,
+                color: const Color(0xFFFF758C),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppColors.deepCharcoal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: isDark ? Colors.white70 : Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 22),
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: _showImageSourcePicker,
+                icon: Icon(
+                  isVideos ? Icons.video_call_rounded : Icons.add_photo_alternate_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                label: Text(
+                  isVideos ? 'Add Videos to Album' : 'Add Photos to Album',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _sectionTitle(String sec) {
+    switch (sec) {
+      case 'my_pictures':
+        return 'My Pictures';
+      case 'partner':
+        return 'My Partner';
+      case 'us':
+      default:
+        return 'Us';
+    }
+  }
+
+  Widget _buildSectionSelector({
+    required String selectedSection,
+    required ValueChanged<String> onSelected,
+    required bool isDark,
+    String? partnerName,
+  }) {
+    final sections = [
+      {'id': 'us', 'label': 'Us', 'icon': Icons.favorite_rounded},
+      {'id': 'my_pictures', 'label': 'My Pictures', 'icon': Icons.person_rounded},
+      {'id': 'partner', 'label': partnerName ?? 'My Partner', 'icon': Icons.favorite_border_rounded},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Section',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white70 : Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: sections.map((sec) {
+            final isSelected = selectedSection == sec['id'];
+            return Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  onSelected(sec['id'] as String);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                  decoration: BoxDecoration(
+                    gradient: isSelected
+                        ? const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    color: isSelected
+                        ? null
+                        : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? Colors.transparent
+                          : (isDark ? Colors.white12 : Colors.grey.shade300),
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        sec['icon'] as IconData,
+                        size: 18,
+                        color: isSelected
+                            ? Colors.white
+                            : (isDark ? Colors.white70 : Colors.grey.shade700),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        sec['label'] as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark ? Colors.white70 : Colors.grey.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
 }
 
 class _FullScreenGalleryViewer extends StatefulWidget {
@@ -1953,19 +2331,47 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
   late int _currentIndex;
   late List<GalleryImageModel> _imageList;
   bool _isSaving = false;
+  bool get _showNavArrows => PhotoViewerNavPreference.showArrows;
 
   @override
   void initState() {
     super.initState();
     _imageList = List.from(widget.images);
-    _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
+    _currentIndex = widget.initialIndex.clamp(0, _imageList.isEmpty ? 0 : _imageList.length - 1);
+    _pageController = PageController(initialPage: _currentIndex);
   }
 
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _goToPrevious() {
+    if (_currentIndex > 0) {
+      HapticFeedback.lightImpact();
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _goToNext() {
+    if (_currentIndex < _imageList.length - 1) {
+      HapticFeedback.lightImpact();
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _toggleArrows() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      PhotoViewerNavPreference.showArrows = !PhotoViewerNavPreference.showArrows;
+    });
   }
 
   Future<void> _saveToDevice(GalleryImageModel image) async {
@@ -2020,8 +2426,11 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
 
   Future<void> _showEditCaptionDialog(GalleryImageModel image) async {
     HapticFeedback.lightImpact();
-    final captionController = TextEditingController(text: image.caption ?? '');
+    final captionController = TextEditingController(text: image.cleanCaption);
     DateTime? selectedDateTaken = image.takenAt;
+    String selectedSection = image.section;
+    final coupleProvider = context.read<CoupleProvider>();
+    final partnerName = coupleProvider.partner?.displayName ?? 'Partner';
 
     final result = await showDialog<_CaptionDialogResult>(
       context: context,
@@ -2054,6 +2463,12 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                       style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                _buildViewerSectionSelector(
+                  selectedSection: selectedSection,
+                  onSelected: (val) => setDialogState(() => selectedSection = val),
+                  partnerName: partnerName,
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -2176,11 +2591,15 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                           ),
                           onPressed: () {
                             final text = captionController.text.trim();
+                            final encodedCaption = text.isNotEmpty
+                                ? '$text\n[section:$selectedSection]'
+                                : '[section:$selectedSection]';
                             Navigator.pop(
                               ctx,
                               _CaptionDialogResult(
-                                caption: text.isEmpty ? null : text,
+                                caption: encodedCaption,
                                 takenAt: selectedDateTaken,
+                                section: selectedSection,
                               ),
                             );
                           },
@@ -2207,6 +2626,7 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
         );
         final updated = image.copyWith(
           caption: result.caption,
+          section: result.section,
           takenAt: result.takenAt,
           clearTakenAt: result.takenAt == null,
         );
@@ -2227,6 +2647,96 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
         }
       }
     }
+  }
+
+  Widget _buildViewerSectionSelector({
+    required String selectedSection,
+    required ValueChanged<String> onSelected,
+    String? partnerName,
+  }) {
+    final sections = [
+      {'id': 'us', 'label': 'Us', 'icon': Icons.favorite_rounded},
+      {'id': 'my_pictures', 'label': 'My Pictures', 'icon': Icons.person_rounded},
+      {'id': 'partner', 'label': partnerName ?? 'My Partner', 'icon': Icons.favorite_border_rounded},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Section',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: Colors.white70,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: sections.map((sec) {
+            final isSelected = selectedSection == sec['id'];
+            return Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  onSelected(sec['id'] as String);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  decoration: BoxDecoration(
+                    gradient: isSelected
+                        ? const LinearGradient(
+                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    color: isSelected ? null : Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? Colors.transparent : Colors.white12,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        sec['icon'] as IconData,
+                        size: 16,
+                        color: isSelected ? Colors.white : Colors.white70,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        sec['label'] as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? Colors.white : Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
   }
 
   Future<void> _confirmAndDelete(GalleryImageModel image) async {
@@ -2295,42 +2805,12 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black.withValues(alpha: 0.75),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          '${_currentIndex + 1} of ${_imageList.length}',
-          style: const TextStyle(color: Colors.white, fontSize: 16),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_note_rounded),
-            tooltip: 'Edit Caption',
-            onPressed: () => _showEditCaptionDialog(currentImage),
-          ),
-          IconButton(
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.download_rounded),
-            tooltip: 'Save to Device',
-            onPressed: _isSaving ? null : () => _saveToDevice(currentImage),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF5252)),
-            tooltip: 'Delete',
-            onPressed: () => _confirmAndDelete(currentImage),
-          ),
-        ],
-      ),
       body: Stack(
+        fit: StackFit.expand,
         children: [
           PageView.builder(
             controller: _pageController,
+            physics: const BouncingScrollPhysics(),
             itemCount: _imageList.length,
             onPageChanged: (idx) => setState(() => _currentIndex = idx),
             itemBuilder: (context, index) {
@@ -2342,10 +2822,10 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                   storageHeaders: NhostGalleryService.instance.storageHeaders,
                 );
               }
-              return InteractiveViewer(
-                minScale: 0.8,
-                maxScale: 4.0,
-                child: Center(
+              return Center(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4.0,
                   child: CachedNetworkImage(
                     imageUrl: img.imageUrl,
                     httpHeaders: NhostGalleryService.instance.storageHeaders,
@@ -2362,6 +2842,159 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                 ),
               );
             },
+          ),
+
+          // Left navigation arrow button (shown when _showNavArrows is true)
+          if (_showNavArrows && _currentIndex > 0)
+            Positioned(
+              left: 14,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _goToPrevious,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white24, width: 1.2),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Right navigation arrow button (shown when _showNavArrows is true)
+          if (_showNavArrows && _currentIndex < _imageList.length - 1)
+            Positioned(
+              right: 14,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _goToNext,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white24, width: 1.2),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Top Floating Overlay Controls: Counter, Toggle Arrows, Edit, Download, Delete, Close
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Photo counter badge (e.g. 1 / 15)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Text(
+                        '${_currentIndex + 1} / ${_imageList.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                    // Actions Row
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Toggle/Hide Navigation Arrows Button (Text Label)
+                        InkWell(
+                          onTap: _toggleArrows,
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5.5),
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              color: _showNavArrows
+                                  ? Colors.white.withValues(alpha: 0.18)
+                                  : Colors.black54,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.28),
+                                width: 0.9,
+                              ),
+                            ),
+                            child: Text(
+                              _showNavArrows ? 'Hide Arrows' : 'Show Arrows',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        IconButton(
+                          icon: const Icon(Icons.edit_note_rounded, color: Colors.white),
+                          tooltip: 'Edit Caption',
+                          onPressed: () => _showEditCaptionDialog(currentImage),
+                        ),
+                        IconButton(
+                          icon: _isSaving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.download_rounded, color: Colors.white),
+                          tooltip: 'Save to Device',
+                          onPressed: _isSaving ? null : () => _saveToDevice(currentImage),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF5252)),
+                          tooltip: 'Delete',
+                          onPressed: () => _confirmAndDelete(currentImage),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
+                          tooltip: 'Close',
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
 
           // Bottom Details Overlay
@@ -2462,6 +3095,41 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                           ),
                         ),
                       ],
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              currentImage.section == 'my_pictures'
+                                  ? Icons.person_rounded
+                                  : (currentImage.section == 'partner'
+                                      ? Icons.favorite_border_rounded
+                                      : Icons.favorite_rounded),
+                              color: const Color(0xFFFF758C),
+                              size: 11,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              currentImage.section == 'my_pictures'
+                                  ? 'My Pictures'
+                                  : (currentImage.section == 'partner'
+                                      ? 'My Partner'
+                                      : 'Us'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       const Spacer(),
                       InkWell(
                         onTap: () => _showEditCaptionDialog(currentImage),
@@ -2485,10 +3153,10 @@ class _FullScreenGalleryViewerState extends State<_FullScreenGalleryViewer> {
                       ),
                     ],
                   ),
-                  if (currentImage.caption != null && currentImage.caption!.isNotEmpty) ...[
+                  if (currentImage.cleanCaption.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
-                      currentImage.caption!,
+                      currentImage.cleanCaption,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,

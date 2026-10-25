@@ -1,8 +1,8 @@
 {
-    "version":  "1.7.0",
-    "build_number":  15,
-    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.7.0/app-release.apk",
-    "release_notes":  "- feat: add folder detail and gallery folders screens for viewing and managing media collections\n- feat: add folder detail screen, gallery folders screen, and nhost gallery service\n- feat: add gallery folders, photos screens, and navigation preferences\n- feat: add photo message provider and photos feature screen\n- feat: implement comprehensive movie tracker screen with real-time sync and ratings\n- feat: add voice note model and player card widget\n- feat: add mood letters hub screen and supporting cache/config files\n- fix(gallery): enable public read on Nhost storage and omit custom auth headers on web\n- fix: resolve null check compiler errors in firebase_location_service\n- feat(web): add responsive centered mobile canvas for desktop browsers\n- fix(web): add viewport meta tag for accurate mobile web sizing\n- fix(web): configure Firebase web options, skip OTA checks on web, and update manifest meta\n- feat: add Mapbox service, main entry point, and configure Firebase hosting headers\n- chore: update pubspec.lock and firebase hosting build cache\n- feat: add script for running app on devices and web with connection management",
-    "min_required_version":  "1.7.0",
+    "version":  "1.8.0",
+    "build_number":  16,
+    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.8.0/app-release.apk",
+    "release_notes":  "- feat: add password reset feature with Supabase auth and Android deep linking\n- feat: add features selection bottom sheet widget with custom actions and navigation\n- feat: add admin dashboard screen and provider for administrative controls\n- feat: add folder detail screen for gallery with photo and video management\n- chore: downgrade permission_handler to v12.0.3 and add android dependency override\n- chore: update firebase hosting configuration and add device runner script\n- feat: add web hosting assets and update cache-control headers for images in firebase configuration\n- feat: add app lock, biometric authentication, passcode verification, and notification services",
+    "min_required_version":  "1.8.0",
     "force_update":  true
 }

@@ -809,13 +809,6 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                _buildSectionSelector(
-                  selectedSection: selectedSection,
-                  onSelected: (val) => setDialogState(() => selectedSection = val),
-                  isDark: isDark,
-                  partnerName: partnerName,
-                ),
-                const SizedBox(height: 16),
                 TextField(
                   controller: captionController,
                   maxLines: 2,
@@ -1087,13 +1080,6 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                       fit: BoxFit.cover,
                     ),
                   ),
-                const SizedBox(height: 14),
-                _buildSectionSelector(
-                  selectedSection: selectedSection,
-                  onSelected: (val) => setDialogState(() => selectedSection = val),
-                  isDark: isDark,
-                  partnerName: partnerName,
-                ),
                 const SizedBox(height: 14),
                 TextField(
                   controller: captionController,
@@ -2241,102 +2227,12 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   }
 
   Widget _buildSectionSelector({
-    required String selectedSection,
-    required ValueChanged<String> onSelected,
-    required bool isDark,
+    String? selectedSection,
+    ValueChanged<String>? onSelected,
+    bool? isDark,
     String? partnerName,
   }) {
-    final sections = [
-      {'id': 'us', 'label': 'Us', 'icon': Icons.favorite_rounded},
-      {'id': 'my_pictures', 'label': 'My Pictures', 'icon': Icons.person_rounded},
-      {'id': 'partner', 'label': partnerName ?? 'My Partner', 'icon': Icons.favorite_border_rounded},
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Section',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white70 : Colors.grey.shade700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: sections.map((sec) {
-            final isSelected = selectedSection == sec['id'];
-            return Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  onSelected(sec['id'] as String);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                  decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? const LinearGradient(
-                            colors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: isSelected
-                        ? null
-                        : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected
-                          ? Colors.transparent
-                          : (isDark ? Colors.white12 : Colors.grey.shade300),
-                    ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: const Color(0xFFFF758C).withValues(alpha: 0.3),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        sec['icon'] as IconData,
-                        size: 18,
-                        color: isSelected
-                            ? Colors.white
-                            : (isDark ? Colors.white70 : Colors.grey.shade700),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        sec['label'] as String,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected
-                              ? Colors.white
-                              : (isDark ? Colors.white70 : Colors.grey.shade700),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
+    return const SizedBox.shrink();
   }
 }
 

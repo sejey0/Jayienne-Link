@@ -23,7 +23,7 @@ import '../../../widgets/common/timed_confirm_dialog.dart';
 /// Features a decluttered card layout, single "View Details & Ratings" action,
 /// simplified 2-option 3-dots menu ("Edit Movie Details" and "Remove Movie"),
 /// Manual Header Refresh button, Pull-to-Refresh on tabs, and Instant UI Auto-Sync.
-enum MovieRatingFilter { all, unrated, rated }
+enum MovieRatingFilter { all, unrated, waitingPartner, rated }
 
 class MovieTrackerScreen extends StatefulWidget {
   const MovieTrackerScreen({super.key});
@@ -198,36 +198,34 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     }).toList();
   }
 
-  /// Returns true if either you or your partner is missing a rating score (> 0) OR review text
-  bool _isMovieUnrated(MovieModel movie, String currentUserId, {bool hasPartner = true}) {
+  /// Returns true if you (the current user) haven't completed your rating/review yet
+  bool _needsMyReview(MovieModel movie, String currentUserId) {
     final myRating = movie.getRatingForUser(currentUserId);
-    final partnerRating = movie.getPartnerRating(currentUserId);
-
     final hasMyScore = myRating != null && myRating.rating > 0;
     final hasMyReview = myRating?.notes != null && myRating!.notes!.trim().isNotEmpty;
-    final myComplete = hasMyScore && hasMyReview;
+    final myComplete = hasMyScore ||
+        hasMyReview ||
+        (movie.ratings.isEmpty &&
+            ((movie.rating != null && movie.rating! > 0) ||
+                (movie.notes != null && movie.notes!.trim().isNotEmpty)));
+    return !myComplete;
+  }
 
-    if (!hasPartner) {
-      if (movie.ratings.isNotEmpty) {
-        return !myComplete;
-      }
-      final hasFallbackScore = movie.rating != null && movie.rating! > 0;
-      final hasFallbackReview = movie.notes != null && movie.notes!.trim().isNotEmpty;
-      return !(hasFallbackScore && hasFallbackReview);
-    }
-
+  /// Returns true if you completed your review, but your partner is still pending
+  bool _isWaitingForPartner(MovieModel movie, String currentUserId) {
+    if (_needsMyReview(movie, currentUserId)) return false;
+    final partnerRating = movie.getPartnerRating(currentUserId);
     final hasPartnerScore = partnerRating != null && partnerRating.rating > 0;
     final hasPartnerReview = partnerRating?.notes != null && partnerRating!.notes!.trim().isNotEmpty;
-    final partnerComplete = hasPartnerScore && hasPartnerReview;
+    final partnerComplete = hasPartnerScore || hasPartnerReview;
+    return !partnerComplete;
+  }
 
-    if (movie.ratings.isNotEmpty) {
-      // If either user is missing a rating or review, put it in "Not Rated Yet"
-      return !(myComplete && partnerComplete);
-    }
-
-    final hasFallbackScore = movie.rating != null && movie.rating! > 0;
-    final hasFallbackReview = movie.notes != null && movie.notes!.trim().isNotEmpty;
-    return !(hasFallbackScore && hasFallbackReview);
+  /// Returns true if both partners (or single user if no partner) have reviewed
+  bool _isFullyReviewed(MovieModel movie, String currentUserId, {bool hasPartner = true}) {
+    if (_needsMyReview(movie, currentUserId)) return false;
+    if (!hasPartner) return true;
+    return !_isWaitingForPartner(movie, currentUserId);
   }
 
   List<MovieModel> get _watchedMovies {
@@ -239,12 +237,13 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
       final matchesStatus = m.status == 'watched';
       if (!matchesStatus) return false;
 
-      final isUnrated = _isMovieUnrated(m, currentUserId, hasPartner: hasPartner);
-
-      if (_ratingFilter == MovieRatingFilter.unrated && !isUnrated) {
+      if (_ratingFilter == MovieRatingFilter.unrated && !_needsMyReview(m, currentUserId)) {
         return false;
       }
-      if (_ratingFilter == MovieRatingFilter.rated && isUnrated) {
+      if (_ratingFilter == MovieRatingFilter.waitingPartner && !_isWaitingForPartner(m, currentUserId)) {
+        return false;
+      }
+      if (_ratingFilter == MovieRatingFilter.rated && !_isFullyReviewed(m, currentUserId, hasPartner: hasPartner)) {
         return false;
       }
 
@@ -1533,7 +1532,10 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
         emptySubtitle = 'Try another movie title or keyword';
       } else if (_ratingFilter == MovieRatingFilter.unrated) {
         emptyTitle = 'All Caught Up!';
-        emptySubtitle = 'All watched movies have both ratings and reviews from both of you.';
+        emptySubtitle = 'You have rated and reviewed all watched movies.';
+      } else if (_ratingFilter == MovieRatingFilter.waitingPartner) {
+        emptyTitle = 'No Pending Partner Reviews';
+        emptySubtitle = '$partnerName has completed their reviews on all movies you rated.';
       } else if (_ratingFilter == MovieRatingFilter.rated) {
         emptyTitle = 'No Fully Reviewed Movies';
         emptySubtitle = 'Complete your ratings and reviews for watched movies to see them here.';
@@ -1550,7 +1552,9 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                   isDark: isDark,
                   icon: _ratingFilter == MovieRatingFilter.unrated
                       ? Icons.rate_review_outlined
-                      : Icons.local_movies_outlined,
+                      : (_ratingFilter == MovieRatingFilter.waitingPartner
+                          ? Icons.hourglass_top_rounded
+                          : Icons.local_movies_outlined),
                   title: emptyTitle,
                   subtitle: emptySubtitle,
                   buttonText: 'Log Watched Movie',
@@ -1588,14 +1592,20 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
   Widget _buildFilterChips(bool isDark, String currentUserId) {
     final coupleProvider = context.watch<CoupleProvider>();
     final hasPartner = coupleProvider.partner != null;
+    final partnerName = coupleProvider.partner?.displayName ?? 'Partner';
     final rawWatched = _moviesWithRatings.where((m) => m.status == 'watched').toList();
-    final unratedCount = rawWatched.where((m) => _isMovieUnrated(m, currentUserId, hasPartner: hasPartner)).length;
-    final ratedCount = rawWatched.where((m) => !_isMovieUnrated(m, currentUserId, hasPartner: hasPartner)).length;
+    final needsMyReviewCount = rawWatched.where((m) => _needsMyReview(m, currentUserId)).length;
+    final waitingPartnerCount = hasPartner
+        ? rawWatched.where((m) => _isWaitingForPartner(m, currentUserId)).length
+        : 0;
+    final fullyReviewedCount = rawWatched.where((m) => _isFullyReviewed(m, currentUserId, hasPartner: hasPartner)).length;
 
     final filterItems = [
       (MovieRatingFilter.all, 'All', rawWatched.length, Icons.apps_rounded),
-      (MovieRatingFilter.unrated, 'Needs Review', unratedCount, Icons.rate_review_outlined),
-      (MovieRatingFilter.rated, 'Fully Reviewed', ratedCount, Icons.star_rounded),
+      (MovieRatingFilter.unrated, 'Needs Review', needsMyReviewCount, Icons.rate_review_outlined),
+      if (hasPartner)
+        (MovieRatingFilter.waitingPartner, 'Waiting for $partnerName', waitingPartnerCount, Icons.hourglass_top_rounded),
+      (MovieRatingFilter.rated, 'Fully Reviewed', fullyReviewedCount, Icons.star_rounded),
     ];
 
     return Padding(
@@ -1721,6 +1731,9 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
     final hasMyReview = myReview != null && myReview.isNotEmpty;
     final hasPartnerReview = partnerReview != null && partnerReview.isNotEmpty;
     final hasMovieNotes = movie.notes != null && movie.notes!.trim().isNotEmpty;
+    final hasMyRating = (myRating != null && (myRating.rating > 0 || hasMyReview)) ||
+        (movie.ratings.isEmpty && ((movie.rating != null && movie.rating! > 0) || hasMovieNotes));
+    final hasPartnerRating = partnerRating != null && (partnerRating.rating > 0 || hasPartnerReview);
 
     return InkWell(
       onTap: () => _openMovieDetailsModal(movie),
@@ -1866,7 +1879,7 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                             ),
                           ),
                         ],
-                        if (_isMovieUnrated(movie, currentUserId, hasPartner: coupleProvider.partner != null)) ...[
+                        if (_needsMyReview(movie, currentUserId)) ...[
                           const SizedBox(width: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
@@ -1878,19 +1891,53 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 width: 0.8,
                               ),
                             ),
-                            child: Row(
+                            child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.rate_review_outlined, size: 9.5, color: Color(0xFFFF8A65)),
-                                const SizedBox(width: 2.5),
+                                Icon(
+                                  Icons.rate_review_outlined,
+                                  size: 9.5,
+                                  color: Color(0xFFFF8A65),
+                                ),
+                                SizedBox(width: 2.5),
                                 Text(
-                                  (myRating == null || myRating.rating <= 0 || !hasMyReview)
-                                      ? 'Needs Your Review'
-                                      : 'Waiting for $partnerName',
-                                  style: const TextStyle(
+                                  'Needs Your Review',
+                                  style: TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFFFF8A65),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else if (coupleProvider.partner != null && _isWaitingForPartner(movie, currentUserId)) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFA18CD1).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(
+                                color: const Color(0xFFA18CD1).withValues(alpha: 0.3),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.hourglass_top_rounded,
+                                  size: 9.5,
+                                  color: Color(0xFFA18CD1),
+                                ),
+                                const SizedBox(width: 2.5),
+                                Text(
+                                  'Waiting for $partnerName',
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFA18CD1),
                                   ),
                                 ),
                               ],
@@ -1935,6 +1982,17 @@ class _MovieTrackerScreenState extends State<MovieTrackerScreen>
                                 const SizedBox(width: 2),
                                 Text(
                                   '${myRating.rating}',
+                                  style: const TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFFF758C),
+                                  ),
+                                ),
+                              ] else if (movie.ratings.isEmpty && movie.rating != null && movie.rating! > 0) ...[
+                                const Icon(Icons.favorite_rounded, size: 10, color: Color(0xFFFF758C)),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '${movie.rating}',
                                   style: const TextStyle(
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.bold,

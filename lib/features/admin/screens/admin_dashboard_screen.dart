@@ -18,6 +18,8 @@ import '../../../services/vault_cache_manager.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/timed_confirm_dialog.dart';
+import '../../../widgets/common/offline_status_modal.dart';
+import '../../../providers/connectivity_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Senior Admin Dashboard Screen redesigned to match Jayienne Link's signature romantic theme
@@ -1470,7 +1472,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ],
           ),
 
-          // 2. Offline Simulation Toggle
+          // 2. Offline Simulation Toggle & Accurate Network Simulator
           if (isDebugActive) ...[
             const SizedBox(height: 10),
             Row(
@@ -1486,11 +1488,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       Text(
                         debugProvider.forceOfflineMode
-                            ? 'Simulating disconnected state'
+                            ? 'Simulating disconnected state (Wi-Fi & Data off)'
                             : 'Normal live network',
                         style: TextStyle(
                           fontSize: 11.5,
-                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                          color: debugProvider.forceOfflineMode
+                              ? const Color(0xFFFF5252)
+                              : (isDark ? Colors.white54 : Colors.grey.shade600),
+                          fontWeight: debugProvider.forceOfflineMode
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                         ),
                       ),
                     ],
@@ -1500,12 +1507,67 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   value: debugProvider.forceOfflineMode,
                   activeThumbColor: const Color(0xFFA18CD1),
                   activeTrackColor: const Color(0xFFA18CD1).withValues(alpha: 0.35),
-                  onChanged: (_) {
+                  onChanged: (val) {
                     HapticFeedback.lightImpact();
-                    debugProvider.toggleOfflineMode();
+                    debugProvider.setOfflineMode(val);
+                    if (val) {
+                      showOfflineModal(context);
+                    } else {
+                      SnackbarHelper.showSuccess(
+                        context,
+                        'Simulated offline mode disabled. Live network restored.',
+                      );
+                    }
                   },
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () => showOfflineModal(context, isPreview: true),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : const Color(0xFFF3F4F8),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark ? Colors.white12 : Colors.grey.shade300,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.visibility_rounded,
+                          size: 15,
+                          color: isDark
+                              ? const Color(0xFFA18CD1)
+                              : const Color(0xFF7C64B4),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Preview Offline Modal',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : AppColors.deepCharcoal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: isDark ? Colors.white38 : Colors.grey.shade500,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
 

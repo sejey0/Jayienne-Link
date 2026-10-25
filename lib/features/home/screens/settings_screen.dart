@@ -21,6 +21,7 @@ import '../../../services/update_service.dart';
 import '../../../widgets/smart_profile_image.dart';
 import '../../../widgets/common/app_text_field.dart';
 import '../../../widgets/common/timed_confirm_dialog.dart';
+import '../../../widgets/common/offline_status_modal.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../services/sex_positions_service.dart';
 import '../../auth/screens/auth_screen.dart';
@@ -514,14 +515,16 @@ class SettingsScreen extends StatelessWidget {
                           value: debugProvider.forceOfflineMode,
                           activeThumbColor: AppColors.lavender,
                           activeTrackColor: AppColors.lavender.withValues(alpha: 0.35),
-                          onChanged: (_) {
-                            debugProvider.toggleOfflineMode();
-                            SnackbarHelper.showInfo(
-                              context,
-                              debugProvider.forceOfflineMode
-                                  ? 'Offline mode enabled'
-                                  : 'Offline mode disabled',
-                            );
+                          onChanged: (val) {
+                            debugProvider.setOfflineMode(val);
+                            if (val) {
+                              showOfflineModal(context);
+                            } else {
+                              SnackbarHelper.showSuccess(
+                                context,
+                                'Offline mode disabled. Live network restored.',
+                              );
+                            }
                           },
                         ),
                       ],

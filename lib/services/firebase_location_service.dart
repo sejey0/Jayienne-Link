@@ -85,6 +85,19 @@ class FirebaseLocationService {
       }
 
       _isInitialized = true;
+      DebugProvider.offlineModeStream.listen((isForced) {
+        if (isForced) {
+          _partnerLocationController.add(null);
+          _partnerBatteryController.add({'isOnline': false});
+          try {
+            _database?.goOffline();
+          } catch (_) {}
+        } else {
+          try {
+            _database?.goOnline();
+          } catch (_) {}
+        }
+      });
       debugPrint('🔥 [FirebaseLocationService] Initialized with RTDB node: $_databaseUrl');
     } catch (e) {
       debugPrint('⚠️ [FirebaseLocationService] Initialization notice: $e');
@@ -192,6 +205,7 @@ class FirebaseLocationService {
         (event) {
           if (DebugProvider.isOfflineForced) {
             _partnerLocationController.add(null);
+            _partnerBatteryController.add({'isOnline': false});
             return;
           }
 

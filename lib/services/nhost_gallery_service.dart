@@ -5,8 +5,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
 import '../models/gallery_folder_model.dart';
 import '../models/gallery_image_model.dart';
+import '../providers/debug_provider.dart';
 
 /// Background worker to downscale and compress photos before upload (saves ~95% storage & bandwidth)
 Uint8List _compressPhotoWorker(Uint8List rawBytes) {
@@ -437,6 +439,9 @@ class NhostGalleryService {
     String query, {
     Map<String, dynamic>? variables,
   }) async {
+    if (DebugProvider.isOfflineForced) {
+      throw const SocketException('No Internet connection (Simulated Offline Mode active)');
+    }
     http.Response response;
     try {
       response = await http.post(

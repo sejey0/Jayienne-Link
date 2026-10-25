@@ -9,6 +9,9 @@ import 'providers/auth_provider.dart';
 import 'providers/couple_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
+import 'providers/debug_provider.dart';
+import 'providers/connectivity_provider.dart';
+import 'widgets/common/offline_status_modal.dart';
 
 class JayienneLinkApp extends StatefulWidget {
   const JayienneLinkApp({super.key});
@@ -54,14 +57,18 @@ class _JayienneLinkAppState extends State<JayienneLinkApp> {
       themeMode: themeProvider.themeMode,
       routerConfig: _router,
       builder: (context, child) {
-        if (!kIsWeb) return child ?? const SizedBox.shrink();
+        final wrappedChild = _AppConnectivityBannerOverlay(
+          child: child ?? const SizedBox.shrink(),
+        );
+
+        if (!kIsWeb) return wrappedChild;
 
         final mediaQuery = MediaQuery.of(context);
         final screenWidth = mediaQuery.size.width;
 
         // On mobile web (phones / narrow screens), render full width
         if (screenWidth <= 520) {
-          return child ?? const SizedBox.shrink();
+          return wrappedChild;
         }
 
         // On widescreen desktop web, constrain to a centered mobile canvas
@@ -89,7 +96,7 @@ class _JayienneLinkAppState extends State<JayienneLinkApp> {
                     ],
                   ),
                   child: ClipRect(
-                    child: child ?? const SizedBox.shrink(),
+                    child: wrappedChild,
                   ),
                 ),
               ),
@@ -97,6 +104,97 @@ class _JayienneLinkAppState extends State<JayienneLinkApp> {
           ),
         );
       },
+    );
+  }
+}
+
+class _AppConnectivityBannerOverlay extends StatelessWidget {
+  final Widget child;
+
+  const _AppConnectivityBannerOverlay({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    ConnectivityProvider? connectivity;
+    try {
+      connectivity = Provider.of<ConnectivityProvider>(context, listen: true);
+    } catch (_) {}
+
+    DebugProvider? debugProvider;
+    try {
+      debugProvider = Provider.of<DebugProvider>(context, listen: true);
+    } catch (_) {}
+
+    final isSimulated = (debugProvider?.forceOfflineMode ?? false) || DebugProvider.isOfflineForced;
+    final isOffline = isSimulated || (connectivity != null && connectivity.isOffline);
+
+    return Stack(
+      children: [
+        child,
+        if (isOffline)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 6,
+            left: 16,
+            right: 16,
+            child: Material(
+              type: MaterialType.transparency,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => showOfflineModal(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1427).withValues(alpha: 0.94),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSimulated
+                            ? const Color(0xFFA18CD1).withValues(alpha: 0.6)
+                            : const Color(0xFFFF5252).withValues(alpha: 0.6),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isSimulated
+                                  ? const Color(0xFFA18CD1)
+                                  : const Color(0xFFFF5252))
+                              .withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isSimulated
+                              ? Icons.developer_mode_rounded
+                              : Icons.wifi_off_rounded,
+                          size: 15,
+                          color: isSimulated
+                              ? const Color(0xFFA18CD1)
+                              : const Color(0xFFFF5252),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isSimulated
+                              ? 'Offline Simulation Active • Tap for details'
+                              : 'No Internet • Offline Mode • Tap for details',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

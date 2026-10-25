@@ -13,6 +13,7 @@ import 'package:jayienne_link/providers/secret_media_provider.dart';
 import 'package:jayienne_link/providers/theme_provider.dart';
 import 'package:jayienne_link/providers/user_provider.dart';
 import 'package:jayienne_link/providers/admin_provider.dart';
+import 'package:jayienne_link/providers/connectivity_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -109,6 +110,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => DebugProvider()),
+        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider(authService)),
         ChangeNotifierProvider(create: (_) => AdminProvider(userService)),
         ChangeNotifierProvider.value(value: appLockProvider),

@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 class VoiceNoteModel {
   final String id;
   final String coupleId;
@@ -43,11 +45,52 @@ class VoiceNoteModel {
       durationSeconds: (json['duration_seconds'] as num?)?.toInt() ?? 10,
       title: json['title'] as String?,
       isListened: json['is_listened'] == true,
-      createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'].toString())?.toLocal() ?? DateTime.now()
-          : DateTime.now(),
+      createdAt: _parseDateTime(json['created_at']),
     );
   }
+
+  static DateTime _parseDateTime(dynamic raw) {
+    if (raw == null) return DateTime.now();
+    if (raw is DateTime) {
+      return DateTime(
+        raw.year,
+        raw.month,
+        raw.day,
+        raw.hour,
+        raw.minute,
+        raw.second,
+        raw.millisecond,
+      );
+    }
+    final str = raw.toString().trim();
+    if (str.isEmpty) return DateTime.now();
+
+    try {
+      // Strip any timezone suffix (+00:00, Z, etc.) to preserve the exact date/time stored in database
+      final cleaned = str
+          .replaceFirst(RegExp(r'(Z|[+-]\d{2}(:\d{2})?)$'), '')
+          .replaceAll(' ', 'T');
+      return DateTime.parse(cleaned);
+    } catch (_) {
+      try {
+        final parsed = DateTime.parse(str);
+        return DateTime(
+          parsed.year,
+          parsed.month,
+          parsed.day,
+          parsed.hour,
+          parsed.minute,
+          parsed.second,
+        );
+      } catch (_) {
+        return DateTime.now();
+      }
+    }
+  }
+
+  String get formattedDate => DateFormat('MMM d, yyyy').format(createdAt);
+  String get formattedTime => DateFormat('h:mm a').format(createdAt);
+  String get formattedDateTime => '$formattedDate • $formattedTime';
 
   Map<String, dynamic> toJson() {
     return {

@@ -25,15 +25,18 @@ class VoiceNotePlayerCard extends StatelessWidget {
   String _formatTimestamp(DateTime dt) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
     final noteDate = DateTime(dt.year, dt.month, dt.day);
 
     final timeStr = DateFormat('h:mm a').format(dt);
     if (noteDate == today) {
       return 'Today at $timeStr';
-    } else if (noteDate == today.subtract(const Duration(days: 1))) {
+    } else if (noteDate == yesterday) {
       return 'Yesterday at $timeStr';
+    } else if (dt.year == now.year) {
+      return DateFormat('MMM d, h:mm a').format(dt);
     }
-    return DateFormat('MMM d, h:mm a').format(dt);
+    return DateFormat('MMM d, yyyy, h:mm a').format(dt);
   }
 
   void _confirmDelete(BuildContext context, VoiceNotesProvider provider) {

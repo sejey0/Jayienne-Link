@@ -1,8 +1,8 @@
 {
-    "version":  "1.8.0",
-    "build_number":  16,
-    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.8.0/app-release.apk",
-    "release_notes":  "- feat: add password reset feature with Supabase auth and Android deep linking\n- feat: add features selection bottom sheet widget with custom actions and navigation\n- feat: add admin dashboard screen and provider for administrative controls\n- feat: add folder detail screen for gallery with photo and video management\n- chore: downgrade permission_handler to v12.0.3 and add android dependency override\n- chore: update firebase hosting configuration and add device runner script\n- feat: add web hosting assets and update cache-control headers for images in firebase configuration\n- feat: add app lock, biometric authentication, passcode verification, and notification services",
-    "min_required_version":  "1.8.0",
+    "version":  "1.9.0",
+    "build_number":  17,
+    "download_url":  "https://github.com/sejey0/Jayienne-Link/releases/download/v1.9.0/app-release.apk",
+    "release_notes":  "- feat: implement Nhost-powered couple shared gallery service and screens\n- feat: add gallery data models, Nhost service, and screens for media management\n- chore: add .firebase directory to .gitignore\n- chore: ignore firebase cache and add firebase directory to gitignore",
+    "min_required_version":  "1.9.0",
     "force_update":  true
 }

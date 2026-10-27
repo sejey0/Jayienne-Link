@@ -55,3 +55,8 @@ scripts/.release_notes.txt
 
 # Bin / CLI scripts
 bin/
+
+# Gradle & Third-party Android caches
+**/.gradle/
+third_party/**/build/
+third_party/**/local.properties

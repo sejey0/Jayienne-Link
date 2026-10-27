@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -9,16 +11,19 @@ import '../../../providers/couple_provider.dart';
 import '../../../providers/debug_provider.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../services/home_widget_service.dart';
 
 /// Unified Couple Hero Masterpiece Card:
 /// Merges Love Counter, Dual Avatars with Beating Heart, Intertwined Couple Names,
 /// Live Ticking Breakdown, and Real-time Partner Vitals into a single romantic card.
 class CoupleHeroCard extends StatefulWidget {
   final bool initialExpanded;
+  final bool isWidgetSnapshot;
 
   const CoupleHeroCard({
     super.key,
     this.initialExpanded = false,
+    this.isWidgetSnapshot = false,
   });
 
   /// Calculates friendly last online / active status text.
@@ -97,6 +102,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
   late bool _isExpanded;
   late AnimationController _heartController;
   late Animation<double> _pulseAnimation;
+  Timer? _widgetSyncTimer;
 
   @override
   void initState() {
@@ -107,18 +113,44 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     _heartController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
-    )..repeat(reverse: true);
+    );
+    if (!widget.isWidgetSnapshot) {
+      _heartController.repeat(reverse: true);
+    }
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.22).animate(
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: widget.isWidgetSnapshot ? 1.0 : 1.22,
+    ).animate(
       CurvedAnimation(
         parent: _heartController,
         curve: Curves.easeInOut,
       ),
     );
+
+    if (!widget.isWidgetSnapshot) {
+      for (final delayMs in const [300, 1500]) {
+        Future<void>.delayed(Duration(milliseconds: delayMs), () {
+          if (mounted) {
+            HomeWidgetService.instance.syncFromContext(
+              context,
+              forceCapture: true,
+            );
+          }
+        });
+      }
+
+      _widgetSyncTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        if (mounted) {
+          HomeWidgetService.instance.syncFromContext(context);
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    _widgetSyncTimer?.cancel();
     _heartController.dispose();
     super.dispose();
   }
@@ -128,6 +160,11 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     setState(() {
       _isExpanded = !_isExpanded;
     });
+    HomeWidgetService.instance.syncFromContext(
+      context,
+      overrideExpanded: _isExpanded,
+      forceCapture: true,
+    );
   }
 
   Future<void> _showDatePickerDialog(
@@ -211,11 +248,21 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
     final partnerBatteryLevel = locationProvider.partnerBatteryLevel;
     final partnerIsCharging = locationProvider.isPartnerCharging;
 
+    if (!widget.isWidgetSnapshot) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          HomeWidgetService.instance.syncFromContext(context);
+        }
+      });
+    }
+
     return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppDimensions.spacingMd,
-        vertical: AppDimensions.spacingSm,
-      ),
+      margin: widget.isWidgetSnapshot
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(
+              horizontal: AppDimensions.spacingMd,
+              vertical: AppDimensions.spacingSm,
+            ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -230,13 +277,15 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
           color: Colors.white.withValues(alpha: 0.35),
           width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFF758C).withValues(alpha: 0.32),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: widget.isWidgetSnapshot
+            ? const []
+            : [
+                BoxShadow(
+                  color: const Color(0xFFFF758C).withValues(alpha: 0.32),
+                  blurRadius: 22,
+                  offset: const Offset(0, 8),
+                ),
+              ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -691,7 +740,7 @@ class _CoupleHeroCardState extends State<CoupleHeroCard>
             radius: 36,
             backgroundColor: Colors.white.withValues(alpha: 0.25),
             backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
-                ? NetworkImage(photoUrl)
+                ? CachedNetworkImageProvider(photoUrl)
                 : null,
             child: (photoUrl == null || photoUrl.isEmpty)
                 ? const Icon(

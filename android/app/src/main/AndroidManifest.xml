@@ -78,6 +78,25 @@
                 android:resource="@xml/filepaths" />
         </provider>
 
+        <!-- Couple Hero Card Live Offline Home Screen Widget Receiver -->
+        <receiver
+            android:name=".CoupleCardWidgetProvider"
+            android:exported="true"
+            android:label="Couple Hero Card">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.jayiennelink.jayienne_link.ACTION_TOGGLE_EXPAND" />
+                <action android:name="com.jayiennelink.jayienne_link.ACTION_REFRESH_WIDGET" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/couple_card_widget_info" />
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

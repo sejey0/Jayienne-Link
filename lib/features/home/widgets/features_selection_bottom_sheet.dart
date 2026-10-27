@@ -10,6 +10,7 @@ import '../../gallery/screens/gallery_folders_screen.dart';
 import '../../movies/screens/movie_tracker_screen.dart';
 import '../../secret_media/screens/hidden_vault_screen.dart';
 import '../screens/decision_spinner_screen.dart';
+import '../screens/home_widgets_screen.dart';
 import '../screens/love_nudge_screen.dart';
 
 enum _ActionType {
@@ -19,6 +20,7 @@ enum _ActionType {
   decisionSpinnerScreen,
   movieDiaryScreen,
   galleryScreen,
+  homeWidgetsScreen,
 }
 
 /// Senior Feature Selection Modal Bottom Sheet with Single Instance Back-Stack Persistence & Haptic Feedback
@@ -131,6 +133,13 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
         icon: Icons.mark_email_unread_rounded,
         gradientColors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
         route: RouteNames.moodLetters,
+      ),
+      _FeatureModalItem(
+        title: 'Home Widgets',
+        subtitle: 'Pin couple card to home',
+        icon: Icons.widgets_rounded,
+        gradientColors: [Color(0xFFFF758C), Color(0xFFA18CD1)],
+        actionType: _ActionType.homeWidgetsScreen,
       ),
     ];
 
@@ -304,6 +313,13 @@ class FeaturesSelectionBottomSheet extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const GalleryFoldersScreen(),
+                          ),
+                        );
+                      } else if (item.actionType == _ActionType.homeWidgetsScreen) {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const HomeWidgetsScreen(),
                           ),
                         );
                       } else {
